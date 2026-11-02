@@ -154,7 +154,7 @@ export default function Pricing() {
   const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * USD_TO_INR) : 0;
   const upiId = '6398743132@ptaxis';
   const payeeName = 'PAWAN KUMAR';
-  const upiPayLink = selectedPlan 
+  const upiPayLink = selectedPlan
     ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
     : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&cu=INR`;
 
@@ -365,13 +365,12 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 {/* Call to action */}
                 <button
                   onClick={() => handleChoosePlan(plan)}
-                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                    plan.featured
-                      ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-lg shadow-amber-500/25 active:scale-98'
-                      : plan.priceUSD === 0
+                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${plan.featured
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-lg shadow-amber-500/25 active:scale-98'
+                    : plan.priceUSD === 0
                       ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
                       : isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300' : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
-                  }`}
+                    }`}
                 >
                   {plan.priceUSD === 0 ? 'Get Started Free' : `Activate ${plan.name}`}
                   <ArrowRight className="w-3.5 h-3.5" />

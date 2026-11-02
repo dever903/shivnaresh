@@ -264,6 +264,20 @@ async function listModels() {
 
 /* ------------------------------------------------------------- app boot */
 const app = express();
+
+/* Enable Cross-Origin Resource Sharing (CORS) for all Render and web origins */
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '48mb' }));
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
 app.use('/generated', express.static(GENERATED, { maxAge: '1d' }));

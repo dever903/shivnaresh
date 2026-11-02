@@ -1,4 +1,15 @@
 services:
+  # 1. Full-Stack Web Service (Recommended: Runs Frontend + Backend API together seamlessly)
+  - type: web
+    name: shivnaresh
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.mjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # 2. Static Site Frontend (If using split frontend architecture)
   - type: web
     name: shivnaresh-studio
     runtime: static

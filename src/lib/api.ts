@@ -221,12 +221,15 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(url, { ...init, headers });
+  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const response = await fetch(targetUrl, { ...init, headers });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = (data && (data.message || data.error)) || `Request failed (${response.status})`;

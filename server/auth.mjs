@@ -795,14 +795,32 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   });
 
   /* ------------------------------------------------------ google oauth */
-  const googleRedirect = (req) =>
-    env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+  const googleRedirect = (req) => {
+    if (env.GOOGLE_REDIRECT_URI && env.GOOGLE_REDIRECT_URI.includes('/api/auth/google/callback')) {
+      return env.GOOGLE_REDIRECT_URI;
+    }
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    return `${proto}://${host}/api/auth/google/callback`;
+  };
 
   router.get('/google/start', async (req, res) => {
     const { clientId, clientSecret } = await googleConfig();
     const next = typeof req.query.next === 'string' && req.query.next.startsWith('/') ? req.query.next : '/design';
     if (!clientId || !clientSecret) return res.redirect('/login?error=google_off');
 
+    const referer = req.headers.referer || '';
+    let frontendOrigin = '';
+    try {
+      if (referer) frontendOrigin = new URL(referer).origin;
+    } catch {
+      /* ignore */
+    }
+    if (!frontendOrigin && env.FRONTEND_URL) {
+      frontendOrigin = env.FRONTEND_URL;
+    }
+
+    const statePayload = JSON.stringify({ next, origin: frontendOrigin });
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: googleRedirect(req),
@@ -810,7 +828,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       scope: 'openid email profile',
       access_type: 'online',
       prompt: 'select_account',
-      state: `${Buffer.from(next).toString('base64url')}.${crypto.randomBytes(8).toString('hex')}`,
+      state: `${Buffer.from(statePayload).toString('base64url')}.${crypto.randomBytes(8).toString('hex')}`,
     });
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
   });
@@ -818,12 +836,31 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   router.get('/google/callback', async (req, res) => {
     const { clientId, clientSecret } = await googleConfig();
     const code = String(req.query.code || '');
-    const state = String(req.query.state || '');
-    const next = state.includes('.') ? Buffer.from(state.split('.')[0], 'base64url').toString('utf8') : '/design';
+    const rawState = String(req.query.state || '');
+    
+    let next = '/design';
+    let frontendOrigin = '';
+    try {
+      const rawDecoded = Buffer.from(rawState.split('.')[0], 'base64url').toString('utf8');
+      if (rawDecoded.startsWith('{')) {
+        const parsed = JSON.parse(rawDecoded);
+        next = parsed.next || '/design';
+        frontendOrigin = parsed.origin || '';
+      } else {
+        next = rawDecoded;
+      }
+    } catch {
+      next = '/design';
+    }
     const safeNext = next.startsWith('/') ? next : '/design';
+    const redirectBase = frontendOrigin || env.FRONTEND_URL || '';
 
-    if (!clientId || !clientSecret) return res.redirect('/login?error=google_off');
-    if (!code) return res.redirect('/login?error=google_denied');
+    if (!clientId || !clientSecret) {
+      return res.redirect(`${redirectBase}/login?error=google_off`);
+    }
+    if (!code) {
+      return res.redirect(`${redirectBase}/login?error=google_denied`);
+    }
 
     try {
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -838,14 +875,18 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         }),
       });
       const tokens = await tokenResponse.json();
-      if (!tokenResponse.ok || !tokens.access_token) return res.redirect('/login?error=google_failed');
+      if (!tokenResponse.ok || !tokens.access_token) {
+        return res.redirect(`${redirectBase}/login?error=google_failed`);
+      }
 
       const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const profile = await profileResponse.json();
       const email = String(profile.email || '').toLowerCase();
-      if (!EMAIL_RE.test(email) || profile.email_verified === false) return res.redirect('/login?error=google_email');
+      if (!EMAIL_RE.test(email) || profile.email_verified === false) {
+        return res.redirect(`${redirectBase}/login?error=google_email`);
+      }
 
       let user = await findUserByEmail(email);
       if (!user) {
@@ -865,9 +906,10 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         await patchUser(user._id, patch);
       }
 
-      res.redirect(`/login#token=${encodeURIComponent(await signToken(user))}&next=${encodeURIComponent(safeNext)}`);
+      const token = await signToken(user);
+      res.redirect(`${redirectBase}/login#token=${encodeURIComponent(token)}&next=${encodeURIComponent(safeNext)}`);
     } catch {
-      res.redirect('/login?error=google_failed');
+      res.redirect(`${redirectBase}/login?error=google_failed`);
     }
   });
 
