@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build artifacts
+dist/
+dist-ssr/
+build/
+
+# Local Environment & API Keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Server Databases & Dynamic Content
+server/data/*.json
+server/data/uploads/
+server/data/generated/
+server/data/cloudinary-sets/
+server/data/custom-requests/
+server/data/system-logs/
+
+# Local developer & browser debugging logs
+.cdp*
+chrome-prof*
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-server.log
+
+# Large media, binary archives & temporary tools
+*.mp4
+*.webm
+*.mov
+*.avi
+*.mkv
+*.tar
+*.zip
+*.gz
+tools/
+.user_uploaded/
+node-compile-cache/
+preview-*.png
+sn-*/
+image_generate/
+.DS_Store
+Thumbs.db

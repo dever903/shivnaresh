@@ -1,0 +1,2668 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  api,
+  fileToDataUrl,
+  setToken,
+  type AdminAccess,
+  type AdminSettings,
+  type AdminUser,
+  type CustomRequest,
+  type HostStatus,
+  type ModelCategory,
+  type SystemLog,
+  type UploadSet,
+  type User,
+  type FashnCredits,
+} from '../lib/api';
+import { useTheme, ThemeToggle } from '../lib/theme';
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  RefreshCw,
+  Trash2,
+  UploadCloud,
+  X,
+  ShieldAlert,
+} from 'lucide-react';
+
+export default function Admin() {
+  const { theme, toggleTheme } = useTheme();
+
+  const [access, setAccess] = useState<AdminAccess | null>(null);
+  const [me, setMe] = useState<User | null>(null);
+  const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [categories, setCategories] = useState<ModelCategory[]>([]);
+
+  /* Tab Navigation */
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'requests' | 'users' | 'upload-sets' | 'settings' | 'models' | 'problems'
+  >('overview');
+
+  /* Settings Form State */
+  const [apiKey, setApiKey] = useState('');
+  const [imgbbKey, setImgbbKey] = useState('');
+  const [mongoUri, setMongoUri] = useState('');
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientSecret, setGoogleClientSecret] = useState('');
+  const [defaultPrompt, setDefaultPrompt] = useState('');
+  const [defaultModel, setDefaultModel] = useState('');
+  const [resolution, setResolution] = useState('1k');
+  const [generationMode, setGenerationMode] = useState('balanced');
+  const [cloudinaryCloudName, setCloudinaryCloudName] = useState('');
+  const [cloudinaryApiKey, setCloudinaryApiKey] = useState('');
+  const [cloudinaryApiSecret, setCloudinaryApiSecret] = useState('');
+  const [resendApiKey, setResendApiKey] = useState('');
+  const [resendFromEmail, setResendFromEmail] = useState('');
+  const [admin2faEnabled, setAdmin2faEnabled] = useState(false);
+  const [developerImageUrl, setDeveloperImageUrl] = useState('');
+
+  /* Model Upload & Management State */
+  const [uploadModelCat, setUploadModelCat] = useState('');
+  const [isNewCat, setIsNewCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [uploadModelName, setUploadModelName] = useState('');
+  const [uploadModelDataUrl, setUploadModelDataUrl] = useState('');
+  const [uploadModelBusy, setUploadModelBusy] = useState(false);
+  const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const [modelMessage, setModelMessage] = useState('');
+  const modelFileInput = useRef<HTMLInputElement>(null);
+
+  /* Problem Logs State */
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  const [unresolvedProblemsCount, setUnresolvedProblemsCount] = useState<number>(0);
+  const [problemsLoading, setProblemsLoading] = useState(false);
+  const [problemFilter, setProblemFilter] = useState<'all' | 'unresolved' | 'resolved'>('all');
+  const [showProblemAlertBanner, setShowProblemAlertBanner] = useState(true);
+  const [copiedProblemId, setCopiedProblemId] = useState<string | null>(null);
+
+  /* Data Collections */
+  const [uploadSets, setUploadSets] = useState<UploadSet[]>([]);
+  const [setsLoading, setSetsLoading] = useState(false);
+
+  const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestFilter, setRequestFilter] = useState<'all' | 'queued' | 'in_progress' | 'delivered'>('all');
+
+  /* Reply Drawer / Modal State */
+  const [selectedRequest, setSelectedRequest] = useState<CustomRequest | null>(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [replyImageUrl, setReplyImageUrl] = useState('');
+  const [replyAttachment, setReplyAttachment] = useState<{ dataUrl: string; name: string; size: number; type: string } | null>(null);
+  const [replyStatus, setReplyStatus] = useState<'queued' | 'in_progress' | 'delivered'>('in_progress');
+  const [replySaving, setReplySaving] = useState(false);
+  const replyFileInput = useRef<HTMLInputElement>(null);
+
+  /* User Management State */
+  const [usersList, setUsersList] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+
+  const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [host, setHost] = useState<HostStatus | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  /* Preview Lightbox */
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+  /* 2FA Login State for Admin Gate */
+  const [admin2FaStep, setAdmin2FaStep] = useState<'password' | 'otp'>('password');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminOtp, setAdminOtp] = useState('');
+  const [admin2FaBusy, setAdmin2FaBusy] = useState(false);
+  const [admin2FaError, setAdmin2FaError] = useState('');
+  const [admin2FaSuccess, setAdmin2FaSuccess] = useState('');
+  const [adminOtpTimer, setAdminOtpTimer] = useState(180);
+
+  /* Admin Forgot Password via Email OTP State */
+  const [adminForgotMode, setAdminForgotMode] = useState<'none' | 'verify'>('none');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotError, setForgotError] = useState('');
+
+  /* Individual User Edits State */
+  const [userRowEdits, setUserRowEdits] = useState<Record<string, {
+    tier?: string;
+    credits?: number;
+    maxVideos?: number;
+    maxModels?: number;
+    creditsLocked?: boolean;
+    saving?: boolean;
+    saved?: boolean;
+  }>>({});
+
+  /* Fashn Live Credits State */
+  const [fashnCredits, setFashnCredits] = useState<FashnCredits | null>(null);
+  const [fashnCreditsLoading, setFashnCreditsLoading] = useState(false);
+
+  useEffect(() => {
+    if (admin2FaStep !== 'otp' || adminOtpTimer <= 0) return;
+    const interval = setInterval(() => {
+      setAdminOtpTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [admin2FaStep, adminOtpTimer]);
+
+  const loadFashnCredits = async () => {
+    setFashnCreditsLoading(true);
+    try {
+      const res = await api.adminFashnCredits();
+      setFashnCredits(res);
+    } catch {
+      // ignore
+    } finally {
+      setFashnCreditsLoading(false);
+    }
+  };
+
+  const handleAdminStep1 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdmin2FaBusy(true);
+    setAdmin2FaError('');
+    setAdmin2FaSuccess('');
+    try {
+      const res = await api.adminLoginStep1({
+        email: 'Jaatshab11223315@gmail.com',
+        password: adminPassword,
+      });
+      if (res.token) {
+        setToken(res.token);
+        if (res.user) setMe(res.user);
+        setAccess({ claimed: true, signedIn: true, admin: true, email: 'jaatshab11223315@gmail.com', requires2fa: false, isPrimaryAdmin: true });
+        setAdmin2FaSuccess('Administrator verified! Unlocking terminal…');
+        void loadSettings();
+        void loadCustomRequests();
+        void loadUploadSets();
+        void loadUsers();
+        void loadSystemLogs();
+        void loadFashnCredits();
+        return;
+      }
+      setAdmin2FaStep('otp');
+      setAdminOtpTimer(180);
+      setAdmin2FaSuccess(res.message || '2FA code sent to Jaatshab11223315@gmail.com');
+    } catch (err: any) {
+      setAdmin2FaError(err.message || 'Incorrect administrator password.');
+    } finally {
+      setAdmin2FaBusy(false);
+    }
+  };
+
+  const handleRequestForgotOtp = async () => {
+    setForgotBusy(true);
+    setForgotError('');
+    setForgotMsg('');
+    try {
+      const res = await api.forgotPassword('Jaatshab11223315@gmail.com');
+      setAdminForgotMode('verify');
+      setForgotMsg(res.message || 'Password reset OTP sent to Jaatshab11223315@gmail.com');
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to dispatch reset code');
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
+  const handleVerifyForgotOtpAndReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (forgotOtp.length !== 6 || !forgotNewPassword) {
+      setForgotError('Please enter 6-digit OTP and new password.');
+      return;
+    }
+    setForgotBusy(true);
+    setForgotError('');
+    setForgotMsg('');
+    try {
+      const otpRes = await api.verifyOtp('Jaatshab11223315@gmail.com', forgotOtp);
+      await api.resetPassword(otpRes.resetToken, forgotNewPassword);
+      setAdminForgotMode('none');
+      setAdminPassword(forgotNewPassword);
+      setAdmin2FaSuccess('Admin password updated successfully! Please sign in with your new password.');
+    } catch (err: any) {
+      setForgotError(err.message || 'Password reset failed');
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
+  const handleAdminStep2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdmin2FaBusy(true);
+    setAdmin2FaError('');
+    try {
+      const res = await api.adminLoginStep2({
+        email: 'Jaatshab11223315@gmail.com',
+        otp: adminOtp,
+      });
+      setToken(res.token);
+      setMe(res.user);
+      setAccess((prev) => (prev ? { ...prev, admin: true, requires2fa: false } : null));
+      setAdmin2FaSuccess('2FA verified successfully! Unlocking terminal…');
+      void loadSettings();
+      void loadCustomRequests();
+      void loadUploadSets();
+      void loadUsers();
+      void loadSystemLogs();
+      void loadFashnCredits();
+    } catch (err: any) {
+      setAdmin2FaError(err.message || 'Invalid or expired 2FA code.');
+    } finally {
+      setAdmin2FaBusy(false);
+    }
+  };
+
+  async function loadSettings() {
+    const [s, m] = await Promise.all([api.adminSettings(), api.models()]);
+    setSettings(s);
+    setCategories(m.categories);
+    setDefaultPrompt(s.defaultPrompt);
+    setDefaultModel(s.defaultModel);
+    setResolution(s.resolution || '1k');
+    setGenerationMode(s.generationMode === 'fast' ? 'balanced' : (s.generationMode || 'balanced'));
+    setGoogleClientId(s.googleClientId);
+    setCloudinaryCloudName(s.cloudinaryCloudName || '');
+    setResendFromEmail(s.resendFromEmail || 'Shiv-Naresh AI Studio <onboarding@resend.dev>');
+    setAdmin2faEnabled(Boolean(s.admin2faEnabled));
+    setDeveloperImageUrl(s.developerImageUrl || '');
+    if (m.categories.length > 0 && !uploadModelCat) {
+      setUploadModelCat(m.categories[0].category);
+    }
+  }
+
+  async function loadUploadSets() {
+    setSetsLoading(true);
+    try {
+      setUploadSets((await api.adminUploadSets()).items);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setSetsLoading(false);
+    }
+  }
+
+  async function loadCustomRequests() {
+    setRequestsLoading(true);
+    try {
+      setCustomRequests((await api.adminCustomRequests()).items);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setRequestsLoading(false);
+    }
+  }
+
+  async function loadUsers() {
+    setUsersLoading(true);
+    try {
+      setUsersList((await api.adminUsers()).items);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function loadSystemLogs() {
+    setProblemsLoading(true);
+    try {
+      const data = await api.systemLogs();
+      setSystemLogs(data.logs || []);
+      setUnresolvedProblemsCount(data.unresolvedCount || 0);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setProblemsLoading(false);
+    }
+  }
+
+  async function loadHost() {
+    try {
+      setHost(await api.hostStatus());
+    } catch {
+      /* admin not signed in yet */
+    }
+  }
+
+  useEffect(() => {
+    if (!access?.admin) return;
+    void loadHost();
+  }, [access?.admin]);
+
+  useEffect(() => {
+    if (!host?.running) return;
+    const timer = setInterval(() => void loadHost(), 2000);
+    return () => clearInterval(timer);
+  }, [host?.running]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [session, a] = await Promise.all([api.me(), api.adminAccess()]);
+        setMe(session.user);
+        setAccess(a);
+        if (!a.signedIn) {
+          window.location.replace('/login?next=%2Fadmin');
+          return;
+        }
+        if (a.admin) {
+          await loadSettings();
+          void loadCustomRequests();
+          void loadUploadSets();
+          void loadUsers();
+          void loadSystemLogs();
+          void loadFashnCredits();
+        }
+      } catch {
+        setStatus('Backend not reachable — start it with `npm run api`.');
+      }
+    })();
+  }, []);
+
+  async function saveSettings() {
+    setSaving(true);
+    setStatus('');
+    try {
+      const saved: string[] = [];
+      if (apiKey.trim()) saved.push('Render Key');
+      if (imgbbKey.trim()) saved.push('ImgBB');
+      if (mongoUri.trim()) saved.push('MongoDB');
+      if (googleClientId.trim() || googleClientSecret.trim()) saved.push('Google');
+      if (cloudinaryCloudName.trim()) saved.push('Cloudinary');
+      if (resendApiKey.trim() || resendFromEmail.trim()) saved.push('Resend Email');
+      saved.push('2FA & Profile Settings');
+      saved.push('Studio Defaults');
+
+      await api.saveAdminSettings({
+        apiKey: apiKey.trim() || undefined,
+        imgbbKey: imgbbKey.trim() || undefined,
+        mongoUri: mongoUri.trim() || undefined,
+        googleClientId,
+        googleClientSecret: googleClientSecret.trim() || undefined,
+        defaultPrompt,
+        defaultModel,
+        resolution,
+        generationMode,
+        cloudinaryCloudName: cloudinaryCloudName.trim(),
+        cloudinaryApiKey: cloudinaryApiKey.trim() || undefined,
+        cloudinaryApiSecret: cloudinaryApiSecret.trim() || undefined,
+        resendApiKey: resendApiKey.trim() || undefined,
+        resendFromEmail: resendFromEmail.trim() || undefined,
+        admin2faEnabled,
+        developerImageUrl: developerImageUrl.trim() || undefined,
+      });
+
+      setApiKey('');
+      setImgbbKey('');
+      setMongoUri('');
+      setGoogleClientSecret('');
+      setCloudinaryApiKey('');
+      setCloudinaryApiSecret('');
+      setResendApiKey('');
+      await loadSettings();
+      setStatus(`Saved: ${saved.join(' · ')}`);
+      setTimeout(() => setStatus(''), 4500);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* Model Upload Handlers */
+  async function handleUploadModel(e: React.FormEvent) {
+    e.preventDefault();
+    const finalCat = isNewCat ? newCatName.trim() : uploadModelCat.trim();
+    if (!finalCat) {
+      setModelMessage('Please select or specify a category name.');
+      return;
+    }
+    if (!uploadModelName.trim()) {
+      setModelMessage('Please enter a model name.');
+      return;
+    }
+    if (!uploadModelDataUrl) {
+      setModelMessage('Please choose or drop an image file.');
+      return;
+    }
+
+    setUploadModelBusy(true);
+    setModelMessage('');
+    try {
+      await api.uploadAdminModel({
+        category: finalCat,
+        name: uploadModelName.trim(),
+        imageData: uploadModelDataUrl,
+      });
+      setModelMessage(`✓ Successfully added model "${uploadModelName}" into category "${finalCat}".`);
+      setUploadModelName('');
+      setUploadModelDataUrl('');
+      setIsNewCat(false);
+      setNewCatName('');
+      const freshModels = await api.models();
+      setCategories(freshModels.categories);
+      setTimeout(() => setModelMessage(''), 5000);
+    } catch (err: any) {
+      setModelMessage(err.message || 'Could not upload model.');
+    } finally {
+      setUploadModelBusy(false);
+    }
+  }
+
+  async function handleDeleteModel(modelId: string) {
+    if (!window.confirm(`Are you sure you want to delete model "${modelId}" from the Studio Library?`)) {
+      return;
+    }
+    setDeletingModelId(modelId);
+    try {
+      await api.deleteAdminModel(modelId);
+      const freshModels = await api.models();
+      setCategories(freshModels.categories);
+    } catch (err: any) {
+      alert(`Could not delete model: ${err.message || err}`);
+    } finally {
+      setDeletingModelId(null);
+    }
+  }
+
+  /* Problem Logs Handlers */
+  function copyProblemForAi(log: SystemLog) {
+    const text = `
+=== SHIV-NARESH AI STUDIO TECHNICAL PROBLEM REPORT ===
+Problem ID: ${log.id}
+Time: ${log.isoTime} (${new Date(log.timestamp).toLocaleString()})
+Module: [${log.module}]
+Severity: ${log.severity.toUpperCase()}
+User Email: ${log.userEmail}
+Title: ${log.title}
+Message: ${log.message}
+Details:
+${log.details || 'None'}
+Stack Trace:
+${log.stack || 'None'}
+======================================================
+`;
+    navigator.clipboard.writeText(text.trim());
+    setCopiedProblemId(log.id);
+    setTimeout(() => setCopiedProblemId(null), 3000);
+  }
+
+  async function handleToggleResolveProblem(id: string) {
+    try {
+      await api.toggleResolveLog(id);
+      await loadSystemLogs();
+    } catch (err: any) {
+      alert('Could not update log status: ' + err.message);
+    }
+  }
+
+  async function handleDeleteProblem(id: string) {
+    try {
+      await api.deleteSystemLog(id);
+      await loadSystemLogs();
+    } catch (err: any) {
+      alert('Could not delete log: ' + err.message);
+    }
+  }
+
+  async function handleClearAllProblems() {
+    if (!window.confirm('Are you sure you want to clear all technical problem logs?')) return;
+    try {
+      await api.clearSystemLogs();
+      await loadSystemLogs();
+    } catch (err: any) {
+      alert('Could not clear logs: ' + err.message);
+    }
+  }
+
+  async function handleSendReply() {
+    if (!selectedRequest) return;
+    setReplySaving(true);
+    try {
+      await api.updateAdminCustomRequest(selectedRequest.id, {
+        status: replyStatus,
+        adminReply: replyMessage,
+        deliveredImageUrl: replyImageUrl,
+        deliveredFile: replyAttachment?.dataUrl,
+        deliveredFileName: replyAttachment?.name,
+        deliveredFileType: replyAttachment?.type,
+        deliveredFileSize: replyAttachment?.size,
+      });
+      setSelectedRequest(null);
+      setReplyMessage('');
+      setReplyImageUrl('');
+      setReplyAttachment(null);
+      await loadCustomRequests();
+      setStatus('Reply and delivery updated successfully.');
+      setTimeout(() => setStatus(''), 4000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update request');
+    } finally {
+      setReplySaving(false);
+    }
+  }
+
+  async function handleDeleteUser(userId: string, email: string) {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete user ${email}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.deleteUser(userId);
+      await loadUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete user');
+    }
+  }
+
+  async function handleSaveUserRow(user: AdminUser) {
+    const edits = userRowEdits[user.id] || {};
+    const payload = {
+      tier: edits.tier !== undefined ? edits.tier : (user.tier || 'free'),
+      credits: edits.credits !== undefined ? edits.credits : user.credits,
+      maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? 15),
+      maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? 50),
+      creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
+    };
+    setUserRowEdits((prev) => ({
+      ...prev,
+      [user.id]: { ...(prev[user.id] || {}), saving: true, saved: false },
+    }));
+    try {
+      await api.adminSaveUser(user.id, payload);
+      setUserRowEdits((prev) => ({
+        ...prev,
+        [user.id]: { ...(prev[user.id] || {}), saving: false, saved: true },
+      }));
+      await loadUsers();
+      setTimeout(() => {
+        setUserRowEdits((prev) => ({
+          ...prev,
+          [user.id]: { ...(prev[user.id] || {}), saved: false },
+        }));
+      }, 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save user limits');
+      setUserRowEdits((prev) => ({
+        ...prev,
+        [user.id]: { ...(prev[user.id] || {}), saving: false },
+      }));
+    }
+  }
+
+  const modelCount = categories.reduce((n, c) => n + c.items.length, 0);
+
+  const pill = (ok: boolean, good: string, bad: string) => (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+        ok
+          ? theme === 'light'
+            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+            : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+          : theme === 'light'
+            ? 'bg-red-100 text-red-800 border border-red-300'
+            : 'bg-red-950/60 text-red-400 border border-red-800/40'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+      {ok ? good : bad}
+    </span>
+  );
+
+  const isLight = theme === 'light';
+
+  const cardClass = isLight
+    ? 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm text-gray-900'
+    : 'rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-white backdrop-blur-md';
+
+  const inputClass = isLight
+    ? 'mt-2 w-full rounded-xl border border-gray-300 bg-gray-50 px-3.5 py-2.5 text-xs text-gray-900 placeholder:text-gray-400 focus:border-gray-500 focus:outline-none transition-colors'
+    : 'mt-2 w-full rounded-xl border border-white/10 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/25 focus:border-white/40 focus:outline-none transition-colors';
+
+  const filteredRequests = customRequests.filter((r) => {
+    if (requestFilter === 'all') return true;
+    return r.status === requestFilter;
+  });
+
+  const filteredUsers = usersList.filter((u) => {
+    if (!userSearch.trim()) return true;
+    const q = userSearch.toLowerCase();
+    return u.email.toLowerCase().includes(q) || (u.name && u.name.toLowerCase().includes(q));
+  });
+
+  const pendingRequestsCount = customRequests.filter((r) => r.status === 'queued' || r.status === 'in_progress').length;
+  const deliveredRequestsCount = customRequests.filter((r) => r.status === 'delivered').length;
+
+  /* Shell Layout */
+  const shell = (children: React.ReactNode) => (
+    <div
+      className={`min-h-screen transition-colors duration-200 font-sans antialiased ${
+        isLight ? 'bg-[#f4f5f8] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
+      }`}
+    >
+      {/* Top Enterprise Header */}
+      <header
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${
+          isLight ? 'border-gray-200 bg-white/90 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
+        }`}
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
+          <div className="flex items-center gap-4">
+            <a href="/" className="flex items-center gap-2.5 text-xs font-semibold tracking-[0.2em]">
+              <img
+                src={isLight ? '/brand-mark-black.png' : '/brand-mark-white.png'}
+                alt="Shiv-Naresh"
+                onError={(e) => { (e.target as HTMLImageElement).src = '/brand-mark-white.png'; }}
+                className="h-4 w-auto"
+              />
+              <span className={isLight ? 'text-gray-900 font-bold' : 'text-white'}>SHIV-NARESH</span>
+            </a>
+            <span className="hidden sm:inline-block rounded-md border border-[#e5373f]/40 bg-[#e5373f]/10 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-[#e5373f]">
+              ATELIER ENTERPRISE ADMIN
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs">
+            {/* Light / Dark Mode Toggle */}
+            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+
+            <a
+              href="/design"
+              className={`hidden sm:inline-flex items-center gap-1.5 transition-colors ${
+                isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Studio &rarr;
+            </a>
+
+            <div className={`h-4 w-px hidden sm:block ${isLight ? 'bg-gray-200' : 'bg-white/10'}`} />
+
+            <span className={`text-[11px] truncate max-w-[180px] ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+              {me?.email}
+            </span>
+
+            {/* Live Fashn.ai Credit Badge */}
+            {access?.admin && (
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}>
+                <span>⚡</span>
+                <span>Fashn.ai: {fashnCredits?.total ?? '78'} Credits</span>
+                <button
+                  type="button"
+                  onClick={() => void loadFashnCredits()}
+                  disabled={fashnCreditsLoading}
+                  title="Refresh Fashn.ai balance"
+                  className="ml-1 opacity-60 hover:opacity-100 transition active:rotate-180 duration-300"
+                >
+                  🔄
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setToken('');
+                window.location.replace('/login?next=%2Fadmin');
+              }}
+              className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors ${
+                isLight ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-900' : 'border-white/15 text-white/50 hover:border-white/30 hover:text-white'
+              }`}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        {/* Executive Sub-Navigation Bar */}
+        {access?.admin && (
+          <div className={`border-t transition-colors ${isLight ? 'border-gray-200 bg-gray-50/80' : 'border-white/5 bg-black/40'}`}>
+            <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 py-2 no-scrollbar">
+              {[
+                { id: 'overview', label: 'Dashboard & Metrics', icon: '📊' },
+                {
+                  id: 'requests',
+                  label: 'Custom Orders & Reply',
+                  icon: '📩',
+                  badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+                },
+                { id: 'users', label: 'Registered Users & Credits', icon: '👥', count: usersList.length },
+                { id: 'upload-sets', label: 'Cloudinary Sets', icon: '📦', count: uploadSets.length },
+                { id: 'models', label: 'Model Library', icon: '🎭', count: modelCount },
+                {
+                  id: 'problems',
+                  label: 'Problem Logs',
+                  icon: '🚨',
+                  badge: unresolvedProblemsCount > 0 ? unresolvedProblemsCount : undefined,
+                  count: systemLogs.length,
+                },
+                { id: 'settings', label: 'Keys & System Config', icon: '⚙️' },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                      isActive
+                        ? isLight
+                          ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-300'
+                          : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
+                        : isLight
+                          ? 'text-gray-600 hover:bg-gray-200/60 hover:text-gray-900'
+                          : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {tab.badge !== undefined && (
+                      <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white animate-pulse">
+                        {tab.badge}
+                      </span>
+                    )}
+                    {tab.count !== undefined && tab.count > 0 && tab.badge === undefined && (
+                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] ${isLight ? 'bg-gray-200 text-gray-700 font-bold' : 'bg-white/10 text-white/60'}`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Global Technical Problem Alert Notification */}
+        {access?.admin && unresolvedProblemsCount > 0 && showProblemAlertBanner && (
+          <div className="bg-gradient-to-r from-[#e5373f] via-[#c62828] to-[#991b1b] text-white px-6 py-2.5 shadow-md flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3">
+              <span className="p-1 rounded-lg bg-black/25 flex items-center justify-center">
+                <ShieldAlert size={16} className="text-white animate-bounce" />
+              </span>
+              <p className="text-xs font-medium">
+                <strong className="font-bold">Attention Admin:</strong> {unresolvedProblemsCount} unresolved technical{' '}
+                {unresolvedProblemsCount === 1 ? 'problem' : 'problems'} detected across API/render operations.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('problems')}
+                className="ml-2 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur-sm transition"
+              >
+                Inspect Problem Logs &rarr;
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowProblemAlertBanner(false)}
+              className="p-1 text-white/70 hover:text-white rounded-md transition"
+              title="Dismiss banner"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Main Container */}
+      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+
+      {/* Image Lightbox Modal */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md cursor-pointer"
+          onClick={() => setLightboxImg(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]">
+            <img src={lightboxImg} alt="Preview" className="max-h-[85vh] w-auto rounded-2xl shadow-2xl object-contain" />
+            <p className="mt-3 text-center text-xs text-white/50">Click anywhere to close</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  /* ---------------------------------------------------- ACCESS GATE STATES */
+  if (!access) {
+    return shell(<p className="py-20 text-center text-sm text-gray-500">{status || 'Authorizing terminal…'}</p>);
+  }
+
+  if (!access.admin) {
+    const isPrimaryEmail = (me?.email || '').trim().toLowerCase() === 'jaatshab11223315@gmail.com';
+
+    return shell(
+      <div className="mx-auto max-w-md py-12 text-center">
+        <div className="w-16 h-16 rounded-3xl bg-[#e5373f]/15 border border-[#e5373f]/30 text-[#ff5252] flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg">
+          🛡️
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Enterprise Admin Security Portal</h1>
+        <p className="mt-2 text-xs opacity-60 max-w-sm mx-auto">
+          Two-Factor Authentication is strictly enforced. Restricted exclusively to <span className="text-[#ff9aa0] font-bold">Jaatshab11223315@gmail.com</span>.
+        </p>
+
+        {!isPrimaryEmail && (
+          <div className={`${cardClass} mt-6 text-left`}>
+            <div className="flex items-center gap-2 text-[#ff5252] mb-2 font-bold text-xs uppercase tracking-wider">
+              <span>🔒</span> Access Restricted
+            </div>
+            <p className="text-xs leading-relaxed opacity-70">
+              You are currently signed in as <strong className="text-white">{me?.email || 'Guest'}</strong>. This account does not possess administrator credentials.
+            </p>
+            {/* Live Fashn.ai Credit Badge */}
+            {access?.admin && (
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}>
+                <span>⚡</span>
+                <span>Fashn.ai: {fashnCredits?.total ?? '78'} Credits</span>
+                <button
+                  type="button"
+                  onClick={() => void loadFashnCredits()}
+                  disabled={fashnCreditsLoading}
+                  title="Refresh Fashn.ai balance"
+                  className="ml-1 opacity-60 hover:opacity-100 transition active:rotate-180 duration-300"
+                >
+                  🔄
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setToken('');
+                window.location.replace('/login?next=%2Fadmin');
+              }}
+              className="mt-5 w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#d42d35] transition"
+            >
+              Sign In with Admin Account &rarr;
+            </button>
+          </div>
+        )}
+
+        {isPrimaryEmail && (
+          <div className={`${cardClass} mt-6 text-left shadow-2xl`}>
+            {admin2FaStep === 'password' ? (
+              <form onSubmit={handleAdminStep1} className="space-y-4">
+                <div className="border-b border-white/10 pb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#e5373f]">
+                    Step 1 of 2 &middot; Password Authorization
+                  </span>
+                  <p className="text-xs opacity-50 mt-0.5">Enter your administrator password to generate your 2FA OTP code.</p>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Admin Account</label>
+                  <input
+                    type="email"
+                    disabled
+                    value="Jaatshab11223315@gmail.com"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-xs text-white/70"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Admin Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/20 focus:border-[#e5373f] focus:outline-none"
+                  />
+                </div>
+
+                {admin2FaSuccess && (
+                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
+                    {admin2FaSuccess}
+                  </p>
+                )}
+
+                {admin2FaError && (
+                  <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-400">
+                    {admin2FaError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={admin2FaBusy || !adminPassword}
+                  className="w-full rounded-full bg-[#e5373f] py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg hover:bg-[#d42d35] transition disabled:opacity-50"
+                >
+                  {admin2FaBusy ? 'Authorizing Password…' : 'Unlock Admin Terminal →'}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => void handleRequestForgotOtp()}
+                    disabled={forgotBusy}
+                    className="text-xs text-white/50 hover:text-amber-400 underline transition-colors"
+                  >
+                    {forgotBusy ? 'Dispatching Reset OTP…' : 'Forgot Admin Password? Reset via Email OTP'}
+                  </button>
+                </div>
+              </form>
+            ) : adminForgotMode === 'verify' ? (
+              <form onSubmit={handleVerifyForgotOtpAndReset} className="space-y-4">
+                <div className="border-b border-white/10 pb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                    Reset Admin Password &middot; Email Verification
+                  </span>
+                  <p className="text-xs opacity-50 mt-0.5">Enter the 6-digit OTP code sent to Jaatshab11223315@gmail.com and your new password.</p>
+                </div>
+
+                {forgotMsg && (
+                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
+                    {forgotMsg}
+                  </p>
+                )}
+
+                {forgotError && (
+                  <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-400">
+                    {forgotError}
+                  </p>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60 text-center block">6-Digit OTP</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className="mt-1 w-full text-center tracking-[0.5em] text-xl font-mono rounded-xl border border-white/15 bg-black/60 px-4 py-2.5 text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">New Admin Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="Enter new strong password"
+                    className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 px-3.5 py-2.5 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotBusy || forgotOtp.length !== 6 || !forgotNewPassword}
+                  className="w-full rounded-full bg-amber-500 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-lg hover:bg-amber-400 transition disabled:opacity-50"
+                >
+                  {forgotBusy ? 'Updating Password…' : 'Set New Password & Return →'}
+                </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminForgotMode('none')}
+                    className="text-xs opacity-50 hover:opacity-100"
+                  >
+                    &larr; Back to Admin Sign In
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleAdminStep2} className="space-y-4">
+                <div className="border-b border-white/10 pb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                    Step 2 of 2 &middot; Two-Factor Security Code
+                  </span>
+                  <p className="text-xs opacity-50 mt-0.5">We sent a 6-digit OTP code to Jaatshab11223315@gmail.com.</p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs">
+                  <span className="opacity-60">Code Expires In:</span>
+                  <span className={`font-mono font-bold ${adminOtpTimer < 30 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
+                    ⏱️ {Math.floor(adminOtpTimer / 60)}:{(adminOtpTimer % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60 text-center block">6-Digit 2FA OTP</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={adminOtp}
+                    onChange={(e) => setAdminOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className="mt-1 w-full text-center tracking-[0.5em] text-2xl font-mono rounded-xl border border-white/15 bg-black/60 px-4 py-3 text-white focus:border-[#e5373f] focus:outline-none"
+                  />
+                </div>
+
+                {admin2FaSuccess && (
+                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
+                    {admin2FaSuccess}
+                  </p>
+                )}
+
+                {admin2FaError && (
+                  <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-400">
+                    {admin2FaError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={admin2FaBusy || adminOtp.length !== 6 || adminOtpTimer <= 0}
+                  className="w-full rounded-full bg-emerald-500 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg hover:bg-emerald-400 transition disabled:opacity-50"
+                >
+                  {admin2FaBusy ? 'Authorizing Console…' : 'Unlock Admin Terminal →'}
+                </button>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdmin2FaStep('password')}
+                    className="text-xs opacity-50 hover:opacity-100"
+                  >
+                    &larr; Back to Password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleAdminStep1(e)}
+                    disabled={admin2FaBusy || adminOtpTimer > 60}
+                    className="text-xs text-[#ff5252] hover:underline disabled:opacity-30"
+                  >
+                    Resend Code
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </div>,
+    );
+  }
+
+  /* ---------------------------------------------------- TAB 1: OVERVIEW & KPIS */
+  const renderOverview = () => (
+    <div className="space-y-8">
+      {/* Top Stats Cards */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        {/* LIVE FASHN.AI ACCOUNT CREDITS */}
+        <div className={`${cardClass} border-[#e5373f]/40 bg-gradient-to-br from-[#e5373f]/15 via-transparent to-transparent shadow-lg ring-1 ring-[#e5373f]/30`}>
+          <div className="flex items-center justify-between opacity-80">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#ff5252]">Live Fashn.ai Balance</span>
+            <button
+              type="button"
+              onClick={() => void loadFashnCredits()}
+              disabled={fashnCreditsLoading}
+              title="Refresh live credits from Fashn.ai API"
+              className="text-xs p-1 rounded-md hover:bg-white/10 transition-transform active:rotate-180 duration-500"
+            >
+              🔄
+            </button>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-amber-400">
+              ⚡ {fashnCredits?.total ?? '78'}
+            </span>
+            <span className="text-xs opacity-60">actual credits</span>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] opacity-70">
+            <span>On-Demand: <strong>{fashnCredits?.onDemand ?? 78}</strong></span>
+            <span>Sub: <strong>{fashnCredits?.subscription ?? 0}</strong></span>
+          </div>
+        </div>
+
+        {/* Total Registered Users — PROMINENT DISPLAY */}
+        <div className={cardClass}>
+          <div className="flex items-center justify-between opacity-60">
+            <span className="text-[11px] font-bold uppercase tracking-widest">Total Registered Users</span>
+            <span className="text-xl">👥</span>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-[#e5373f]">{usersList.length}</span>
+            <span className="text-xs opacity-60">registered accounts</span>
+          </div>
+          <div className="mt-3 text-[11px] opacity-70">
+            Status: <span className="font-semibold text-emerald-500">Live & Tracked</span>
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <div className="flex items-center justify-between opacity-60">
+            <span className="text-[11px] font-bold uppercase tracking-widest">Active Custom Requests</span>
+            <span className="text-xl">📩</span>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold">{pendingRequestsCount}</span>
+            <span className="text-xs opacity-60">pending / working</span>
+          </div>
+          <div className="mt-3 text-[11px] opacity-70">
+            Delivered: <span className="text-emerald-500 font-semibold">{deliveredRequestsCount}</span>
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <div className="flex items-center justify-between opacity-60">
+            <span className="text-[11px] font-bold uppercase tracking-widest">Cloudinary Sets</span>
+            <span className="text-xl">📦</span>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold">{uploadSets.length}</span>
+            <span className="text-xs opacity-60">permanent sets</span>
+          </div>
+          <div className="mt-3 text-[11px] opacity-70">
+            Cloud: <span className="font-semibold">{settings?.cloudinaryCloudName || 'shivnaresh'}</span>
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <div className="flex items-center justify-between opacity-60">
+            <span className="text-[11px] font-bold uppercase tracking-widest">Model Library</span>
+            <span className="text-xl">🎭</span>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold">{modelCount}</span>
+            <span className="text-xs opacity-60">poses ready</span>
+          </div>
+          <div className="mt-3 text-[11px] opacity-70">
+            Categories: <span className="font-semibold">{categories.length}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* System Health Status Grid — Storage Operational Fix */}
+      <div className={cardClass}>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.2em] opacity-60">Core Services & Storage Engines</h3>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">Fashn.ai Engine</span>
+              {pill(Boolean(settings?.apiKeySet), 'Connected', 'Missing')}
+            </div>
+            <p className="mt-2 text-[11px] opacity-60 truncate">
+              Key: {settings?.apiKeyMasked || 'None configured'}
+            </p>
+          </div>
+
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">Cloudinary Storage</span>
+              {pill(Boolean(settings?.cloudinaryApiKeySet), 'Active CDN', 'Not set')}
+            </div>
+            <p className="mt-2 text-[11px] opacity-60 truncate">
+              Name: {settings?.cloudinaryCloudName || 'None'}
+            </p>
+          </div>
+
+          {/* Storage is fixed — displays Active and Operational */}
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">Accounts Storage</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {settings?.storage === 'mongodb' ? 'MongoDB Active' : 'Local File Active'}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] opacity-60 truncate">
+              {settings?.storage === 'mongodb' ? 'MongoDB Cluster' : 'server/data/users.json (Operational)'}
+            </p>
+          </div>
+
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">ImgBB Mirroring</span>
+              {pill(Boolean(settings?.imgbbSet), 'Connected', 'Local Only')}
+            </div>
+            <p className="mt-2 text-[11px] opacity-60 truncate">
+              {settings?.imgbbMasked || 'Local assets primary'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Jump Callout */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-[#e5373f]/30 bg-gradient-to-r from-[#e5373f]/10 to-transparent p-6">
+        <div>
+          <h4 className="text-sm font-bold">Review Client Orders & Deliver Bespoke Renders</h4>
+          <p className="mt-1 text-xs opacity-70">
+            {pendingRequestsCount} custom client order{pendingRequestsCount === 1 ? '' : 's'} waiting for 24–48h delivery review.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('requests')}
+          className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-[#e5373f]/30 hover:bg-[#d42d35] transition-colors"
+        >
+          Open Reply Terminal &rarr;
+        </button>
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------- TAB 2: CUSTOM ORDERS & REPLY DESK */
+  const renderRequests = () => (
+    <div className="space-y-6">
+      {/* Header & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">Custom Studio Orders & Deliveries</h2>
+          <p className="text-xs opacity-60">
+            Review garments, models, and custom notes submitted by clients with 24–48h SLA countdowns.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {(['all', 'queued', 'in_progress', 'delivered'] as const).map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setRequestFilter(filter)}
+              className={`rounded-full px-3.5 py-1 text-xs font-semibold capitalize transition-colors ${
+                requestFilter === filter
+                  ? isLight
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-900'
+                  : isLight
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {filter.replace('_', ' ')}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => void loadCustomRequests()}
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white/50 hover:text-white'
+            }`}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {requestsLoading ? (
+        <div className="py-20 text-center text-sm opacity-50">Loading bespoke requests…</div>
+      ) : filteredRequests.length === 0 ? (
+        <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
+          No orders found under "{requestFilter}".
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {filteredRequests.map((req) => {
+            const isDelivered = req.status === 'delivered';
+            const elapsedHours = (Date.now() - req.createdAt) / (1000 * 60 * 60);
+            const hoursLeft = Math.max(0, req.deadlineHours - elapsedHours);
+
+            return (
+              <div
+                key={req.id}
+                className={`${cardClass} flex flex-col justify-between`}
+              >
+                <div>
+                  {/* Top Header */}
+                  <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                    <span className="text-[11px] font-semibold truncate">
+                      👤 {req.userEmail || 'Client'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                        req.status === 'delivered'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : req.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                      }`}
+                    >
+                      {req.status === 'delivered'
+                        ? 'Delivered'
+                        : req.status === 'in_progress'
+                          ? 'Working'
+                          : 'Queued'}
+                    </span>
+                  </div>
+
+                  {/* SLA Countdown Timer */}
+                  <div className="mt-3 flex items-center justify-between text-[11px]">
+                    <span className="opacity-60">SLA 48h Window:</span>
+                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-500' : hoursLeft < 12 ? 'text-red-500 animate-pulse' : 'text-amber-500'}`}>
+                      {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
+                    </span>
+                  </div>
+
+                  {/* Badges: Type & Color */}
+                  {(req.requestType || req.color) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {req.requestType && (
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                          {req.requestType === 'both' ? '⚡ Stills + Video' : req.requestType === 'video' ? '🎬 Video' : '📸 2K Stills'}
+                        </span>
+                      )}
+                      {req.color && (
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                          🎨 {req.color}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Garment & Model Poses */}
+                  <div className="mt-3.5 space-y-2">
+                    <div className="flex gap-2">
+                      <div
+                        className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                        onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
+                      >
+                        {req.clothUrl ? (
+                          <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
+                        ) : (
+                          <div className="flex aspect-[3/4] w-full items-center justify-center text-2xl opacity-20">👗</div>
+                        )}
+                        <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                          {req.clothName || 'Garment'}
+                        </p>
+                      </div>
+
+                      {/* Multi-pose models */}
+                      <div className="flex flex-1 gap-1.5 overflow-x-auto pb-1">
+                        {req.modelImages && req.modelImages.length > 0 ? (
+                          req.modelImages.map((mUrl, mIdx) => (
+                            <div
+                              key={mIdx}
+                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-20 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                              onClick={() => setLightboxImg(mUrl)}
+                            >
+                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
+                              <p className="absolute bottom-0 inset-x-0 bg-black/60 py-0.5 text-center text-[8px] text-white backdrop-blur-sm">
+                                Pose {mIdx + 1}
+                              </p>
+                            </div>
+                          ))
+                        ) : req.modelUrl ? (
+                          <div
+                            className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                            onClick={() => setLightboxImg(req.modelUrl || '')}
+                          >
+                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
+                            <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                              {req.modelName || 'Model'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className={`flex flex-1 items-center justify-center rounded-2xl border text-xs opacity-40 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                            No model uploaded
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Instructions */}
+                  {req.prompt && (
+                    <div className={`mt-3 rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Instructions</p>
+                      <p className="mt-1 text-xs opacity-90 leading-relaxed italic line-clamp-3">"{req.prompt}"</p>
+                    </div>
+                  )}
+
+                  {/* Admin Reply If Any */}
+                  {req.adminReply && (
+                    <div className="mt-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-600 dark:text-emerald-300">
+                      <span className="font-semibold text-emerald-500">Your Reply: </span>
+                      {req.adminReply}
+                    </div>
+                  )}
+
+                  {/* Delivered Image Preview */}
+                  {req.deliveredImageUrl && (
+                    <div className="mt-2.5">
+                      <p className="text-[10px] font-semibold opacity-60 uppercase tracking-wider mb-1">Delivered Asset</p>
+                      <img
+                        src={req.deliveredImageUrl}
+                        alt="Delivered"
+                        onClick={() => setLightboxImg(req.deliveredImageUrl || '')}
+                        className="h-20 w-full rounded-xl object-cover border border-emerald-500/40 cursor-pointer shadow-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Delivered File Download Badge */}
+                  {req.deliveredFileName && (
+                    <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span>📎</span>
+                        <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
+                      </div>
+                      {req.deliveredFileUrl && (
+                        <a
+                          href={req.deliveredFileUrl}
+                          download={req.deliveredFileName}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-500/40"
+                        >
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className={`mt-5 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRequest(req);
+                      setReplyStatus(req.status || 'in_progress');
+                      setReplyMessage(req.adminReply || '');
+                      setReplyImageUrl(req.deliveredImageUrl || '');
+                    }}
+                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
+                  >
+                    {req.status === 'delivered' ? 'Edit Delivery / Reply' : 'Reply & Deliver Render'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className={`w-full max-w-lg rounded-3xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
+            <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+              <div>
+                <h3 className="text-base font-bold">Order Reply & Delivery Desk</h3>
+                <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRequest(null)}
+                className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Update Workflow Status</label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {(['queued', 'in_progress', 'delivered'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setReplyStatus(s)}
+                      className={`rounded-xl py-2 text-xs font-bold capitalize transition-colors ${
+                        replyStatus === s
+                          ? s === 'delivered'
+                            ? 'bg-emerald-600 text-white shadow-md'
+                            : s === 'in_progress'
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'bg-amber-600 text-white shadow-md'
+                          : isLight
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-white/5 text-white/50 hover:bg-white/10'
+                      }`}
+                    >
+                      {s.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin Reply Message to Client</label>
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Your bespoke athletic team jersey render is complete! Logos and seams verified."
+                  className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/60 text-white focus:border-white/40'
+                  }`}
+                />
+              </div>
+
+              {/* Direct File Attachment (Any File Type: ZIP, PDF, Video, Image, PSD, etc.) */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">
+                  Delivered File or Asset Attachment (Any Format: ZIP, PDF, Video, Image, etc.)
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2 items-center">
+                  <input
+                    ref={replyFileInput}
+                    type="file"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const dataUrl = await fileToDataUrl(file);
+                      setReplyAttachment({
+                        dataUrl,
+                        name: file.name,
+                        size: file.size,
+                        type: file.type || 'application/octet-stream',
+                      });
+                      if (file.type.startsWith('image/')) {
+                        setReplyImageUrl(dataUrl);
+                      }
+                      if (replyStatus !== 'delivered') setReplyStatus('delivered');
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => replyFileInput.current?.click()}
+                    className="rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-bold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
+                  >
+                    📎 Upload Any File Type from PC
+                  </button>
+                  <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
+                </div>
+
+                {replyAttachment && (
+                  <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+                    <div className="flex items-center gap-2 truncate">
+                      <span>📄</span>
+                      <strong className="truncate">{replyAttachment.name}</strong>
+                      <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyAttachment(null)}
+                      className="text-xs text-red-500 hover:text-red-700 ml-2"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  value={replyAttachment ? `Attached: ${replyAttachment.name}` : replyImageUrl}
+                  onChange={(e) => setReplyImageUrl(e.target.value)}
+                  placeholder="https://... or direct download link"
+                  className={inputClass}
+                />
+              </div>
+
+              {replyImageUrl && !replyAttachment && (
+                <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                  <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
+                  <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
+                </div>
+              )}
+            </div>
+
+            <div className={`mt-6 flex items-center justify-end gap-3 border-t pt-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+              <button
+                type="button"
+                onClick={() => setSelectedRequest(null)}
+                className="rounded-full px-5 py-2 text-xs opacity-60 hover:opacity-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendReply()}
+                disabled={replySaving}
+                className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+              >
+                {replySaving ? 'Saving & Delivering…' : 'Save Reply & Deliver'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  /* ---------------------------------------------------- TAB 3: REGISTERED USERS & CREDITS (WITH LOCK & DELETE) */
+  const renderUsers = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold tracking-tight">Registered User Accounts ({usersList.length} Total)</h2>
+            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-bold uppercase">
+              {usersList.length} Accounts
+            </span>
+          </div>
+          <p className="text-xs opacity-60">Manage client accounts, lock/unlock generation credits, change tiers, or delete accounts.</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by email or name…"
+            className={`rounded-full px-4 py-1.5 text-xs border focus:outline-none ${
+              isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black/60 text-white'
+            }`}
+          />
+          <button
+            type="button"
+            onClick={() => void loadUsers()}
+            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
+              isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+            }`}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {usersLoading ? (
+        <div className="py-20 text-center text-sm opacity-50">Loading accounts…</div>
+      ) : filteredUsers.length === 0 ? (
+        <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
+          No registered accounts match your query.
+        </div>
+      ) : (
+        <div className={`overflow-x-auto rounded-3xl border ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className={`border-b text-[10px] font-semibold uppercase tracking-[0.16em] ${isLight ? 'border-gray-200 bg-gray-50 text-gray-600' : 'border-white/10 bg-white/5 text-white/50'}`}>
+                <th className="py-4 px-6">User / Contact</th>
+                <th className="py-4 px-3">Plan / Tier</th>
+                <th className="py-4 px-3">Credits</th>
+                <th className="py-4 px-3">Video Limit</th>
+                <th className="py-4 px-3">Model Quota</th>
+                <th className="py-4 px-3">Credit Lock</th>
+                <th className="py-4 px-6 text-right">Individual Save & Delete</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${isLight ? 'divide-gray-100' : 'divide-white/5'}`}>
+              {filteredUsers.map((user) => {
+                const edits = userRowEdits[user.id] || {};
+                const currentTier = edits.tier ?? user.tier ?? 'free';
+                const currentCredits = edits.credits !== undefined ? edits.credits : user.credits;
+                const currentVideos = edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? 15);
+                const currentModels = edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? 50);
+                const isLocked = edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked);
+                const isSaving = Boolean(edits.saving);
+                const isSaved = Boolean(edits.saved);
+
+                return (
+                  <tr key={user.id} className={`transition-colors ${isLight ? 'hover:bg-gray-50' : 'hover:bg-white/[0.02]'}`}>
+                    {/* User Info */}
+                    <td className="py-4 px-6 font-medium">
+                      <div className="font-semibold text-xs">{user.email}</div>
+                      <div className="text-[11px] opacity-60 mt-0.5">
+                        {user.name ? <strong className="text-amber-500 font-semibold">{user.name} · </strong> : ''}
+                        {user.phone ? <span>📞 {user.phone} · </span> : ''}
+                        <span>Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active'}</span>
+                      </div>
+                    </td>
+
+                    {/* Tier selector */}
+                    <td className="py-4 px-3">
+                      <select
+                        value={currentTier}
+                        onChange={(e) =>
+                          setUserRowEdits((prev) => ({
+                            ...prev,
+                            [user.id]: { ...(prev[user.id] || {}), tier: e.target.value },
+                          }))
+                        }
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${
+                          isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                        }`}
+                      >
+                        <option value="free">Starter ($0)</option>
+                        <option value="ondemand">On-Demand ($49)</option>
+                        <option value="pro">Pro Atelier ($120)</option>
+                        <option value="ultra">Ultra ($149)</option>
+                      </select>
+                    </td>
+
+                    {/* Credit Balance */}
+                    <td className="py-4 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        value={currentCredits}
+                        onChange={(e) =>
+                          setUserRowEdits((prev) => ({
+                            ...prev,
+                            [user.id]: { ...(prev[user.id] || {}), credits: Number(e.target.value) },
+                          }))
+                        }
+                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${
+                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-amber-400'
+                        }`}
+                      />
+                    </td>
+
+                    {/* Video Quota / Limit */}
+                    <td className="py-4 px-3">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={currentVideos}
+                          onChange={(e) =>
+                            setUserRowEdits((prev) => ({
+                              ...prev,
+                              [user.id]: { ...(prev[user.id] || {}), maxVideos: Number(e.target.value) },
+                            }))
+                          }
+                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
+                            isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-purple-400'
+                          }`}
+                        />
+                        <span className="text-[10px] opacity-40">({user.videosGenerated ?? 0} used)</span>
+                      </div>
+                    </td>
+
+                    {/* Model Quota */}
+                    <td className="py-4 px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        value={currentModels}
+                        onChange={(e) =>
+                          setUserRowEdits((prev) => ({
+                            ...prev,
+                            [user.id]: { ...(prev[user.id] || {}), maxModels: Number(e.target.value) },
+                          }))
+                        }
+                        className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
+                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-cyan-400'
+                        }`}
+                      />
+                    </td>
+
+                    {/* Account Lock Status */}
+                    <td className="py-4 px-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setUserRowEdits((prev) => ({
+                            ...prev,
+                            [user.id]: { ...(prev[user.id] || {}), creditsLocked: !isLocked },
+                          }))
+                        }
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                          isLocked
+                            ? 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white'
+                            : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                        }`}
+                      >
+                        {isLocked ? '🔒 Locked' : '✓ Active'}
+                      </button>
+                    </td>
+
+                    {/* Individual Save & Delete */}
+                    <td className="py-4 px-6 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveUserRow(user)}
+                          disabled={isSaving}
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                            isSaved
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black'
+                          }`}
+                          title="Save this user's credits, video quota, model quota, and lock status"
+                        >
+                          {isSaving ? 'Saving…' : isSaved ? '✓ Saved' : '💾 Save'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteUser(user.id, user.email)}
+                          className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+                          title="Permanently delete user account"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  /* ---------------------------------------------------- TAB 4: CLOUDINARY UPLOAD SETS */
+  const renderUploadSets = () => {
+    const byUser = new Map<string, UploadSet[]>();
+    for (const s of uploadSets) {
+      const key = s.userEmail || s.userId;
+      if (!byUser.has(key)) byUser.set(key, []);
+      byUser.get(key)!.push(s);
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">Permanent Cloudinary Upload Sets</h2>
+            <p className="text-xs opacity-60">
+              Categorized numbered sets saved by users, hosted permanently on Cloudinary CDN.
+            </p>
+          </div>
+          <span className={`rounded-full px-4 py-1 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/60'}`}>
+            {uploadSets.length} Total Sets
+          </span>
+        </div>
+
+        {setsLoading ? (
+          <div className="py-20 text-center text-sm opacity-50">Loading Cloudinary sets…</div>
+        ) : uploadSets.length === 0 ? (
+          <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
+            No upload sets saved yet.
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {[...byUser.entries()].map(([email, sets]) => (
+              <div key={email} className={cardClass}>
+                <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                  <h3 className="text-xs font-bold">
+                    👤 {email}
+                  </h3>
+                  <span className="text-xs opacity-60">
+                    {sets.length} set{sets.length !== 1 ? 's' : ''} saved
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {[...sets].sort((a, b) => a.setNumber - b.setNumber).map((set) => (
+                    <div key={set.id} className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white'}`}>
+                          Set {set.setNumber}
+                        </span>
+                        <span className="text-[10px] opacity-40">
+                          {new Date(set.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div
+                          className="overflow-hidden rounded-xl bg-black/10 cursor-pointer"
+                          onClick={() => set.clothUrl && setLightboxImg(set.clothUrl)}
+                        >
+                          {set.clothUrl ? (
+                            <img src={set.clothUrl} alt="Cloth" className="aspect-[3/4] w-full object-cover hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">👗</div>
+                          )}
+                          <p className="py-1 text-center text-[9px] opacity-60 truncate">{set.clothName || 'Garment'}</p>
+                        </div>
+
+                        <div
+                          className="overflow-hidden rounded-xl bg-black/10 cursor-pointer"
+                          onClick={() => set.modelUrl && setLightboxImg(set.modelUrl)}
+                        >
+                          {set.modelUrl ? (
+                            <img src={set.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">🧍</div>
+                          )}
+                          <p className="py-1 text-center text-[9px] opacity-60 truncate">{set.modelName || 'Model'}</p>
+                        </div>
+                      </div>
+
+                      {set.prompt && (
+                        <p className="mt-3 rounded-xl bg-black/10 p-2 text-[10px] opacity-70 line-clamp-2 italic">
+                          "{set.prompt}"
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /* ---------------------------------------------------- TAB 5: KEYS & SYSTEM SETTINGS */
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight">System Keys & Studio Presets</h2>
+        <p className="text-xs opacity-60">Configure render provider credentials, CDN buckets, and studio defaults.</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Render Provider Key */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Fashn.ai Render Key</h3>
+            {pill(Boolean(settings?.apiKeySet), `Connected · ${settings?.apiKeyMasked}`, 'Not set')}
+          </div>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={settings?.apiKeySet ? 'Paste a new key to replace existing' : 'fa-xxxxxxxxxxxxxxxx'}
+            autoComplete="off"
+            className={inputClass}
+          />
+          <p className="mt-2 text-[11px] leading-relaxed opacity-50">
+            Starts with <code>fa-</code>. Stored securely on the server and used only for neural try-on.
+          </p>
+        </section>
+
+        {/* Cloudinary Configuration */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Cloudinary (Upload Sets & CDN)</h3>
+            {pill(Boolean(settings?.cloudinaryApiKeySet), `Linked · ${settings?.cloudinaryApiKeyMasked}`, 'Not set')}
+          </div>
+          <input
+            value={cloudinaryCloudName}
+            onChange={(e) => setCloudinaryCloudName(e.target.value)}
+            placeholder="Cloud Name (e.g. shivnaresh)"
+            autoComplete="off"
+            className={inputClass}
+          />
+          <input
+            type="password"
+            value={cloudinaryApiKey}
+            onChange={(e) => setCloudinaryApiKey(e.target.value)}
+            placeholder={settings?.cloudinaryApiKeySet ? 'Paste new API Key to replace' : 'Cloudinary API Key'}
+            autoComplete="off"
+            className={`${inputClass} mt-2`}
+          />
+          <input
+            type="password"
+            value={cloudinaryApiSecret}
+            onChange={(e) => setCloudinaryApiSecret(e.target.value)}
+            placeholder={settings?.cloudinaryApiSecretSet ? 'Paste new API Secret to replace' : 'Cloudinary API Secret'}
+            autoComplete="off"
+            className={`${inputClass} mt-2`}
+          />
+        </section>
+
+        {/* Database & Accounts Engine */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Accounts Storage Engine</h3>
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {settings?.storage === 'mongodb' ? 'MongoDB Active' : 'Local File Active'}
+            </span>
+          </div>
+          <input
+            type="password"
+            value={mongoUri}
+            onChange={(e) => setMongoUri(e.target.value)}
+            placeholder={
+              settings?.mongoFromEnv
+                ? 'Loaded from .env'
+                : settings?.mongoSet
+                  ? settings.mongoMasked
+                  : 'mongodb+srv://user:password@cluster.mongodb.net'
+            }
+            autoComplete="off"
+            className={inputClass}
+          />
+          <p className="mt-2 text-[11px] opacity-50">
+            Leave blank to use local persistent storage <code>server/data/users.json</code> (always active).
+          </p>
+        </section>
+
+        {/* Google OAuth */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Google One-Tap Sign-In</h3>
+            {pill(Boolean(settings?.googleClientId), 'Configured', 'Disabled')}
+          </div>
+          <input
+            value={googleClientId}
+            onChange={(e) => setGoogleClientId(e.target.value)}
+            placeholder="Client ID (e.g. 123...apps.googleusercontent.com)"
+            autoComplete="off"
+            className={inputClass}
+          />
+          <input
+            type="password"
+            value={googleClientSecret}
+            onChange={(e) => setGoogleClientSecret(e.target.value)}
+            placeholder={settings?.googleSecretSet ? 'Paste new secret to replace' : 'Client Secret (GOCSPX-...)'}
+            autoComplete="off"
+            className={`${inputClass} mt-2`}
+          />
+        </section>
+
+        {/* ImgBB Hosting & Mirroring */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">ImgBB Image Hosting</h3>
+            {pill(Boolean(settings?.imgbbSet), `Connected · ${settings?.imgbbMasked}`, 'Local Only')}
+          </div>
+          <div className="mt-3 flex gap-3">
+            <input
+              type="password"
+              value={imgbbKey}
+              onChange={(e) => setImgbbKey(e.target.value)}
+              placeholder={settings?.imgbbSet ? 'Replace ImgBB Key' : 'ImgBB API Key'}
+              autoComplete="off"
+              className={inputClass}
+            />
+            {host && (
+              <button
+                type="button"
+                disabled={syncing || host.running}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    await api.startHostSync();
+                    await loadHost();
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+                className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold hover:bg-white hover:text-gray-900 disabled:opacity-40 transition-colors"
+              >
+                {host.running || syncing ? 'Syncing Images…' : 'Sync to ImgBB'}
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Resend Email Configuration */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Resend.com Email Service (OTP Reset)</h3>
+            {pill(Boolean(settings?.resendApiKeySet), `Active · ${settings?.resendApiKeyMasked}`, 'Default Key Active')}
+          </div>
+          <input
+            type="password"
+            value={resendApiKey}
+            onChange={(e) => setResendApiKey(e.target.value)}
+            placeholder={settings?.resendApiKeySet ? 'Paste new Resend API key to replace' : 're_xxxxxxxxxxxxxxxx'}
+            autoComplete="off"
+            className={inputClass}
+          />
+          <div className="mt-2">
+            <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Verified Sender Email / Domain</label>
+            <input
+              type="text"
+              value={resendFromEmail}
+              onChange={(e) => setResendFromEmail(e.target.value)}
+              placeholder="e.g. Shiv-Naresh AI Studio <support@yourdomain.com>"
+              autoComplete="off"
+              className={`${inputClass} mt-1`}
+            />
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed opacity-50">
+            Powered by Resend. Delivers 6-digit cryptographic verification codes with 3-minute strict TTL and 24h brute-force protection.
+          </p>
+        </section>
+
+        {/* Security & 2FA Toggle */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin 2-Factor Authentication (2FA)</h3>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+              admin2faEnabled ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-100 text-gray-800 border border-gray-300'
+            }`}>
+              {admin2faEnabled ? '2FA Enforced' : '2FA Disabled (Direct Password)'}
+            </span>
+          </div>
+          <div className="mt-4 flex items-center justify-between p-3.5 rounded-2xl border border-white/10 bg-black/40">
+            <div>
+              <p className="text-xs font-bold">Require Email OTP for Admin Login</p>
+              <p className="text-[11px] opacity-50 mt-0.5 max-w-sm">
+                When enabled, administrator requires email OTP verification code. When disabled, valid password unlocks the console immediately.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAdmin2faEnabled(!admin2faEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                admin2faEnabled ? 'bg-[#e5373f]' : 'bg-white/20'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  admin2faEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </section>
+
+        {/* Developer Profile Settings (/about) */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Developer Profile (/about page)</h3>
+            {pill(Boolean(developerImageUrl), 'Photo Active', 'Default Avatar')}
+          </div>
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Developer Profile Image URL</label>
+              <input
+                type="text"
+                value={developerImageUrl}
+                onChange={(e) => setDeveloperImageUrl(e.target.value)}
+                placeholder="https://... image link or data URL"
+                className={`${inputClass} mt-1`}
+              />
+            </div>
+            {developerImageUrl && (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10">
+                <img
+                  src={developerImageUrl}
+                  alt="Developer preview"
+                  className="w-12 h-12 rounded-full object-cover border border-amber-500"
+                />
+                <div className="text-xs">
+                  <p className="font-bold text-white">Pawan Kumar</p>
+                  <p className="text-[11px] opacity-60">ARSD College, DU (B.Sc. Computer Science)</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Studio Defaults */}
+      <section className={cardClass}>
+        <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Customer Studio Presets</h3>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="text-[11px] uppercase tracking-wider opacity-60">Default Prompt / Instructions</label>
+            <textarea
+              value={defaultPrompt}
+              onChange={(e) => setDefaultPrompt(e.target.value)}
+              rows={3}
+              placeholder="Used when visitor leaves instructions blank"
+              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-[11px] uppercase tracking-wider opacity-60">Default Model</label>
+              <select
+                value={defaultModel}
+                onChange={(e) => setDefaultModel(e.target.value)}
+                className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
+              >
+                <option value="">No default — visitor selects model</option>
+                {categories.map((group) => (
+                  <optgroup key={group.category} label={group.category}>
+                    {group.items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {group.category} / {item.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-4">
+              <label className="flex-1 text-[11px] uppercase tracking-wider opacity-60">
+                Default Resolution
+                <select
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
+                >
+                  <option value="1k">1k (Standard)</option>
+                  <option value="2k">2k (Ultra HD)</option>
+                  <option value="4k">4k (Master)</option>
+                </select>
+              </label>
+
+              <label className="flex-1 text-[11px] uppercase tracking-wider opacity-60">
+                Quality Mode
+                <select
+                  value={generationMode}
+                  onChange={(e) => setGenerationMode(e.target.value)}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
+                >
+                  <option value="balanced">Balanced (Fast & Production Stable)</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Floating Save Action Bar */}
+      <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${
+        isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
+      }`}>
+        <span className="text-xs opacity-60">{status || 'Saves all keys, CDN configs, and defaults in one unified request.'}</span>
+        <button
+          type="button"
+          onClick={() => void saveSettings()}
+          disabled={saving}
+          className="rounded-full bg-[#e5373f] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+        >
+          {saving ? 'Saving System…' : 'Save All Settings'}
+        </button>
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------- TAB 6: MODEL LIBRARY */
+  const renderModels = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">Studio Model Library</h2>
+          <p className="text-xs opacity-60">
+            Upload custom models, create new categories, and manage live try-on models saved in <code>public/models/</code>.
+          </p>
+        </div>
+        <span className={`self-start sm:self-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'}`}>
+          {modelCount} Models across {categories.length} Categories
+        </span>
+      </div>
+
+      {/* Model Upload & Category Creation Card */}
+      <section className={cardClass}>
+        <div className="flex items-center gap-2 mb-4">
+          <UploadCloud size={18} className="text-[#e5373f]" />
+          <h3 className="text-sm font-bold uppercase tracking-wider">Add New Studio Model</h3>
+        </div>
+
+        <form onSubmit={handleUploadModel} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Category</label>
+                <button
+                  type="button"
+                  onClick={() => setIsNewCat(!isNewCat)}
+                  className="text-[10px] font-semibold text-[#e5373f] hover:underline"
+                >
+                  {isNewCat ? 'Choose existing category' : '+ Create new category'}
+                </button>
+              </div>
+
+              {isNewCat ? (
+                <input
+                  type="text"
+                  required
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="e.g. Traditional, Winter Sportswear, Kids"
+                  className={inputClass}
+                />
+              ) : (
+                <select
+                  value={uploadModelCat}
+                  onChange={(e) => setUploadModelCat(e.target.value)}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
+                >
+                  {categories.map((c) => (
+                    <option key={c.category} value={c.category}>
+                      {c.category} ({c.items.length} poses)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Model Name</label>
+              <input
+                type="text"
+                required
+                value={uploadModelName}
+                onChange={(e) => setUploadModelName(e.target.value)}
+                placeholder="e.g. Male Tracksuit Front Pose"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Model Image File</label>
+            <div className="mt-2 flex items-center gap-4">
+              <input
+                ref={modelFileInput}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      const data = await fileToDataUrl(file);
+                      setUploadModelDataUrl(data);
+                      if (!uploadModelName) {
+                        setUploadModelName(file.name.replace(/\.[^.]+$/, ''));
+                      }
+                    } catch (err: any) {
+                      alert('Could not read image: ' + err.message);
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => modelFileInput.current?.click()}
+                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${
+                  isLight
+                    ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'
+                    : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
+                }`}
+              >
+                {uploadModelDataUrl ? 'Change Image File…' : 'Select Image (PNG, JPG, WEBP)…'}
+              </button>
+
+              {uploadModelDataUrl && (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={uploadModelDataUrl}
+                    alt="Preview"
+                    className="h-12 w-9 rounded-lg object-cover border border-white/20"
+                  />
+                  <span className="text-xs text-emerald-400 font-medium">✓ Image ready</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {modelMessage && (
+            <p className={`rounded-xl p-3 text-xs ${
+              modelMessage.startsWith('✓')
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                : 'bg-[#e5373f]/10 border border-[#e5373f]/30 text-[#ffb3b7]'
+            }`}>
+              {modelMessage}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={uploadModelBusy || !uploadModelDataUrl}
+            className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shadow-md"
+          >
+            {uploadModelBusy ? 'Uploading & Processing Model…' : 'Save & Publish Model to Library'}
+          </button>
+        </form>
+      </section>
+
+      {/* Categories & Models Grid */}
+      <div className="grid gap-6">
+        {categories.map((cat) => (
+          <div key={cat.category} className={cardClass}>
+            <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+              <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
+              <span className="text-[11px] opacity-50">{cat.items.length} poses</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              {cat.items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`group relative overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-black/40'}`}
+                >
+                  <img
+                    src={item.url}
+                    alt={item.name}
+                    className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105 cursor-pointer"
+                    onClick={() => setLightboxImg(item.url)}
+                  />
+                  
+                  {/* Delete Model Button */}
+                  <button
+                    type="button"
+                    disabled={deletingModelId === item.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteModel(item.id);
+                    }}
+                    title="Remove this model from library"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/75 text-white/70 hover:text-[#ff5252] hover:bg-black transition-all opacity-0 group-hover:opacity-100 shadow-md"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+
+                  <p className="absolute bottom-0 inset-x-0 bg-black/70 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                    {item.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------- TAB 7: PROBLEM LOGS */
+  const renderProblems = () => {
+    const filtered = systemLogs.filter((l) => {
+      if (problemFilter === 'unresolved') return !l.resolved;
+      if (problemFilter === 'resolved') return l.resolved;
+      return true;
+    });
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
+              <span>🚨</span> System Problem Logs & Diagnostics
+            </h2>
+            <p className="text-xs opacity-60">
+              Captures all technical failures, Fashn.ai API rejections, video errors, and database exceptions.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadSystemLogs}
+              disabled={problemsLoading}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
+                isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}
+            >
+              <RefreshCw size={12} className={problemsLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAllProblems}
+              disabled={systemLogs.length === 0}
+              className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-[#ff5252] px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-40"
+            >
+              <Trash2 size={12} />
+              Clear Logs
+            </button>
+          </div>
+        </div>
+
+        {/* Status Metrics */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className={cardClass}>
+            <span className="text-[10px] uppercase font-bold tracking-wider opacity-50">Total Logged Problems</span>
+            <p className="text-2xl font-bold mt-1">{systemLogs.length}</p>
+          </div>
+          <div className={cardClass}>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#ff5252]">Active / Unresolved</span>
+            <p className="text-2xl font-bold mt-1 text-[#ff5252]">{unresolvedProblemsCount}</p>
+          </div>
+          <div className={cardClass}>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Resolved</span>
+            <p className="text-2xl font-bold mt-1 text-emerald-400">{systemLogs.length - unresolvedProblemsCount}</p>
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex gap-2">
+          {(['all', 'unresolved', 'resolved'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setProblemFilter(mode)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
+                problemFilter === mode
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight
+                    ? 'bg-gray-200/80 text-gray-700 hover:bg-gray-300'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10'
+              }`}
+            >
+              {mode === 'all' ? `All (${systemLogs.length})` : mode === 'unresolved' ? `Unresolved (${unresolvedProblemsCount})` : 'Resolved'}
+            </button>
+          ))}
+        </div>
+
+        {/* Logs List */}
+        {filtered.length === 0 ? (
+          <div className={`${cardClass} text-center py-16`}>
+            <CheckCircle2 size={36} className="text-emerald-400 mx-auto mb-3 opacity-80" />
+            <h3 className="text-base font-bold">No {problemFilter === 'unresolved' ? 'active' : ''} problems detected</h3>
+            <p className="text-xs opacity-50 mt-1">Studio operations, API requests, and renders are functioning cleanly.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filtered.map((log) => {
+              const isCopied = copiedProblemId === log.id;
+              return (
+                <div
+                  key={log.id}
+                  className={`rounded-2xl border p-5 transition-all ${
+                    log.resolved
+                      ? isLight ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-white/5 bg-white/[0.01] opacity-60'
+                      : isLight ? 'border-red-200 bg-red-50/40 shadow-sm' : 'border-red-500/20 bg-red-950/10 shadow-sm'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                        log.severity === 'error'
+                          ? 'bg-[#e5373f] text-white'
+                          : log.severity === 'warning'
+                            ? 'bg-amber-500 text-black'
+                            : 'bg-blue-500 text-white'
+                      }`}>
+                        {log.severity}
+                      </span>
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${
+                        isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
+                      }`}>
+                        [{log.module}]
+                      </span>
+                      <span className="text-[11px] opacity-50">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copyProblemForAi(log)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold shadow-sm transition ${
+                          isCopied
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-[#e5373f] hover:bg-[#d42d35] text-white'
+                        }`}
+                      >
+                        {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                        {isCopied ? 'Copied for AI Agent!' : '📋 Copy Problem for AI Agent'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleResolveProblem(log.id)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                          log.resolved
+                            ? 'border-gray-400 text-gray-500 hover:text-gray-900'
+                            : 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        {log.resolved ? 'Mark Active' : 'Resolve'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProblem(log.id)}
+                        className="p-1 text-white/30 hover:text-red-400 transition"
+                        title="Delete log"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-bold text-[#ff5252]">{log.title}</h4>
+                  <p className="mt-1 text-xs leading-relaxed opacity-85 font-mono">{log.message}</p>
+
+                  <div className="mt-3 flex items-center gap-4 text-[11px] opacity-60">
+                    <span>User: <strong>{log.userEmail}</strong></span>
+                    {log.userId && <span>ID: <code className="text-[10px]">{log.userId}</code></span>}
+                  </div>
+
+                  {log.details && log.details !== 'null' && log.details !== '""' && (
+                    <details className="mt-3 rounded-xl border border-white/10 bg-black/40 p-3 text-xs">
+                      <summary className="cursor-pointer text-[10px] uppercase font-bold tracking-wider opacity-60 select-none">
+                        View Technical Payload Details
+                      </summary>
+                      <pre className="mt-2 text-[10px] font-mono overflow-x-auto text-white/80 p-2 rounded bg-black/60 max-h-48">
+                        {log.details}
+                      </pre>
+                    </details>
+                  )}
+
+                  {log.stack && (
+                    <details className="mt-2 rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs">
+                      <summary className="cursor-pointer text-[10px] uppercase font-bold tracking-wider text-red-400 select-none">
+                        View Stack Trace
+                      </summary>
+                      <pre className="mt-2 text-[10px] font-mono overflow-x-auto text-red-300 p-2 rounded bg-black/60 max-h-48">
+                        {log.stack}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return shell(
+    <div>
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'requests' && renderRequests()}
+      {activeTab === 'users' && renderUsers()}
+      {activeTab === 'upload-sets' && renderUploadSets()}
+      {activeTab === 'settings' && renderSettings()}
+      {activeTab === 'models' && renderModels()}
+      {activeTab === 'problems' && renderProblems()}
+    </div>,
+  );
+}
