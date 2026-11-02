@@ -54,11 +54,73 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     }
   }
 
+  // Pre-configured default users (admin & initial accounts) guaranteed to exist across cloud deploys
+  const DEFAULT_USERS = [
+    {
+      _id: "41dcbd72-0f7e-44da-9530-d0d59bac616c",
+      email: "jaatshab11223315@gmail.com",
+      name: "Jaat Shab",
+      provider: "google",
+      createdAt: "2026-10-30T08:38:56.129Z",
+      salt: "0de555d4a4aea5b7a944e63321faf70d",
+      hash: "6e3a5c1341cd1f86b3982bc242695e60c98ae27316b86cf3d9a2df91c04fb51d0c797ccf8c8314758710bf25fb0aece43f2aa7acb2e13ed6ba36c2cb2469f203",
+      passwordSetAt: "2026-10-30T08:39:07.499Z",
+      googleId: "105192009141743489539",
+      credits: 394,
+      creditsLocked: false,
+      phone: "+916398743132",
+      avatar: ""
+    },
+    {
+      _id: "4a57b413-d672-480c-81e4-819303a591e5",
+      email: "yashveerja8@gmail.com",
+      name: "Yashveer Singh",
+      provider: "google",
+      credits: 10,
+      createdAt: "2026-11-01T05:34:22.917Z",
+      salt: "63834a79410910ebcac9dc56d81daf5a",
+      hash: "367f0513d934d0446fcfc12a0a602ea0229bddd83d5be950613fc4c2cd351cca14856ae8e4580e401fcf5d1d785fd4d6fbd231d1968b0da2f341d0978dfc6df2",
+      passwordSetAt: "2026-11-01T05:34:34.218Z",
+      tier: "free"
+    },
+    {
+      _id: "2e9413fd-bb12-48ab-81f8-dd310c99e440",
+      email: "45059@arsd.du.ac.in",
+      name: "PAWAN KUMAR",
+      avatar: "https://lh3.googleusercontent.com/a/ACg8ocJf5kByRd34Uewo7wx1agr6aWyGULgwLCKbjNu1j0rbWkahVw=s96-c",
+      provider: "google",
+      credits: 10,
+      createdAt: "2026-11-01T15:20:57.981Z",
+      salt: "3fb57aaa026634620f9a96be46286692",
+      hash: "ba5218b66f56410c86b4a5519b7539d2af4a48fa0064d51c1dc6b3a3735218cc49022d350ba4eb39ef25425f8a887bc8f26ec75e28070f3fb43555783cfb0ccb",
+      passwordSetAt: "2026-11-01T15:21:11.253Z"
+    }
+  ];
+
   const readLocal = async () => {
     try {
-      return JSON.parse(await fs.readFile(usersFile, 'utf8'));
+      const data = JSON.parse(await fs.readFile(usersFile, 'utf8'));
+      if (Array.isArray(data) && data.length > 0) {
+        // Merge with DEFAULT_USERS if any default user is missing
+        const map = new Map(data.map(u => [normalise(u.email), u]));
+        let changed = false;
+        for (const def of DEFAULT_USERS) {
+          const key = normalise(def.email);
+          if (!map.has(key)) {
+            data.push(def);
+            changed = true;
+          }
+        }
+        if (changed) {
+          await writeLocal(data).catch(() => {});
+        }
+        return data;
+      }
+      await writeLocal(DEFAULT_USERS).catch(() => {});
+      return [...DEFAULT_USERS];
     } catch {
-      return [];
+      await writeLocal(DEFAULT_USERS).catch(() => {});
+      return [...DEFAULT_USERS];
     }
   };
   const writeLocal = (list) => fs.writeFile(usersFile, JSON.stringify(list, null, 2));

@@ -50,6 +50,30 @@ await fs.mkdir(GENERATED, { recursive: true });
 const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 
+/* Built-in default state seeded when running on fresh/cloud environments */
+const SEED_STATE = {
+  apiKey: process.env.FASHN_API_KEY || '',
+  defaultPrompt: 'wear this cloths to modal proper and fit will proper text and logo ',
+  defaultModel: '',
+  resolution: '1k',
+  generationMode: 'balanced',
+  defaultMode: 'tryon',
+  mongoUri: process.env.MONGODB_URI || '',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  authSecret: process.env.AUTH_SECRET || '',
+  adminEmail: PRIMARY_ADMIN_EMAIL,
+  adminEmails: [PRIMARY_ADMIN_EMAIL, '45059@arsd.du.ac.in'],
+  imgbbKey: process.env.IMGBB_KEY || '',
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendFromEmail: process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>',
+  admin2faEnabled: false,
+  developerImageUrl: '',
+};
+
 /* ---------------------------------------------------------------- state */
 const DEFAULTS = {
   apiKey: '',
@@ -90,7 +114,7 @@ const readJson = async (file, fallback) => {
 };
 const writeJson = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2));
 
-const readState = async () => ({ ...DEFAULTS, ...(await readJson(STATE_FILE, {})) });
+const readState = async () => ({ ...DEFAULTS, ...SEED_STATE, ...(await readJson(STATE_FILE, {})) });
 const readCollections = () => readJson(COLLECTIONS_FILE, []);
 const readUploadSets = () => readJson(UPLOAD_SETS_FILE, []);
 const writeUploadSets = (sets) => writeJson(UPLOAD_SETS_FILE, sets);
