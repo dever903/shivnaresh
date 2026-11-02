@@ -15,7 +15,7 @@ import { Resend } from 'resend';
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MIN_PASSWORD = 8;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const RESEND_DEFAULT_KEY = 're_i7m2xdM1_6DWQFgNzoW37o99bEYBVniF9';
+const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 const OTP_TTL_MS = 3 * 60 * 1000; // strictly 3 minutes
 const BLOCK_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours block on >= 5 failed attempts
 const MAX_OTP_ATTEMPTS = 5;

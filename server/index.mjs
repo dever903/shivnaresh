@@ -48,7 +48,7 @@ await fs.mkdir(UPLOADS, { recursive: true });
 await fs.mkdir(GENERATED, { recursive: true });
 
 const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
-const RESEND_DEFAULT_KEY = 're_i7m2xdM1_6DWQFgNzoW37o99bEYBVniF9';
+const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 
 /* ---------------------------------------------------------------- state */
 const DEFAULTS = {
