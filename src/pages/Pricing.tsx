@@ -128,6 +128,8 @@ export default function Pricing() {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [qrMode, setQrMode] = useState<'dynamic' | 'official'>('dynamic');
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   const handleChoosePlan = (plan: Plan) => {
     if (plan.priceUSD === 0) {
@@ -144,11 +146,18 @@ export default function Pricing() {
   };
 
   const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * USD_TO_INR) : 0;
-  const upiId = '6398743132@ybl';
+  const upiId = '6398743132@ptaxis';
+  const payeeName = 'Pawan Kumar';
   const upiPayLink = selectedPlan 
-    ? `upi://pay?pa=${upiId}&pn=SHIVNARESH%20AI&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
+    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
     : '';
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiPayLink)}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiPayLink)}`;
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2500);
+  };
 
   const handleSendWhatsApp = () => {
     if (!paymentDone || !transactionId.trim()) {
@@ -441,18 +450,81 @@ export default function Pricing() {
               </div>
             </div>
 
-            {/* QR Code Container */}
-            <div className="bg-white p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-5">
-              <img
-                src={qrCodeUrl}
-                alt="UPI Payment QR Code"
-                className="w-52 h-52 object-contain"
-              />
-              <p className="text-[11px] font-bold text-slate-800 mt-2 font-mono">UPI ID: {upiId}</p>
+            {/* Payee & QR Mode Tabs */}
+            <div className="flex items-center justify-center gap-1.5 p-1 rounded-2xl bg-slate-950 border border-slate-800 mb-4 max-w-xs mx-auto">
+              <button
+                type="button"
+                onClick={() => setQrMode('dynamic')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  qrMode === 'dynamic'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Instant Amount QR
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrMode('official')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  qrMode === 'official'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Official Paytm QR
+              </button>
             </div>
 
-            <p className="text-[11px] text-center text-slate-400 mb-5">
-              Scan with any UPI app (Google Pay, PhonePe, Paytm, BHIM) to pay exactly <strong className="text-white">₹{inrAmount.toLocaleString('en-IN')}</strong>.
+            {/* QR Code Container */}
+            <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-4 text-slate-900">
+              {qrMode === 'dynamic' ? (
+                <div className="text-center">
+                  <img
+                    src={qrCodeUrl}
+                    alt="UPI Payment QR Code"
+                    className="w-52 h-52 object-contain mx-auto rounded-lg"
+                  />
+                  <div className="mt-2.5 pt-2 border-t border-slate-200">
+                    <p className="text-xs font-extrabold text-slate-900">Pawan Kumar &middot; Paytm</p>
+                    <p className="text-[11px] font-mono text-slate-600 mt-0.5">{upiId}</p>
+                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Auto-fills ₹{inrAmount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center max-w-[240px]">
+                  <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm max-h-64 overflow-y-auto">
+                    <img
+                      src="/paytm-qr.jpg"
+                      alt="Pawan Kumar Paytm QR Code"
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 mt-2">Pawan Kumar (Paytm Verified)</p>
+                  <p className="text-[10px] font-mono text-slate-600">{upiId}</p>
+                </div>
+              )}
+            </div>
+
+            {/* UPI ID Copy Card */}
+            <div className="flex items-center justify-between rounded-xl bg-slate-950 border border-slate-800 p-2.5 mb-4">
+              <div className="text-left">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">Pay to UPI ID:</span>
+                <span className="text-xs font-mono font-bold text-amber-400">{upiId}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyUpi}
+                className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95"
+              >
+                {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-center text-slate-400 mb-4">
+              Scan with any UPI app (Paytm, Google Pay, PhonePe, BHIM) to pay <strong className="text-white">₹{inrAmount.toLocaleString('en-IN')}</strong>.
             </p>
 
             {/* Form Fields */}
