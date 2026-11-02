@@ -4,7 +4,7 @@ import { Check, ShieldCheck, Zap, Sparkles, Building2, HelpCircle, ArrowRight, Q
 import { useTheme } from '../lib/theme';
 import SiteFooter from '../components/SiteFooter';
 
-const USD_TO_INR = 86.5;
+const DEFAULT_USD_TO_INR = 94.0;
 
 interface Plan {
   id: string;
@@ -74,21 +74,22 @@ const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro Atelier',
     tagline: 'Engineered for top sportswear fashion houses & high-volume ecommerce',
-    priceUSD: 120,
+    priceUSD: 149,
     featured: true,
     badge: 'MOST POPULAR',
     specs: {
-      models: '40 Models (5 Poses Each = 200 High-Res Poses)',
-      videos: '12 Cinematic 1080p Videos',
-      credits: '750 Credits + 150 Bonus = 900 Total',
+      models: '50 Models (5 Poses Each = 250 High-Res Poses) · 1 Month Expiry',
+      videos: '12 Cinematic 1080p Videos · 1 Month Expiry',
+      credits: '800 Credits + 200 Bonus = 1,000 Total',
       delivery: 'High-Priority Neural Queue',
       support: 'Direct WhatsApp Account Mgr',
       resolution: 'Ultra 2K Photoreal + 1080p Motion'
     },
     features: [
-      '40 Curated Models (each with 5 multi-angle poses = 200 images)',
+      '50 Curated Models (each with 5 multi-angle poses = 250 images)',
       '12 Cinematic 1080p Videos (9:16 Reels & 16:9 Sportswear cuts)',
-      '750 Monthly Credits + 150 FREE Bonus Credits (900 credits total)',
+      '800 Monthly Credits + 200 FREE Bonus Credits (1,000 credits total)',
+      'All models & videos valid for 1 month subscription cycle',
       'Priority rendering queue for instant zero-wait generation',
       'Dedicated WhatsApp account executive',
       'Iterative prompt refiner with fabric color-matching precision',
@@ -99,21 +100,22 @@ const PLANS: Plan[] = [
     id: 'ultra',
     name: 'Ultra Haute-Couture',
     tagline: 'Complete digital production house: upload fabrics & receive custom shoot',
-    priceUSD: 149,
+    priceUSD: 249,
     badge: 'ENTERPRISE ATELIER',
     specs: {
-      models: '70 Custom Models + Full 5-Pose Sets',
-      videos: '20 Studio Master Videos',
-      credits: '500 Account Credits (Custom shoots free)',
+      models: '100 Custom Models (Max 10 Models/Day) · 1 Month Expiry',
+      videos: '20 Studio Videos (Max 1 Video/Day) · 1 Month Expiry',
+      credits: '200 Account Credits (Custom shoots free)',
       delivery: 'Guaranteed 24-48h Delivery',
       support: '24/7 Dedicated Human Art Team',
       resolution: 'Highest 2K Master & 1080p Studio Motion'
     },
     features: [
       'Custom Atelier Service: upload cloths & garments in Custom Requests',
-      'Our dedicated art team generates 70 Models + 20 Studio Videos delivered within 24-48 hours',
-      'Models & studio videos do NOT consume your 500 account credits',
-      '500 extra credits in your account for unlimited on-demand experimentation',
+      'Daily Production Quota: Max 10 custom models and 1 video per day',
+      'Total 100 Models + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
+      '200 extra credits in your account for rapid neural experimentation',
+      'Models & studio videos in custom requests do NOT consume your account credits',
       'Post-generation touch-ups, prompt refinements, and multi-pose changes',
       '100% human studio team fulfillment guarantee if neural API undergoes downtime',
       'Direct line to lead fashion director & 24/7 VIP assistance'
@@ -137,6 +139,25 @@ export default function Pricing() {
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [localQrSvg, setLocalQrSvg] = useState<string>('');
 
+  const [usdToInrRate, setUsdToInrRate] = useState<number>(DEFAULT_USD_TO_INR);
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'bank'>('qr');
+  const [copiedBank, setCopiedBank] = useState(false);
+
+  useEffect(() => {
+    // Real-time live USD to INR exchange rate fetcher
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.rates?.INR && typeof data.rates.INR === 'number') {
+          setUsdToInrRate(Math.round(data.rates.INR * 100) / 100);
+        }
+      })
+      .catch(() => {
+        // Fallback to recent dynamic market rate
+        setUsdToInrRate(94.0);
+      });
+  }, []);
+
   const handleChoosePlan = (plan: Plan) => {
     if (plan.priceUSD === 0) {
       window.location.href = '/design';
@@ -151,9 +172,15 @@ export default function Pricing() {
     setShowCheckoutModal(true);
   };
 
-  const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * USD_TO_INR) : 0;
+  const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * usdToInrRate) : 0;
   const upiId = '6398743132@ptaxis';
   const payeeName = 'PAWAN KUMAR';
+  const bankDetails = {
+    accountNumber: '41614259248',
+    ifsc: 'SBIN0011558',
+    bankName: 'State Bank of India',
+    accountHolder: 'PAWAN KUMAR',
+  };
   const upiPayLink = selectedPlan
     ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
     : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&cu=INR`;
@@ -182,6 +209,7 @@ export default function Pricing() {
   
 *Plan:* ${selectedPlan?.name || 'Pro'}
 *Amount:* $${selectedPlan?.priceUSD} (₹${inrAmount.toLocaleString('en-IN')})
+*Payment Method:* ${paymentMethod === 'qr' ? 'UPI QR Code' : 'Direct Bank Transfer (SBI A/C 41614259248)'}
 *Name:* ${userName.trim() || 'Customer'}
 *Email:* ${userEmail.trim() || 'lpawankumar015221684@gmail.com'}
 *Transaction ID / UTR:* ${transactionId.trim() || 'Pending verification'}
@@ -283,7 +311,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-20">
           {PLANS.map((plan) => {
-            const inrPrice = Math.round(plan.priceUSD * USD_TO_INR);
+            const inrPrice = Math.round(plan.priceUSD * usdToInrRate);
             return (
               <div
                 key={plan.id}
@@ -321,7 +349,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     </div>
                     {plan.priceUSD > 0 ? (
                       <p className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isLight ? 'text-amber-700' : 'text-amber-400/90'}`}>
-                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR <span className={isLight ? 'text-gray-400 font-normal' : 'text-slate-500 font-normal'}>(@ ₹86.50/USD)</span>
+                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR <span className={isLight ? 'text-gray-400 font-normal' : 'text-slate-500 font-normal'}>(@ ₹{usdToInrRate}/USD live)</span>
                       </p>
                     ) : (
                       <p className={`text-xs font-semibold mt-1 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>100% Free Signup Forever</p>
@@ -476,7 +504,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
             </div>
             <h3 className={`text-xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>Terms & Conditions Agreement</h3>
             <p className={`text-xs leading-relaxed mb-4 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-              Before activating the <span className="font-bold text-amber-500">{selectedPlan.name}</span> (${selectedPlan.priceUSD} / ≈ ₹{Math.round(selectedPlan.priceUSD * USD_TO_INR).toLocaleString('en-IN')}), please review our official platform policies:
+              Before activating the <span className="font-bold text-amber-500">{selectedPlan.name}</span> (${selectedPlan.priceUSD} / ≈ ₹{Math.round(selectedPlan.priceUSD * usdToInrRate).toLocaleString('en-IN')}), please review our official platform policies:
             </p>
             <div className={`rounded-2xl p-4 border text-xs space-y-2 mb-6 ${
               isLight ? 'bg-gray-50 border-gray-200 text-gray-700' : 'bg-slate-950/80 border-slate-800 text-slate-300'
@@ -553,102 +581,194 @@ _Please verify payment and activate my plan within 30 minutes._`;
               </div>
             </div>
 
-            {/* Payee & QR Mode Tabs */}
-            <div className={`flex items-center justify-center gap-1.5 p-1 rounded-2xl border mb-4 max-w-xs mx-auto ${
-              isLight ? 'bg-gray-100 border-gray-200' : 'bg-slate-950 border-slate-800'
-            }`}>
-              <button
-                type="button"
-                onClick={() => setQrMode('card')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  qrMode === 'card'
-                    ? 'bg-amber-500 text-black shadow-md'
-                    : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Official Paytm Card
-              </button>
-              <button
-                type="button"
-                onClick={() => setQrMode('dynamic')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  qrMode === 'dynamic'
-                    ? 'bg-amber-500 text-black shadow-md'
-                    : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Instant Amount QR
-              </button>
+            {/* Mode of Payment Selector: UPI QR vs Direct Bank Transfer */}
+            <div className="mb-4">
+              <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2 text-center ${
+                isLight ? 'text-gray-700' : 'text-slate-300'
+              }`}>
+                Select Mode of Payment:
+              </label>
+              <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('qr')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                    paymentMethod === 'qr'
+                      ? 'bg-amber-500 text-black border-amber-400 shadow-md ring-1 ring-amber-400'
+                      : isLight
+                        ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  UPI QR Code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('bank')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                    paymentMethod === 'bank'
+                      ? 'bg-amber-500 text-black border-amber-400 shadow-md ring-1 ring-amber-400'
+                      : isLight
+                        ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Bank Transfer
+                </button>
+              </div>
             </div>
 
-            {/* QR Code Container */}
-            <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-4 text-slate-900 border border-gray-200">
-              {qrMode === 'card' ? (
-                <div className="text-center max-w-[260px]">
-                  <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-slate-50">
-                    <img
-                      src="/paytm-qr-card.jpg"
-                      alt="Pawan Kumar Official Paytm Payment Card"
-                      className="w-full h-auto object-contain block mx-auto"
-                    />
-                  </div>
-                  <div className="mt-2 pt-1 border-t border-slate-100">
-                    <p className="text-xs font-black text-slate-900">Pawan Kumar &middot; Verified Merchant</p>
-                    <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
-                    <p className="text-[10px] text-slate-500">State Bank of India &middot; 9248</p>
-                  </div>
+            {paymentMethod === 'qr' ? (
+              <>
+                {/* Payee & QR Mode Tabs */}
+                <div className={`flex items-center justify-center gap-1.5 p-1 rounded-2xl border mb-4 max-w-xs mx-auto ${
+                  isLight ? 'bg-gray-100 border-gray-200' : 'bg-slate-950 border-slate-800'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => setQrMode('card')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                      qrMode === 'card'
+                        ? 'bg-amber-500 text-black shadow-md'
+                        : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Official Paytm Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQrMode('dynamic')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                      qrMode === 'dynamic'
+                        ? 'bg-amber-500 text-black shadow-md'
+                        : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Instant Fixed ₹ QR
+                  </button>
                 </div>
-              ) : (
-                <div className="text-center">
-                  {localQrSvg ? (
-                    <div
-                      className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg shadow-sm bg-white p-2"
-                      dangerouslySetInnerHTML={{ __html: localQrSvg }}
-                    />
+
+                {/* QR Code Container */}
+                <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-4 text-slate-900 border border-gray-200">
+                  {qrMode === 'card' ? (
+                    <div className="text-center max-w-[260px]">
+                      <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-slate-50">
+                        <img
+                          src="/paytm-qr-card.jpg"
+                          alt="Pawan Kumar Official Paytm Payment Card"
+                          className="w-full h-auto object-contain block mx-auto"
+                        />
+                      </div>
+                      <div className="mt-2 pt-1 border-t border-slate-100">
+                        <p className="text-xs font-black text-slate-900">Pawan Kumar &middot; Verified Merchant</p>
+                        <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
+                        <p className="text-[10px] text-slate-500">State Bank of India &middot; 9248</p>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="w-56 h-56 flex flex-col items-center justify-center bg-slate-100 rounded-lg text-xs text-slate-500">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
-                      Loading UPI QR...
+                    <div className="text-center">
+                      {localQrSvg ? (
+                        <div
+                          className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg shadow-sm bg-white p-2"
+                          dangerouslySetInnerHTML={{ __html: localQrSvg }}
+                        />
+                      ) : (
+                        <div className="w-56 h-56 flex flex-col items-center justify-center bg-slate-100 rounded-lg text-xs text-slate-500">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
+                          Loading UPI QR...
+                        </div>
+                      )}
+                      <div className="mt-2.5 pt-2 border-t border-slate-200">
+                        <p className="text-xs font-extrabold text-slate-900">PAWAN KUMAR &middot; Paytm UPI</p>
+                        <p className="text-[11px] font-mono text-slate-600 font-semibold mt-0.5">{upiId}</p>
+                        <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                          Fixed ₹{inrAmount.toLocaleString('en-IN')} (Non-editable)
+                        </span>
+                      </div>
                     </div>
                   )}
-                  <div className="mt-2.5 pt-2 border-t border-slate-200">
-                    <p className="text-xs font-extrabold text-slate-900">PAWAN KUMAR &middot; Paytm UPI</p>
-                    <p className="text-[11px] font-mono text-slate-600 font-semibold mt-0.5">{upiId}</p>
-                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      Auto-bills ₹{inrAmount.toLocaleString('en-IN')}
-                    </span>
+                </div>
+
+                {/* 1-Tap Mobile UPI Payment Link */}
+                <a
+                  href={upiPayLink}
+                  className="mb-3 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98"
+                >
+                  ⚡ 1-Tap Open Any App (GPay / Paytm / PhonePe)
+                </a>
+
+                {/* UPI ID Copy Card */}
+                <div className={`flex items-center justify-between rounded-xl border p-2.5 mb-3 ${
+                  isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+                }`}>
+                  <div className="text-left">
+                    <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
+                    <span className="text-xs font-mono font-bold text-amber-500 select-all">{upiId}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyUpi}
+                    className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95"
+                  >
+                    {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Direct Bank Transfer Details Card */
+              <div className={`rounded-2xl border p-4 mb-4 ${
+                isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+              }`}>
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+                  <Building2 className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                    Direct Bank Transfer (NEFT / IMPS / RTGS)
+                  </span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="opacity-60">Account Holder:</span>
+                    <span className="font-bold">{bankDetails.accountHolder}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="opacity-60">Bank Name:</span>
+                    <span className="font-semibold">{bankDetails.bankName}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="opacity-60">Account Number:</span>
+                    <span className="font-mono font-bold text-amber-500 select-all text-sm">{bankDetails.accountNumber}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="opacity-60">IFSC Code:</span>
+                    <span className="font-mono font-bold text-emerald-400 select-all">{bankDetails.ifsc}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="opacity-60">Exact Amount:</span>
+                    <span className="font-bold text-amber-400 text-sm">₹{inrAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* 1-Tap Mobile UPI Payment Link */}
-            <a
-              href={upiPayLink}
-              className="mb-3 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98"
-            >
-              ⚡ 1-Tap Open UPI App (GPay / Paytm / PhonePe)
-            </a>
-
-            {/* UPI ID Copy Card */}
-            <div className={`flex items-center justify-between rounded-xl border p-2.5 mb-3 ${
-              isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
-            }`}>
-              <div className="text-left">
-                <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
-                <span className="text-xs font-mono font-bold text-amber-500 select-all">{upiId}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`A/C: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifsc}\nName: ${bankDetails.accountHolder}\nBank: ${bankDetails.bankName}`);
+                    setCopiedBank(true);
+                    setTimeout(() => setCopiedBank(false), 2500);
+                  }}
+                  className="mt-3 w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-bold text-xs hover:bg-amber-500/25 transition active:scale-98"
+                >
+                  {copiedBank ? '✓ Bank Details Copied!' : '📋 Copy All Bank Details'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleCopyUpi}
-                className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95"
-              >
-                {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
-              </button>
-            </div>
+            )}
 
             <p className={`text-[11px] text-center mb-4 ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
-              Scan QR or pay to <strong className="text-amber-500 font-mono">{upiId}</strong> (PAWAN KUMAR) ₹{inrAmount.toLocaleString('en-IN')}.
+              {paymentMethod === 'qr' ? (
+                <>Scan QR or pay to <strong className="text-amber-500 font-mono">{upiId}</strong> (PAWAN KUMAR) exact ₹{inrAmount.toLocaleString('en-IN')}.</>
+              ) : (
+                <>Transfer exact <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to SBI Account <strong className="font-mono text-emerald-400">41614259248</strong>.</>
+              )}
             </p>
 
             {/* Form Fields */}
@@ -706,7 +826,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
                 />
                 <span className={`text-xs leading-snug ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
-                  I have transferred <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via UPI.
+                  I have transferred <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
                 </span>
               </label>
             </div>

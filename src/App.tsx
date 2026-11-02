@@ -647,17 +647,17 @@ function Hero() {
 export default function App() {
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/$/, "") || "/";
 
-  if (path === "/design") return <Design />;
-  if (path === "/admin") return <Admin />;
-  if (path === "/login") return <Login />;
-  if (path === "/pricing") return <Pricing />;
-  if (path === "/about") return <About />;
-  if (path === "/contact") return <Contact />;
-  if (path === "/terms") return <Terms />;
+  if (path === "/design" || path.startsWith("/design/")) return <Design />;
+  if (path === "/admin" || path.startsWith("/admin/")) return <Admin />;
+  if (path === "/login" || path.startsWith("/login/")) return <Login />;
+  if (path === "/pricing" || path.startsWith("/pricing/")) return <Pricing />;
+  if (path === "/about" || path.startsWith("/about/")) return <About />;
+  if (path === "/contact" || path.startsWith("/contact/")) return <Contact />;
+  if (path === "/terms" || path.startsWith("/terms/")) return <Terms />;
 
   return (
     <div
-      className="min-h-screen bg-white tracking-[-0.02em] flex flex-col justify-between"
+      className="min-h-screen bg-[#97c1a9] dark:bg-[#070709] tracking-[-0.02em] flex flex-col justify-between"
       style={{ fontFamily: "'JetBrains Mono', monospace" }}
     >
       <NavBar />

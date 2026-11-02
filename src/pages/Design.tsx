@@ -1190,11 +1190,13 @@ function CustomRequestsPanel({
   loading,
   onRefresh,
   creditsLocked,
+  customRequestsLocked,
 }: {
   requests: CustomRequest[];
   loading: boolean;
   onRefresh: () => void;
   creditsLocked?: boolean;
+  customRequestsLocked?: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [pendingCloth, setPendingCloth] = useState<{ file: File; preview: string } | null>(null);
@@ -1361,13 +1363,33 @@ function CustomRequestsPanel({
           </button>
           <button
             type="button"
+            disabled={customRequestsLocked}
             onClick={() => setFormOpen(!formOpen)}
-            className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors"
+            className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {formOpen ? 'Cancel' : '+ New Custom Request'}
           </button>
         </div>
       </div>
+
+      {/* Plan Upgrade Lock Banner if Custom Requests Locked by Admin */}
+      {customRequestsLocked && (
+        <div className="mt-6 rounded-3xl border border-amber-500/40 bg-amber-500/10 p-7 backdrop-blur-md text-center">
+          <span className="text-4xl mb-3 block">🔒</span>
+          <h3 className="text-lg font-bold text-amber-300">Bespoke Custom Orders Locked</h3>
+          <p className="mt-2 text-xs text-amber-200/80 max-w-lg mx-auto leading-relaxed">
+            Direct custom requests to our human master tailors are exclusive to active Pro and Ultra plan subscribers or accounts unlocked by the administrator. Please upgrade your plan to unlock bespoke team kits, embroidery, and custom 5-pose photoshoots.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <a
+              href="/pricing"
+              className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-lg transition-transform hover:scale-105"
+            >
+              ⚡ View Pricing &amp; Upgrade Plan
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Submission Form */}
       {formOpen && (
@@ -2543,6 +2565,36 @@ export default function Design() {
     basePrompt: string;
   } | null>(null);
 
+  /* 5-Pose Selection Slots State (User can choose up to 5 models from library/uploads) */
+  const [selectedPoses, setSelectedPoses] = useState<Pick[]>([]);
+  const [activeSlotIndex, setActiveSlotIndex] = useState<number>(0);
+
+  function selectPoseForSlot(item: { url: string; name: string }) {
+    if (poseMode === '5-pose') {
+      setSelectedPoses((prev) => {
+        const next = [...prev];
+        const targetSlot = (activeSlotIndex >= 0 && activeSlotIndex < 5) ? activeSlotIndex : next.length;
+        if (targetSlot < 5) {
+          next[targetSlot] = item;
+          if (targetSlot < 4) setActiveSlotIndex(targetSlot + 1);
+        }
+        return next;
+      });
+      if (!model || activeSlotIndex === 0) setModel(item);
+    } else {
+      setModel(item);
+    }
+  }
+
+  function removePoseSlot(slotIdx: number) {
+    setSelectedPoses((prev) => {
+      const next = [...prev];
+      next.splice(slotIdx, 1);
+      return next;
+    });
+    setActiveSlotIndex(slotIdx);
+  }
+
   const [newCollection, setNewCollection] = useState('');
   const [savedTo, setSavedTo] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -2728,8 +2780,10 @@ export default function Design() {
 
               try {
                 const nextPrompt = `${fivePosesBatchPayloadRef.current.basePrompt} · ${FIVE_POSES_SPECS[nextIdx].promptSuffix}`.trim();
+                const poseModel = selectedPoses[nextIdx] || selectedPoses[0] || model;
                 const nextRes = await api.generate({
                   ...fivePosesBatchPayloadRef.current.payload,
+                  ...(poseModel?.url ? { model: poseModel.url } : {}),
                   prompt: nextPrompt,
                 });
                 if (typeof nextRes.credits === 'number') {
@@ -2925,8 +2979,10 @@ export default function Design() {
         setProgressLabel(`Starting Pose 1 of 5 (${FIVE_POSES_SPECS[0].name})…`);
 
         const pose1Prompt = `${prompt.trim()} · ${FIVE_POSES_SPECS[0].promptSuffix}`.trim();
+        const pose1Model = selectedPoses[0] || model;
         const res1 = await api.generate({
           ...payload,
+          ...(pose1Model?.url ? { model: pose1Model.url } : {}),
           prompt: pose1Prompt,
         });
 
@@ -3231,9 +3287,19 @@ export default function Design() {
                 setToken('');
                 window.location.replace('/login');
               }}
-              className={`transition-colors ${isLight ? 'text-gray-400 hover:text-gray-800' : 'text-white/40 hover:text-white'}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                isLight
+                  ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
+                  : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
+              }`}
+              title="Sign out of your account"
             >
-              Sign out
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Sign out</span>
             </button>
           </div>
         </div>
@@ -3308,6 +3374,7 @@ export default function Design() {
           loading={loadingRequests}
           onRefresh={loadCustomRequests}
           creditsLocked={isLocked}
+          customRequestsLocked={user?.features?.customRequests === false}
         />
       )}
 
@@ -3790,50 +3857,72 @@ export default function Design() {
                     </div>
                   )}
 
-                  {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees the 5 poses selected) */}
+                  {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees and chooses all 5 poses) */}
                   {poseMode === '5-pose' && (
                     <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-300 bg-amber-50/70' : 'border-amber-500/40 bg-amber-500/10'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-xs uppercase tracking-wider text-amber-400">
-                            ⚡ 5 Selected Poses for Multi-Angle Generation
+                            ⚡ Select 5 Poses for Multi-Angle Sequence
                           </span>
                           <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 border border-amber-500/30">
-                            5 Poses Active
+                            {selectedPoses.filter(Boolean).length}/5 Poses Active
                           </span>
                         </div>
-                        <span className="text-[10px] text-amber-300/80 font-medium">1 Command &rarr; 5 Poses</span>
+                        <span className="text-[10px] text-amber-300/80 font-medium">Click slot then pick model below</span>
                       </div>
 
                       <div className="grid grid-cols-5 gap-2">
-                        {FIVE_POSES_SPECS.map((spec, idx) => (
-                          <div
-                            key={spec.id}
-                            className={`relative rounded-xl border p-2 flex flex-col items-center text-center transition ${
-                              model ? 'border-amber-500/50 bg-black/60 shadow-sm' : 'border-white/10 bg-black/30'
-                            }`}
-                          >
-                            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
-                              {model ? (
-                                <img
-                                  src={model.preview ?? model.url}
-                                  alt={spec.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-xl opacity-60">{spec.icon}</span>
-                              )}
-                              <span className="absolute top-1 left-1 rounded bg-black/80 px-1 py-0.2 text-[8px] font-bold text-amber-400">
-                                #{idx + 1}
-                              </span>
+                        {FIVE_POSES_SPECS.map((spec, idx) => {
+                          const poseItem = selectedPoses[idx] || (idx === 0 && selectedPoses.length === 0 ? model : null);
+                          const isActiveSlot = activeSlotIndex === idx;
+                          return (
+                            <div
+                              key={spec.id}
+                              onClick={() => setActiveSlotIndex(idx)}
+                              className={`relative rounded-xl border p-2 flex flex-col items-center text-center cursor-pointer transition ${
+                                isActiveSlot
+                                  ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f] shadow-lg'
+                                  : poseItem
+                                    ? 'border-amber-500/50 bg-black/60 shadow-sm'
+                                    : 'border-white/10 bg-black/30 hover:border-white/30'
+                              }`}
+                            >
+                              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
+                                {poseItem ? (
+                                  <img
+                                    src={poseItem.preview ?? poseItem.url}
+                                    alt={spec.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-xl opacity-60">{spec.icon}</span>
+                                )}
+                                <span className="absolute top-1 left-1 rounded bg-black/80 px-1 py-0.2 text-[8px] font-bold text-amber-400">
+                                  #{idx + 1}
+                                </span>
+                                {poseItem && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removePoseSlot(idx);
+                                    }}
+                                    className="absolute top-1 right-1 rounded-full bg-red-600/90 text-[8px] text-white w-4 h-4 flex items-center justify-center hover:bg-red-500"
+                                    title="Remove this pose"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-bold truncate max-w-full text-white">{poseItem ? poseItem.name : spec.name}</span>
+                              <span className="text-[9px] opacity-60 font-mono text-amber-200">{spec.angle}</span>
                             </div>
-                            <span className="text-[10px] font-bold truncate max-w-full text-white">{spec.name}</span>
-                            <span className="text-[9px] opacity-60 font-mono text-amber-200">{spec.angle}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <p className="mt-2.5 text-[10px] text-amber-300/90 leading-relaxed text-center">
-                        ✓ All 5 angles will be sequentially synthesized in 1 single command using your chosen model and garment.
+                        💡 Click on any of the 5 pose slots above, then pick a model below to assign that angle.
                       </p>
                     </div>
                   )}
@@ -3844,18 +3933,27 @@ export default function Design() {
                         <div key={group.category} className="mb-4">
                           <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
                           <div className="grid grid-cols-6 gap-2">
-                            {group.items.map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setModel({ url: item.url, name: item.name })}
-                                className={`overflow-hidden rounded-md border transition ${
-                                  model?.url === item.url ? 'border-[#e5373f] ring-1 ring-[#e5373f]' : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                                }`}
-                              >
-                                <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
-                              </button>
-                            ))}
+                            {group.items.map((item) => {
+                              const isSelected =
+                                (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                                model?.url === item.url;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => selectPoseForSlot({ url: item.url, name: item.name })}
+                                  className={`overflow-hidden rounded-md border transition ${
+                                    isSelected
+                                      ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                      : isLight
+                                        ? 'border-gray-200 hover:border-gray-400'
+                                        : 'border-transparent hover:border-white/30'
+                                  }`}
+                                >
+                                  <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -3863,18 +3961,27 @@ export default function Design() {
                     {tab === 'uploads' &&
                       (uploads.length ? (
                         <div className="grid grid-cols-6 gap-2">
-                          {uploads.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => setModel({ url: item.url, name: item.name })}
-                              className={`overflow-hidden rounded-md border transition ${
-                                model?.url === item.url ? 'border-[#e5373f]' : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                              }`}
-                            >
-                              <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
-                            </button>
-                          ))}
+                          {uploads.map((item) => {
+                            const isSelected =
+                              (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                              model?.url === item.url;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => selectPoseForSlot({ url: item.url, name: item.name })}
+                                className={`overflow-hidden rounded-md border transition ${
+                                  isSelected
+                                    ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                    : isLight
+                                      ? 'border-gray-200 hover:border-gray-400'
+                                      : 'border-transparent hover:border-white/30'
+                                }`}
+                              >
+                                <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>

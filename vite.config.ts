@@ -10,6 +10,7 @@ export default defineConfig({
       '/uploads': 'http://localhost:8787',
       '/generated': 'http://localhost:8787',
       '/models': 'http://localhost:8787',
+      '/hosted': 'http://localhost:8787',
     },
   },
 });

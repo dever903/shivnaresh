@@ -10,7 +10,6 @@ import {
   type HostStatus,
   type ModelCategory,
   type SystemLog,
-  type UploadSet,
   type User,
   type FashnCredits,
 } from '../lib/api';
@@ -36,7 +35,7 @@ export default function Admin() {
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'requests' | 'users' | 'upload-sets' | 'settings' | 'models' | 'problems'
+    'overview' | 'requests' | 'users' | 'settings' | 'models' | 'problems'
   >('overview');
 
   /* Settings Form State */
@@ -67,6 +66,19 @@ export default function Admin() {
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [modelMessage, setModelMessage] = useState('');
   const modelFileInput = useRef<HTMLInputElement>(null);
+  const devPhotoFileRef = useRef<HTMLInputElement>(null);
+
+  function handleDevPhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      setDevProfile((prev) => ({ ...prev, avatar: dataUrl }));
+      setDeveloperImageUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
 
   /* Problem Logs State */
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
@@ -77,9 +89,6 @@ export default function Admin() {
   const [copiedProblemId, setCopiedProblemId] = useState<string | null>(null);
 
   /* Data Collections */
-  const [uploadSets, setUploadSets] = useState<UploadSet[]>([]);
-  const [setsLoading, setSetsLoading] = useState(false);
-
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestFilter, setRequestFilter] = useState<'all' | 'queued' | 'in_progress' | 'delivered'>('all');
@@ -190,7 +199,6 @@ export default function Admin() {
         setAdmin2FaSuccess('Administrator verified! Unlocking terminal…');
         void loadSettings();
         void loadCustomRequests();
-        void loadUploadSets();
         void loadUsers();
         void loadSystemLogs();
         void loadFashnCredits();
@@ -258,7 +266,6 @@ export default function Admin() {
       setAdmin2FaSuccess('2FA verified successfully! Unlocking terminal…');
       void loadSettings();
       void loadCustomRequests();
-      void loadUploadSets();
       void loadUsers();
       void loadSystemLogs();
       void loadFashnCredits();
@@ -301,17 +308,6 @@ export default function Admin() {
     }
     if (m.categories.length > 0 && !uploadModelCat) {
       setUploadModelCat(m.categories[0].category);
-    }
-  }
-
-  async function loadUploadSets() {
-    setSetsLoading(true);
-    try {
-      setUploadSets((await api.adminUploadSets()).items);
-    } catch {
-      /* non-fatal */
-    } finally {
-      setSetsLoading(false);
     }
   }
 
@@ -375,17 +371,18 @@ export default function Admin() {
         const [session, a] = await Promise.all([api.me(), api.adminAccess()]);
         setMe(session.user);
         setAccess(a);
-        if (!a.signedIn) {
+        if (!a.signedIn || !a.admin) {
           window.location.replace('/login?next=%2Fadmin');
           return;
         }
         if (a.admin) {
-          await loadSettings();
-          void loadCustomRequests();
-          void loadUploadSets();
-          void loadUsers();
-          void loadSystemLogs();
-          void loadFashnCredits();
+          void Promise.allSettled([
+            loadSettings(),
+            loadCustomRequests(),
+            loadUsers(),
+            loadSystemLogs(),
+            loadFashnCredits(),
+          ]);
         }
       } catch {
         setStatus('Backend not reachable — start it with `npm run api`.');
@@ -398,29 +395,49 @@ export default function Admin() {
     setStatus('');
     try {
       const saved: string[] = [];
-      if (apiKey.trim()) saved.push('Render Key');
-      if (imgbbKey.trim()) saved.push('ImgBB');
-      if (mongoUri.trim()) saved.push('MongoDB');
-      if (googleClientId.trim() || googleClientSecret.trim()) saved.push('Google');
-      if (cloudinaryCloudName.trim()) saved.push('Cloudinary');
-      if (resendApiKey.trim() || resendFromEmail.trim()) saved.push('Resend Email');
-      saved.push('2FA & Profile Settings');
-      saved.push('Studio Defaults');
+      const cleanKey = apiKey.trim();
+      const validApiKey = cleanKey && !cleanKey.includes('•') && !cleanKey.includes('*') && cleanKey.length >= 8 ? cleanKey : undefined;
+
+      const cleanImgbb = imgbbKey.trim();
+      const validImgbb = cleanImgbb && !cleanImgbb.includes('•') ? cleanImgbb : undefined;
+
+      const cleanMongo = mongoUri.trim();
+      const validMongo = cleanMongo && !cleanMongo.includes('••••') ? cleanMongo : undefined;
+
+      const cleanSecret = googleClientSecret.trim();
+      const validSecret = cleanSecret && !cleanSecret.includes('•') ? cleanSecret : undefined;
+
+      const cleanCldKey = cloudinaryApiKey.trim();
+      const validCldKey = cleanCldKey && !cleanCldKey.includes('•') ? cleanCldKey : undefined;
+
+      const cleanCldSec = cloudinaryApiSecret.trim();
+      const validCldSec = cleanCldSec && !cleanCldSec.includes('•') ? cleanCldSec : undefined;
+
+      const cleanResend = resendApiKey.trim();
+      const validResend = cleanResend && !cleanResend.includes('•') ? cleanResend : undefined;
+
+      if (validApiKey) saved.push('Render Key');
+      if (validImgbb) saved.push('ImgBB');
+      if (validMongo) saved.push('MongoDB');
+      if (googleClientId.trim() || validSecret) saved.push('Google');
+      if (cloudinaryCloudName.trim() || validCldKey) saved.push('Cloudinary');
+      if (validResend || resendFromEmail.trim()) saved.push('Email Service');
+      saved.push('2FA & Defaults');
 
       await api.saveAdminSettings({
-        apiKey: apiKey.trim() || undefined,
-        imgbbKey: imgbbKey.trim() || undefined,
-        mongoUri: mongoUri.trim() || undefined,
-        googleClientId,
-        googleClientSecret: googleClientSecret.trim() || undefined,
+        apiKey: validApiKey,
+        imgbbKey: validImgbb,
+        mongoUri: validMongo,
+        googleClientId: googleClientId.trim() || undefined,
+        googleClientSecret: validSecret,
         defaultPrompt,
         defaultModel,
         resolution,
         generationMode,
-        cloudinaryCloudName: cloudinaryCloudName.trim(),
-        cloudinaryApiKey: cloudinaryApiKey.trim() || undefined,
-        cloudinaryApiSecret: cloudinaryApiSecret.trim() || undefined,
-        resendApiKey: resendApiKey.trim() || undefined,
+        cloudinaryCloudName: cloudinaryCloudName.trim() || undefined,
+        cloudinaryApiKey: validCldKey,
+        cloudinaryApiSecret: validCldSec,
+        resendApiKey: validResend,
         resendFromEmail: resendFromEmail.trim() || undefined,
         admin2faEnabled,
         developerImageUrl: developerImageUrl.trim() || undefined,
@@ -434,7 +451,7 @@ export default function Admin() {
       setCloudinaryApiSecret('');
       setResendApiKey('');
       await loadSettings();
-      setStatus(`Saved: ${saved.join(' · ')}`);
+      setStatus(`✓ Saved successfully: ${saved.join(' · ')}`);
       setTimeout(() => setStatus(''), 4500);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : 'Save failed');
@@ -753,11 +770,19 @@ ${log.stack || 'None'}
                 setToken('');
                 window.location.replace('/login?next=%2Fadmin');
               }}
-              className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors ${
-                isLight ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-900' : 'border-white/15 text-white/50 hover:border-white/30 hover:text-white'
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                isLight
+                  ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
+                  : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
               }`}
+              title="Sign out of Admin Session"
             >
-              Sign out
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Sign out</span>
             </button>
           </div>
         </div>
@@ -775,7 +800,6 @@ ${log.stack || 'None'}
                   badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                 },
                 { id: 'users', label: 'Registered Users & Credits', icon: '👥', count: usersList.length },
-                { id: 'upload-sets', label: 'Cloudinary Sets', icon: '📦', count: uploadSets.length },
                 { id: 'models', label: 'Model Library', icon: '🎭', count: modelCount },
                 {
                   id: 'problems',
@@ -1192,15 +1216,15 @@ ${log.stack || 'None'}
 
         <div className={cardClass}>
           <div className="flex items-center justify-between opacity-60">
-            <span className="text-[11px] font-bold uppercase tracking-widest">Cloudinary Sets</span>
-            <span className="text-xl">📦</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest">Custom Orders</span>
+            <span className="text-xl">📩</span>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold">{uploadSets.length}</span>
-            <span className="text-xs opacity-60">permanent sets</span>
+            <span className="text-3xl font-extrabold">{customRequests.length}</span>
+            <span className="text-xs opacity-60">total requests</span>
           </div>
           <div className="mt-3 text-[11px] opacity-70">
-            Cloud: <span className="font-semibold">{settings?.cloudinaryCloudName || 'shivnaresh'}</span>
+            Pending: <span className="font-semibold text-amber-500">{pendingRequestsCount}</span>
           </div>
         </div>
 
@@ -1380,21 +1404,41 @@ ${log.stack || 'None'}
                     </span>
                   </div>
 
-                  {/* Badges: Type & Color */}
-                  {(req.requestType || req.color) && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {req.requestType && (
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
-                          {req.requestType === 'both' ? '⚡ Stills + Video' : req.requestType === 'video' ? '🎬 Video' : '📸 2K Stills'}
+                  {/* Badges: Type & Visual Color Swatch */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {req.requestType && (
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                        {req.requestType === 'both' ? '⚡ Stills + Video' : req.requestType === 'video' ? '🎬 Video' : '📸 2K Stills'}
+                      </span>
+                    )}
+                    {req.color && (
+                      <div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1 border shadow-sm ${isLight ? 'border-gray-300 bg-white' : 'border-white/15 bg-black/50'}`}>
+                        <span
+                          className="inline-block h-4 w-4 rounded-full border border-black/30 shadow-inner shrink-0"
+                          style={{
+                            backgroundColor: req.color.includes('#')
+                              ? req.color.match(/#[0-9a-fA-F]{3,6}/)?.[0] || req.color
+                              : req.color,
+                          }}
+                        />
+                        <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          {req.color}
                         </span>
-                      )}
-                      {req.color && (
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
-                          🎨 {req.color}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const raw = req.color || '';
+                            const hex = raw.match(/#[0-9a-fA-F]{3,6}/)?.[0] || raw;
+                            if (hex) navigator.clipboard.writeText(hex);
+                          }}
+                          className="text-[10px] font-semibold text-emerald-500 hover:underline ml-0.5"
+                          title="Copy Hex Color"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Garment & Model Poses */}
                   <div className="mt-3.5 space-y-2">
@@ -1413,19 +1457,19 @@ ${log.stack || 'None'}
                         </p>
                       </div>
 
-                      {/* Multi-pose models */}
-                      <div className="flex flex-1 gap-1.5 overflow-x-auto pb-1">
+                      {/* Multi-pose models (Up to 5 poses) */}
+                      <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
                         {req.modelImages && req.modelImages.length > 0 ? (
                           req.modelImages.map((mUrl, mIdx) => (
                             <div
                               key={mIdx}
-                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-20 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 transition-all hover:scale-105 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
                               onClick={() => setLightboxImg(mUrl)}
                             >
-                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
-                              <p className="absolute bottom-0 inset-x-0 bg-black/60 py-0.5 text-center text-[8px] text-white backdrop-blur-sm">
+                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
+                              <div className="absolute top-1 left-1 rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
                                 Pose {mIdx + 1}
-                              </p>
+                              </div>
                             </div>
                           ))
                         ) : req.modelUrl ? (
@@ -1973,103 +2017,7 @@ ${log.stack || 'None'}
     </div>
   );
 
-  /* ---------------------------------------------------- TAB 4: CLOUDINARY UPLOAD SETS */
-  const renderUploadSets = () => {
-    const byUser = new Map<string, UploadSet[]>();
-    for (const s of uploadSets) {
-      const key = s.userEmail || s.userId;
-      if (!byUser.has(key)) byUser.set(key, []);
-      byUser.get(key)!.push(s);
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold tracking-tight">Permanent Cloudinary Upload Sets</h2>
-            <p className="text-xs opacity-60">
-              Categorized numbered sets saved by users, hosted permanently on Cloudinary CDN.
-            </p>
-          </div>
-          <span className={`rounded-full px-4 py-1 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/60'}`}>
-            {uploadSets.length} Total Sets
-          </span>
-        </div>
-
-        {setsLoading ? (
-          <div className="py-20 text-center text-sm opacity-50">Loading Cloudinary sets…</div>
-        ) : uploadSets.length === 0 ? (
-          <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
-            No upload sets saved yet.
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {[...byUser.entries()].map(([email, sets]) => (
-              <div key={email} className={cardClass}>
-                <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                  <h3 className="text-xs font-bold">
-                    👤 {email}
-                  </h3>
-                  <span className="text-xs opacity-60">
-                    {sets.length} set{sets.length !== 1 ? 's' : ''} saved
-                  </span>
-                </div>
-
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[...sets].sort((a, b) => a.setNumber - b.setNumber).map((set) => (
-                    <div key={set.id} className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white'}`}>
-                          Set {set.setNumber}
-                        </span>
-                        <span className="text-[10px] opacity-40">
-                          {new Date(set.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div
-                          className="overflow-hidden rounded-xl bg-black/10 cursor-pointer"
-                          onClick={() => set.clothUrl && setLightboxImg(set.clothUrl)}
-                        >
-                          {set.clothUrl ? (
-                            <img src={set.clothUrl} alt="Cloth" className="aspect-[3/4] w-full object-cover hover:scale-105 transition-transform" />
-                          ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">👗</div>
-                          )}
-                          <p className="py-1 text-center text-[9px] opacity-60 truncate">{set.clothName || 'Garment'}</p>
-                        </div>
-
-                        <div
-                          className="overflow-hidden rounded-xl bg-black/10 cursor-pointer"
-                          onClick={() => set.modelUrl && setLightboxImg(set.modelUrl)}
-                        >
-                          {set.modelUrl ? (
-                            <img src={set.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover hover:scale-105 transition-transform" />
-                          ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">🧍</div>
-                          )}
-                          <p className="py-1 text-center text-[9px] opacity-60 truncate">{set.modelName || 'Model'}</p>
-                        </div>
-                      </div>
-
-                      {set.prompt && (
-                        <p className="mt-3 rounded-xl bg-black/10 p-2 text-[10px] opacity-70 line-clamp-2 italic">
-                          "{set.prompt}"
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  /* ---------------------------------------------------- TAB 5: KEYS & SYSTEM SETTINGS */
+  /* ---------------------------------------------------- TAB: KEYS & SYSTEM SETTINGS */
   const renderSettings = () => (
     <div className="space-y-6">
       <div>
@@ -2357,18 +2305,73 @@ ${log.stack || 'None'}
               </div>
             </div>
 
-            <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Developer Profile Image URL / Data URL</label>
+            <div className="rounded-2xl border p-4 bg-black/20">
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60 block mb-2">
+                Developer Profile Picture &amp; Avatar Adjustment
+              </label>
               <input
-                type="text"
-                value={devProfile.avatar}
-                onChange={(e) => {
-                  setDevProfile((prev) => ({ ...prev, avatar: e.target.value }));
-                  setDeveloperImageUrl(e.target.value);
-                }}
-                placeholder="https://... image link or data URL"
-                className={`${inputClass} mt-1`}
+                ref={devPhotoFileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleDevPhotoFile}
               />
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="relative group shrink-0">
+                  {devProfile.avatar ? (
+                    <img
+                      src={devProfile.avatar}
+                      alt="Developer preview"
+                      className="w-24 h-24 rounded-2xl object-cover border-2 border-amber-500 shadow-xl"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-2xl bg-black/40 border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-xs opacity-50">
+                      <span>No Photo</span>
+                    </div>
+                  )}
+                  {devProfile.avatar && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDevProfile((prev) => ({ ...prev, avatar: '' }));
+                        setDeveloperImageUrl('');
+                      }}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 text-[10px] shadow hover:bg-red-500"
+                      title="Remove Photo"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2 w-full">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => devPhotoFileRef.current?.click()}
+                      className="rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-2 text-xs font-semibold shadow transition"
+                    >
+                      📷 Choose / Upload Photo
+                    </button>
+                    {devProfile.avatar && (
+                      <span className="text-[11px] text-emerald-400 font-medium">✓ Photo loaded</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={devProfile.avatar}
+                    onChange={(e) => {
+                      setDevProfile((prev) => ({ ...prev, avatar: e.target.value }));
+                      setDeveloperImageUrl(e.target.value);
+                    }}
+                    placeholder="Or paste external image URL / data URL here"
+                    className={`${inputClass} text-xs`}
+                  />
+                  <p className="text-[10px] opacity-40">
+                    This photo will be displayed prominently on the /about and /contact pages and in the admin console.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -2891,7 +2894,6 @@ ${log.stack || 'None'}
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'requests' && renderRequests()}
       {activeTab === 'users' && renderUsers()}
-      {activeTab === 'upload-sets' && renderUploadSets()}
       {activeTab === 'settings' && renderSettings()}
       {activeTab === 'models' && renderModels()}
       {activeTab === 'problems' && renderProblems()}

@@ -305,6 +305,9 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '48mb' }));
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
 app.use('/generated', express.static(GENERATED, { maxAge: '1d' }));
+app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
+app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
+app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
 
 const patchState = async (patch) => {
   const current = await readState();
@@ -512,30 +515,40 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   };
   if (typeof body.apiKey === 'string' && body.apiKey.trim()) {
     const key = body.apiKey.trim();
-    if (key.length < 20) {
-      return res.status(400).json({
-        error: 'bad_key',
-        message: 'That does not look like a render key — they are long strings starting with fa-.',
-      });
+    if (!key.includes('•') && !key.includes('*') && key.length >= 8) {
+      patch.apiKey = key;
     }
-    patch.apiKey = key;
   }
   if (body.clearApiKey) patch.apiKey = '';
-  if (typeof body.mongoUri === 'string' && body.mongoUri.trim()) patch.mongoUri = body.mongoUri.trim();
+  if (typeof body.mongoUri === 'string' && body.mongoUri.trim() && !body.mongoUri.includes('••••')) {
+    patch.mongoUri = body.mongoUri.trim();
+  }
   if (body.clearMongo) patch.mongoUri = '';
-  if (typeof body.googleClientSecret === 'string' && body.googleClientSecret.trim()) {
+  if (typeof body.googleClientSecret === 'string' && body.googleClientSecret.trim() && !body.googleClientSecret.includes('•')) {
     patch.googleClientSecret = body.googleClientSecret.trim();
   }
   if (body.clearGoogleSecret) patch.googleClientSecret = '';
-  if (typeof body.imgbbKey === 'string' && body.imgbbKey.trim()) patch.imgbbKey = body.imgbbKey.trim();
+  if (typeof body.imgbbKey === 'string' && body.imgbbKey.trim() && !body.imgbbKey.includes('•')) {
+    patch.imgbbKey = body.imgbbKey.trim();
+  }
   if (body.clearImgbb) patch.imgbbKey = '';
   if (typeof body.cloudinaryCloudName === 'string') patch.cloudinaryCloudName = body.cloudinaryCloudName.trim();
-  if (typeof body.cloudinaryApiKey === 'string' && body.cloudinaryApiKey.trim()) patch.cloudinaryApiKey = body.cloudinaryApiKey.trim();
+  if (typeof body.cloudinaryApiKey === 'string' && body.cloudinaryApiKey.trim() && !body.cloudinaryApiKey.includes('•')) {
+    patch.cloudinaryApiKey = body.cloudinaryApiKey.trim();
+  }
   if (body.clearCloudinaryApiKey) patch.cloudinaryApiKey = '';
-  if (typeof body.cloudinaryApiSecret === 'string' && body.cloudinaryApiSecret.trim()) patch.cloudinaryApiSecret = body.cloudinaryApiSecret.trim();
+  if (typeof body.cloudinaryApiSecret === 'string' && body.cloudinaryApiSecret.trim() && !body.cloudinaryApiSecret.includes('•')) {
+    patch.cloudinaryApiSecret = body.cloudinaryApiSecret.trim();
+  }
   if (body.clearCloudinaryApiSecret) patch.cloudinaryApiSecret = '';
-  if (typeof body.resendApiKey === 'string' && body.resendApiKey.trim()) patch.resendApiKey = body.resendApiKey.trim();
+  if (typeof body.resendApiKey === 'string' && body.resendApiKey.trim() && !body.resendApiKey.includes('•')) {
+    patch.resendApiKey = body.resendApiKey.trim();
+  }
   if (body.clearResendApiKey) patch.resendApiKey = '';
+  if (typeof body.brevoApiKey === 'string' && body.brevoApiKey.trim() && !body.brevoApiKey.includes('•')) {
+    patch.brevoApiKey = body.brevoApiKey.trim();
+  }
+  if (body.clearBrevoApiKey) patch.brevoApiKey = '';
   if (typeof body.resendFromEmail === 'string' && body.resendFromEmail.trim()) patch.resendFromEmail = body.resendFromEmail.trim();
 
   const next = await patchState(patch);
@@ -1016,7 +1029,7 @@ function unlockUser(jobId) {
   }
 }
 
-app.post('/api/generate', async (req, res) => {
+app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     /* Strict single concurrency: only 1 generation active at a time per user */
     if (isUserGenerating(req)) {
@@ -1035,33 +1048,70 @@ app.post('/api/generate', async (req, res) => {
       return res.status(400).json({ error: 'bad_key', message: 'The configured API key does not look valid. It should start with "fa-". Update it in the admin panel.' });
     }
 
+    if (req.user.creditsLocked) {
+      return res.status(403).json({
+        error: 'credits_locked',
+        message: 'Your account credits have been locked by the administrator. Please contact support.',
+      });
+    }
+
+    const now = Date.now();
+    if (req.user.planExpiresAt && now > req.user.planExpiresAt && req.user.tier !== 'free') {
+      await auth.patchUser(req.user._id, { tier: 'free' });
+      return res.status(403).json({
+        error: 'plan_expired',
+        message: 'Your monthly subscription plan has expired. Please renew your plan on the pricing page.',
+      });
+    }
+
     const body = req.body || {};
     const mode = body.mode || state.defaultMode;
     const resolution = String(body.resolution || state.resolution || '1k').toLowerCase();
-    const creditsNeeded = resolution === '2k' || resolution === '4k' ? 2 : 1;
+    const is2k = resolution === '2k' || resolution === '4k';
+    const creditsNeeded = is2k ? 2 : 1; // 2 credits for 2K Ultra HD, 1 credit for 1K Standard
 
-    /* verify user account status if signed in */
-    if (req.user) {
-      if (req.user.creditsLocked) {
-        return res.status(403).json({
-          error: 'credits_locked',
-          message: 'Your account credits have been locked by the administrator. Please contact support.',
-        });
-      }
-
-      /* new and free starter accounts can only generate with 1K resolution */
-      const userTier = req.user.tier || 'free';
-      if (userTier === 'free' && (resolution === '2k' || resolution === '4k')) {
+    /* 2K resolution permission check */
+    if (is2k) {
+      const allowed2k = req.user.features?.hd2k ?? (req.user.tier !== 'free');
+      if (!allowed2k) {
         return res.status(403).json({
           error: 'tier_restricted',
-          message: '2K Ultra HD resolution is reserved for Pro Studio ($125) and Enterprise ($139) plans. New and Free Starter accounts can generate at 1K Standard quality.',
+          message: '2K Ultra HD resolution is locked for your account. Please upgrade to Pro/Ultra plan or ask admin to unlock 2K generation.',
         });
       }
     }
 
-    /* check user credit balance if signed in */
-    const userCredits = req.user ? (typeof req.user.credits === 'number' ? req.user.credits : 10) : 10;
-    if (req.user && userCredits < creditsNeeded) {
+    /* Model generation limits (Total quota) */
+    const maxModels = typeof req.user.maxModels === 'number' ? req.user.maxModels : 0;
+    const modelsGenerated = typeof req.user.modelsGenerated === 'number' ? req.user.modelsGenerated : 0;
+    if (maxModels > 0 && modelsGenerated >= maxModels) {
+      return res.status(403).json({
+        error: 'model_limit_reached',
+        message: `You have reached your allocated model limit (${modelsGenerated}/${maxModels} models generated). Contact administrator to increase your model quota.`,
+      });
+    }
+
+    /* Daily Limit Check (Ultra plan: max 10 models/day) */
+    const lastReset = req.user.lastDailyReset ? new Date(req.user.lastDailyReset) : new Date(0);
+    const today = new Date();
+    const isSameDay = lastReset.getFullYear() === today.getFullYear() &&
+      lastReset.getMonth() === today.getMonth() &&
+      lastReset.getDate() === today.getDate();
+
+    let dailyModels = isSameDay ? Number(req.user.dailyModelsUsed || 0) : 0;
+
+    if (req.user.tier === 'ultra') {
+      if (dailyModels >= 10) {
+        return res.status(429).json({
+          error: 'daily_limit_reached',
+          message: 'Ultra plan daily quota reached: Maximum 10 models per day. Your quota will reset tomorrow.',
+        });
+      }
+    }
+
+    /* check user credit balance */
+    const userCredits = typeof req.user.credits === 'number' ? req.user.credits : 10;
+    if (userCredits < creditsNeeded) {
       return res.status(402).json({
         error: 'insufficient_credits',
         message: `You have ${userCredits} credit${userCredits === 1 ? '' : 's'} remaining, but ${creditsNeeded} credits are required for ${resolution.toUpperCase()} quality. Please upgrade your plan.`,
@@ -1181,12 +1231,21 @@ app.post('/api/generate', async (req, res) => {
         jobKeyMap.set(data.id, { requestKey, clearTimer });
       }
 
-      /* deduct credits if user is signed in */
+      /* deduct credits and increment model usage counters */
       let remainingCredits = userCredits;
       if (req.user && req.user._id) {
         remainingCredits = Math.max(0, userCredits - creditsNeeded);
-        await auth.patchUser(req.user._id, { credits: remainingCredits });
+        const nextModelsGenerated = (Number(req.user.modelsGenerated) || 0) + 1;
+        const nextDailyModels = dailyModels + 1;
+        await auth.patchUser(req.user._id, {
+          credits: remainingCredits,
+          modelsGenerated: nextModelsGenerated,
+          dailyModelsUsed: nextDailyModels,
+          lastDailyReset: isSameDay ? (req.user.lastDailyReset || now) : now,
+        });
         req.user.credits = remainingCredits;
+        req.user.modelsGenerated = nextModelsGenerated;
+        req.user.dailyModelsUsed = nextDailyModels;
       }
 
       res.json({ id: data.id, mode, credits: remainingCredits, creditsUsed: creditsNeeded });
@@ -1486,6 +1545,13 @@ app.get('/api/custom-requests', auth.requireUser, async (req, res) => {
 
 app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
   try {
+    if (req.user?.features?.customRequests === false) {
+      return res.status(403).json({
+        error: 'plan_locked',
+        message: 'Bespoke Custom Requests are locked on your current plan. Please upgrade to Pro or Ultra or contact admin to unlock.',
+      });
+    }
+
     const {
       cloth,
       model,
@@ -1511,32 +1577,54 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
     let modelUrl = model || '';
     const uploadedModels = [];
 
-    /* Upload or save data URLs */
-    try {
-      if (cloth && typeof cloth === 'string' && cloth.startsWith('data:')) {
-        const r = await uploadToCloudinary(cloth, userId, 'req-cloth');
-        clothUrl = r.secure_url || r.url;
-      }
-      if (model && typeof model === 'string' && model.startsWith('data:')) {
-        const r = await uploadToCloudinary(model, userId, 'req-model-1');
-        modelUrl = r.secure_url || r.url;
-      }
-      if (Array.isArray(modelImages)) {
-        for (let i = 0; i < Math.min(modelImages.length, 5); i += 1) {
-          const img = modelImages[i];
-          if (typeof img === 'string' && img.startsWith('data:')) {
-            const r = await uploadToCloudinary(img, userId, `req-model-${i + 1}`);
-            uploadedModels.push(r.secure_url || r.url);
-          } else if (typeof img === 'string' && img.trim()) {
-            uploadedModels.push(img.trim());
-          }
+    /* Process Garment */
+    if (cloth && typeof cloth === 'string') {
+      if (cloth.startsWith('data:')) {
+        try {
+          const r = await uploadToCloudinary(cloth, userId, 'req-cloth');
+          clothUrl = r.secure_url || r.url;
+        } catch {
+          clothUrl = await saveLocalAsset(cloth, 'sets', `${userId}-req-cloth`);
         }
+      } else {
+        clothUrl = cloth;
       }
-    } catch (cdnErr) {
-      console.warn('[custom-request] Upload fallback to local:', cdnErr.message);
     }
 
-    if (!modelUrl && uploadedModels.length > 0) {
+    /* Process all uploaded model poses individually */
+    const rawModelList = [];
+    if (Array.isArray(modelImages) && modelImages.length > 0) {
+      rawModelList.push(...modelImages.slice(0, 5));
+    } else if (model) {
+      rawModelList.push(model);
+    }
+
+    for (let i = 0; i < Math.min(rawModelList.length, 5); i += 1) {
+      const img = rawModelList[i];
+      if (!img) continue;
+      if (typeof img === 'string' && img.startsWith('data:')) {
+        try {
+          const r = await uploadToCloudinary(img, userId, `req-model-${i + 1}`);
+          if (r && (r.secure_url || r.url)) {
+            uploadedModels.push(r.secure_url || r.url);
+          } else {
+            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-model-${i + 1}`);
+            uploadedModels.push(loc);
+          }
+        } catch (mErr) {
+          try {
+            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-model-${i + 1}`);
+            uploadedModels.push(loc);
+          } catch {
+            uploadedModels.push(img);
+          }
+        }
+      } else if (typeof img === 'string' && img.trim()) {
+        uploadedModels.push(img.trim());
+      }
+    }
+
+    if (uploadedModels.length > 0) {
       modelUrl = uploadedModels[0];
     }
     const finalModelImages = uploadedModels.length > 0 ? uploadedModels : (modelUrl ? [modelUrl] : []);
@@ -1731,6 +1819,17 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
       tier: u.tier || 'free',
       maxVideos: typeof u.maxVideos === 'number' ? u.maxVideos : 15,
       videosGenerated: typeof u.videosGenerated === 'number' ? u.videosGenerated : 0,
+      maxModels: typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10),
+      modelsGenerated: typeof u.modelsGenerated === 'number' ? u.modelsGenerated : 0,
+      dailyModelsUsed: typeof u.dailyModelsUsed === 'number' ? u.dailyModelsUsed : 0,
+      dailyVideosUsed: typeof u.dailyVideosUsed === 'number' ? u.dailyVideosUsed : 0,
+      features: u.features || {
+        hd2k: u.tier !== 'free',
+        fivePose: u.tier !== 'free',
+        video: u.tier !== 'free',
+        customRequests: ['pro', 'ultra'].includes(u.tier),
+      },
+      planExpiresAt: u.planExpiresAt || null,
       createdAt: u.createdAt || null,
     }));
     items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -1815,8 +1914,11 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.credits === 'number') patch.credits = Math.max(0, Math.floor(body.credits));
     if (typeof body.maxVideos === 'number') patch.maxVideos = Math.max(0, Math.floor(body.maxVideos));
     if (typeof body.videosGenerated === 'number') patch.videosGenerated = Math.max(0, Math.floor(body.videosGenerated));
+    if (typeof body.maxModels === 'number') patch.maxModels = Math.max(0, Math.floor(body.maxModels));
+    if (typeof body.modelsGenerated === 'number') patch.modelsGenerated = Math.max(0, Math.floor(body.modelsGenerated));
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
+    if (typeof body.planExpiresAt === 'number') patch.planExpiresAt = body.planExpiresAt;
     if (body.features && typeof body.features === 'object') {
       patch.features = {
         hd2k: Boolean(body.features.hd2k),
@@ -1877,6 +1979,22 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
       return res.status(403).json({
         error: 'video_limit_reached',
         message: `You have reached your allocated video limit (${videosGenerated}/${maxVideos} videos generated). Please contact the administrator to increase your video quota.`,
+      });
+    }
+
+    /* Daily Limit Check (Ultra plan: max 1 video/day) */
+    const lastReset = req.user.lastDailyReset ? new Date(req.user.lastDailyReset) : new Date(0);
+    const today = new Date();
+    const isSameDay = lastReset.getFullYear() === today.getFullYear() &&
+      lastReset.getMonth() === today.getMonth() &&
+      lastReset.getDate() === today.getDate();
+
+    let dailyVideos = isSameDay ? Number(req.user.dailyVideosUsed || 0) : 0;
+
+    if (req.user.tier === 'ultra' && dailyVideos >= 1) {
+      return res.status(429).json({
+        error: 'daily_limit_reached',
+        message: 'Ultra plan daily video limit reached: Maximum 1 video per day. Your quota will reset tomorrow.',
       });
     }
 
@@ -1966,11 +2084,18 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
 
     let remainingCredits = userCredits;
     const newVideosGenerated = videosGenerated + 1;
+    const nextDailyVideos = dailyVideos + 1;
     if (req.user && req.user._id) {
       remainingCredits = Math.max(0, userCredits - creditsNeeded);
-      await auth.patchUser(req.user._id, { credits: remainingCredits, videosGenerated: newVideosGenerated });
+      await auth.patchUser(req.user._id, {
+        credits: remainingCredits,
+        videosGenerated: newVideosGenerated,
+        dailyVideosUsed: nextDailyVideos,
+        lastDailyReset: isSameDay ? (req.user.lastDailyReset || now) : now,
+      });
       req.user.credits = remainingCredits;
       req.user.videosGenerated = newVideosGenerated;
+      req.user.dailyVideosUsed = nextDailyVideos;
     }
 
     if (data.id) {
@@ -2039,6 +2164,43 @@ app.post('/api/collections/:id/items', auth.requireUser, async (req, res) => {
   await writeJson(COLLECTIONS_FILE, items);
   res.json(collection);
 });
+
+/* ---------------------------------------------------- cronjob for daily reset & monthly expiry */
+async function runDailyAndExpiryMaintenance() {
+  try {
+    const rawUsers = await auth.getAllUsers();
+    const now = Date.now();
+    for (const u of rawUsers) {
+      const updates = {};
+      // 1. Reset daily limits if new calendar day
+      if (u.lastDailyReset) {
+        const last = new Date(u.lastDailyReset);
+        const today = new Date();
+        const isSame =
+          last.getFullYear() === today.getFullYear() &&
+          last.getMonth() === today.getMonth() &&
+          last.getDate() === today.getDate();
+        if (!isSame && ((u.dailyModelsUsed || 0) > 0 || (u.dailyVideosUsed || 0) > 0)) {
+          updates.dailyModelsUsed = 0;
+          updates.dailyVideosUsed = 0;
+          updates.lastDailyReset = now;
+        }
+      }
+      // 2. Monthly plan expiry check
+      if (u.planExpiresAt && now > u.planExpiresAt && u.tier && u.tier !== 'free') {
+        updates.tier = 'free';
+      }
+      if (Object.keys(updates).length > 0) {
+        await auth.patchUser(u._id, updates);
+      }
+    }
+  } catch (err) {
+    console.warn('[maintenance-cron] Cycle notice:', err.message);
+  }
+}
+
+setInterval(runDailyAndExpiryMaintenance, 30 * 60 * 1000);
+setTimeout(runDailyAndExpiryMaintenance, 5000);
 
 /* production build, if present */
 const dist = path.join(ROOT, 'dist');
