@@ -21,7 +21,7 @@ export default function About() {
     college: 'Atma Ram Sanatan Dharma (ARSD) College, University of Delhi',
     degree: 'B.Sc. Computer Science',
     year: '3rd Year Undergraduate Student',
-    email: 'ipawankumar015221684@gmail.com',
+    email: 'lpawankumar015221684@gmail.com',
     mobile: '6398743132',
     avatar: '',
     bio: 'Pawan Kumar is a software engineer and AI researcher currently in his 3rd year studying B.Sc. Computer Science at ARSD College, University of Delhi. He conceptualized and engineered the Shiv-Naresh AI Virtual Try-On Studio to pioneer next-generation athletic e-commerce in India.',

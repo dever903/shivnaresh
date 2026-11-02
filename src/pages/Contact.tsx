@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from '../lib/theme';
+import { api } from '../lib/api';
 import SiteFooter from '../components/SiteFooter';
 
 export default function Contact() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
+
+  const [profile, setProfile] = useState({
+    name: 'Pawan Kumar',
+    email: 'lpawankumar015221684@gmail.com',
+    mobile: '6398743132',
+  });
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,11 +20,40 @@ export default function Contact() {
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.developerProfile();
+        if (res.name) {
+          setProfile({
+            name: res.name || 'Pawan Kumar',
+            email: res.email || 'lpawankumar015221684@gmail.com',
+            mobile: res.mobile || '6398743132',
+          });
+        }
+      } catch {
+        /* fallback to defaults */
+      }
+    })();
+  }, []);
+
+  const waText = `Hello SHIV-NARESH Support,
+
+Name: ${name || 'Customer'}
+Email: ${email || 'Not specified'}
+Phone: ${phone || 'Not specified'}
+Subject: ${subject}
+Message: ${message}`;
+
+  const waUrl = `https://api.whatsapp.com/send/?phone=91${profile.mobile}&text=${encodeURIComponent(waText)}`;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formatted = `Hello SHIV-NARESH Support,%0A%0AMy Name: ${encodeURIComponent(name)}%0AEmail: ${encodeURIComponent(email)}%0APhone: ${encodeURIComponent(phone)}%0ASubject: ${encodeURIComponent(subject)}%0AMessage: ${encodeURIComponent(message)}`;
-    window.open(`https://wa.me/916398743132?text=${formatted}`, '_blank');
     setSent(true);
+    const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      window.location.href = waUrl;
+    }
   }
 
   return (
@@ -91,7 +127,7 @@ export default function Contact() {
                 Send your payment screenshot or 12-digit transaction ID directly to our master admin for fast account activation.
               </p>
               <a
-                href="https://wa.me/916398743132?text=Hello%20SHIV-NARESH%20Admin%2C%20I%20need%20support%20with%20AI%20Studio."
+                href={`https://api.whatsapp.com/send/?phone=91${profile.mobile}&text=${encodeURIComponent('Hello SHIV-NARESH Admin, I need support with AI Studio.')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors shadow-lg"
@@ -106,8 +142,8 @@ export default function Contact() {
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
               <p className="text-[10px] uppercase font-bold tracking-wider opacity-50">Direct Calling Line</p>
-              <a href="tel:+916398743132" className="text-xl font-mono font-bold text-[#e5373f] hover:underline block">
-                +91 6398743132
+              <a href={`tel:+91${profile.mobile}`} className="text-xl font-mono font-bold text-[#e5373f] hover:underline block">
+                +91 {profile.mobile}
               </a>
               <p className="text-[11px] opacity-60">Available 9:00 AM &ndash; 11:00 PM IST</p>
             </div>
@@ -118,8 +154,8 @@ export default function Contact() {
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
               <p className="text-[10px] uppercase font-bold tracking-wider opacity-50">Inquiry & Billing Email</p>
-              <a href="mailto:ipawankumar015221684@gmail.com" className="text-sm font-semibold hover:underline block truncate text-[#e5373f]">
-                ipawankumar015221684@gmail.com
+              <a href={`mailto:${profile.email}`} className="text-sm font-semibold hover:underline block truncate text-[#e5373f]">
+                {profile.email}
               </a>
               <p className="text-[11px] opacity-60">General inquiries, partnership & billing</p>
             </div>
@@ -144,8 +180,17 @@ export default function Contact() {
             </p>
 
             {sent && (
-              <div className="mt-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 p-4 text-xs text-emerald-400">
-                ✓ Message constructed! Your WhatsApp chat has been opened. Our admin will respond promptly.
+              <div className="mt-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 p-4 text-xs text-emerald-400 space-y-2">
+                <p className="font-bold">✓ Message constructed! Your WhatsApp chat is ready.</p>
+                <p className="text-[11px] text-white/70">If WhatsApp did not open automatically, click the direct button below:</p>
+                <a
+                  href={waUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white uppercase tracking-wider hover:bg-emerald-500 transition shadow"
+                >
+                  💬 Open WhatsApp Chat (+91 {profile.mobile})
+                </a>
               </div>
             )}
 

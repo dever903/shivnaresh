@@ -30,7 +30,7 @@ export default function SiteFooter() {
                 <strong>Pawan Kumar</strong> &middot; ARSD College (University of Delhi), B.Sc. CS 3rd Year
               </p>
               <p className="text-[11px] opacity-70 mt-0.5">
-                Direct Contact: <a href="tel:+916398743132" className="text-[#e5373f] hover:underline">+91 6398743132</a> &middot; <a href="mailto:ipawankumar015221684@gmail.com" className="hover:underline">ipawankumar015221684@gmail.com</a>
+                Direct Contact: <a href="tel:+916398743132" className="text-[#e5373f] hover:underline">+91 6398743132</a> &middot; <a href="mailto:lpawankumar015221684@gmail.com" className="hover:underline">lpawankumar015221684@gmail.com</a>
               </p>
             </div>
           </div>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { Check, ShieldCheck, Zap, Sparkles, Building2, HelpCircle, ArrowRight, QrCode, MessageSquare, AlertCircle, ExternalLink, X } from 'lucide-react';
 import SiteFooter from '../components/SiteFooter';
 
@@ -128,8 +129,9 @@ export default function Pricing() {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [qrMode, setQrMode] = useState<'dynamic' | 'official'>('dynamic');
+  const [qrMode, setQrMode] = useState<'card' | 'dynamic'>('card');
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [localQrSvg, setLocalQrSvg] = useState<string>('');
 
   const handleChoosePlan = (plan: Plan) => {
     if (plan.priceUSD === 0) {
@@ -147,11 +149,24 @@ export default function Pricing() {
 
   const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * USD_TO_INR) : 0;
   const upiId = '6398743132@ptaxis';
-  const payeeName = 'Pawan Kumar';
+  const payeeName = 'PAWAN KUMAR';
   const upiPayLink = selectedPlan 
     ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
-    : '';
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiPayLink)}`;
+    : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&cu=INR`;
+
+  useEffect(() => {
+    if (!upiPayLink) return;
+    QRCode.toString(upiPayLink, {
+      type: 'svg',
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    })
+      .then((svg) => {
+        setLocalQrSvg(svg);
+      })
+      .catch((err) => console.error('QR code generation error:', err));
+  }, [upiPayLink]);
 
   const handleCopyUpi = () => {
     navigator.clipboard.writeText(upiId);
@@ -159,15 +174,17 @@ export default function Pricing() {
     setTimeout(() => setCopiedUpi(false), 2500);
   };
 
-  const handleSendWhatsApp = () => {
-    if (!paymentDone || !transactionId.trim()) {
-      alert('Please check "I have completed the payment" and provide your 12-digit Transaction ID / UTR.');
-      return;
-    }
-    const message = `*NEW PLAN SUBSCRIPTION ORDER*%0A%0A*Plan:* ${selectedPlan?.name}%0A*Amount:* $${selectedPlan?.priceUSD} (₹${inrAmount.toLocaleString('en-IN')})%0A*Name:* ${userName || 'Customer'}%0A*Email:* ${userEmail || 'Not specified'}%0A*Transaction ID / UTR:* ${transactionId.trim()}%0A%0A_Please verify payment and activate my plan within 30 minutes._`;
-    window.open(`https://wa.me/916398743132?text=${message}`, '_blank');
-    setSubmitted(true);
-  };
+  const waOrderText = `*NEW PLAN SUBSCRIPTION ORDER*
+  
+*Plan:* ${selectedPlan?.name || 'Pro'}
+*Amount:* $${selectedPlan?.priceUSD} (₹${inrAmount.toLocaleString('en-IN')})
+*Name:* ${userName.trim() || 'Customer'}
+*Email:* ${userEmail.trim() || 'lpawankumar015221684@gmail.com'}
+*Transaction ID / UTR:* ${transactionId.trim() || 'Pending verification'}
+
+_Please verify payment and activate my plan within 30 minutes._`;
+
+  const waLink = `https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(waOrderText)}`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans antialiased selection:bg-amber-500 selection:text-black">
@@ -454,6 +471,17 @@ export default function Pricing() {
             <div className="flex items-center justify-center gap-1.5 p-1 rounded-2xl bg-slate-950 border border-slate-800 mb-4 max-w-xs mx-auto">
               <button
                 type="button"
+                onClick={() => setQrMode('card')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  qrMode === 'card'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Official Paytm Card
+              </button>
+              <button
+                type="button"
                 onClick={() => setQrMode('dynamic')}
                 className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
                   qrMode === 'dynamic'
@@ -463,56 +491,62 @@ export default function Pricing() {
               >
                 Instant Amount QR
               </button>
-              <button
-                type="button"
-                onClick={() => setQrMode('official')}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                  qrMode === 'official'
-                    ? 'bg-amber-500 text-black shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Official Paytm QR
-              </button>
             </div>
 
             {/* QR Code Container */}
             <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-4 text-slate-900">
-              {qrMode === 'dynamic' ? (
-                <div className="text-center">
-                  <img
-                    src={qrCodeUrl}
-                    alt="UPI Payment QR Code"
-                    className="w-52 h-52 object-contain mx-auto rounded-lg"
-                  />
-                  <div className="mt-2.5 pt-2 border-t border-slate-200">
-                    <p className="text-xs font-extrabold text-slate-900">Pawan Kumar &middot; Paytm</p>
-                    <p className="text-[11px] font-mono text-slate-600 mt-0.5">{upiId}</p>
-                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                      Auto-fills ₹{inrAmount.toLocaleString('en-IN')}
-                    </span>
+              {qrMode === 'card' ? (
+                <div className="text-center max-w-[260px]">
+                  <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-slate-50">
+                    <img
+                      src="/paytm-qr-card.jpg"
+                      alt="Pawan Kumar Official Paytm Payment Card"
+                      className="w-full h-auto object-contain block mx-auto"
+                    />
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-slate-100">
+                    <p className="text-xs font-black text-slate-900">Pawan Kumar &middot; Verified Merchant</p>
+                    <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
+                    <p className="text-[10px] text-slate-500">State Bank of India &middot; 9248</p>
                   </div>
                 </div>
               ) : (
-                <div className="text-center max-w-[240px]">
-                  <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm max-h-64 overflow-y-auto">
-                    <img
-                      src="/paytm-qr.jpg"
-                      alt="Pawan Kumar Paytm QR Code"
-                      className="w-full h-auto object-cover"
+                <div className="text-center">
+                  {localQrSvg ? (
+                    <div
+                      className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg shadow-sm bg-white p-2"
+                      dangerouslySetInnerHTML={{ __html: localQrSvg }}
                     />
+                  ) : (
+                    <div className="w-56 h-56 flex flex-col items-center justify-center bg-slate-100 rounded-lg text-xs text-slate-500">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
+                      Loading UPI QR...
+                    </div>
+                  )}
+                  <div className="mt-2.5 pt-2 border-t border-slate-200">
+                    <p className="text-xs font-extrabold text-slate-900">PAWAN KUMAR &middot; Paytm UPI</p>
+                    <p className="text-[11px] font-mono text-slate-600 font-semibold mt-0.5">{upiId}</p>
+                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                      Auto-bills ₹{inrAmount.toLocaleString('en-IN')}
+                    </span>
                   </div>
-                  <p className="text-xs font-bold text-slate-900 mt-2">Pawan Kumar (Paytm Verified)</p>
-                  <p className="text-[10px] font-mono text-slate-600">{upiId}</p>
                 </div>
               )}
             </div>
 
+            {/* 1-Tap Mobile UPI Payment Link */}
+            <a
+              href={upiPayLink}
+              className="mb-3 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98"
+            >
+              ⚡ 1-Tap Open UPI App (GPay / Paytm / PhonePe)
+            </a>
+
             {/* UPI ID Copy Card */}
-            <div className="flex items-center justify-between rounded-xl bg-slate-950 border border-slate-800 p-2.5 mb-4">
+            <div className="flex items-center justify-between rounded-xl bg-slate-950 border border-slate-800 p-2.5 mb-3">
               <div className="text-left">
-                <span className="text-[10px] uppercase font-bold text-slate-500 block">Pay to UPI ID:</span>
-                <span className="text-xs font-mono font-bold text-amber-400">{upiId}</span>
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">Payee UPI ID:</span>
+                <span className="text-xs font-mono font-bold text-amber-400 select-all">{upiId}</span>
               </div>
               <button
                 type="button"
@@ -524,26 +558,26 @@ export default function Pricing() {
             </div>
 
             <p className="text-[11px] text-center text-slate-400 mb-4">
-              Scan with any UPI app (Paytm, Google Pay, PhonePe, BHIM) to pay <strong className="text-white">₹{inrAmount.toLocaleString('en-IN')}</strong>.
+              Scan QR or pay to <strong className="text-amber-400 font-mono">{upiId}</strong> (PAWAN KUMAR) ₹{inrAmount.toLocaleString('en-IN')}.
             </p>
 
             {/* Form Fields */}
-            <div className="space-y-3 mb-5">
+            <div className="space-y-3 mb-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">Your Full Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Pawan Kumar"
+                  placeholder="e.g. Rahul Sharma"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">Your Registered Account Email</label>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">Your Account Email</label>
                 <input
                   type="email"
-                  placeholder="e.g. user@shivnaresh.com"
+                  placeholder="e.g. rahul@example.com"
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none"
@@ -562,7 +596,7 @@ export default function Pricing() {
               </div>
 
               {/* Checkbox confirmation */}
-              <label className="flex items-start gap-2.5 pt-2 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={paymentDone}
@@ -570,32 +604,59 @@ export default function Pricing() {
                   className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
                 />
                 <span className="text-xs text-slate-300 leading-snug">
-                  I have completed the payment of <strong className="text-amber-400">₹{inrAmount.toLocaleString('en-IN')}</strong> via UPI.
+                  I have transferred <strong className="text-amber-400">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via UPI.
                 </span>
               </label>
             </div>
 
             {/* Notice */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center mb-5">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-center mb-4">
               <p className="text-[11px] text-amber-300 font-semibold leading-tight">
-                ⚡ Under 30 minutes plan will be manually activated by admin after WhatsApp submission.
+                ⚡ Under 30 minutes activation: Admin verifies your UTR & adds credits directly.
               </p>
             </div>
 
-            {/* Action Button */}
-            <button
-              onClick={handleSendWhatsApp}
-              disabled={!paymentDone || !transactionId.trim()}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all active:scale-98"
+            {/* Primary Action Button */}
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSubmitted(true)}
+              className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white cursor-pointer shadow-emerald-900/30"
             >
               <MessageSquare className="w-4 h-4" />
-              Submit & Send on WhatsApp
-            </button>
+              {transactionId.trim() ? 'Submit & Send UTR on WhatsApp →' : 'Send Payment Confirmation on WhatsApp →'}
+            </a>
+
+            {/* Direct Support WhatsApp Link Always Visible */}
+            <div className="mt-3 pt-3 border-t border-slate-800 text-center">
+              <a
+                href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I have a query about the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1.5"
+              >
+                💬 Need help? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
+              </a>
+            </div>
 
             {submitted && (
-              <p className="text-[11px] text-center text-emerald-400 font-semibold mt-3 animate-pulse">
-                ✓ WhatsApp opened! Our admin team will verify and activate your credits within 30 minutes.
-              </p>
+              <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
+                <p className="text-xs text-emerald-400 font-bold">
+                  ✓ Order Submitted! Admin will verify and activate your plan within 30 minutes.
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  If WhatsApp didn't open automatically, click the direct link below:
+                </p>
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow transition"
+                >
+                  💬 Open WhatsApp Chat (+91 6398743132)
+                </a>
+              </div>
             )}
           </div>
         </div>

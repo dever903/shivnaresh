@@ -130,9 +130,24 @@ export default function Admin() {
     maxVideos?: number;
     maxModels?: number;
     creditsLocked?: boolean;
+    features?: { hd2k?: boolean; fivePose?: boolean; video?: boolean; customRequests?: boolean };
     saving?: boolean;
     saved?: boolean;
   }>>({});
+
+  /* Developer Profile & Contact State */
+  const [devProfile, setDevProfile] = useState({
+    name: 'Pawan Kumar',
+    college: 'ARSD College, University of Delhi',
+    degree: 'B.Sc. Computer Science',
+    year: '3rd Year Student',
+    email: 'lpawankumar015221684@gmail.com',
+    mobile: '6398743132',
+    bio: '',
+    avatar: '',
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
 
   /* Fashn Live Credits State */
   const [fashnCredits, setFashnCredits] = useState<FashnCredits | null>(null);
@@ -267,6 +282,23 @@ export default function Admin() {
     setResendFromEmail(s.resendFromEmail || 'Shiv-Naresh AI Studio <onboarding@resend.dev>');
     setAdmin2faEnabled(Boolean(s.admin2faEnabled));
     setDeveloperImageUrl(s.developerImageUrl || '');
+    try {
+      const dp = await api.developerProfile();
+      if (dp.name) {
+        setDevProfile({
+          name: dp.name || 'Pawan Kumar',
+          college: dp.college || 'ARSD College, University of Delhi',
+          degree: dp.degree || 'B.Sc. Computer Science',
+          year: dp.year || '3rd Year Student',
+          email: dp.email || 'lpawankumar015221684@gmail.com',
+          mobile: dp.mobile || '6398743132',
+          bio: dp.bio || '',
+          avatar: dp.avatar || s.developerImageUrl || '',
+        });
+      }
+    } catch {
+      /* ignore */
+    }
     if (m.categories.length > 0 && !uploadModelCat) {
       setUploadModelCat(m.categories[0].category);
     }
@@ -556,6 +588,19 @@ ${log.stack || 'None'}
     }
   }
 
+  async function saveDeveloperProfile() {
+    setSavingProfile(true);
+    try {
+      await api.updateDeveloperProfile(devProfile);
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save developer profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
   async function handleSaveUserRow(user: AdminUser) {
     const edits = userRowEdits[user.id] || {};
     const payload = {
@@ -564,6 +609,7 @@ ${log.stack || 'None'}
       maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? 15),
       maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? 50),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
+      features: edits.features !== undefined ? edits.features : (user.features || {}),
     };
     setUserRowEdits((prev) => ({
       ...prev,
@@ -1676,6 +1722,7 @@ ${log.stack || 'None'}
                 <th className="py-4 px-3">Credits</th>
                 <th className="py-4 px-3">Video Limit</th>
                 <th className="py-4 px-3">Model Quota</th>
+                <th className="py-4 px-3">Feature Toggles</th>
                 <th className="py-4 px-3">Credit Lock</th>
                 <th className="py-4 px-6 text-right">Individual Save & Delete</th>
               </tr>
@@ -1779,6 +1826,94 @@ ${log.stack || 'None'}
                           isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-cyan-400'
                         }`}
                       />
+                    </td>
+
+                    {/* Feature Toggles */}
+                    <td className="py-4 px-3">
+                      {(() => {
+                        const currentFeatures = edits.features || user.features || {
+                          hd2k: user.tier !== 'free',
+                          fivePose: user.tier !== 'free',
+                          video: user.tier !== 'free',
+                          customRequests: user.tier === 'ultra' || user.tier === 'pro',
+                        };
+                        return (
+                          <div className="flex flex-wrap gap-1 max-w-[170px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = { ...currentFeatures, hd2k: !currentFeatures.hd2k };
+                                setUserRowEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: { ...(prev[user.id] || {}), features: next },
+                                }));
+                              }}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                                currentFeatures.hd2k
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                              }`}
+                              title="Toggle 2K Ultra HD Generation"
+                            >
+                              2K {currentFeatures.hd2k ? '✓' : '✗'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = { ...currentFeatures, fivePose: !currentFeatures.fivePose };
+                                setUserRowEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: { ...(prev[user.id] || {}), features: next },
+                                }));
+                              }}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                                currentFeatures.fivePose
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                              }`}
+                              title="Toggle 5-Pose Sequence"
+                            >
+                              5-Pose {currentFeatures.fivePose ? '✓' : '✗'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = { ...currentFeatures, video: !currentFeatures.video };
+                                setUserRowEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: { ...(prev[user.id] || {}), features: next },
+                                }));
+                              }}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                                currentFeatures.video
+                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                              }`}
+                              title="Toggle Runway Video"
+                            >
+                              Video {currentFeatures.video ? '✓' : '✗'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = { ...currentFeatures, customRequests: !currentFeatures.customRequests };
+                                setUserRowEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: { ...(prev[user.id] || {}), features: next },
+                                }));
+                              }}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                                currentFeatures.customRequests
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                              }`}
+                              title="Toggle Bespoke Custom Requests"
+                            >
+                              Custom {currentFeatures.customRequests ? '✓' : '✗'}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Account Lock Status */}
@@ -2143,36 +2278,133 @@ ${log.stack || 'None'}
           </div>
         </section>
 
-        {/* Developer Profile Settings (/about) */}
+        {/* Developer Profile & Contact Settings (/about & /contact) */}
         <section className={cardClass}>
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Developer Profile (/about page)</h3>
-            {pill(Boolean(developerImageUrl), 'Photo Active', 'Default Avatar')}
-          </div>
-          <div className="mt-3 space-y-3">
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Developer Profile Image URL</label>
+              <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Developer Profile & Contact Settings</h3>
+              <p className="text-[11px] opacity-40">Directly updates /about and /contact pages</p>
+            </div>
+            {pill(Boolean(devProfile.name), 'Customized Profile', 'Default')}
+          </div>
+          <div className="mt-4 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Developer Name</label>
+                <input
+                  type="text"
+                  value={devProfile.name}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Pawan Kumar"
+                  className={`${inputClass} mt-1`}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">College / Institution</label>
+                <input
+                  type="text"
+                  value={devProfile.college}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, college: e.target.value }))}
+                  placeholder="ARSD College, University of Delhi"
+                  className={`${inputClass} mt-1`}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Degree</label>
+                <input
+                  type="text"
+                  value={devProfile.degree}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, degree: e.target.value }))}
+                  placeholder="B.Sc. Computer Science"
+                  className={`${inputClass} mt-1`}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Year / Classification</label>
+                <input
+                  type="text"
+                  value={devProfile.year}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, year: e.target.value }))}
+                  placeholder="3rd Year Student"
+                  className={`${inputClass} mt-1`}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Official Email (Contact &amp; About)</label>
+                <input
+                  type="email"
+                  value={devProfile.email}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="lpawankumar015221684@gmail.com"
+                  className={`${inputClass} mt-1`}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Official Mobile / WhatsApp Number</label>
+                <input
+                  type="text"
+                  value={devProfile.mobile}
+                  onChange={(e) => setDevProfile((prev) => ({ ...prev, mobile: e.target.value }))}
+                  placeholder="6398743132"
+                  className={`${inputClass} mt-1 font-mono`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Developer Profile Image URL / Data URL</label>
               <input
                 type="text"
-                value={developerImageUrl}
-                onChange={(e) => setDeveloperImageUrl(e.target.value)}
+                value={devProfile.avatar}
+                onChange={(e) => {
+                  setDevProfile((prev) => ({ ...prev, avatar: e.target.value }));
+                  setDeveloperImageUrl(e.target.value);
+                }}
                 placeholder="https://... image link or data URL"
                 className={`${inputClass} mt-1`}
               />
             </div>
-            {developerImageUrl && (
-              <div className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10">
-                <img
-                  src={developerImageUrl}
-                  alt="Developer preview"
-                  className="w-12 h-12 rounded-full object-cover border border-amber-500"
-                />
-                <div className="text-xs">
-                  <p className="font-bold text-white">Pawan Kumar</p>
-                  <p className="text-[11px] opacity-60">ARSD College, DU (B.Sc. Computer Science)</p>
+
+            <div>
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-50">Bio / About Studio Story</label>
+              <textarea
+                rows={3}
+                value={devProfile.bio}
+                onChange={(e) => setDevProfile((prev) => ({ ...prev, bio: e.target.value }))}
+                placeholder="Story of the developer and the studio..."
+                className={`mt-1 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              {devProfile.avatar ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={devProfile.avatar}
+                    alt="Developer preview"
+                    className="w-10 h-10 rounded-full object-cover border border-amber-500"
+                  />
+                  <span className="text-xs font-semibold">{devProfile.name}</span>
                 </div>
-              </div>
-            )}
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={() => void saveDeveloperProfile()}
+                disabled={savingProfile}
+                className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 text-xs font-bold uppercase tracking-wider transition shadow-md"
+              >
+                {savingProfile ? 'Saving…' : profileSaved ? '✓ Profile Saved!' : '💾 Save Profile & Contact Info'}
+              </button>
+            </div>
           </div>
         </section>
       </div>

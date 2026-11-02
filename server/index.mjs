@@ -426,16 +426,38 @@ app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
 
 app.get('/api/developer-profile', async (_req, res) => {
   const s = await readState();
+  const dp = s.developerProfile || {};
   res.json({
-    name: 'Pawan Kumar',
-    college: 'ARSD College, University of Delhi',
-    degree: 'B.Sc. Computer Science',
-    year: '3rd Year Student',
-    email: 'ipawankumar015221684@gmail.com',
-    mobile: '6398743132',
-    avatar: s.developerImageUrl || '',
-    bio: 'Full-stack AI developer passionate about athletic apparel generative computing, real-time virtual try-ons, and high-performance e-commerce experiences.',
+    name: dp.name || 'Pawan Kumar',
+    college: dp.college || 'ARSD College, University of Delhi',
+    degree: dp.degree || 'B.Sc. Computer Science',
+    year: dp.year || '3rd Year Student',
+    email: dp.email || 'lpawankumar015221684@gmail.com',
+    mobile: dp.mobile || '6398743132',
+    avatar: dp.avatar || s.developerImageUrl || '',
+    bio: dp.bio || 'Pawan Kumar is a software engineer and AI researcher currently in his 3rd year studying B.Sc. Computer Science at ARSD College, University of Delhi. He conceptualized and engineered the Shiv-Naresh AI Virtual Try-On Studio to pioneer next-generation athletic e-commerce in India.',
   });
+});
+
+app.put('/api/admin/developer-profile', requireAdmin, async (req, res) => {
+  const body = req.body || {};
+  const s = await readState();
+  const current = s.developerProfile || {};
+  const updatedProfile = {
+    name: typeof body.name === 'string' ? body.name.trim() : current.name || 'Pawan Kumar',
+    college: typeof body.college === 'string' ? body.college.trim() : current.college || 'ARSD College, University of Delhi',
+    degree: typeof body.degree === 'string' ? body.degree.trim() : current.degree || 'B.Sc. Computer Science',
+    year: typeof body.year === 'string' ? body.year.trim() : current.year || '3rd Year Student',
+    email: typeof body.email === 'string' ? body.email.trim() : current.email || 'lpawankumar015221684@gmail.com',
+    mobile: typeof body.mobile === 'string' ? body.mobile.trim() : current.mobile || '6398743132',
+    bio: typeof body.bio === 'string' ? body.bio.trim() : current.bio || '',
+    avatar: typeof body.avatar === 'string' ? body.avatar.trim() : current.avatar || s.developerImageUrl || '',
+  };
+  await updateState({
+    developerProfile: updatedProfile,
+    ...(updatedProfile.avatar ? { developerImageUrl: updatedProfile.avatar } : {}),
+  });
+  res.json({ ok: true, profile: updatedProfile });
 });
 
 app.put('/api/admin/settings', requireAdmin, async (req, res) => {
@@ -1757,6 +1779,14 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.videosGenerated === 'number') patch.videosGenerated = Math.max(0, Math.floor(body.videosGenerated));
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
+    if (body.features && typeof body.features === 'object') {
+      patch.features = {
+        hd2k: Boolean(body.features.hd2k),
+        fivePose: Boolean(body.features.fivePose),
+        video: Boolean(body.features.video),
+        customRequests: Boolean(body.features.customRequests),
+      };
+    }
 
     await auth.patchUser(id, patch);
     const updated = await auth.findUserById(id);

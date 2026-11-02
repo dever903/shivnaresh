@@ -240,6 +240,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
           maxVideos: typeof user.maxVideos === 'number' ? user.maxVideos : 15,
           videosGenerated: typeof user.videosGenerated === 'number' ? user.videosGenerated : 0,
           admin2fa: Boolean(user.admin2fa),
+          features: {
+            hd2k: user.features?.hd2k !== undefined ? Boolean(user.features.hd2k) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
+            fivePose: user.features?.fivePose !== undefined ? Boolean(user.features.fivePose) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
+            video: user.features?.video !== undefined ? Boolean(user.features.video) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
+            customRequests: user.features?.customRequests !== undefined ? Boolean(user.features.customRequests) : ['pro', 'ultra'].includes(user.tier),
+          },
         }
       : null;
 

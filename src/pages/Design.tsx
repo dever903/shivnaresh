@@ -120,6 +120,38 @@ function ImageConfirmPopup({
   );
 }
 
+export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Media Preview') {
+  if (!mediaUrl) return;
+  if (mediaUrl.startsWith('data:')) {
+    try {
+      const arr = mediaUrl.split(',');
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank');
+      if (!win) {
+        window.location.href = blobUrl;
+      }
+      return;
+    } catch {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>body{margin:0;background:#08080a;display:flex;justify-content:center;align-items:center;min-height:100vh;}img{max-width:98vw;max-height:98vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);}</style></head><body><img src="${mediaUrl}" alt="${title}" /></body></html>`);
+        win.document.close();
+        return;
+      }
+    }
+  }
+  window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+}
+
 /* ----------------------------------------------------------------
    SLA 24-48h Confirmation Popup for Custom Requests
    ---------------------------------------------------------------- */
@@ -1689,14 +1721,13 @@ function CustomRequestsPanel({
                         >
                           <span>⬇</span> Download High-Res Render
                         </a>
-                        <a
-                          href={req.deliveredImageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => safeOpenMediaInNewTab(req.deliveredImageUrl || '', `Bespoke Custom Request #${req.id} Render`)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           <span>🔗</span> Open in New Tab
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ) : req.adminReply ? (
@@ -3756,6 +3787,54 @@ export default function Design() {
                         <p className={`font-medium ${isLight ? 'text-gray-900' : 'text-white'}`}>Selected Model</p>
                         <p className={isLight ? 'text-gray-500' : 'text-white/40'}>{model.name}</p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees the 5 poses selected) */}
+                  {poseMode === '5-pose' && (
+                    <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-300 bg-amber-50/70' : 'border-amber-500/40 bg-amber-500/10'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-xs uppercase tracking-wider text-amber-400">
+                            ⚡ 5 Selected Poses for Multi-Angle Generation
+                          </span>
+                          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 border border-amber-500/30">
+                            5 Poses Active
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-amber-300/80 font-medium">1 Command &rarr; 5 Poses</span>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-2">
+                        {FIVE_POSES_SPECS.map((spec, idx) => (
+                          <div
+                            key={spec.id}
+                            className={`relative rounded-xl border p-2 flex flex-col items-center text-center transition ${
+                              model ? 'border-amber-500/50 bg-black/60 shadow-sm' : 'border-white/10 bg-black/30'
+                            }`}
+                          >
+                            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
+                              {model ? (
+                                <img
+                                  src={model.preview ?? model.url}
+                                  alt={spec.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xl opacity-60">{spec.icon}</span>
+                              )}
+                              <span className="absolute top-1 left-1 rounded bg-black/80 px-1 py-0.2 text-[8px] font-bold text-amber-400">
+                                #{idx + 1}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold truncate max-w-full text-white">{spec.name}</span>
+                            <span className="text-[9px] opacity-60 font-mono text-amber-200">{spec.angle}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2.5 text-[10px] text-amber-300/90 leading-relaxed text-center">
+                        ✓ All 5 angles will be sequentially synthesized in 1 single command using your chosen model and garment.
+                      </p>
                     </div>
                   )}
 

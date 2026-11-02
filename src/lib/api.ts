@@ -73,9 +73,15 @@ export type User = {
   createdAt: string | null;
   credits: number;
   creditsLocked?: boolean;
-  tier?: 'free' | 'pro' | 'enterprise';
+  tier?: string;
   maxVideos?: number;
   videosGenerated?: number;
+  features?: {
+    hd2k?: boolean;
+    fivePose?: boolean;
+    video?: boolean;
+    customRequests?: boolean;
+  };
 };
 
 export type CustomRequest = {
@@ -142,6 +148,12 @@ export type AdminUser = {
   maxModels?: number;
   videosGenerated?: number;
   modelsGenerated?: number;
+  features?: {
+    hd2k?: boolean;
+    fivePose?: boolean;
+    video?: boolean;
+    customRequests?: boolean;
+  };
   createdAt: string | null;
 };
 
@@ -311,6 +323,16 @@ export const api = {
       avatar: string;
       bio: string;
     }>('/api/developer-profile'),
+  updateDeveloperProfile: (body: {
+    name?: string;
+    college?: string;
+    degree?: string;
+    year?: string;
+    email?: string;
+    mobile?: string;
+    avatar?: string;
+    bio?: string;
+  }) => request<{ ok: boolean; profile: Record<string, string> }>('/api/admin/developer-profile', { ...json(body), method: 'PUT' }),
 
   /* user generations library (images & videos in My Sets) */
   userGenerations: () => request<{ items: UserGeneration[] }>('/api/user/generations'),
