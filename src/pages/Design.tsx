@@ -3047,7 +3047,7 @@ export default function Design() {
 
   return (
     <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${
-      isLight ? 'bg-[#f4f5f8] text-gray-900' : 'bg-[#08080a] text-white'
+      isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
     }`}>
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (

@@ -527,12 +527,13 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
   const sendBrevoEmail = ({ toEmail, subject, html }) => {
     return new Promise((resolve, reject) => {
-      const data = JSON.stringify({
+      const payload = JSON.stringify({
         sender: { name: 'Shiv-Naresh AI Studio', email: PRIMARY_ADMIN_EMAIL },
         to: [{ email: toEmail }],
         subject,
         htmlContent: html,
       });
+      const data = Buffer.from(payload, 'utf-8');
       const req = https.request(
         {
           hostname: 'api.brevo.com',
@@ -544,6 +545,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
             'content-type': 'application/json',
             'content-length': data.length,
           },
+          timeout: 10000,
         },
         (res) => {
           let body = '';
@@ -557,6 +559,9 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
           });
         }
       );
+      req.on('timeout', () => {
+        req.destroy(new Error('Brevo request timed out after 10s'));
+      });
       req.on('error', reject);
       req.write(data);
       req.end();

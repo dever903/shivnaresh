@@ -371,7 +371,7 @@ export default function Admin() {
         const [session, a] = await Promise.all([api.me(), api.adminAccess()]);
         setMe(session.user);
         setAccess(a);
-        if (!a.signedIn || !a.admin) {
+        if (!a.signedIn) {
           window.location.replace('/login?next=%2Fadmin');
           return;
         }
@@ -701,7 +701,7 @@ ${log.stack || 'None'}
   const shell = (children: React.ReactNode) => (
     <div
       className={`min-h-screen transition-colors duration-200 font-sans antialiased ${
-        isLight ? 'bg-[#f4f5f8] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
+        isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
       }`}
     >
       {/* Top Enterprise Header */}

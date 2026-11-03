@@ -220,7 +220,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-amber-500 selection:text-black ${
-      isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-white'
+      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-slate-950 text-white'
     }`}>
       {/* Top Header with Shiv-Naresh Logo (Redirects to Home) & Dark/Light Toggle */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
