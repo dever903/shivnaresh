@@ -971,7 +971,7 @@ app.post('/api/upload', async (req, res) => {
    Do NOT put num_images, resolution, generation_mode, output_format inside
    inputs — they are not Fashn API parameters and will cause failures. */
 
-function buildRequest(mode, state, src) {
+function buildRequest(mode, state, src, is2k = false) {
   const { cloth, model, prompt, color } = src;
   let text = (prompt || '').trim() || state.defaultPrompt || 'wear this clothing on model with perfect fit, realistic texture, professional athletic studio presentation';
 
@@ -1012,8 +1012,28 @@ function buildRequest(mode, state, src) {
         },
       };
     case 'tryon':
-    default:
-      return { model_name: 'tryon-max', fields: { product_image: cloth, model_image: model, ...(text ? { prompt: text } : {}) } };
+    default: {
+      // For 1K image: use tryon-v1.6 (strictly 1 credit on Fashn API)
+      // For 2K Ultra HD: use tryon-max (Ultra HD resolution)
+      if (!is2k) {
+        return {
+          model_name: 'tryon-v1.6',
+          fields: {
+            garment_image: cloth,
+            model_image: model,
+            ...(text ? { prompt: text } : {}),
+          },
+        };
+      }
+      return {
+        model_name: 'tryon-max',
+        fields: {
+          product_image: cloth,
+          model_image: model,
+          ...(text ? { prompt: text } : {}),
+        },
+      };
+    }
   }
 }
 
@@ -1180,7 +1200,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       source: body.source,
       sourceModel: body.sourceModel || body.model,
       targetModel: body.targetModel,
-    });
+    }, is2k);
 
     /* convert every referenced image into a format FASHN can read */
     const inputs = {};
@@ -1254,7 +1274,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       /* store the job id → key mapping so we can clean up when it completes */
       if (data.id) {
         lockUser(req, data.id);
-        jobKeyMap.set(data.id, { requestKey, clearTimer });
+        jobKeyMap.set(data.id, { requestKey, clearTimer, userId: req.user?._id, creditsUsed: creditsNeeded });
       }
 
       /* deduct credits and increment model usage counters */
@@ -1272,6 +1292,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         req.user.credits = remainingCredits;
         req.user.modelsGenerated = nextModelsGenerated;
         req.user.dailyModelsUsed = nextDailyModels;
+        console.log(`[billing] Deducted ${creditsNeeded} credit(s) for ${resolution.toUpperCase()} generation (${mode}). User ${req.user.email} remaining: ${remainingCredits}`);
       }
 
       res.json({ id: data.id, mode, credits: remainingCredits, creditsUsed: creditsNeeded });
@@ -1335,6 +1356,18 @@ app.get('/api/job/:id', async (req, res) => {
       if (mapping) {
         activeJobs.delete(mapping.requestKey);
         clearTimeout(mapping.clearTimer);
+        if (data.status === 'failed' && mapping.userId && mapping.creditsUsed > 0) {
+          try {
+            const u = await auth.findUserById(mapping.userId);
+            if (u) {
+              const refunded = (Number(u.credits) || 0) + mapping.creditsUsed;
+              await auth.patchUser(mapping.userId, { credits: refunded });
+              console.log(`[billing] Refunded ${mapping.creditsUsed} credits to user ${mapping.userId} due to generation failure.`);
+            }
+          } catch (refundErr) {
+            console.error('[billing] Failed to refund credits:', refundErr.message);
+          }
+        }
         jobKeyMap.delete(req.params.id);
       }
     }
