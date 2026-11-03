@@ -135,7 +135,7 @@ export default function Pricing() {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [qrMode, setQrMode] = useState<'card' | 'dynamic'>('card');
+  const [checkoutStep, setCheckoutStep] = useState<'method' | 'pay'>('method');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [localQrSvg, setLocalQrSvg] = useState<string>('');
 
@@ -168,6 +168,9 @@ export default function Pricing() {
   };
 
   const handleAgreeTerms = () => {
+    setCheckoutStep('method');
+    setSubmitted(false);
+    setTransactionId('');
     setShowTermsModal(false);
     setShowCheckoutModal(true);
   };
@@ -548,7 +551,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
         </div>
       )}
 
-      {/* Modal 2: UPI QR Code & WhatsApp Payment Submission */}
+      {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
           <div className={`border border-amber-500/40 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative my-8 ${
@@ -560,6 +563,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 setSubmitted(false);
                 setPaymentDone(false);
                 setTransactionId('');
+                setCheckoutStep('method');
               }}
               className={`absolute top-5 right-5 p-1 rounded-lg ${
                 isLight ? 'text-gray-400 hover:text-gray-900' : 'text-slate-400 hover:text-white'
@@ -568,316 +572,340 @@ _Please verify payment and activate my plan within 30 minutes._`;
               <X className="w-5 h-5" />
             </button>
 
-            <div className="text-center mb-5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-bold uppercase tracking-wider mb-2">
-                <QrCode className="w-3.5 h-3.5" />
-                Instant UPI Payment
-              </div>
-              <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>{selectedPlan.name} Activation</h3>
-              <div className="flex items-center justify-center gap-2 mt-1">
-                <span className={`text-sm line-through ${isLight ? 'text-gray-400' : 'text-slate-400'}`}>${selectedPlan.priceUSD}</span>
-                <span className="text-2xl font-black text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
-                <span className={`text-xs ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>(INR)</span>
-              </div>
-            </div>
+            {/* STEP 1: CHOOSE PAYMENT METHOD */}
+            {checkoutStep === 'method' ? (
+              <div>
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-bold uppercase tracking-wider mb-2">
+                    Step 1 of 2 &middot; Choose Payment Method
+                  </div>
+                  <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select How You Want to Pay</h3>
+                  <p className={`text-xs mt-1 ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
+                    Plan: <strong className="text-amber-500">{selectedPlan.name}</strong> &middot; Fixed Amount: <strong className="text-emerald-500 text-sm">₹{inrAmount.toLocaleString('en-IN')}</strong>
+                  </p>
+                </div>
 
-            {/* Mode of Payment Selector: UPI QR vs Direct Bank Transfer */}
-            <div className="mb-4">
-              <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2 text-center ${
-                isLight ? 'text-gray-700' : 'text-slate-300'
-              }`}>
-                Select Mode of Payment:
-              </label>
-              <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('qr')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                    paymentMethod === 'qr'
-                      ? 'bg-amber-500 text-black border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : isLight
-                        ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                  }`}
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  UPI QR Code
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('bank')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${
-                    paymentMethod === 'bank'
-                      ? 'bg-amber-500 text-black border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : isLight
-                        ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  Bank Transfer
-                </button>
-              </div>
-            </div>
-
-            {paymentMethod === 'qr' ? (
-              <>
-                {/* Payee & QR Mode Tabs */}
-                <div className={`flex items-center justify-center gap-1.5 p-1 rounded-2xl border mb-4 max-w-xs mx-auto ${
-                  isLight ? 'bg-gray-100 border-gray-200' : 'bg-slate-950 border-slate-800'
-                }`}>
+                <div className="space-y-3 mb-6">
+                  {/* Option A: UPI QR Code */}
                   <button
                     type="button"
-                    onClick={() => setQrMode('card')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                      qrMode === 'card'
-                        ? 'bg-amber-500 text-black shadow-md'
-                        : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
+                    onClick={() => {
+                      setPaymentMethod('qr');
+                      setCheckoutStep('pay');
+                    }}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 group cursor-pointer ${
+                      isLight
+                        ? 'bg-amber-50/50 hover:bg-amber-50 border-amber-200 hover:border-amber-400'
+                        : 'bg-slate-950/70 hover:bg-slate-950 border-amber-500/30 hover:border-amber-400'
                     }`}
                   >
-                    Official Paytm Card
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-amber-500">Scan & Pay via UPI QR</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          Recommended
+                        </span>
+                      </div>
+                      <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
+                        Instant scan using Paytm, Google Pay, PhonePe, BHIM, Cred or any banking UPI app with automatic exact fixed price ₹{inrAmount.toLocaleString('en-IN')}.
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-2.5">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">Paytm</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">GPay</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">PhonePe</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">BHIM</span>
+                      </div>
+                    </div>
                   </button>
+
+                  {/* Option B: Direct Bank Transfer */}
                   <button
                     type="button"
-                    onClick={() => setQrMode('dynamic')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
-                      qrMode === 'dynamic'
-                        ? 'bg-amber-500 text-black shadow-md'
-                        : isLight ? 'text-gray-500 hover:text-gray-900' : 'text-slate-400 hover:text-white'
+                    onClick={() => {
+                      setPaymentMethod('bank');
+                      setCheckoutStep('pay');
+                    }}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 group cursor-pointer ${
+                      isLight
+                        ? 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-gray-400'
+                        : 'bg-slate-950/70 hover:bg-slate-950 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    Instant Fixed ₹ QR
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-white">Direct Bank to Bank Transfer</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          SBI Bank
+                        </span>
+                      </div>
+                      <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
+                        Transfer directly via IMPS / NEFT / RTGS to State Bank of India account 41614259248 (IFSC: SBIN0011558). Beneficiary: Pawan Kumar.
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-2.5">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">IMPS</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">NEFT</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">RTGS</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">Net Banking</span>
+                      </div>
+                    </div>
                   </button>
                 </div>
 
-                {/* QR Code Container */}
-                <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit mb-4 text-slate-900 border border-gray-200">
-                  {qrMode === 'card' ? (
-                    <div className="text-center max-w-[260px]">
-                      <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-slate-50">
-                        <img
-                          src="/paytm-qr-card.jpg"
-                          alt="Pawan Kumar Official Paytm Payment Card"
-                          className="w-full h-auto object-contain block mx-auto"
-                        />
-                      </div>
-                      <div className="mt-2 pt-1 border-t border-slate-100">
-                        <p className="text-xs font-black text-slate-900">Pawan Kumar &middot; Verified Merchant</p>
-                        <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
-                        <p className="text-[10px] text-slate-500">State Bank of India &middot; 9248</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+                  <p className="text-xs text-amber-500 font-semibold leading-tight">
+                    ⚡ Under 30 minutes activation: Admin verifies your UTR & activates your plan quotas.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* STEP 2: COMPLETE PAYMENT & SUBMIT UTR */
+              <div>
+                {/* Back to Method Selector button */}
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('method')}
+                  className="mb-3 inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 font-bold transition-colors cursor-pointer"
+                >
+                  &larr; Change Payment Method ({paymentMethod === 'qr' ? 'UPI QR' : 'Bank Transfer'})
+                </button>
+
+                <div className="text-center mb-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                    Step 2 of 2 &middot; {paymentMethod === 'qr' ? 'Scan Fixed UPI QR' : 'SBI Bank Transfer'}
+                  </div>
+                  <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>{selectedPlan.name} Activation</h3>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className={`text-sm line-through ${isLight ? 'text-gray-400' : 'text-slate-400'}`}>${selectedPlan.priceUSD}</span>
+                    <span className="text-2xl font-black text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Fixed Price
+                    </span>
+                  </div>
+                </div>
+
+                {paymentMethod === 'qr' ? (
+                  /* GENERATED FIXED PRICE UPI QR CODE (NO STATIC PHOTO) */
+                  <div className="mb-4">
+                    <div className="bg-white p-3.5 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit text-slate-900 border border-gray-200">
                       {localQrSvg ? (
                         <div
-                          className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg shadow-sm bg-white p-2"
+                          className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg bg-white p-1"
                           dangerouslySetInnerHTML={{ __html: localQrSvg }}
                         />
                       ) : (
                         <div className="w-56 h-56 flex flex-col items-center justify-center bg-slate-100 rounded-lg text-xs text-slate-500">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
-                          Loading UPI QR...
+                          Generating Fixed UPI QR...
                         </div>
                       )}
-                      <div className="mt-2.5 pt-2 border-t border-slate-200">
+                      <div className="mt-2.5 pt-2 border-t border-slate-200 text-center w-full">
                         <p className="text-xs font-extrabold text-slate-900">PAWAN KUMAR &middot; Paytm UPI</p>
-                        <p className="text-[11px] font-mono text-slate-600 font-semibold mt-0.5">{upiId}</p>
-                        <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                        <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
+                        <span className="inline-block mt-1 text-[11px] font-black text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full">
                           Fixed ₹{inrAmount.toLocaleString('en-IN')} (Non-editable)
                         </span>
                       </div>
                     </div>
-                  )}
+
+                    {/* Supported Apps Badge */}
+                    <div className="flex items-center justify-center gap-2 my-2 text-[10px] text-slate-400 font-semibold">
+                      <span>✓ GPay</span>
+                      <span>✓ PhonePe</span>
+                      <span>✓ Paytm</span>
+                      <span>✓ BHIM</span>
+                      <span>✓ All Bank UPI Apps</span>
+                    </div>
+
+                    {/* 1-Tap Mobile UPI Payment Link */}
+                    <a
+                      href={upiPayLink}
+                      className="mb-2 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98 cursor-pointer"
+                    >
+                      ⚡ 1-Tap Pay via Mobile App (GPay / PhonePe / Paytm)
+                    </a>
+
+                    {/* UPI ID Copy Card */}
+                    <div className={`flex items-center justify-between rounded-xl border p-2.5 ${
+                      isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+                    }`}>
+                      <div className="text-left">
+                        <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
+                        <span className="text-xs font-mono font-bold text-amber-500 select-all">{upiId}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyUpi}
+                        className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
+                      >
+                        {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* DIRECT BANK TRANSFER DETAILS CARD (SBI) */
+                  <div className={`rounded-2xl border p-4 mb-4 ${
+                    isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+                      <Building2 className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                        State Bank of India (SBI) Account Details
+                      </span>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="opacity-60">Beneficiary Name:</span>
+                        <span className="font-bold">{bankDetails.accountHolder}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="opacity-60">Bank Name:</span>
+                        <span className="font-semibold">{bankDetails.bankName}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="opacity-60">Account Number:</span>
+                        <span className="font-mono font-bold text-amber-500 select-all text-sm">{bankDetails.accountNumber}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="opacity-60">IFSC Code:</span>
+                        <span className="font-mono font-bold text-emerald-400 select-all">{bankDetails.ifsc}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1">
+                        <span className="opacity-60">Exact Amount:</span>
+                        <span className="font-bold text-amber-400 text-sm">₹{inrAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`A/C: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifsc}\nName: ${bankDetails.accountHolder}\nBank: ${bankDetails.bankName}\nAmount: ₹${inrAmount}`);
+                        setCopiedBank(true);
+                        setTimeout(() => setCopiedBank(false), 2500);
+                      }}
+                      className="mt-3 w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-bold text-xs hover:bg-amber-500/25 transition active:scale-98 cursor-pointer"
+                    >
+                      {copiedBank ? '✓ Bank Details Copied!' : '📋 Copy All Bank Details'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Form Fields: Name, Email, UTR */}
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                      isLight ? 'text-gray-700' : 'text-slate-300'
+                    }`}>Your Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
+                        isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                      isLight ? 'text-gray-700' : 'text-slate-300'
+                    }`}>Your Account Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. rahul@example.com"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
+                        isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                      isLight ? 'text-gray-700' : 'text-slate-300'
+                    }`}>
+                      12-Digit Transaction ID / UTR Number <span className="text-[#ff5252]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      required
+                      placeholder="e.g. 431289054321"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider ${
+                        isLight ? 'bg-gray-50 border-gray-200 text-amber-600 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-amber-300 placeholder-slate-500'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Checkbox confirmation */}
+                  <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={paymentDone}
+                      onChange={(e) => setPaymentDone(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
+                    />
+                    <span className={`text-xs leading-snug ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
+                      I have transferred exact <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
+                    </span>
+                  </label>
                 </div>
 
-                {/* 1-Tap Mobile UPI Payment Link */}
-                <a
-                  href={upiPayLink}
-                  className="mb-3 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98"
-                >
-                  ⚡ 1-Tap Open Any App (GPay / Paytm / PhonePe)
-                </a>
-
-                {/* UPI ID Copy Card */}
-                <div className={`flex items-center justify-between rounded-xl border p-2.5 mb-3 ${
-                  isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
-                }`}>
-                  <div className="text-left">
-                    <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
-                    <span className="text-xs font-mono font-bold text-amber-500 select-all">{upiId}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyUpi}
-                    className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95"
-                  >
-                    {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
-                  </button>
+                {/* Notice */}
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-center mb-4">
+                  <p className="text-[11px] text-amber-600 dark:text-amber-300 font-semibold leading-tight">
+                    ⚡ Under 30 minutes activation: Admin verifies your UTR & adds credits directly.
+                  </p>
                 </div>
-              </>
-            ) : (
-              /* Direct Bank Transfer Details Card */
-              <div className={`rounded-2xl border p-4 mb-4 ${
-                isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
-              }`}>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
-                  <Building2 className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                    Direct Bank Transfer (NEFT / IMPS / RTGS)
-                  </span>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between items-center py-1 border-b border-white/5">
-                    <span className="opacity-60">Account Holder:</span>
-                    <span className="font-bold">{bankDetails.accountHolder}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-white/5">
-                    <span className="opacity-60">Bank Name:</span>
-                    <span className="font-semibold">{bankDetails.bankName}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-white/5">
-                    <span className="opacity-60">Account Number:</span>
-                    <span className="font-mono font-bold text-amber-500 select-all text-sm">{bankDetails.accountNumber}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-white/5">
-                    <span className="opacity-60">IFSC Code:</span>
-                    <span className="font-mono font-bold text-emerald-400 select-all">{bankDetails.ifsc}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <span className="opacity-60">Exact Amount:</span>
-                    <span className="font-bold text-amber-400 text-sm">₹{inrAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`A/C: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifsc}\nName: ${bankDetails.accountHolder}\nBank: ${bankDetails.bankName}`);
-                    setCopiedBank(true);
-                    setTimeout(() => setCopiedBank(false), 2500);
-                  }}
-                  className="mt-3 w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-bold text-xs hover:bg-amber-500/25 transition active:scale-98"
-                >
-                  {copiedBank ? '✓ Bank Details Copied!' : '📋 Copy All Bank Details'}
-                </button>
-              </div>
-            )}
 
-            <p className={`text-[11px] text-center mb-4 ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
-              {paymentMethod === 'qr' ? (
-                <>Scan QR or pay to <strong className="text-amber-500 font-mono">{upiId}</strong> (PAWAN KUMAR) exact ₹{inrAmount.toLocaleString('en-IN')}.</>
-              ) : (
-                <>Transfer exact <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to SBI Account <strong className="font-mono text-emerald-400">41614259248</strong>.</>
-              )}
-            </p>
-
-            {/* Form Fields */}
-            <div className="space-y-3 mb-4">
-              <div>
-                <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
-                  isLight ? 'text-gray-700' : 'text-slate-300'
-                }`}>Your Full Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Rahul Sharma"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
-                  isLight ? 'text-gray-700' : 'text-slate-300'
-                }`}>Your Account Email</label>
-                <input
-                  type="email"
-                  placeholder="e.g. rahul@example.com"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
-                  isLight ? 'text-gray-700' : 'text-slate-300'
-                }`}>12-Digit Transaction ID / UTR Number</label>
-                <input
-                  type="text"
-                  maxLength={25}
-                  placeholder="e.g. 431289054321"
-                  value={transactionId}
-                  onChange={(e) => setTransactionId(e.target.value)}
-                  className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-amber-600 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-amber-300 placeholder-slate-500'
-                  }`}
-                />
-              </div>
-
-              {/* Checkbox confirmation */}
-              <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={paymentDone}
-                  onChange={(e) => setPaymentDone(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                />
-                <span className={`text-xs leading-snug ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
-                  I have transferred <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
-                </span>
-              </label>
-            </div>
-
-            {/* Notice */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-center mb-4">
-              <p className="text-[11px] text-amber-600 dark:text-amber-300 font-semibold leading-tight">
-                ⚡ Under 30 minutes activation: Admin verifies your UTR & adds credits directly.
-              </p>
-            </div>
-
-            {/* Primary Action Button */}
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setSubmitted(true)}
-              className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white cursor-pointer shadow-emerald-900/30"
-            >
-              <MessageSquare className="w-4 h-4" />
-              {transactionId.trim() ? 'Submit & Send UTR on WhatsApp →' : 'Send Payment Confirmation on WhatsApp →'}
-            </a>
-
-            {/* Direct Support WhatsApp Link Always Visible */}
-            <div className={`mt-3 pt-3 border-t text-center ${isLight ? 'border-gray-200' : 'border-slate-800'}`}>
-              <a
-                href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I have a query about the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold inline-flex items-center gap-1.5"
-              >
-                💬 Need help? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
-              </a>
-            </div>
-
-            {submitted && (
-              <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
-                <p className="text-xs text-emerald-400 font-bold">
-                  ✓ Order Submitted! Admin will verify and activate your plan within 30 minutes.
-                </p>
-                <p className="text-[11px] text-slate-300">
-                  If WhatsApp didn't open automatically, click the direct link below:
-                </p>
+                {/* Primary Action Button */}
                 <a
                   href={waLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow transition"
+                  onClick={() => setSubmitted(true)}
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white cursor-pointer shadow-emerald-900/30"
                 >
-                  💬 Open WhatsApp Chat (+91 6398743132)
+                  <MessageSquare className="w-4 h-4" />
+                  {transactionId.trim() ? 'Submit & Send UTR on WhatsApp →' : 'Send Payment Confirmation on WhatsApp →'}
                 </a>
+
+                {/* Direct Support WhatsApp Link Always Visible */}
+                <div className={`mt-3 pt-3 border-t text-center ${isLight ? 'border-gray-200' : 'border-slate-800'}`}>
+                  <a
+                    href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I have a query about the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold inline-flex items-center gap-1.5"
+                  >
+                    💬 Need help? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
+                  </a>
+                </div>
+
+                {submitted && (
+                  <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
+                    <p className="text-xs text-emerald-400 font-bold">
+                      ✓ Order Submitted! Admin will verify and activate your plan within 30 minutes.
+                    </p>
+                    <p className="text-[11px] text-slate-300">
+                      If WhatsApp didn't open automatically, click the direct link below:
+                    </p>
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow transition"
+                    >
+                      💬 Open WhatsApp Chat (+91 6398743132)
+                    </a>
+                  </div>
+                )}
               </div>
             )}
           </div>
