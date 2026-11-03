@@ -137,7 +137,7 @@ export default function Pricing() {
   const [submitted, setSubmitted] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'method' | 'pay'>('method');
   const [copiedUpi, setCopiedUpi] = useState(false);
-  const [localQrSvg, setLocalQrSvg] = useState<string>('');
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
 
   const [usdToInrRate, setUsdToInrRate] = useState<number>(DEFAULT_USD_TO_INR);
   const [paymentMethod, setPaymentMethod] = useState<'qr' | 'bank'>('qr');
@@ -184,20 +184,23 @@ export default function Pricing() {
     bankName: 'State Bank of India',
     accountHolder: 'PAWAN KUMAR',
   };
+  const cleanPlanName = (selectedPlan?.name || 'Pro').replace(/[^a-zA-Z0-9]/g, '');
+  // Official NPCI standard UPI link with fixed price and clean parameters
   const upiPayLink = selectedPlan
-    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${inrAmount}&cu=INR&tn=${encodeURIComponent(selectedPlan.name + ' Plan')}`
-    : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&cu=INR`;
+    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName).replace(/%20/g, '+')}&am=${inrAmount}.00&cu=INR&tn=ShivNaresh${cleanPlanName}`
+    : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName).replace(/%20/g, '+')}&cu=INR`;
 
   useEffect(() => {
     if (!upiPayLink) return;
-    QRCode.toString(upiPayLink, {
-      type: 'svg',
-      margin: 1,
+    // Generate high-resolution 340x340 PNG with standard 4-module quiet zone & High error correction
+    QRCode.toDataURL(upiPayLink, {
+      width: 340,
+      margin: 4,
+      errorCorrectionLevel: 'H',
       color: { dark: '#000000', light: '#ffffff' },
-      errorCorrectionLevel: 'M',
     })
-      .then((svg) => {
-        setLocalQrSvg(svg);
+      .then((url) => {
+        setLocalQrDataUrl(url);
       })
       .catch((err) => console.error('QR code generation error:', err));
   }, [upiPayLink]);
@@ -693,15 +696,18 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   /* GENERATED FIXED PRICE UPI QR CODE (NO STATIC PHOTO) */
                   <div className="mb-4">
                     <div className="bg-white p-3.5 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit text-slate-900 border border-gray-200">
-                      {localQrSvg ? (
-                        <div
-                          className="w-56 h-56 mx-auto flex items-center justify-center [&>svg]:w-full [&>svg]:h-full rounded-lg bg-white p-1"
-                          dangerouslySetInnerHTML={{ __html: localQrSvg }}
-                        />
+                      {localQrDataUrl ? (
+                        <div className="bg-white p-2 rounded-xl flex items-center justify-center shadow-inner">
+                          <img
+                            src={localQrDataUrl}
+                            alt="Scan UPI QR Code to Pay"
+                            className="w-64 h-64 object-contain block mx-auto rounded-lg"
+                          />
+                        </div>
                       ) : (
-                        <div className="w-56 h-56 flex flex-col items-center justify-center bg-slate-100 rounded-lg text-xs text-slate-500">
+                        <div className="w-64 h-64 flex flex-col items-center justify-center bg-slate-100 rounded-xl text-xs text-slate-500">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
-                          Generating Fixed UPI QR...
+                          Generating High-Res UPI QR...
                         </div>
                       )}
                       <div className="mt-2.5 pt-2 border-t border-slate-200 text-center w-full">

@@ -221,7 +221,11 @@ export default function Login() {
       const res = await api.forgotPassword(forgotEmail.trim());
       if (res.emergencyOtp) {
         setForgotOtp(res.emergencyOtp);
-        setForgotSuccess(`Emergency Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Brevo / Spam folder'})`);
+        setForgotSuccess(`⚡ Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam'})`);
+      } else if (res.deliveryNote && res.deliveryNote.toLowerCase().includes('invalid')) {
+        setForgotError(`⚠️ Cloud server note: ${res.deliveryNote}. Render backend deployment is pending manual trigger on dashboard.render.com (click "Manual Deploy > Deploy latest commit") to activate Brevo delivery.`);
+      } else if (res.deliveryNote) {
+        setForgotSuccess(`${res.message || 'OTP code generated!'} (Note: ${res.deliveryNote})`);
       } else {
         setForgotSuccess(res.message || 'OTP verification code sent! (Check Inbox & Spam folder)');
       }
