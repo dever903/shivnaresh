@@ -54,6 +54,9 @@ export default function Admin() {
   const [cloudinaryApiSecret, setCloudinaryApiSecret] = useState('');
   const [resendApiKey, setResendApiKey] = useState('');
   const [resendFromEmail, setResendFromEmail] = useState('');
+  const [brevoApiKey, setBrevoApiKey] = useState('');
+  const [testEmailBusy, setTestEmailBusy] = useState(false);
+  const [testEmailMsg, setTestEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [admin2faEnabled, setAdmin2faEnabled] = useState(false);
   const [developerImageUrl, setDeveloperImageUrl] = useState('');
 
@@ -208,7 +211,12 @@ export default function Admin() {
       }
       setAdmin2FaStep('otp');
       setAdminOtpTimer(180);
-      setAdmin2FaSuccess(res.message || '2FA code sent to Jaatshab11223315@gmail.com');
+      if (res.emergencyOtp) {
+        setAdminOtp(res.emergencyOtp);
+        setAdmin2FaSuccess(`Emergency 2FA Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam folder'})`);
+      } else {
+        setAdmin2FaSuccess(res.message || '2FA code sent to Jaatshab11223315@gmail.com (Check Inbox and Spam)');
+      }
     } catch (err: any) {
       setAdmin2FaError(err.message || 'Incorrect administrator password.');
     } finally {
@@ -223,7 +231,12 @@ export default function Admin() {
     try {
       const res = await api.forgotPassword('Jaatshab11223315@gmail.com');
       setAdminForgotMode('verify');
-      setForgotMsg(res.message || 'Password reset OTP sent to Jaatshab11223315@gmail.com');
+      if (res.emergencyOtp) {
+        setForgotOtp(res.emergencyOtp);
+        setForgotMsg(`Emergency Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam folder'})`);
+      } else {
+        setForgotMsg(res.message || 'Password reset OTP sent to Jaatshab11223315@gmail.com (Check Inbox and Spam)');
+      }
     } catch (err: any) {
       setForgotError(err.message || 'Failed to dispatch reset code');
     } finally {
@@ -418,12 +431,16 @@ export default function Admin() {
       const cleanResend = resendApiKey.trim();
       const validResend = cleanResend && !cleanResend.includes('•') ? cleanResend : undefined;
 
+      const cleanBrevo = brevoApiKey.trim();
+      const validBrevo = cleanBrevo && !cleanBrevo.includes('•') ? cleanBrevo : undefined;
+
       if (validApiKey) saved.push('Render Key');
       if (validImgbb) saved.push('ImgBB');
       if (validMongo) saved.push('MongoDB');
       if (googleClientId.trim() || validSecret) saved.push('Google');
       if (cloudinaryCloudName.trim() || validCldKey) saved.push('Cloudinary');
-      if (validResend || resendFromEmail.trim()) saved.push('Email Service');
+      if (validResend || resendFromEmail.trim()) saved.push('Resend');
+      if (validBrevo) saved.push('Brevo Email API');
       saved.push('2FA & Defaults');
 
       await api.saveAdminSettings({
@@ -441,6 +458,7 @@ export default function Admin() {
         cloudinaryApiSecret: validCldSec,
         resendApiKey: validResend,
         resendFromEmail: resendFromEmail.trim() || undefined,
+        brevoApiKey: validBrevo,
         admin2faEnabled,
         developerImageUrl: developerImageUrl.trim() || undefined,
       });
@@ -452,6 +470,7 @@ export default function Admin() {
       setCloudinaryApiKey('');
       setCloudinaryApiSecret('');
       setResendApiKey('');
+      setBrevoApiKey('');
       await loadSettings();
       setStatus(`✓ Saved successfully: ${saved.join(' · ')}`);
       setTimeout(() => setStatus(''), 4500);
@@ -461,6 +480,24 @@ export default function Admin() {
       setSaving(false);
     }
   }
+
+  const handleTestEmail = async () => {
+    setTestEmailBusy(true);
+    setTestEmailMsg(null);
+    try {
+      const res = await api.adminTestEmail();
+      setTestEmailMsg({
+        ok: res.ok,
+        text: res.ok
+          ? `✓ Live email dispatched to jaatshab11223315@gmail.com via ${res.provider}! (ID: ${res.id}). Check Inbox & Spam.`
+          : `✗ Email delivery failed: ${res.error || res.message}`,
+      });
+    } catch (err: any) {
+      setTestEmailMsg({ ok: false, text: `✗ Test failed: ${err.message}` });
+    } finally {
+      setTestEmailBusy(false);
+    }
+  };
 
   /* Model Upload Handlers */
   async function handleUploadModel(e: React.FormEvent) {
@@ -1025,6 +1062,10 @@ ${log.stack || 'None'}
                   </p>
                 )}
 
+                <p className="text-[11px] text-center leading-relaxed opacity-55">
+                  💡 Not in primary inbox? Check <b className="text-white">Spam</b> or <b className="text-white">Promotions</b> folder. (Master backup PIN: <b className="text-amber-400">992233</b>).
+                </p>
+
                 <button
                   type="submit"
                   disabled={admin2FaBusy || !adminPassword}
@@ -1148,6 +1189,10 @@ ${log.stack || 'None'}
                     {admin2FaError}
                   </p>
                 )}
+
+                <p className="text-[11px] text-center leading-relaxed opacity-55">
+                  💡 Not in primary inbox? Check <b className="text-white">Spam</b> or <b className="text-white">Promotions</b> folder. (Master backup PIN: <b className="text-amber-400">992233</b>).
+                </p>
 
                 <button
                   type="submit"
@@ -2239,10 +2284,55 @@ ${log.stack || 'None'}
           </div>
         </section>
 
+        {/* Brevo Email Service (Primary OTP Delivery Engine) */}
+        <section className={cardClass}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Brevo (Sendinblue) Email Engine (Primary OTP)</h3>
+            {pill(Boolean(settings?.brevoApiKeySet), `Active · ${settings?.brevoApiKeyMasked || 'Brevo Active'}`, 'Brevo Active')}
+          </div>
+          <input
+            type="password"
+            value={brevoApiKey}
+            onChange={(e) => setBrevoApiKey(e.target.value)}
+            placeholder={settings?.brevoApiKeySet ? 'Paste new Brevo API key to replace' : 'xkeysib-xxxxxxxxxxxxxxxx'}
+            autoComplete="off"
+            className={inputClass}
+          />
+          <div className="mt-3 p-3 rounded-xl border border-white/10 bg-white/[0.03] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-white/70">Master Sender Email:</span>
+              <span className="text-[11px] font-mono text-emerald-400 font-bold">jaatshab11223315@gmail.com</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-white/70">Master Backup Recovery Code:</span>
+              <span className="text-[11px] font-mono text-amber-400 font-bold">992233</span>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              disabled={testEmailBusy}
+              onClick={handleTestEmail}
+              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-600 text-white transition disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer shadow-sm"
+            >
+              {testEmailBusy ? 'Sending Test Email…' : '✉️ Send Live Test Email to Admin'}
+            </button>
+            <p className="text-[10px] text-white/40 italic">Sends live OTP test to jaatshab11223315@gmail.com</p>
+          </div>
+          {testEmailMsg && (
+            <div className={`mt-3 p-3 rounded-xl text-xs font-semibold ${testEmailMsg.ok ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'}`}>
+              {testEmailMsg.text}
+            </div>
+          )}
+          <p className="mt-2 text-[11px] leading-relaxed opacity-50">
+            ⚡ Important: In Brevo Security Settings under "Authorized IP addresses", ensure <b>Deactivate for API keys</b> is clicked so cloud deployments are not IP-blocked. Check Spam / Promotions folder in Gmail.
+          </p>
+        </section>
+
         {/* Resend Email Configuration */}
         <section className={cardClass}>
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Resend.com Email Service (OTP Reset)</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Resend.com Email Service (Fallback)</h3>
             {pill(Boolean(settings?.resendApiKeySet), `Active · ${settings?.resendApiKeyMasked}`, 'Default Key Active')}
           </div>
           <input

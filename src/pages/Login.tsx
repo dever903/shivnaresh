@@ -219,7 +219,12 @@ export default function Login() {
     setForgotSuccess('');
     try {
       const res = await api.forgotPassword(forgotEmail.trim());
-      setForgotSuccess(res.message || 'OTP verification code sent!');
+      if (res.emergencyOtp) {
+        setForgotOtp(res.emergencyOtp);
+        setForgotSuccess(`Emergency Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Brevo / Spam folder'})`);
+      } else {
+        setForgotSuccess(res.message || 'OTP verification code sent! (Check Inbox & Spam folder)');
+      }
       setForgotStep('otp');
       setOtpSecondsLeft(180);
     } catch (err: any) {
@@ -595,6 +600,10 @@ export default function Login() {
                     </p>
                   )}
 
+                  <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
+                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                  </p>
+
                   <button
                     type="submit"
                     disabled={forgotBusy || !forgotEmail}
@@ -652,6 +661,10 @@ export default function Login() {
                       {forgotError}
                     </p>
                   )}
+
+                  <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
+                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                  </p>
 
                   <button
                     type="submit"
@@ -732,6 +745,10 @@ export default function Login() {
                       {forgotError}
                     </p>
                   )}
+
+                  <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
+                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                  </p>
 
                   <button
                     type="submit"

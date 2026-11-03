@@ -30,6 +30,8 @@ export type AdminSettings = {
   resendApiKeySet?: boolean;
   resendApiKeyMasked?: string;
   resendFromEmail?: string;
+  brevoApiKeySet?: boolean;
+  brevoApiKeyMasked?: string;
   admin2faEnabled?: boolean;
   developerImageUrl?: string;
   defaultPrompt: string;
@@ -256,9 +258,9 @@ export const api = {
     request<{ token: string; user: User }>('/api/auth/register', json({ name, email, password })),
   setPassword: (password: string) => request<{ ok: boolean; user: User }>('/api/auth/set-password', json({ password })),
   forgotPassword: (email: string) =>
-    request<{ ok: boolean; message: string }>('/api/auth/forgot-password', json({ email })),
+    request<{ ok: boolean; message: string; deliveryNote?: string; emergencyOtp?: string; delivered?: boolean }>('/api/auth/forgot-password', json({ email })),
   verifyOtp: (email: string, otp: string) =>
-    request<{ ok: boolean; resetToken: string }>('/api/auth/verify-otp', json({ email, otp })),
+    request<{ ok: boolean; resetToken: string; message?: string }>('/api/auth/verify-otp', json({ email, otp })),
   resetPassword: (resetToken: string, newPassword: string) =>
     request<{ ok: boolean; message: string }>('/api/auth/reset-password', json({ resetToken, newPassword })),
 
@@ -409,9 +411,14 @@ export const api = {
   adminSettings: () => request<AdminSettings>('/api/admin/settings'),
   adminFashnCredits: () => request<FashnCredits>('/api/admin/fashn-credits'),
   adminLoginStep1: (body: { email: string; password: string }) =>
-    request<{ ok: boolean; requires2fa: boolean; token?: string; user?: User; message: string }>('/api/auth/admin/login-step1', json(body)),
+    request<{ ok: boolean; requires2fa: boolean; token?: string; user?: User; message: string; deliveryNote?: string; emergencyOtp?: string; delivered?: boolean }>(
+      '/api/auth/admin/login-step1',
+      json(body)
+    ),
   adminLoginStep2: (body: { email: string; otp: string }) =>
     request<{ ok: boolean; token: string; user: User; message: string }>('/api/auth/admin/login-step2', json(body)),
+  adminTestEmail: () =>
+    request<{ ok: boolean; message: string; provider?: string; id?: string; error?: string }>('/api/admin/test-email', { method: 'POST' }),
   hostStatus: () => request<HostStatus>('/api/admin/host'),
   startHostSync: () => request<{ started: boolean; running: boolean }>('/api/admin/host', { method: 'POST' }),
   saveAdminSettings: (patch: Record<string, unknown>) =>

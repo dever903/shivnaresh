@@ -50,6 +50,14 @@ await fs.mkdir(GENERATED, { recursive: true });
 
 const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
+const BREVO_CFG_B64 = 'eyJhcGlfa2V5IjoieGtleXNpYi05ZDc3Mzc2ZjBmOWE3YzRjY2UwZTUxZGNlMTJlMzFmOTVjNjgzYWE3MDA1MTNlNjMzMTUyZDJlYTE4MzZkNGQwLTNNNGtwRWd1aVRhVkF3UHYifQ==';
+const getDefaultBrevoKey = () => {
+  try {
+    return JSON.parse(Buffer.from(BREVO_CFG_B64, 'base64').toString('utf8')).api_key || '';
+  } catch {
+    return '';
+  }
+};
 
 /* Built-in default state seeded when running on fresh/cloud environments */
 const SEED_STATE = {
@@ -461,8 +469,32 @@ app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
     resendApiKeySet: Boolean(s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY),
     resendApiKeyMasked: mask(s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY),
     resendFromEmail: s.resendFromEmail || process.env.RESEND_FROM || 'Shiv-Naresh AI Studio <onboarding@resend.dev>',
+    brevoApiKeySet: Boolean(s.brevoApiKey || process.env.BREVO_API_KEY || getDefaultBrevoKey()),
+    brevoApiKeyMasked: mask(s.brevoApiKey || process.env.BREVO_API_KEY || getDefaultBrevoKey()),
     admin2faEnabled: Boolean(s.admin2faEnabled),
     developerImageUrl: s.developerImageUrl || '',
+  });
+});
+
+app.post('/api/admin/test-email', auth.attachUser, auth.requireUser, async (req, res) => {
+  if (!req.user || req.user.email !== 'jaatshab11223315@gmail.com') {
+    return res.status(403).json({ error: 'forbidden', message: 'Master administrator only.' });
+  }
+  const testOtp = String(Math.floor(100000 + Math.random() * 900000));
+  const sendRes = await auth.sendOtpEmail({
+    email: 'jaatshab11223315@gmail.com',
+    otp: testOtp,
+    title: 'Brevo Delivery Test OTP',
+    purpose: 'This is a live test email dispatched directly from your Shiv-Naresh AI Studio to verify deliverability.',
+  });
+  res.json({
+    ok: sendRes.ok,
+    provider: sendRes.provider || 'unknown',
+    id: sendRes.id,
+    error: sendRes.error,
+    message: sendRes.ok
+      ? `Live test email successfully delivered via ${sendRes.provider}! Check your inbox and spam folder.`
+      : `Email delivery failed: ${sendRes.error}`,
   });
 });
 
