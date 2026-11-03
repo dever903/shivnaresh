@@ -1,9 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" style="background-color: #070709; color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#070709" />
+    <style>
+      html, body {
+        background-color: #070709 !important;
+        color-scheme: dark;
+        margin: 0;
+        padding: 0;
+      }
+      html.light, html.light body {
+        background-color: #97c1a9 !important;
+        color-scheme: light;
+      }
+    </style>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('shivnaresh_theme');
+          var root = document.documentElement;
+          if (saved === 'light') {
+            root.classList.remove('dark');
+            root.classList.add('light');
+            root.style.backgroundColor = '#97c1a9';
+            root.style.colorScheme = 'light';
+          } else {
+            root.classList.add('dark');
+            root.classList.remove('light');
+            root.style.backgroundColor = '#070709';
+            root.style.colorScheme = 'dark';
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>Shiv-Naresh — A Quality Sports Wear</title>
     <meta
       name="description"
@@ -13,24 +44,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="image" href="/hero-base.webp" />
-    <script>
-      (function() {
-        try {
-          var saved = localStorage.getItem('shivnaresh_theme');
-          var theme = saved === 'light' ? 'light' : 'dark';
-          var root = document.documentElement;
-          if (theme === 'light') {
-            root.classList.add('light');
-            root.classList.remove('dark');
-            root.style.colorScheme = 'light';
-          } else {
-            root.classList.add('dark');
-            root.classList.remove('light');
-            root.style.colorScheme = 'dark';
-          }
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -25,9 +25,14 @@
 
 html,
 body {
-  background-color: #97c1a9;
+  background-color: #070709;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+html.light,
+html.light body {
+  background-color: #97c1a9;
 }
 
 html.dark body,

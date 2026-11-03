@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   api,
   fileToDataUrl,
+  getToken,
   setToken,
   type AdminAccess,
   type AdminSettings,
@@ -92,6 +93,7 @@ export default function Admin() {
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestFilter, setRequestFilter] = useState<'all' | 'queued' | 'in_progress' | 'delivered'>('all');
+  const [downloadingZipId, setDownloadingZipId] = useState<string | null>(null);
 
   /* Reply Drawer / Modal State */
   const [selectedRequest, setSelectedRequest] = useState<CustomRequest | null>(null);
@@ -593,6 +595,32 @@ ${log.stack || 'None'}
     }
   }
 
+  async function handleDownloadOrderZip(req: CustomRequest) {
+    setDownloadingZipId(req.id);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/admin/custom-requests/${encodeURIComponent(req.id)}/download-zip`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        throw new Error(`Download failed with status ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `custom-order-${req.id}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Could not download order package: ${err.message || String(err)}`);
+    } finally {
+      setDownloadingZipId(null);
+    }
+  }
+
   async function handleDeleteUser(userId: string, email: string) {
     if (!window.confirm(`Are you sure you want to PERMANENTLY delete user ${email}? This action cannot be undone.`)) {
       return;
@@ -700,7 +728,7 @@ ${log.stack || 'None'}
   /* Shell Layout */
   const shell = (children: React.ReactNode) => (
     <div
-      className={`min-h-screen transition-colors duration-200 font-sans antialiased ${
+      className={`min-h-screen font-sans antialiased ${
         isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
       }`}
     >
@@ -1542,8 +1570,31 @@ ${log.stack || 'None'}
                   )}
                 </div>
 
-                {/* Action Button */}
-                <div className={`mt-5 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                {/* Action Buttons */}
+                <div className={`mt-5 space-y-2 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadOrderZip(req)}
+                    disabled={downloadingZipId === req.id}
+                    className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                      isLight
+                        ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                        : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {downloadingZipId === req.id ? (
+                      <>
+                        <span className="animate-spin text-sm">⏳</span>
+                        <span>Packaging ZIP…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📦</span>
+                        <span>Download Order ZIP</span>
+                      </>
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1572,13 +1623,38 @@ ${log.stack || 'None'}
                 <h3 className="text-base font-bold">Order Reply & Delivery Desk</h3>
                 <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadOrderZip(selectedRequest)}
+                  disabled={downloadingZipId === selectedRequest.id}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all shadow-sm ${
+                    isLight
+                      ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
+                      : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                  title="Download all order images and text details in a combined ZIP"
+                >
+                  {downloadingZipId === selectedRequest.id ? (
+                    <>
+                      <span className="animate-spin text-xs">⏳</span>
+                      <span>Packaging…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📦</span>
+                      <span>Download ZIP</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRequest(null)}
+                  className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="mt-5 space-y-4">

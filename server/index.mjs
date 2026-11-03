@@ -9,6 +9,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1729,6 +1730,137 @@ app.get('/api/admin/custom-requests', requireAdmin, async (_req, res) => {
     res.json({ items: all, total: all.length });
   } catch (error) {
     res.status(500).json({ error: 'fetch_failed', message: String(error.message || error) });
+  }
+});
+
+app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const all = await readCustomRequests();
+    const reqItem = all.find((r) => r.id === id);
+    if (!reqItem) {
+      return res.status(404).json({ error: 'not_found', message: 'Order request not found.' });
+    }
+
+    const zip = new JSZip();
+
+    // 1. All text content in one text file
+    const textSummary = [
+      '================================================================================',
+      'SHIV-NARESH ATELIER - BESPOKE CUSTOM ORDER DETAILS',
+      '================================================================================',
+      `Order ID:          ${reqItem.id}`,
+      `Client Email:      ${reqItem.userEmail || 'N/A'}`,
+      `Client User ID:    ${reqItem.userId || 'N/A'}`,
+      `Date Submitted:    ${new Date(reqItem.createdAt).toISOString()} (${new Date(reqItem.createdAt).toLocaleString()})`,
+      `Order Status:      ${(reqItem.status || 'queued').toUpperCase()}`,
+      `Request Type:      ${(reqItem.requestType || 'still').toUpperCase()}`,
+      `Color / Swatch:    ${reqItem.color || 'Not specified'}`,
+      `Garment Name:      ${reqItem.clothName || 'Garment'}`,
+      `Model Name:        ${reqItem.modelName || 'Model'}`,
+      `Total Model Poses: ${reqItem.modelImages?.length || (reqItem.modelUrl ? 1 : 0)}`,
+      '',
+      'CUSTOMER INSTRUCTIONS & PROMPT:',
+      '--------------------------------------------------------------------------------',
+      reqItem.prompt ? reqItem.prompt.trim() : 'No special instructions provided by customer.',
+      '--------------------------------------------------------------------------------',
+      '',
+      'SLA DEADLINE WINDOW:',
+      '--------------------------------------------------------------------------------',
+      `Window:            ${reqItem.deadlineHours || 48} Hours`,
+      `Hours Elapsed:     ${((Date.now() - reqItem.createdAt) / (1000 * 60 * 60)).toFixed(1)} Hours`,
+      `Time Remaining:    ${Math.max(0, (reqItem.deadlineHours || 48) - (Date.now() - reqItem.createdAt) / (1000 * 60 * 60)).toFixed(1)} Hours`,
+      '--------------------------------------------------------------------------------',
+      '',
+      'DELIVERY STATUS & ADMIN REPLY:',
+      '--------------------------------------------------------------------------------',
+      `Admin Reply:       ${reqItem.adminReply || 'No reply recorded yet.'}`,
+      `Delivered Image:   ${reqItem.deliveredImageUrl || 'None'}`,
+      `Delivered File:    ${reqItem.deliveredFileName || 'None'}`,
+      '================================================================================',
+    ].join('\n');
+
+    zip.file('order_details.txt', textSummary);
+    zip.file('order_details.json', JSON.stringify(reqItem, null, 2));
+
+    // Helper to fetch/load image buffers
+    const fetchAssetBuffer = async (url) => {
+      if (!url || typeof url !== 'string') return null;
+      try {
+        if (url.startsWith('data:')) {
+          const base64Data = url.split(',')[1];
+          return Buffer.from(base64Data, 'base64');
+        }
+        if (url.startsWith('/')) {
+          const fullPath = path.join(ROOT, url.replace(/^\//, ''));
+          return await fs.readFile(fullPath);
+        }
+        if (url.startsWith('http')) {
+          const resp = await fetch(url, { headers: { 'User-Agent': 'ShivNaresh/1.0' } });
+          if (resp.ok) {
+            const arr = await resp.arrayBuffer();
+            return Buffer.from(arr);
+          }
+        }
+      } catch (err) {
+        console.warn(`[download-zip] Could not load asset from ${url}:`, err.message);
+      }
+      return null;
+    };
+
+    // 2. All photos and models in one file (photos_and_models.zip) AND in photos_and_models/ folder
+    const mediaZip = new JSZip();
+    const mediaFolder = zip.folder('photos_and_models');
+
+    // Load garment
+    if (reqItem.clothUrl) {
+      const clothBuf = await fetchAssetBuffer(reqItem.clothUrl);
+      if (clothBuf) {
+        const clothFilename = '01_garment.jpg';
+        mediaFolder.file(clothFilename, clothBuf);
+        mediaZip.file(clothFilename, clothBuf);
+      }
+    }
+
+    // Load model poses (up to 5)
+    const modelUrls = Array.isArray(reqItem.modelImages) && reqItem.modelImages.length > 0
+      ? reqItem.modelImages
+      : reqItem.modelUrl ? [reqItem.modelUrl] : [];
+
+    for (let i = 0; i < modelUrls.length; i++) {
+      const mUrl = modelUrls[i];
+      const modelBuf = await fetchAssetBuffer(mUrl);
+      if (modelBuf) {
+        const filename = `02_model_pose_${i + 1}.jpg`;
+        mediaFolder.file(filename, modelBuf);
+        mediaZip.file(filename, modelBuf);
+      }
+    }
+
+    // Load delivered asset if present
+    if (reqItem.deliveredImageUrl) {
+      const delBuf = await fetchAssetBuffer(reqItem.deliveredImageUrl);
+      if (delBuf) {
+        const delFilename = '03_delivered_asset.jpg';
+        mediaFolder.file(delFilename, delBuf);
+        mediaZip.file(delFilename, delBuf);
+      }
+    }
+
+    // Generate inner photos_and_models.zip
+    const mediaZipBuffer = await mediaZip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    zip.file('photos_and_models.zip', mediaZipBuffer);
+
+    // Generate combined master zip
+    const masterZipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="custom-order-${reqItem.id}.zip"`);
+    res.setHeader('Content-Length', masterZipBuffer.length);
+    res.send(masterZipBuffer);
+  } catch (error) {
+    console.error('[download-zip] Error generating zip:', error);
+    res.status(500).json({ error: 'zip_generation_failed', message: error.message });
   }
 });
 

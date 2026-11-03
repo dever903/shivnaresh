@@ -50,7 +50,7 @@ export default function About() {
   }, []);
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#0a0a0f] text-white'}`}>
+    <div className={`min-h-screen ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#0a0a0f] text-white'}`}>
       {/* Navigation Header */}
       <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/80' : 'border-white/10 bg-[#0a0a0f]/80'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">

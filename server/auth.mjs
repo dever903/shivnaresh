@@ -926,13 +926,19 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   });
 
   /* ------------------------------------------------------ google oauth */
-  const googleRedirect = (req) => {
-    if (env.GOOGLE_REDIRECT_URI && env.GOOGLE_REDIRECT_URI.includes('/api/auth/google/callback')) {
-      return env.GOOGLE_REDIRECT_URI;
-    }
+  const googleRedirect = (req, explicitOrigin = '') => {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.get('host');
-    return `${proto}://${host}/api/auth/google/callback`;
+    const dynamicUri = `${proto}://${host}/api/auth/google/callback`;
+
+    if (env.GOOGLE_REDIRECT_URI && env.GOOGLE_REDIRECT_URI.includes('/api/auth/google/callback')) {
+      const isLocalHost = host.includes('localhost') || (explicitOrigin && explicitOrigin.includes('localhost'));
+      if (!isLocalHost && env.GOOGLE_REDIRECT_URI.includes('localhost')) {
+        return dynamicUri;
+      }
+      return env.GOOGLE_REDIRECT_URI;
+    }
+    return dynamicUri;
   };
 
   router.get('/google/start', async (req, res) => {
@@ -942,19 +948,27 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
     const referer = req.headers.referer || '';
     let frontendOrigin = '';
-    try {
-      if (referer) frontendOrigin = new URL(referer).origin;
-    } catch {
-      /* ignore */
+    if (typeof req.query.origin === 'string' && req.query.origin.startsWith('http')) {
+      frontendOrigin = req.query.origin.replace(/\/+$/, '');
+    } else {
+      try {
+        if (referer) frontendOrigin = new URL(referer).origin;
+      } catch {}
     }
     if (!frontendOrigin && env.FRONTEND_URL) {
-      frontendOrigin = env.FRONTEND_URL;
+      frontendOrigin = env.FRONTEND_URL.replace(/\/+$/, '');
+    }
+    if (!frontendOrigin) {
+      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      frontendOrigin = `${proto}://${host}`;
     }
 
-    const statePayload = JSON.stringify({ next, origin: frontendOrigin });
+    const redirectUri = googleRedirect(req, frontendOrigin);
+    const statePayload = JSON.stringify({ next, origin: frontendOrigin, redirectUri });
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: googleRedirect(req),
+      redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid email profile',
       access_type: 'online',
@@ -971,12 +985,14 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     
     let next = '/design';
     let frontendOrigin = '';
+    let stateRedirectUri = '';
     try {
       const rawDecoded = Buffer.from(rawState.split('.')[0], 'base64url').toString('utf8');
       if (rawDecoded.startsWith('{')) {
         const parsed = JSON.parse(rawDecoded);
         next = parsed.next || '/design';
         frontendOrigin = parsed.origin || '';
+        stateRedirectUri = parsed.redirectUri || '';
       } else {
         next = rawDecoded;
       }
@@ -994,6 +1010,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     }
 
     try {
+      const tokenRedirect = stateRedirectUri || googleRedirect(req, frontendOrigin);
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1001,12 +1018,13 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: googleRedirect(req),
+          redirect_uri: tokenRedirect,
           grant_type: 'authorization_code',
         }),
       });
       const tokens = await tokenResponse.json();
       if (!tokenResponse.ok || !tokens.access_token) {
+        console.error('[auth-google] Token exchange failed:', tokens);
         return res.redirect(`${redirectBase}/login?error=google_failed`);
       }
 
@@ -1016,6 +1034,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       const profile = await profileResponse.json();
       const email = String(profile.email || '').toLowerCase();
       if (!EMAIL_RE.test(email) || profile.email_verified === false) {
+        console.warn('[auth-google] Unverified email:', email);
         return res.redirect(`${redirectBase}/login?error=google_email`);
       }
 
@@ -1039,7 +1058,8 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
       const token = await signToken(user);
       res.redirect(`${redirectBase}/login#token=${encodeURIComponent(token)}&next=${encodeURIComponent(safeNext)}`);
-    } catch {
+    } catch (oauthErr) {
+      console.error('[auth-google] Google OAuth callback error:', oauthErr);
       res.redirect(`${redirectBase}/login?error=google_failed`);
     }
   });

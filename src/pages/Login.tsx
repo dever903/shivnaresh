@@ -113,7 +113,12 @@ export default function Login() {
   }, [showForgotModal, forgotStep, otpSecondsLeft]);
 
   function settle(user: User | null) {
-    if (user && !user.hasPassword) {
+    if (!user) {
+      setToken('');
+      setAccount(null);
+      return;
+    }
+    if (!user.hasPassword) {
       setAccount(user);
       setStep('password');
       setBusy(false);
@@ -140,14 +145,31 @@ export default function Login() {
     if (incoming) {
       setToken(incoming);
       window.history.replaceState(null, '', `/login?next=${encodeURIComponent(target)}`);
-    }
-
-    if (incoming || getToken()) {
       void api
         .me()
         .then(({ user }) => settle(user))
-        .catch((e) => {
-          if (e instanceof ApiError && e.status === 401) setToken('');
+        .catch(() => {
+          setToken('');
+          setAccount(null);
+        });
+    } else if (getToken()) {
+      void api
+        .me()
+        .then(({ user }) => {
+          if (!user) {
+            setToken('');
+            setAccount(null);
+          } else if (!user.hasPassword) {
+            setAccount(user);
+            setStep('password');
+            setBusy(false);
+          } else {
+            window.location.replace(target);
+          }
+        })
+        .catch(() => {
+          setToken('');
+          setAccount(null);
         });
     }
   }, []);
@@ -252,7 +274,7 @@ export default function Login() {
     : 'mt-2 w-full rounded-xl border border-white/12 bg-black/50 px-3.5 py-3 text-sm text-white placeholder:text-white/25 focus:border-white/45 focus:outline-none focus:ring-0';
 
   return (
-    <div className={`relative min-h-screen overflow-hidden transition-colors duration-200 ${
+    <div className={`relative min-h-screen overflow-hidden ${
       isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
     }`}>
       <div
@@ -481,7 +503,7 @@ export default function Login() {
               </div>
 
               <a
-                href={`${API_BASE}/api/auth/google/start?next=${encodeURIComponent(next)}`}
+                href={`${API_BASE}/api/auth/google/start?next=${encodeURIComponent(next)}&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
                 className={`flex w-full items-center justify-center gap-3 rounded-full border px-6 py-3 text-sm font-medium transition-colors ${
                   isLight
                     ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50 shadow-sm'

@@ -219,7 +219,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
   const waLink = `https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(waOrderText)}`;
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-amber-500 selection:text-black ${
+    <div className={`min-h-screen font-sans antialiased selection:bg-amber-500 selection:text-black ${
       isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-slate-950 text-white'
     }`}>
       {/* Top Header with Shiv-Naresh Logo (Redirects to Home) & Dark/Light Toggle */}
