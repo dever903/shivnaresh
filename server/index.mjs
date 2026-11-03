@@ -39,7 +39,8 @@ const HOSTED_FILE = path.join(DATA, 'hosted.json');
 const UPLOAD_SETS_FILE = path.join(DATA, 'upload-sets.json');
 const CUSTOM_REQUESTS_FILE = path.join(DATA, 'custom-requests.json');
 const SYSTEM_LOGS_FILE = path.join(DATA, 'system_logs.json');
-const MODELS_DIR = path.join(ROOT, 'public', 'models');
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const MODELS_DIR = path.join(PUBLIC_DIR, 'models');
 
 const FASHN = 'https://api.fashn.ai/v1';
 const IMGBB = 'https://api.imgbb.com/1/upload';
