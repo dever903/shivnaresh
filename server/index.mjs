@@ -6,6 +6,7 @@
  */
 import express from 'express';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +40,7 @@ const HOSTED_FILE = path.join(DATA, 'hosted.json');
 const UPLOAD_SETS_FILE = path.join(DATA, 'upload-sets.json');
 const CUSTOM_REQUESTS_FILE = path.join(DATA, 'custom-requests.json');
 const SYSTEM_LOGS_FILE = path.join(DATA, 'system_logs.json');
+const GENERATIONS_FILE = path.join(DATA, 'generations.json');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const MODELS_DIR = path.join(PUBLIC_DIR, 'models');
 
@@ -48,6 +50,57 @@ const PORT = Number(process.env.PORT || 8787);
 
 await fs.mkdir(UPLOADS, { recursive: true });
 await fs.mkdir(GENERATED, { recursive: true });
+
+/* Process-level crash loggers: ensure fatal errors are recorded for Admin diagnostics */
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err);
+  try {
+    let logs = [];
+    if (fsSync.existsSync(SYSTEM_LOGS_FILE)) {
+      logs = JSON.parse(fsSync.readFileSync(SYSTEM_LOGS_FILE, 'utf8'));
+    }
+    logs.unshift({
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      isoTime: new Date().toISOString(),
+      module: 'process-crash',
+      severity: 'critical',
+      userEmail: 'system',
+      userId: null,
+      title: `Uncaught Exception: ${err.message || 'Process error'}`,
+      message: String(err.message || err),
+      details: String(err.name || 'Error'),
+      stack: String(err.stack || ''),
+      resolved: false,
+    });
+    fsSync.writeFileSync(SYSTEM_LOGS_FILE, JSON.stringify(logs.slice(0, 500), null, 2));
+  } catch {}
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+  try {
+    let logs = [];
+    if (fsSync.existsSync(SYSTEM_LOGS_FILE)) {
+      logs = JSON.parse(fsSync.readFileSync(SYSTEM_LOGS_FILE, 'utf8'));
+    }
+    logs.unshift({
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      isoTime: new Date().toISOString(),
+      module: 'unhandled-rejection',
+      severity: 'error',
+      userEmail: 'system',
+      userId: null,
+      title: `Unhandled Promise Rejection: ${reason?.message || String(reason)}`,
+      message: String(reason?.message || reason),
+      details: '',
+      stack: String(reason?.stack || ''),
+      resolved: false,
+    });
+    fsSync.writeFileSync(SYSTEM_LOGS_FILE, JSON.stringify(logs.slice(0, 500), null, 2));
+  } catch {}
+});
 
 const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
@@ -125,6 +178,8 @@ const readCustomRequests = () => readJson(CUSTOM_REQUESTS_FILE, []);
 const writeCustomRequests = (items) => writeJson(CUSTOM_REQUESTS_FILE, items);
 const readSystemLogs = () => readJson(SYSTEM_LOGS_FILE, []);
 const writeSystemLogs = (logs) => writeJson(SYSTEM_LOGS_FILE, Array.isArray(logs) ? logs.slice(0, 500) : []);
+const readGenerations = () => readJson(GENERATIONS_FILE, []);
+const writeGenerations = (list) => writeJson(GENERATIONS_FILE, Array.isArray(list) ? list.slice(0, 1000) : []);
 
 /** Record any technical error or warning into server/data/system_logs.json for admin diagnostics */
 async function recordSystemProblem({
@@ -327,17 +382,31 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '48mb' }));
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
+app.use('/uploads', (req, res, next) => {
+  try {
+    const filename = path.basename(decodeURIComponent(req.path));
+    const candidate1 = path.join(UPLOADS, filename);
+    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
+      return res.sendFile(candidate1);
+    }
+    const candidate2 = path.join(DATA, 'uploads', filename);
+    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
+      return res.sendFile(candidate2);
+    }
+    const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
+    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
+      return res.sendFile(candidate3);
+    }
+  } catch {}
+  next();
+});
+
 app.use('/generated', express.static(GENERATED, { maxAge: '1d' }));
 app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
 app.use('/models', express.static(path.join(ROOT, 'dist', 'models'), { maxAge: '7d' }));
-app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
-app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
-
-/* Explicit route for /models to handle URL-decoding and guarantee model images always load */
-app.get('/models/*', (req, res, next) => {
+app.use('/models', (req, res, next) => {
   try {
-    const rawPath = req.params[0] || '';
-    const decodedPath = decodeURIComponent(rawPath);
+    const decodedPath = decodeURIComponent(req.path.replace(/^\//, ''));
     const candidate1 = path.join(MODELS_DIR, decodedPath);
     if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
       return res.sendFile(candidate1);
@@ -354,25 +423,8 @@ app.get('/models/*', (req, res, next) => {
   next();
 });
 
-/* Explicit route for /uploads to guarantee local uploaded files always serve */
-app.get('/uploads/:filename', (req, res, next) => {
-  try {
-    const filename = path.basename(req.params.filename);
-    const candidate1 = path.join(UPLOADS, filename);
-    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
-      return res.sendFile(candidate1);
-    }
-    const candidate2 = path.join(DATA, 'uploads', filename);
-    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
-      return res.sendFile(candidate2);
-    }
-    const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
-    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
-      return res.sendFile(candidate3);
-    }
-  } catch {}
-  next();
-});
+app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
+app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
 
 const patchState = async (patch) => {
   const current = await readState();
@@ -1331,6 +1383,26 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           message: msg,
           details: { mode, resolution, responseData: data },
         });
+        /* Record rejection in generations.json for Admin ledger */
+        try {
+          const genList = await readGenerations();
+          genList.unshift({
+            id: crypto.randomUUID(),
+            userId: req.user?._id || 'guest',
+            userEmail: req.user?.email || 'guest',
+            userName: req.user?.name || '',
+            type: mode === 'swap' ? 'model-swap' : 'tryon',
+            mode: mode || 'tryon',
+            resolution: resolution.toUpperCase(),
+            creditsUsed: 0,
+            status: 'failed',
+            error: msg,
+            prompt: body.prompt || '',
+            createdAt: Date.now(),
+          });
+          await writeGenerations(genList);
+        } catch {}
+
         return res.status(response.status).json({
           error: data.error || 'render_error',
           message: msg,
@@ -1340,6 +1412,33 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       if (data.id) {
         lockUser(req, data.id);
         jobKeyMap.set(data.id, { requestKey, clearTimer, userId: req.user?._id, creditsUsed: creditsNeeded });
+
+        /* Record active generation in generations.json so it is tracked immediately in Admin Panel */
+        try {
+          const genList = await readGenerations();
+          genList.unshift({
+            id: data.id,
+            userId: req.user?._id || 'guest',
+            userEmail: req.user?.email || 'guest',
+            userName: req.user?.name || '',
+            type: mode === 'swap' ? 'model-swap' : 'tryon',
+            mode,
+            resolution: resolution.toUpperCase(),
+            creditsUsed: creditsNeeded,
+            status: 'processing',
+            error: null,
+            prompt: body.prompt || '',
+            cloth: typeof body.cloth === 'string' ? (body.cloth.startsWith('data:') ? 'Custom Upload' : body.cloth) : '',
+            model: typeof body.model === 'string' ? (body.model.startsWith('data:') ? 'Custom Model' : body.model) : (body.sourceModel || ''),
+            sourceModel: typeof body.sourceModel === 'string' ? (body.sourceModel.startsWith('data:') ? 'Custom Model' : body.sourceModel) : '',
+            targetModel: typeof body.targetModel === 'string' ? (body.targetModel.startsWith('data:') ? 'Target Model' : body.targetModel) : '',
+            outputUrl: null,
+            createdAt: Date.now(),
+          });
+          await writeGenerations(genList);
+        } catch (logErr) {
+          console.error('[generations] Failed to write generation log:', logErr.message);
+        }
       }
 
       /* deduct credits and increment model usage counters */
@@ -1376,6 +1475,24 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       throw fetchErr;
     }
   } catch (error) {
+    try {
+      const genList = await readGenerations();
+      genList.unshift({
+        id: crypto.randomUUID(),
+        userId: req.user?._id || 'guest',
+        userEmail: req.user?.email || 'guest',
+        userName: req.user?.name || '',
+        type: req.body?.mode === 'swap' ? 'model-swap' : 'tryon',
+        mode: req.body?.mode || 'tryon',
+        resolution: String(req.body?.resolution || '1k').toUpperCase(),
+        creditsUsed: 0,
+        status: 'failed',
+        error: String(error.message || error),
+        prompt: req.body?.prompt || '',
+        createdAt: Date.now(),
+      });
+      await writeGenerations(genList);
+    } catch {}
     await recordSystemProblem({
       module: 'image-generation',
       severity: 'error',
@@ -1481,6 +1598,27 @@ app.get('/api/job/:id', async (req, res) => {
       }
       data.output = local;
     }
+
+    if (data.status === 'completed' || data.status === 'failed') {
+      try {
+        const genList = await readGenerations();
+        const found = genList.find((g) => g.id === req.params.id);
+        if (found) {
+          found.status = data.status === 'completed' ? 'completed' : 'failed';
+          if (data.status === 'completed') {
+            found.outputUrl = (Array.isArray(data.output) && data.output[0]) ? data.output[0] : null;
+            found.url = found.outputUrl;
+          } else {
+            found.error = data.error || data.message || data.detail || 'Render rejected or failed on cluster.';
+          }
+          found.completedAt = Date.now();
+          await writeGenerations(genList);
+        }
+      } catch (genUpdateErr) {
+        console.error('[generations] Failed to update status in generations.json:', genUpdateErr.message);
+      }
+    }
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'status_failed', message: String(error.message || error) });
@@ -1488,10 +1626,6 @@ app.get('/api/job/:id', async (req, res) => {
 });
 
 /* --------------------------------------------------- user generations (library) */
-const GENERATIONS_FILE = path.join(DATA, 'generations.json');
-const readGenerations = async () => readJson(GENERATIONS_FILE, []);
-const writeGenerations = (list) => writeJson(GENERATIONS_FILE, list);
-
 app.get('/api/user/generations', auth.requireUser, async (req, res) => {
   try {
     const list = await readGenerations();
@@ -2248,6 +2382,64 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------- admin all generations view */
+app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
+  try {
+    const list = await readGenerations();
+    const sorted = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const totalCreditsDeducted = sorted.reduce((sum, g) => sum + (Number(g.creditsUsed) || 0), 0);
+    const successCount = sorted.filter((g) => g.status === 'completed' || (!g.status && (g.url || g.outputUrl))).length;
+    const failedCount = sorted.filter((g) => g.status === 'failed').length;
+    const processingCount = sorted.filter((g) => g.status === 'processing').length;
+    res.json({
+      items: sorted,
+      total: sorted.length,
+      totalCreditsDeducted,
+      successCount,
+      failedCount,
+      processingCount,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'fetch_generations_failed', message: err.message });
+  }
+});
+
+app.delete('/api/admin/generations/:id', requireAdmin, async (req, res) => {
+  try {
+    const list = await readGenerations();
+    const filtered = list.filter((g) => g.id !== req.params.id);
+    await writeGenerations(filtered);
+    res.json({ ok: true, deleted: req.params.id });
+  } catch (err) {
+    res.status(500).json({ error: 'delete_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/generations/:id/refund', requireAdmin, async (req, res) => {
+  try {
+    const list = await readGenerations();
+    const item = list.find((g) => g.id === req.params.id);
+    if (!item) return res.status(404).json({ error: 'not_found', message: 'Generation record not found' });
+    if (item.status === 'refunded') {
+      return res.status(400).json({ error: 'already_refunded', message: 'This generation has already been refunded.' });
+    }
+    const toRefund = Number(item.creditsUsed) || 0;
+    if (toRefund <= 0) {
+      return res.status(400).json({ error: 'zero_credits', message: 'This generation used 0 credits; nothing to refund.' });
+    }
+    const user = await auth.findUserById(item.userId);
+    if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found' });
+    const newBalance = (Number(user.credits) || 0) + toRefund;
+    await auth.patchUser(user._id, { credits: newBalance });
+    item.status = 'refunded';
+    item.creditsRefunded = toRefund;
+    await writeGenerations(list);
+    res.json({ ok: true, refundedCredits: toRefund, userEmail: user.email, newBalance });
+  } catch (err) {
+    res.status(500).json({ error: 'refund_failed', message: err.message });
+  }
+});
+
 /* ---------------------------------------------------- video preview pipeline */
 app.post('/api/generate-video', auth.requireUser, async (req, res) => {
   try {
@@ -2378,6 +2570,25 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
         message: msg,
         details: { duration, aspectRatio, responseData: data },
       });
+      try {
+        const genList = await readGenerations();
+        genList.unshift({
+          id: crypto.randomUUID(),
+          userId: req.user?._id || 'guest',
+          userEmail: req.user?.email || 'guest',
+          userName: req.user?.name || '',
+          type: 'video',
+          mode: 'runway-video',
+          resolution: 'HD',
+          creditsUsed: 0,
+          status: 'failed',
+          error: msg,
+          prompt: prompt || '',
+          createdAt: Date.now(),
+        });
+        await writeGenerations(genList);
+      } catch {}
+
       return res.status(response.status).json({
         error: data.error || 'render_error',
         message: msg,
@@ -2402,7 +2613,27 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
 
     if (data.id) {
       lockUser(req, data.id);
-      jobKeyMap.set(data.id, { requestKey: `video-${data.id}`, userKey: getUserLockKey(req) });
+      jobKeyMap.set(data.id, { requestKey: `video-${data.id}`, userKey: getUserLockKey(req), userId: req.user?._id, creditsUsed: creditsNeeded });
+      try {
+        const genList = await readGenerations();
+        genList.unshift({
+          id: data.id,
+          userId: req.user._id,
+          userEmail: req.user.email || '',
+          userName: req.user.name || '',
+          type: 'video',
+          mode: 'runway-video',
+          resolution: 'HD',
+          creditsUsed: creditsNeeded,
+          status: 'processing',
+          error: null,
+          prompt: prompt || '',
+          model: modelImage || '',
+          outputUrl: null,
+          createdAt: Date.now(),
+        });
+        await writeGenerations(genList);
+      } catch {}
     }
 
     res.json({
@@ -2417,6 +2648,24 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
       status: 'starting',
     });
   } catch (error) {
+    try {
+      const genList = await readGenerations();
+      genList.unshift({
+        id: crypto.randomUUID(),
+        userId: req.user?._id || 'guest',
+        userEmail: req.user?.email || 'guest',
+        userName: req.user?.name || '',
+        type: req.body?.mode === 'swap' ? 'model-swap' : 'tryon',
+        mode: req.body?.mode || 'tryon',
+        resolution: String(req.body?.resolution || '1k').toUpperCase(),
+        creditsUsed: 0,
+        status: 'failed',
+        error: String(error.message || error),
+        prompt: req.body?.prompt || '',
+        createdAt: Date.now(),
+      });
+      await writeGenerations(genList);
+    } catch {}
     await recordSystemProblem({
       module: 'video-generation',
       severity: 'error',
@@ -2512,6 +2761,23 @@ app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
     res.sendFile(path.join(dist, 'index.html'));
   } catch {
     res.status(404).send('Run `npm run build` first.');
+  }
+});
+
+/* Express Global Error Handler — catches all unhandled controller errors and records to system logs */
+app.use((err, req, res, _next) => {
+  console.error('[EXPRESS ROUTE ERROR]', err);
+  recordSystemProblem({
+    module: 'express-route',
+    severity: 'error',
+    userEmail: req.user?.email || 'guest',
+    userId: req.user?._id,
+    title: `Error on ${req.method} ${req.originalUrl}: ${err.message || 'Route failure'}`,
+    message: String(err.message || err),
+    stack: String(err.stack || ''),
+  }).catch(() => {});
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'internal_server_error', message: err.message || 'An unexpected error occurred.' });
   }
 });
 

@@ -127,6 +127,28 @@ export type UserGeneration = {
   createdAt: number;
 };
 
+export type AdminGeneration = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  type: string;
+  mode?: string;
+  resolution?: string;
+  creditsUsed: number;
+  status: 'completed' | 'processing' | 'failed' | 'refunded';
+  error?: string | null;
+  prompt?: string;
+  cloth?: string;
+  model?: string;
+  sourceModel?: string;
+  targetModel?: string;
+  outputUrl?: string | null;
+  url?: string;
+  createdAt: number;
+  completedAt?: number;
+};
+
 export type FashnCredits = {
   configured: boolean;
   total: number;
@@ -360,6 +382,24 @@ export const api = {
     request<{ ok: boolean; id: string; maxVideos: number }>(`/api/admin/users/${id}/video-limit`, json({ maxVideos })),
   deleteUser: (id: string) =>
     request<{ ok: boolean; id: string }>(`/api/admin/users/${id}`, { method: 'DELETE' }),
+
+  /* admin all generations */
+  adminGenerations: () =>
+    request<{
+      items: AdminGeneration[];
+      total: number;
+      totalCreditsDeducted: number;
+      successCount: number;
+      failedCount: number;
+      processingCount: number;
+    }>('/api/admin/generations'),
+  adminDeleteGeneration: (id: string) =>
+    request<{ ok: boolean; deleted: string }>(`/api/admin/generations/${id}`, { method: 'DELETE' }),
+  adminRefundGeneration: (id: string) =>
+    request<{ ok: boolean; refundedCredits: number; userEmail: string; newBalance: number }>(
+      `/api/admin/generations/${id}/refund`,
+      { method: 'POST' },
+    ),
 
   /* video */
   generateVideo: (body: { image?: string; prompt?: string; duration?: 5 | 10; aspect_ratio?: string }) =>

@@ -7,6 +7,7 @@ import {
   type AdminAccess,
   type AdminSettings,
   type AdminUser,
+  type AdminGeneration,
   type CustomRequest,
   type HostStatus,
   type ModelCategory,
@@ -36,7 +37,7 @@ export default function Admin() {
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'requests' | 'users' | 'settings' | 'models' | 'problems'
+    'overview' | 'requests' | 'users' | 'generations' | 'settings' | 'models' | 'problems'
   >('overview');
 
   /* Settings Form State */
@@ -111,6 +112,20 @@ export default function Admin() {
   const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+
+  /* All Generations Ledger State */
+  const [generationsList, setGenerationsList] = useState<AdminGeneration[]>([]);
+  const [generationsTotal, setGenerationsTotal] = useState(0);
+  const [generationsCreditsTotal, setGenerationsCreditsTotal] = useState(0);
+  const [generationsSuccessCount, setGenerationsSuccessCount] = useState(0);
+  const [generationsFailedCount, setGenerationsFailedCount] = useState(0);
+  const [generationsProcessingCount, setGenerationsProcessingCount] = useState(0);
+  const [generationsLoading, setGenerationsLoading] = useState(false);
+  const [genSearch, setGenSearch] = useState('');
+  const [genStatusFilter, setGenStatusFilter] = useState<'all' | 'completed' | 'failed' | 'processing' | 'refunded'>('all');
+  const [genTypeFilter, setGenTypeFilter] = useState<'all' | 'tryon' | 'model-swap' | 'video'>('all');
+  const [refundingGenId, setRefundingGenId] = useState<string | null>(null);
+  const [previewGenItem, setPreviewGenItem] = useState<AdminGeneration | null>(null);
 
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
@@ -361,6 +376,47 @@ export default function Admin() {
     }
   }
 
+  async function loadGenerations() {
+    setGenerationsLoading(true);
+    try {
+      const res = await api.adminGenerations();
+      setGenerationsList(res.items || []);
+      setGenerationsTotal(res.total || 0);
+      setGenerationsCreditsTotal(res.totalCreditsDeducted || 0);
+      setGenerationsSuccessCount(res.successCount || 0);
+      setGenerationsFailedCount(res.failedCount || 0);
+      setGenerationsProcessingCount(res.processingCount || 0);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setGenerationsLoading(false);
+    }
+  }
+
+  async function handleRefundGeneration(gen: AdminGeneration) {
+    if (!confirm(`Refund ${gen.creditsUsed} credit(s) back to ${gen.userEmail || 'user'}?`)) return;
+    setRefundingGenId(gen.id);
+    try {
+      const res = await api.adminRefundGeneration(gen.id);
+      alert(`✓ Successfully refunded ${res.refundedCredits} credits to ${res.userEmail}! User new balance: ${res.newBalance}`);
+      await Promise.allSettled([loadGenerations(), loadUsers()]);
+    } catch (err: any) {
+      alert(err.message || 'Failed to refund generation');
+    } finally {
+      setRefundingGenId(null);
+    }
+  }
+
+  async function handleDeleteGeneration(id: string) {
+    if (!confirm('Delete this generation record?')) return;
+    try {
+      await api.adminDeleteGeneration(id);
+      await loadGenerations();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete generation');
+    }
+  }
+
   async function loadHost() {
     try {
       setHost(await api.hostStatus());
@@ -397,6 +453,7 @@ export default function Admin() {
             loadUsers(),
             loadSystemLogs(),
             loadFashnCredits(),
+            loadGenerations(),
           ]);
         }
       } catch {
@@ -880,6 +937,13 @@ ${log.stack || 'None'}
                   badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                 },
                 { id: 'users', label: 'Registered Users & Credits', icon: '👥', count: usersList.length },
+                {
+                  id: 'generations',
+                  label: 'All Generations & Credits',
+                  icon: '⚡',
+                  count: generationsList.length,
+                  badge: generationsProcessingCount > 0 ? generationsProcessingCount : undefined,
+                },
                 { id: 'models', label: 'Model Library', icon: '🎭', count: modelCount },
                 {
                   id: 'problems',
@@ -3097,11 +3161,354 @@ ${log.stack || 'None'}
     );
   };
 
+  /* ---------------------------------------------------- TAB: ALL GENERATIONS & CREDITS LEDGER */
+  const renderGenerations = () => {
+    const filtered = generationsList.filter((g) => {
+      if (genStatusFilter !== 'all') {
+        const matchesStatus =
+          genStatusFilter === 'completed'
+            ? g.status === 'completed' || (!g.status && (g.url || g.outputUrl))
+            : g.status === genStatusFilter;
+        if (!matchesStatus) return false;
+      }
+      if (genTypeFilter !== 'all') {
+        if (genTypeFilter === 'video' && g.type !== 'video') return false;
+        if (genTypeFilter === 'model-swap' && g.mode !== 'swap' && g.type !== 'model-swap') return false;
+        if (genTypeFilter === 'tryon' && (g.type === 'video' || g.mode === 'swap' || g.type === 'model-swap')) return false;
+      }
+      if (genSearch.trim()) {
+        const q = genSearch.toLowerCase();
+        const matchesEmail = (g.userEmail || '').toLowerCase().includes(q);
+        const matchesName = (g.userName || '').toLowerCase().includes(q);
+        const matchesPrompt = (g.prompt || '').toLowerCase().includes(q);
+        const matchesId = (g.id || '').toLowerCase().includes(q);
+        const matchesErr = (g.error || '').toLowerCase().includes(q);
+        if (!matchesEmail && !matchesName && !matchesPrompt && !matchesId && !matchesErr) return false;
+      }
+      return true;
+    });
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className={`text-lg font-bold tracking-tight flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              <span>⚡</span> All Studio Generations & Credit Deductions
+            </h2>
+            <p className={`text-xs ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+              Audit trail of every AI try-on, model-swap, and video render with exact credit deductions, status, and cluster error details.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadGenerations}
+            disabled={generationsLoading}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
+              isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]' : 'border-white/10 bg-white/5 hover:bg-white/10'
+            }`}
+          >
+            <RefreshCw size={12} className={generationsLoading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Metrics Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className={cardClass}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Total Generations</p>
+            <p className="mt-1 text-2xl font-extrabold">{generationsTotal}</p>
+          </div>
+          <div className={cardClass}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-amber-900' : 'text-amber-400'}`}>Total Credits Deducted</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-amber-900' : 'text-amber-400'}`}>⚡ {generationsCreditsTotal}</p>
+          </div>
+          <div className={cardClass}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-emerald-900' : 'text-emerald-400'}`}>Successful Renders</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-emerald-900' : 'text-emerald-400'}`}>✓ {generationsSuccessCount}</p>
+          </div>
+          <div className={cardClass}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-rose-900' : 'text-rose-400'}`}>Failed with Error</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-rose-900' : 'text-rose-400'}`}>✗ {generationsFailedCount}</p>
+          </div>
+          <div className={cardClass}>
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-cyan-900' : 'text-cyan-400'}`}>In Progress</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-cyan-900' : 'text-cyan-400'}`}>⏳ {generationsProcessingCount}</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${
+          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        }`}>
+          <div className="flex flex-1 items-center gap-2 min-w-[240px]">
+            <input
+              type="text"
+              value={genSearch}
+              onChange={(e) => setGenSearch(e.target.value)}
+              placeholder="Search by user email, prompt, ID, error..."
+              className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
+                isLight ? 'border-[#78a48b] bg-[#82b095]/50 text-slate-900 placeholder:text-slate-600' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+              }`}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={genStatusFilter}
+              onChange={(e) => setGenStatusFilter(e.target.value as any)}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
+            >
+              <option value="all">All Statuses</option>
+              <option value="completed">✓ Completed Only</option>
+              <option value="failed">✗ Failed Only (Errors)</option>
+              <option value="processing">⏳ Processing</option>
+              <option value="refunded">↺ Refunded</option>
+            </select>
+
+            <select
+              value={genTypeFilter}
+              onChange={(e) => setGenTypeFilter(e.target.value as any)}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
+            >
+              <option value="all">All Types</option>
+              <option value="tryon">Virtual Try-On</option>
+              <option value="model-swap">Model Swap</option>
+              <option value="video">Runway Video</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Generations Table */}
+        <div className={`overflow-hidden rounded-3xl border shadow-sm ${
+          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        }`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
+                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-white/5 text-white/50'
+              }`}>
+                <tr>
+                  <th className="py-3 px-4">User</th>
+                  <th className="py-3 px-4">Type &amp; Res</th>
+                  <th className="py-3 px-4">Credits</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Output / Error Details</th>
+                  <th className="py-3 px-4">Time</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isLight ? 'divide-[#78a48b]/40' : 'divide-white/5'}`}>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className={`py-12 text-center ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                      {generationsList.length === 0 ? 'No generations logged yet.' : 'No generations match the filter criteria.'}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((g) => {
+                    const isSuccess = g.status === 'completed' || (!g.status && (g.url || g.outputUrl));
+                    const isFailed = g.status === 'failed';
+                    const isRefunded = g.status === 'refunded';
+                    const isProcessing = g.status === 'processing';
+                    const displayUrl = g.outputUrl || g.url;
+
+                    return (
+                      <tr key={g.id} className={`transition-colors ${isLight ? 'hover:bg-[#82b095]/40' : 'hover:bg-white/[0.02]'}`}>
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-xs truncate max-w-[180px]">{g.userEmail || 'Anonymous'}</p>
+                          {g.userName && <p className="text-[10px] opacity-70">{g.userName}</p>}
+                          <p className="text-[9px] font-mono opacity-40 truncate max-w-[150px]">ID: {g.userId?.slice(0, 10)}…</p>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            g.type === 'video'
+                              ? 'bg-purple-500/20 text-purple-600 border border-purple-500/30'
+                              : g.mode === 'swap' || g.type === 'model-swap'
+                                ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-500/30'
+                                : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
+                          }`}>
+                            {g.type === 'video' ? '🎬 Video' : g.mode === 'swap' || g.type === 'model-swap' ? '👥 Swap' : '✦ Try-On'}
+                          </span>
+                          <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
+                            {g.resolution || (g.type === 'video' ? 'HD' : '1K')}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <span className={`font-mono text-xs font-bold ${
+                            g.creditsUsed > 0
+                              ? isLight ? 'text-amber-900 font-extrabold' : 'text-amber-400 font-extrabold'
+                              : 'opacity-50'
+                          }`}>
+                            {g.creditsUsed > 0 ? `⚡ -${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {isSuccess && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-800 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold">
+                              ✓ Completed
+                            </span>
+                          )}
+                          {isFailed && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-800 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold">
+                              ✗ Failed
+                            </span>
+                          )}
+                          {isProcessing && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold animate-pulse">
+                              ⏳ Processing
+                            </span>
+                          )}
+                          {isRefunded && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 text-cyan-800 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold">
+                              ↺ Refunded
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 max-w-[280px]">
+                          {displayUrl && (
+                            <div className="flex items-center gap-2 mb-1">
+                              {g.type === 'video' ? (
+                                <video
+                                  src={displayUrl}
+                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20"
+                                  onClick={() => setPreviewGenItem(g)}
+                                />
+                              ) : (
+                                <img
+                                  src={displayUrl}
+                                  alt="render"
+                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 hover:scale-105 transition"
+                                  onClick={() => setPreviewGenItem(g)}
+                                />
+                              )}
+                              <span className="text-[10px] opacity-70 underline cursor-pointer" onClick={() => setPreviewGenItem(g)}>
+                                Click to view render
+                              </span>
+                            </div>
+                          )}
+
+                          {g.error ? (
+                            <div className="rounded-lg bg-rose-500/15 border border-rose-500/30 p-2 text-rose-900 text-[10px] font-medium leading-relaxed">
+                              <strong>Error:</strong> {g.error}
+                            </div>
+                          ) : g.prompt ? (
+                            <p className="text-[10px] opacity-75 truncate max-w-full" title={g.prompt}>
+                              &ldquo;{g.prompt}&rdquo;
+                            </p>
+                          ) : (
+                            <span className="text-[10px] opacity-40">Standard Generation</span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 whitespace-nowrap text-[11px] opacity-70">
+                          {g.createdAt ? new Date(g.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            {g.creditsUsed > 0 && !isRefunded && (
+                              <button
+                                type="button"
+                                onClick={() => void handleRefundGeneration(g)}
+                                disabled={refundingGenId === g.id}
+                                className="rounded-full bg-cyan-600 hover:bg-cyan-500 text-white px-2.5 py-1 text-[10px] font-bold uppercase transition disabled:opacity-50"
+                                title="Refund credits to this user"
+                              >
+                                {refundingGenId === g.id ? '…' : `↺ Refund (${g.creditsUsed})`}
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteGeneration(g.id)}
+                              className="rounded-full p-1.5 text-rose-600 hover:bg-rose-500/20 transition"
+                              title="Delete generation entry"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Preview Lightbox Modal */}
+        {previewGenItem && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewGenItem(null)}
+          >
+            <div
+              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${
+                isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-sm">Generation Preview</h3>
+                  <p className="text-xs opacity-70">{previewGenItem.userEmail} &middot; {previewGenItem.type} ({previewGenItem.resolution || '1K'})</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewGenItem(null)}
+                  className="rounded-full p-1.5 bg-black/40 text-white hover:bg-black/70"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
+                {previewGenItem.type === 'video' ? (
+                  <video src={previewGenItem.outputUrl || previewGenItem.url || ''} controls autoPlay loop className="max-h-[58vh] rounded-xl object-contain" />
+                ) : (
+                  <img src={previewGenItem.outputUrl || previewGenItem.url || ''} alt="generation" className="max-h-[58vh] rounded-xl object-contain" />
+                )}
+              </div>
+
+              {previewGenItem.prompt && (
+                <p className="mt-3 text-xs opacity-80">&ldquo;{previewGenItem.prompt}&rdquo;</p>
+              )}
+
+              <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/10 text-xs">
+                <span>Credits Used: <strong className="text-amber-500">{previewGenItem.creditsUsed}</strong></span>
+                <a
+                  href={previewGenItem.outputUrl || previewGenItem.url || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="rounded-full bg-[#e5373f] text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider"
+                >
+                  Download Output
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return shell(
     <div>
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'requests' && renderRequests()}
       {activeTab === 'users' && renderUsers()}
+      {activeTab === 'generations' && renderGenerations()}
       {activeTab === 'settings' && renderSettings()}
       {activeTab === 'models' && renderModels()}
       {activeTab === 'problems' && renderProblems()}
