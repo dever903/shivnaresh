@@ -102,15 +102,41 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(180);
 
-  /* OTP Countdown Timer */
+  /* OTP Countdown Timer — Wall-clock backed, continues in background tab/app */
   useEffect(() => {
     if (!showForgotModal || forgotStep !== 'otp') return;
-    if (otpSecondsLeft <= 0) return;
-    const interval = setInterval(() => {
-      setOtpSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showForgotModal, forgotStep, otpSecondsLeft]);
+
+    const updateRemaining = () => {
+      try {
+        const stored = localStorage.getItem('shivnaresh_otp_expiry');
+        if (!stored) {
+          setOtpSecondsLeft(0);
+          return 0;
+        }
+        const target = parseInt(stored, 10);
+        const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+        setOtpSecondsLeft(remaining);
+        return remaining;
+      } catch {
+        return 0;
+      }
+    };
+
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 1000);
+
+    const onSync = () => {
+      updateRemaining();
+    };
+    document.addEventListener('visibilitychange', onSync);
+    window.addEventListener('focus', onSync);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onSync);
+      window.removeEventListener('focus', onSync);
+    };
+  }, [showForgotModal, forgotStep]);
 
   function settle(user: User | null) {
     if (!user) {
@@ -284,7 +310,7 @@ export default function Login() {
 
   return (
     <div className={`relative min-h-screen overflow-hidden ${
-      isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
+      'bg-[#08080a] text-white'
     }`}>
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -324,7 +350,7 @@ export default function Login() {
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-16 pt-6 sm:px-0 sm:pt-10">
-        <div className={isLight ? 'rounded-3xl border border-black/10 bg-white/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-gray-900' : ''}>
+        <div className={'rounded-3xl border border-white/10 bg-[#0c1017]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-white'}>
           {step === 'password' ? (
             <>
               <h1 className="text-2xl font-semibold tracking-[-0.02em]">Create a password</h1>
@@ -558,7 +584,7 @@ export default function Login() {
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`relative w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-all ${
-            isLight ? 'border-gray-200 bg-white text-gray-900 shadow-2xl' : 'border-white/15 bg-[#0f0f13] text-white'
+            'border-white/15 bg-[#0f0f13] text-white'
           }`}>
             <button
               onClick={() => setShowForgotModal(false)}

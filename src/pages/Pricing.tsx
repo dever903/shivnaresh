@@ -138,6 +138,8 @@ export default function Pricing() {
   const [checkoutStep, setCheckoutStep] = useState<'method' | 'pay'>('method');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
+  const [qrMode, setQrMode] = useState<'fixed' | 'standard'>('fixed');
+  const [showEnlargedQr, setShowEnlargedQr] = useState<boolean>(false);
 
   const [usdToInrRate, setUsdToInrRate] = useState<number>(DEFAULT_USD_TO_INR);
   const [paymentMethod, setPaymentMethod] = useState<'qr' | 'bank'>('qr');
@@ -185,16 +187,16 @@ export default function Pricing() {
     accountHolder: 'PAWAN KUMAR',
   };
   const cleanPlanName = (selectedPlan?.name || 'Pro').replace(/[^a-zA-Z0-9]/g, '');
-  // Official NPCI standard UPI link with fixed price and clean parameters
-  const upiPayLink = selectedPlan
-    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName).replace(/%20/g, '+')}&am=${inrAmount}.00&cu=INR&tn=ShivNaresh${cleanPlanName}`
+  // Official NPCI standard UPI link (clean parameters, no .00 suffix to ensure universal scanner compatibility)
+  const upiPayLink = selectedPlan && qrMode === 'fixed'
+    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName).replace(/%20/g, '+')}&am=${inrAmount}&cu=INR&tn=ShivNaresh${cleanPlanName}`
     : `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName).replace(/%20/g, '+')}&cu=INR`;
 
   useEffect(() => {
     if (!upiPayLink) return;
-    // Generate high-resolution 340x340 PNG with standard 4-module quiet zone & High error correction
+    // High-resolution 400x400 PNG with official 4-module quiet zone & High error correction
     QRCode.toDataURL(upiPayLink, {
-      width: 340,
+      width: 400,
       margin: 4,
       errorCorrectionLevel: 'H',
       color: { dark: '#000000', light: '#ffffff' },
@@ -226,11 +228,11 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-amber-500 selection:text-black ${
-      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-slate-950 text-white'
+      'bg-[#070709] text-white'
     }`}>
       {/* Top Header with Shiv-Naresh Logo (Redirects to Home) & Dark/Light Toggle */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        isLight ? 'border-gray-200 bg-white/85 shadow-sm' : 'border-white/10 bg-[#0a0a0f]/85'
+        'border-white/10 bg-[#0a0a0f]/85'
       }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
           <a href="/" className="flex items-center gap-3 group cursor-pointer" title="Return to Home">
@@ -556,24 +558,26 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
       {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
       {showCheckoutModal && selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-          <div className={`border border-amber-500/40 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative my-8 ${
-            isLight ? 'bg-white text-gray-900' : 'bg-slate-900 text-white'
-          }`}>
-            <button
-              onClick={() => {
-                setShowCheckoutModal(false);
-                setSubmitted(false);
-                setPaymentDone(false);
-                setTransactionId('');
-                setCheckoutStep('method');
-              }}
-              className={`absolute top-5 right-5 p-1 rounded-lg ${
-                isLight ? 'text-gray-400 hover:text-gray-900' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
+          <div className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 bg-[#0c1017] text-white p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                {checkoutStep === 'method' ? 'Step 1: Select Payment Method' : 'Step 2: Pay & Confirm'}
+              </span>
+              <button
+                onClick={() => {
+                  setShowCheckoutModal(false);
+                  setSubmitted(false);
+                  setPaymentDone(false);
+                  setTransactionId('');
+                  setCheckoutStep('method');
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto pr-1.5 pt-3 space-y-4 flex-1">
 
             {/* STEP 1: CHOOSE PAYMENT METHOD */}
             {checkoutStep === 'method' ? (
@@ -693,30 +697,57 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 </div>
 
                 {paymentMethod === 'qr' ? (
-                  /* GENERATED FIXED PRICE UPI QR CODE (NO STATIC PHOTO) */
+                  /* GENERATED FIXED PRICE UPI QR CODE */
                   <div className="mb-4">
-                    <div className="bg-white p-3.5 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto w-fit text-slate-900 border border-gray-200">
-                      {localQrDataUrl ? (
-                        <div className="bg-white p-2 rounded-xl flex items-center justify-center shadow-inner">
+                    <div className="bg-[#111726] border border-amber-500/30 p-3.5 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto text-center w-full">
+                      <div className="bg-white p-2 rounded-2xl shadow-md inline-block">
+                        {localQrDataUrl ? (
                           <img
                             src={localQrDataUrl}
-                            alt="Scan UPI QR Code to Pay"
-                            className="w-64 h-64 object-contain block mx-auto rounded-lg"
+                            alt={`Scan to Pay ₹${inrAmount}`}
+                            className="w-48 h-48 sm:w-56 sm:h-56 object-contain block mx-auto rounded"
                           />
-                        </div>
-                      ) : (
-                        <div className="w-64 h-64 flex flex-col items-center justify-center bg-slate-100 rounded-xl text-xs text-slate-500">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
-                          Generating High-Res UPI QR...
-                        </div>
-                      )}
-                      <div className="mt-2.5 pt-2 border-t border-slate-200 text-center w-full">
-                        <p className="text-xs font-extrabold text-slate-900">PAWAN KUMAR &middot; Paytm UPI</p>
-                        <p className="text-[11px] font-mono text-slate-600 font-semibold">{upiId}</p>
-                        <span className="inline-block mt-1 text-[11px] font-black text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full">
-                          Fixed ₹{inrAmount.toLocaleString('en-IN')} (Non-editable)
+                        ) : (
+                          <div className="w-48 h-48 sm:w-56 sm:h-56 flex flex-col items-center justify-center bg-slate-100 rounded text-xs text-slate-500">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500 mb-2" />
+                            Generating High-Res UPI QR...
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 text-center w-full">
+                        <p className="text-xs sm:text-sm font-extrabold text-white">PAWAN KUMAR &middot; Paytm UPI</p>
+                        <p className="text-xs font-mono text-amber-400 font-bold tracking-wider mt-0.5">{upiId}</p>
+                        <span className="inline-block mt-1.5 text-xs font-black text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-3 py-0.5 rounded-full">
+                          {qrMode === 'fixed' ? `Fixed ₹${inrAmount.toLocaleString('en-IN')} (Non-editable)` : 'Universal Scan & Pay'}
                         </span>
                       </div>
+
+                      {/* Mode Toggle: Fixed vs Universal */}
+                      <div className="mt-3 inline-flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setQrMode('fixed')}
+                          className={`px-2.5 py-1 rounded-lg font-bold transition ${qrMode === 'fixed' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Fixed Price (₹${inrAmount})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQrMode('standard')}
+                          className={`px-2.5 py-1 rounded-lg font-bold transition ${qrMode === 'standard' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Standard (Universal)
+                        </button>
+                      </div>
+
+                      {/* Enlarge QR Link */}
+                      <button
+                        type="button"
+                        onClick={() => setShowEnlargedQr(true)}
+                        className="mt-2 text-xs text-amber-400 hover:text-amber-300 font-bold underline flex items-center gap-1 cursor-pointer"
+                      >
+                        🔍 Tap to Enlarge / Full-Screen QR
+                      </button>
                     </div>
 
                     {/* Supported Apps Badge */}
@@ -914,6 +945,34 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 )}
               </div>
             )}
+          </div>
+        </div>
+        </div>
+      )}
+
+            {/* Modal 3: Fullscreen Enlarged QR Modal */}
+      {showEnlargedQr && (
+        <div className="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0c1017] border-2 border-amber-500/60 p-6 rounded-3xl max-w-sm w-full text-center shadow-2xl relative">
+            <button
+              onClick={() => setShowEnlargedQr(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h4 className="text-base font-bold text-white mb-2">Scan & Pay via UPI</h4>
+            <p className="text-xs text-slate-400 mb-3">{selectedPlan?.name} Plan &middot; PAWAN KUMAR</p>
+            <div className="bg-white p-3 rounded-2xl shadow-xl inline-block mb-3">
+              <img src={localQrDataUrl} alt="Enlarged UPI QR" className="w-64 h-64 sm:w-72 sm:h-72 object-contain mx-auto" />
+            </div>
+            <p className="text-xs font-mono text-amber-400 font-bold">{upiId}</p>
+            <p className="text-sm font-black text-emerald-400 mt-1">₹{inrAmount.toLocaleString('en-IN')}</p>
+            <button
+              onClick={() => setShowEnlargedQr(false)}
+              className="mt-4 w-full py-2.5 rounded-xl bg-amber-500 text-black font-bold text-xs uppercase cursor-pointer hover:bg-amber-400"
+            >
+              Close Fullscreen View
+            </button>
           </div>
         </div>
       )}

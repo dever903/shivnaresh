@@ -523,16 +523,25 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     return String(saved.resendFromEmail || env.RESEND_FROM || 'Shiv-Naresh AI Studio <onboarding@resend.dev>').trim();
   };
 
-  const sendBrevoEmail = async ({ toEmail, subject, html }) => {
+  const sendBrevoEmail = async ({ toEmail, subject, html, text }) => {
     const apiKey = await getBrevoKey();
     const cleanTo = String(toEmail || '').trim().toLowerCase();
+    const saved = await getState().catch(() => ({}));
+    const senderEmail = String(saved.brevoSenderEmail || env.BREVO_SENDER_EMAIL || PRIMARY_ADMIN_EMAIL).trim();
+    const senderName = String(saved.brevoSenderName || env.BREVO_SENDER_NAME || 'Shiv-Naresh AI Studio').trim();
 
     return new Promise((resolve, reject) => {
       const payload = JSON.stringify({
-        sender: { name: 'Shiv-Naresh AI Studio', email: PRIMARY_ADMIN_EMAIL },
+        sender: { name: senderName, email: senderEmail },
+        replyTo: { name: 'Shiv-Naresh Support', email: PRIMARY_ADMIN_EMAIL },
         to: [{ email: cleanTo }],
         subject,
         htmlContent: html,
+        textContent: text || 'Your Shiv-Naresh verification code is: ' + subject,
+        headers: {
+          'X-Mailin-Tag': 'transactional-otp',
+          'X-Auto-Response-Suppress': 'OOF, AutoReply',
+        },
       });
       const data = Buffer.from(payload, 'utf-8');
       const req = https.request(
@@ -620,10 +629,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
     // 1. Try Brevo First (Primary direct inbox delivery via Brevo REST API)
     try {
+      const textContent = `Shiv-Naresh AI Studio - ${title}\n\n${purpose}\n\nYour Verification Code: ${otp}\n\nThis code is valid for 3 minutes. Please enter it on the website to continue.\nIf you did not request this code, you can safely ignore this email.\n\nShiv-Naresh High-Performance AI Studio`;
       const brevoRes = await sendBrevoEmail({
         toEmail: cleanEmail,
-        subject: `Shiv-Naresh AI Studio — ${title}: ${otp}`,
+        subject: `Your Shiv-Naresh verification code: ${otp}`,
         html: htmlContent,
+        text: textContent,
       });
       console.log(`[auth-otp] Brevo email dispatched to ${cleanEmail}:`, brevoRes);
       return { ok: true, id: brevoRes.id, provider: 'brevo' };

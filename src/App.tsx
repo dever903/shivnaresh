@@ -657,7 +657,7 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-[#97c1a9] dark:bg-[#070709] tracking-[-0.02em] flex flex-col justify-between"
+      className="min-h-screen bg-[#070709] text-white tracking-[-0.02em] flex flex-col justify-between"
       style={{ fontFamily: "'JetBrains Mono', monospace" }}
     >
       <NavBar />
