@@ -685,13 +685,22 @@ ${log.stack || 'None'}
 
   async function handleSaveUserRow(user: AdminUser) {
     const edits = userRowEdits[user.id] || {};
+    const chosenTier = edits.tier !== undefined ? edits.tier : (user.tier || 'free');
+    const isPaid = ['ondemand', 'pro', 'ultra'].includes(chosenTier);
+    const isProOrUltra = ['pro', 'ultra'].includes(chosenTier);
+    const defaultFeatures = {
+      hd2k: Boolean(user.features?.hd2k || isPaid),
+      fivePose: Boolean(user.features?.fivePose || isPaid),
+      video: Boolean(user.features?.video || isPaid),
+      customRequests: Boolean(user.features?.customRequests || isProOrUltra),
+    };
     const payload = {
-      tier: edits.tier !== undefined ? edits.tier : (user.tier || 'free'),
+      tier: chosenTier,
       credits: edits.credits !== undefined ? edits.credits : user.credits,
-      maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? 15),
-      maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? 50),
+      maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? (chosenTier === 'ultra' ? 30 : chosenTier === 'pro' ? 15 : chosenTier === 'ondemand' ? 10 : 3)),
+      maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? (chosenTier === 'ultra' ? 100 : chosenTier === 'pro' ? 50 : chosenTier === 'ondemand' ? 25 : 5)),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
-      features: edits.features !== undefined ? edits.features : (user.features || {}),
+      features: edits.features !== undefined ? edits.features : defaultFeatures,
     };
     setUserRowEdits((prev) => ({
       ...prev,
@@ -741,11 +750,11 @@ ${log.stack || 'None'}
   const isLight = theme === 'light';
 
   const cardClass = isLight
-    ? 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm text-gray-900'
+    ? 'rounded-3xl border border-[#78a48b] bg-[#8db89f] p-6 shadow-md text-slate-900'
     : 'rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-white backdrop-blur-md';
 
   const inputClass = isLight
-    ? 'mt-2 w-full rounded-xl border border-gray-300 bg-gray-50 px-3.5 py-2.5 text-xs text-gray-900 placeholder:text-gray-400 focus:border-gray-500 focus:outline-none transition-colors'
+    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none transition-colors'
     : 'mt-2 w-full rounded-xl border border-white/10 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/25 focus:border-white/40 focus:outline-none transition-colors';
 
   const filteredRequests = customRequests.filter((r) => {
@@ -772,7 +781,7 @@ ${log.stack || 'None'}
       {/* Top Enterprise Header */}
       <header
         className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${
-          isLight ? 'border-gray-200 bg-white/90 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
+          isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
@@ -854,7 +863,7 @@ ${log.stack || 'None'}
 
         {/* Executive Sub-Navigation Bar */}
         {access?.admin && (
-          <div className={`border-t transition-colors ${isLight ? 'border-gray-200 bg-gray-50/80' : 'border-white/5 bg-black/40'}`}>
+          <div className={`border-t transition-colors ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/5 bg-black/40'}`}>
             <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 py-2 no-scrollbar">
               {[
                 { id: 'overview', label: 'Dashboard & Metrics', icon: '📊' },
@@ -884,10 +893,10 @@ ${log.stack || 'None'}
                     className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                       isActive
                         ? isLight
-                          ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-300'
+                          ? 'bg-[#78a48b] text-slate-900 font-bold shadow-sm ring-1 ring-[#6b997e]'
                           : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
                         : isLight
-                          ? 'text-gray-600 hover:bg-gray-200/60 hover:text-gray-900'
+                          ? 'text-slate-800 hover:bg-[#82b095] hover:text-slate-900'
                           : 'text-white/50 hover:bg-white/5 hover:text-white/80'
                     }`}
                   >
@@ -1878,10 +1887,10 @@ ${log.stack || 'None'}
           No registered accounts match your query.
         </div>
       ) : (
-        <div className={`overflow-x-auto rounded-3xl border ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+        <div className={`overflow-x-auto rounded-3xl border ${isLight ? 'border-[#78a48b] bg-[#8db89f] shadow-md text-slate-900' : 'border-white/10 bg-white/[0.02]'}`}>
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className={`border-b text-[10px] font-semibold uppercase tracking-[0.16em] ${isLight ? 'border-gray-200 bg-gray-50 text-gray-600' : 'border-white/10 bg-white/5 text-white/50'}`}>
+              <tr className={`border-b text-[10px] font-semibold uppercase tracking-[0.16em] ${isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900 font-bold' : 'border-white/10 bg-white/5 text-white/50'}`}>
                 <th className="py-4 px-6">User / Contact</th>
                 <th className="py-4 px-3">Plan / Tier</th>
                 <th className="py-4 px-3">Credits</th>
@@ -1892,7 +1901,7 @@ ${log.stack || 'None'}
                 <th className="py-4 px-6 text-right">Individual Save & Delete</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isLight ? 'divide-gray-100' : 'divide-white/5'}`}>
+            <tbody className={`divide-y ${isLight ? 'divide-[#78a48b]' : 'divide-white/5'}`}>
               {filteredUsers.map((user) => {
                 const edits = userRowEdits[user.id] || {};
                 const currentTier = edits.tier ?? user.tier ?? 'free';
@@ -1904,7 +1913,7 @@ ${log.stack || 'None'}
                 const isSaved = Boolean(edits.saved);
 
                 return (
-                  <tr key={user.id} className={`transition-colors ${isLight ? 'hover:bg-gray-50' : 'hover:bg-white/[0.02]'}`}>
+                  <tr key={user.id} className={`transition-colors ${isLight ? 'hover:bg-[#82b095]/60 text-slate-900' : 'hover:bg-white/[0.02]'}`}>
                     {/* User Info */}
                     <td className="py-4 px-6 font-medium">
                       <div className="font-semibold text-xs">{user.email}</div>
@@ -1919,14 +1928,31 @@ ${log.stack || 'None'}
                     <td className="py-4 px-3">
                       <select
                         value={currentTier}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const newTier = e.target.value;
+                          const isPaid = ['ondemand', 'pro', 'ultra'].includes(newTier);
+                          const isProOrUltra = ['pro', 'ultra'].includes(newTier);
+                          const autoFeatures = {
+                            hd2k: isPaid,
+                            fivePose: isPaid,
+                            video: isPaid,
+                            customRequests: isProOrUltra,
+                          };
+                          const autoVideos = newTier === 'ultra' ? 30 : newTier === 'pro' ? 15 : newTier === 'ondemand' ? 10 : 3;
+                          const autoModels = newTier === 'ultra' ? 100 : newTier === 'pro' ? 50 : newTier === 'ondemand' ? 25 : 5;
                           setUserRowEdits((prev) => ({
                             ...prev,
-                            [user.id]: { ...(prev[user.id] || {}), tier: e.target.value },
-                          }))
-                        }
+                            [user.id]: {
+                              ...(prev[user.id] || {}),
+                              tier: newTier,
+                              features: autoFeatures,
+                              maxVideos: (prev[user.id]?.maxVideos ?? user.maxVideos ?? 0) < autoVideos ? autoVideos : (prev[user.id]?.maxVideos ?? user.maxVideos ?? autoVideos),
+                              maxModels: (prev[user.id]?.maxModels ?? user.maxModels ?? 0) < autoModels ? autoModels : (prev[user.id]?.maxModels ?? user.maxModels ?? autoModels),
+                            },
+                          }));
+                        }}
                         className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${
-                          isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
                         }`}
                       >
                         <option value="free">Starter ($0)</option>
@@ -1949,7 +1975,7 @@ ${log.stack || 'None'}
                           }))
                         }
                         className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${
-                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-amber-400'
+                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
                         }`}
                       />
                     </td>
@@ -1968,7 +1994,7 @@ ${log.stack || 'None'}
                             }))
                           }
                           className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
-                            isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-purple-400'
+                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
                           }`}
                         />
                         <span className="text-[10px] opacity-40">({user.videosGenerated ?? 0} used)</span>
@@ -1988,7 +2014,7 @@ ${log.stack || 'None'}
                           }))
                         }
                         className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
-                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-cyan-400'
+                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
                         }`}
                       />
                     </td>
@@ -1996,11 +2022,13 @@ ${log.stack || 'None'}
                     {/* Feature Toggles */}
                     <td className="py-4 px-3">
                       {(() => {
-                        const currentFeatures = edits.features || user.features || {
-                          hd2k: user.tier !== 'free',
-                          fivePose: user.tier !== 'free',
-                          video: user.tier !== 'free',
-                          customRequests: user.tier === 'ultra' || user.tier === 'pro',
+                        const isTierPaid = ['ondemand', 'pro', 'ultra'].includes(currentTier);
+                        const isTierProOrUltra = ['pro', 'ultra'].includes(currentTier);
+                        const currentFeatures = edits.features || {
+                          hd2k: Boolean(user.features?.hd2k || isTierPaid),
+                          fivePose: Boolean(user.features?.fivePose || isTierPaid),
+                          video: Boolean(user.features?.video || isTierPaid),
+                          customRequests: Boolean(user.features?.customRequests || isTierProOrUltra),
                         };
                         return (
                           <div className="flex flex-wrap gap-1 max-w-[170px]">
@@ -2015,8 +2043,10 @@ ${log.stack || 'None'}
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
                                 currentFeatures.hd2k
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                  ? 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
+                                  : isLight
+                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                    : 'bg-white/5 text-white/30 border border-white/10'
                               }`}
                               title="Toggle 2K Ultra HD Generation"
                             >
@@ -2033,8 +2063,10 @@ ${log.stack || 'None'}
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
                                 currentFeatures.fivePose
-                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                  ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
+                                  : isLight
+                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                    : 'bg-white/5 text-white/30 border border-white/10'
                               }`}
                               title="Toggle 5-Pose Sequence"
                             >
@@ -2051,8 +2083,10 @@ ${log.stack || 'None'}
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
                                 currentFeatures.video
-                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                  ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
+                                  : isLight
+                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                    : 'bg-white/5 text-white/30 border border-white/10'
                               }`}
                               title="Toggle Runway Video"
                             >
@@ -2069,8 +2103,10 @@ ${log.stack || 'None'}
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
                                 currentFeatures.customRequests
-                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                  ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
+                                  : isLight
+                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                    : 'bg-white/5 text-white/30 border border-white/10'
                               }`}
                               title="Toggle Bespoke Custom Requests"
                             >

@@ -314,10 +314,10 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         videosGenerated: typeof user.videosGenerated === 'number' ? user.videosGenerated : 0,
         admin2fa: Boolean(user.admin2fa),
         features: {
-          hd2k: user.features?.hd2k !== undefined ? Boolean(user.features.hd2k) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
-          fivePose: user.features?.fivePose !== undefined ? Boolean(user.features.fivePose) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
-          video: user.features?.video !== undefined ? Boolean(user.features.video) : ['ondemand', 'pro', 'ultra'].includes(user.tier),
-          customRequests: user.features?.customRequests !== undefined ? Boolean(user.features.customRequests) : ['pro', 'ultra'].includes(user.tier),
+          hd2k: Boolean(user.features?.hd2k || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
+          fivePose: Boolean(user.features?.fivePose || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
+          video: Boolean(user.features?.video || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
+          customRequests: Boolean(user.features?.customRequests || ['pro', 'ultra'].includes(user.tier)),
         },
       }
       : null;

@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 export type Theme = 'dark' | 'light';
 
 export function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   const saved = window.localStorage.getItem('shivnaresh_theme') as Theme | null;
-  return saved === 'light' ? 'light' : 'dark';
+  return saved === 'dark' ? 'dark' : 'light';
 }
 
 export function applyTheme(theme: Theme) {

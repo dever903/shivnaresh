@@ -245,14 +245,30 @@ const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
 async function toDataUri(src) {
   if (!src) throw new Error('missing image');
   if (src.startsWith('data:')) return src;
-  if (/^https?:\/\//.test(src)) return src;
 
-  const rel = src.split('?')[0].replace(/^\//, '');
+  // If it's a URL, check if it points to an upload or model on this server, or if filename exists locally
+  let rawPath = src;
+  if (/^https?:\/\//i.test(src)) {
+    try {
+      const parsed = new URL(src);
+      if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/models/')) {
+        rawPath = parsed.pathname;
+      }
+    } catch {}
+  }
+
+  const cleanPath = decodeURIComponent(rawPath.split('?')[0]).replace(/^\//, '');
+  const basename = path.basename(cleanPath);
+
   const candidates = [
-    path.join(ROOT, 'public', rel),
-    path.join(DATA, rel.replace(/^uploads\//, 'uploads/')),
-    path.join(ROOT, rel),
+    path.join(UPLOADS, basename),
+    path.join(DATA, 'uploads', basename),
+    path.join(PUBLIC_DIR, cleanPath),
+    path.join(PUBLIC_DIR, 'models', cleanPath.replace(/^models\//, '')),
+    path.join(ROOT, 'public', cleanPath),
+    path.join(ROOT, cleanPath),
   ];
+
   for (const candidate of candidates) {
     try {
       const buf = await fs.readFile(candidate);
@@ -260,9 +276,13 @@ async function toDataUri(src) {
       const mime = MIME[ext] || 'image/webp';
       return `data:${mime};base64,${buf.toString('base64')}`;
     } catch {
-      /* try the next root */
+      /* try the next candidate */
     }
   }
+
+  // If it is an external URL not found on disk, pass to FASHN as URL
+  if (/^https?:\/\//i.test(src)) return src;
+
   throw new Error(`image not found: ${src}`);
 }
 
@@ -757,7 +777,7 @@ app.get('/api/models', async (_req, res) => {
   for (const group of categories) {
     for (const item of group.items) {
       const remote = hosted.models?.[item.id];
-      if (remote) item.url = remote;
+      if (remote && !remote.includes('ibb.co')) item.url = remote;
     }
   }
   res.json({ categories });
@@ -770,10 +790,12 @@ app.get('/api/uploads', async (_req, res) => {
     const items = await Promise.all(
       files.map(async (file) => {
         const stat = await fs.stat(path.join(UPLOADS, file));
+        const remote = hosted.uploads?.[file];
+        const finalUrl = (remote && !remote.includes('ibb.co')) ? remote : `/uploads/${file}`;
         return {
           id: file,
           name: file,
-          url: hosted.uploads?.[file] || `/uploads/${file}`,
+          url: finalUrl,
           at: stat.mtimeMs,
         };
       }),
@@ -949,11 +971,12 @@ app.post('/api/upload', async (req, res) => {
       hostError = String(error.message || error);
     }
 
+    const isCleanRemote = hosted?.url && !hosted.url.includes('ibb.co');
     res.json({
-      url: hosted?.url || `/uploads/${file}`,
+      url: isCleanRemote ? hosted.url : `/uploads/${file}`,
       preview: `/uploads/${file}`,
-      thumb: hosted?.thumb || `/uploads/${file}`,
-      hosted: Boolean(hosted),
+      thumb: (isCleanRemote && hosted.thumb) ? hosted.thumb : `/uploads/${file}`,
+      hosted: Boolean(isCleanRemote),
       hostError,
       name,
     });
@@ -2013,11 +2036,11 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
       modelsGenerated: typeof u.modelsGenerated === 'number' ? u.modelsGenerated : 0,
       dailyModelsUsed: typeof u.dailyModelsUsed === 'number' ? u.dailyModelsUsed : 0,
       dailyVideosUsed: typeof u.dailyVideosUsed === 'number' ? u.dailyVideosUsed : 0,
-      features: u.features || {
-        hd2k: u.tier !== 'free',
-        fivePose: u.tier !== 'free',
-        video: u.tier !== 'free',
-        customRequests: ['pro', 'ultra'].includes(u.tier),
+      features: {
+        hd2k: Boolean(u.features?.hd2k || u.tier !== 'free'),
+        fivePose: Boolean(u.features?.fivePose || u.tier !== 'free'),
+        video: Boolean(u.features?.video || u.tier !== 'free'),
+        customRequests: Boolean(u.features?.customRequests || ['pro', 'ultra'].includes(u.tier)),
       },
       planExpiresAt: u.planExpiresAt || null,
       createdAt: u.createdAt || null,
@@ -2086,8 +2109,30 @@ app.post('/api/admin/users/:id/tier', requireAdmin, async (req, res) => {
     const user = await auth.findUserById(id);
     if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
 
-    await auth.patchUser(id, { tier });
-    res.json({ ok: true, id, tier });
+    const isPaid = ['ondemand', 'pro', 'ultra'].includes(tier);
+    const isProOrUltra = ['pro', 'ultra'].includes(tier);
+    const patch = {
+      tier,
+      features: {
+        hd2k: isPaid,
+        fivePose: isPaid,
+        video: isPaid,
+        customRequests: isProOrUltra,
+      },
+    };
+    if (tier === 'ultra') {
+      if ((user.maxVideos || 0) < 30) patch.maxVideos = 30;
+      if ((user.maxModels || 0) < 100) patch.maxModels = 100;
+    } else if (tier === 'pro') {
+      if ((user.maxVideos || 0) < 15) patch.maxVideos = 15;
+      if ((user.maxModels || 0) < 50) patch.maxModels = 50;
+    } else if (tier === 'ondemand') {
+      if ((user.maxVideos || 0) < 10) patch.maxVideos = 10;
+      if ((user.maxModels || 0) < 25) patch.maxModels = 25;
+    }
+
+    await auth.patchUser(id, patch);
+    res.json({ ok: true, id, tier, features: patch.features });
   } catch (error) {
     res.status(500).json({ error: 'update_tier_failed', message: String(error.message || error) });
   }
@@ -2109,7 +2154,26 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
     if (typeof body.planExpiresAt === 'number') patch.planExpiresAt = body.planExpiresAt;
+
+    const targetTier = patch.tier || user.tier || 'free';
+    const isPaid = ['ondemand', 'pro', 'ultra'].includes(targetTier);
+    const isProOrUltra = ['pro', 'ultra'].includes(targetTier);
+
     if (body.features && typeof body.features === 'object') {
+      patch.features = {
+        hd2k: Boolean(body.features.hd2k || isPaid),
+        fivePose: Boolean(body.features.fivePose || isPaid),
+        video: Boolean(body.features.video || isPaid),
+        customRequests: Boolean(body.features.customRequests || isProOrUltra),
+      };
+    } else if (patch.tier) {
+      patch.features = {
+        hd2k: isPaid,
+        fivePose: isPaid,
+        video: isPaid,
+        customRequests: isProOrUltra,
+      };
+    }
       patch.features = {
         hd2k: Boolean(body.features.hd2k),
         fivePose: Boolean(body.features.fivePose),
@@ -2395,7 +2459,7 @@ setTimeout(runDailyAndExpiryMaintenance, 5000);
 /* production build, if present */
 const dist = path.join(ROOT, 'dist');
 app.use(express.static(dist));
-app.get(/^\/(?!api|uploads|generated).*/, async (_req, res) => {
+app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
   try {
     res.sendFile(path.join(dist, 'index.html'));
   } catch {

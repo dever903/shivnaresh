@@ -559,7 +559,9 @@ _Please verify payment and activate my plan within 30 minutes._`;
       {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
-          <div className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 ${isLight ? 'bg-[#8eb8a0] text-slate-900 border-[#76a187]' : 'bg-[#0c1017] text-white border-amber-500/30'} p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+          <div className={`relative w-full max-w-lg rounded-3xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
+            isLight ? 'bg-[#8eb8a0] text-slate-900 border-[#76a187]' : 'bg-[#0c1017] text-white border-amber-500/30'
+          }`}>
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
                 {checkoutStep === 'method' ? 'Step 1: Select Payment Method' : 'Step 2: Pay & Confirm'}

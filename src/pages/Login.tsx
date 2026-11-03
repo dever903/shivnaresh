@@ -26,7 +26,7 @@ function PasswordInput({
 }) {
   const [visible, setVisible] = useState(false);
   const inputClass = isLight
-    ? 'mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 pr-11 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f] focus:outline-none focus:ring-0 shadow-sm'
+    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-3 pr-11 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
     : FIELD;
 
   return (
@@ -305,7 +305,7 @@ export default function Login() {
   }
 
   const field = isLight
-    ? 'mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f] focus:outline-none focus:ring-0 shadow-sm'
+    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
     : 'mt-2 w-full rounded-xl border border-white/12 bg-black/50 px-3.5 py-3 text-sm text-white placeholder:text-white/25 focus:border-white/45 focus:outline-none focus:ring-0';
 
   return (

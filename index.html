@@ -1,15 +1,19 @@
 <!doctype html>
-<html lang="en" class="dark" style="background-color: #070709; color-scheme: dark;">
+<html lang="en" class="light" style="background-color: #97c1a9; color-scheme: light;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#070709" />
+    <meta name="theme-color" content="#97c1a9" />
     <style>
       html, body {
-        background-color: #070709 !important;
-        color-scheme: dark;
+        background-color: #97c1a9 !important;
+        color-scheme: light;
         margin: 0;
         padding: 0;
+      }
+      html.dark, html.dark body {
+        background-color: #070709 !important;
+        color-scheme: dark;
       }
       html.light, html.light body {
         background-color: #97c1a9 !important;
@@ -21,16 +25,16 @@
         try {
           var saved = localStorage.getItem('shivnaresh_theme');
           var root = document.documentElement;
-          if (saved === 'light') {
-            root.classList.add('light');
-            root.classList.remove('dark');
-            root.style.backgroundColor = '#97c1a9';
-            root.style.colorScheme = 'light';
-          } else {
+          if (saved === 'dark') {
             root.classList.add('dark');
             root.classList.remove('light');
             root.style.backgroundColor = '#070709';
             root.style.colorScheme = 'dark';
+          } else {
+            root.classList.add('light');
+            root.classList.remove('dark');
+            root.style.backgroundColor = '#97c1a9';
+            root.style.colorScheme = 'light';
           }
         } catch (e) {}
       })();
