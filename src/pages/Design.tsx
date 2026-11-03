@@ -2930,7 +2930,7 @@ export default function Design() {
       setUploading(true);
       const dataUrl = await fileToDataUrl(file);
       const uploaded = await api.upload(dataUrl, kind, file.name);
-      const pick = { url: uploaded.url, preview: uploaded.preview, name: file.name };
+      const pick = { url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name };
       if (kind === 'cloth') setCloth(pick);
       else setModel(pick);
       void loadUploads();
@@ -2950,7 +2950,7 @@ export default function Design() {
       for (const file of fileArr) {
         const dataUrl = await fileToDataUrl(file);
         const uploaded = await api.upload(dataUrl, 'model', file.name);
-        setModel({ url: uploaded.url, preview: uploaded.preview, name: file.name });
+        setModel({ url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name });
       }
       setTab('uploads');
       void loadUploads();
@@ -3370,7 +3370,13 @@ export default function Design() {
               <button
                 key={v.id}
                 type="button"
-                onClick={() => setPageView(v.id as typeof pageView)}
+                onClick={() => {
+                  setPageView(v.id as typeof pageView);
+                  if (v.id === 'custom-requests') {
+                    void loadCustomRequests();
+                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+                  }
+                }}
                 className={`border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] transition-all whitespace-nowrap ${
                   pageView === v.id
                     ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
@@ -3426,9 +3432,14 @@ export default function Design() {
         <CustomRequestsPanel
           requests={customRequests}
           loading={loadingRequests}
-          onRefresh={loadCustomRequests}
+          onRefresh={() => {
+            void loadCustomRequests();
+            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+          }}
           creditsLocked={isLocked}
-          customRequestsLocked={user?.features?.customRequests === false}
+          customRequestsLocked={
+            !(user?.tier === 'pro' || user?.tier === 'ultra' || user?.features?.customRequests === true)
+          }
           isLight={isLight}
         />
       )}

@@ -700,7 +700,13 @@ ${log.stack || 'None'}
       maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? (chosenTier === 'ultra' ? 30 : chosenTier === 'pro' ? 15 : chosenTier === 'ondemand' ? 10 : 3)),
       maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? (chosenTier === 'ultra' ? 100 : chosenTier === 'pro' ? 50 : chosenTier === 'ondemand' ? 25 : 5)),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
-      features: edits.features !== undefined ? edits.features : defaultFeatures,
+      features: edits.features !== undefined ? {
+        ...edits.features,
+        customRequests: Boolean(edits.features.customRequests || isProOrUltra),
+        hd2k: Boolean(edits.features.hd2k || isPaid),
+        fivePose: Boolean(edits.features.fivePose || isPaid),
+        video: Boolean(edits.features.video || isPaid),
+      } : defaultFeatures,
     };
     setUserRowEdits((prev) => ({
       ...prev,

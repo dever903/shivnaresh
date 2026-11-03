@@ -329,8 +329,50 @@ app.use(express.json({ limit: '48mb' }));
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
 app.use('/generated', express.static(GENERATED, { maxAge: '1d' }));
 app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
+app.use('/models', express.static(path.join(ROOT, 'dist', 'models'), { maxAge: '7d' }));
 app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
 app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
+
+/* Explicit route for /models to handle URL-decoding and guarantee model images always load */
+app.get('/models/*', (req, res, next) => {
+  try {
+    const rawPath = req.params[0] || '';
+    const decodedPath = decodeURIComponent(rawPath);
+    const candidate1 = path.join(MODELS_DIR, decodedPath);
+    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
+      return res.sendFile(candidate1);
+    }
+    const candidate2 = path.join(ROOT, 'dist', 'models', decodedPath);
+    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
+      return res.sendFile(candidate2);
+    }
+    const candidate3 = path.join(PUBLIC_DIR, 'models', decodedPath);
+    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
+      return res.sendFile(candidate3);
+    }
+  } catch {}
+  next();
+});
+
+/* Explicit route for /uploads to guarantee local uploaded files always serve */
+app.get('/uploads/:filename', (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const candidate1 = path.join(UPLOADS, filename);
+    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
+      return res.sendFile(candidate1);
+    }
+    const candidate2 = path.join(DATA, 'uploads', filename);
+    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
+      return res.sendFile(candidate2);
+    }
+    const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
+    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
+      return res.sendFile(candidate3);
+    }
+  } catch {}
+  next();
+});
 
 const patchState = async (patch) => {
   const current = await readState();
@@ -1627,7 +1669,9 @@ app.get('/api/custom-requests', auth.requireUser, async (req, res) => {
 
 app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
   try {
-    if (req.user?.features?.customRequests === false) {
+    const isProOrUltra = ['pro', 'ultra'].includes(req.user?.tier);
+    const isCustomAllowed = isProOrUltra || req.user?.features?.customRequests === true;
+    if (!isCustomAllowed) {
       return res.status(403).json({
         error: 'plan_locked',
         message: 'Bespoke Custom Requests are locked on your current plan. Please upgrade to Pro or Ultra or contact admin to unlock.',
@@ -2166,7 +2210,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         video: Boolean(body.features.video || isPaid),
         customRequests: Boolean(body.features.customRequests || isProOrUltra),
       };
-    } else if (patch.tier) {
+    } else if (patch.tier || !user.features) {
       patch.features = {
         hd2k: isPaid,
         fivePose: isPaid,
@@ -2174,12 +2218,16 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         customRequests: isProOrUltra,
       };
     }
-      patch.features = {
-        hd2k: Boolean(body.features.hd2k),
-        fivePose: Boolean(body.features.fivePose),
-        video: Boolean(body.features.video),
-        customRequests: Boolean(body.features.customRequests),
-      };
+
+    if (targetTier === 'ultra') {
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 30) patch.maxVideos = 30;
+      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 100) patch.maxModels = 100;
+    } else if (targetTier === 'pro') {
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 15) patch.maxVideos = 15;
+      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 50) patch.maxModels = 50;
+    } else if (targetTier === 'ondemand') {
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 10) patch.maxVideos = 10;
+      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 25) patch.maxModels = 25;
     }
 
     await auth.patchUser(id, patch);
