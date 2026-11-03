@@ -161,7 +161,9 @@ Message: ${message}`;
             </div>
 
             {/* Turnaround Guarantee */}
-            <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 text-xs text-amber-500 space-y-1">
+            <div className={`rounded-3xl border p-5 text-xs space-y-1 ${
+              isLight ? 'border-amber-400 bg-amber-100 text-amber-950 font-medium' : 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+            }`}>
               <span className="font-bold block">⏱️ 30-Minute Plan Activation</span>
               <p className="text-[11px] opacity-90 leading-relaxed">
                 After paying via UPI, submit your 12-digit transaction ID on the checkout page or send it to our WhatsApp number. Your plan credits and video quota will be activated within 30 minutes!

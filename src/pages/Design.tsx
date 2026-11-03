@@ -199,6 +199,8 @@ function RequestSubmittedPopup({ onClose }: { onClose: () => void }) {
    Live Countdown Timer Component (24-48h SLA)
    ---------------------------------------------------------------- */
 function LiveCountdownTimer({ createdAt, deadlineHours }: { createdAt: number; deadlineHours: number }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number; isExpired: boolean }>({
     hours: deadlineHours,
     minutes: 0,
@@ -229,11 +231,11 @@ function LiveCountdownTimer({ createdAt, deadlineHours }: { createdAt: number; d
   }, [createdAt, deadlineHours]);
 
   if (timeLeft.isExpired) {
-    return <span className="font-mono text-emerald-400 font-bold">Delivery Window Met</span>;
+    return <span className={`font-mono font-bold ${isLight ? 'text-emerald-950 font-black' : 'text-emerald-400'}`}>Delivery Window Met</span>;
   }
 
   return (
-    <span className="font-mono font-bold text-amber-300">
+    <span className={`font-mono font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-300'}`}>
       {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m :{' '}
       {String(timeLeft.seconds).padStart(2, '0')}s left
     </span>
@@ -556,7 +558,9 @@ function UserProfileModal({
             <h3 className="text-sm font-bold truncate">{name || 'Studio Member'}</h3>
             <p className="text-xs opacity-60 truncate">{user.email}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9px] font-bold text-amber-500 uppercase">
+              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase border ${
+                isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
+              }`}>
                 ⚡ {user.credits} Credits
               </span>
               <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
@@ -964,7 +968,7 @@ function MySetsPanel({
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
-                        <span className="font-bold text-amber-500">{gen.duration || 5}s &middot; {gen.aspectRatio || '9:16'}</span>
+                        <span className={`font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{gen.duration || 5}s &middot; {gen.aspectRatio || '9:16'}</span>
                       </div>
                       {gen.prompt && (
                         <p className={`mt-2 text-xs line-clamp-2 italic ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
@@ -1645,10 +1649,10 @@ function CustomRequestsPanel({
                   <span
                     className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
                       req.status === 'delivered'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                        ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
                         : req.status === 'in_progress'
-                          ? 'bg-blue-950 text-blue-300 border border-blue-800/40'
-                          : 'bg-amber-950 text-amber-300 border border-amber-800/40'
+                          ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
+                          : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
                     }`}
                   >
                     {req.status === 'delivered'
@@ -1679,7 +1683,9 @@ function CustomRequestsPanel({
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
                     <div className="inline-flex items-center gap-1.5">
-                      <span className="text-[10px] text-amber-500 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+                      }`}>
                         ⏱️ 1h Grace Window
                       </span>
                       <button
@@ -2327,7 +2333,7 @@ function VideoStudioPanel({
             isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
           }`}>
             <div>
-              <span>Account Balance: <strong className="text-amber-500">⚡ {userCredits} Credits</strong></span>
+              <span>Account Balance: <strong className={isLight ? 'text-amber-950 font-black' : 'text-amber-500'}>⚡ {userCredits} Credits</strong></span>
             </div>
             <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-bold text-purple-600 border border-purple-500/20">
               Video Quota: {videosGenerated} / {maxVideos > 0 ? maxVideos : 'Unlimited'}
@@ -3534,7 +3540,9 @@ export default function Design() {
                     {isFreeUser && <span className="text-[11px]">🔒</span>}
                     <span>2K Ultra HD</span>
                     {isFreeUser && (
-                      <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-500 border border-amber-500/30">
+                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${
+                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                      }`}>
                         PRO
                       </span>
                     )}
@@ -3929,17 +3937,19 @@ export default function Design() {
 
                   {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees and chooses all 5 poses) */}
                   {poseMode === '5-pose' && (
-                    <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-300 bg-amber-50/70' : 'border-amber-500/40 bg-amber-500/10'}`}>
+                    <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-400 bg-amber-100/90 shadow-sm' : 'border-amber-500/40 bg-amber-500/10'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-xs uppercase tracking-wider text-amber-400">
+                          <span className={`text-xs uppercase tracking-wider ${isLight ? 'text-amber-950 font-black' : 'text-amber-400 font-extrabold'}`}>
                             ⚡ Select 5 Poses for Multi-Angle Sequence
                           </span>
-                          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 border border-amber-500/30">
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] border ${
+                            isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
+                          }`}>
                             {selectedPoses.filter(Boolean).length}/5 Poses Active
                           </span>
                         </div>
-                        <span className="text-[10px] text-amber-300/80 font-medium">Click slot then pick model below</span>
+                        <span className={`text-[10px] ${isLight ? 'text-amber-950 font-bold' : 'text-amber-300/80 font-medium'}`}>Click slot then pick model below</span>
                       </div>
 
                       <div className="grid grid-cols-5 gap-2">
@@ -3954,8 +3964,8 @@ export default function Design() {
                                 isActiveSlot
                                   ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f] shadow-lg'
                                   : poseItem
-                                    ? 'border-amber-500/50 bg-black/60 shadow-sm'
-                                    : 'border-white/10 bg-black/30 hover:border-white/30'
+                                    ? isLight ? 'border-amber-400 bg-black/75 shadow-sm' : 'border-amber-500/50 bg-black/60 shadow-sm'
+                                    : isLight ? 'border-amber-300/60 bg-black/60 hover:border-amber-400' : 'border-white/10 bg-black/30 hover:border-white/30'
                               }`}
                             >
                               <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
@@ -3986,12 +3996,12 @@ export default function Design() {
                                 )}
                               </div>
                               <span className="text-[10px] font-bold truncate max-w-full text-white">{poseItem ? poseItem.name : spec.name}</span>
-                              <span className="text-[9px] opacity-60 font-mono text-amber-200">{spec.angle}</span>
+                              <span className="text-[9px] opacity-80 font-mono text-amber-200">{spec.angle}</span>
                             </div>
                           );
                         })}
                       </div>
-                      <p className="mt-2.5 text-[10px] text-amber-300/90 leading-relaxed text-center">
+                      <p className={`mt-2.5 text-[10px] leading-relaxed text-center ${isLight ? 'text-amber-950 font-bold' : 'text-amber-300/90'}`}>
                         💡 Click on any of the 5 pose slots above, then pick a model below to assign that angle.
                       </p>
                     </div>
@@ -4176,7 +4186,7 @@ export default function Design() {
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       5 Studio Angles ({fivePoseItems.filter(p => p.status === 'completed').length}/5 Completed)
                     </span>
-                    <span className="text-[10px] text-amber-500 font-bold">{creditCost} Credit / Angle</span>
+                    <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Angle</span>
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {fivePoseItems.map((pose, idx) => {
@@ -4202,7 +4212,7 @@ export default function Design() {
                           <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
                           <div className="mt-1">
                             {pose.status === 'completed' && <span className="text-[9px] text-emerald-600 font-bold">✓ Ready</span>}
-                            {pose.status === 'generating' && <span className="text-[9px] text-amber-600 font-bold animate-pulse">⏳ Active</span>}
+                            {pose.status === 'generating' && <span className={`text-[9px] font-bold animate-pulse ${isLight ? 'text-amber-950 font-black' : 'text-amber-600'}`}>⏳ Active</span>}
                             {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/30'}`}>🕒 Queue</span>}
                             {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-bold">✕ Err</span>}
                           </div>

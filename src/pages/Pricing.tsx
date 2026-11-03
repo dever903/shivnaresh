@@ -808,15 +808,15 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-white/5">
                         <span className="opacity-60">Account Number:</span>
-                        <span className="font-mono font-bold text-amber-500 select-all text-sm">{bankDetails.accountNumber}</span>
+                        <span className={`font-mono font-bold select-all text-sm ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{bankDetails.accountNumber}</span>
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-white/5">
                         <span className="opacity-60">IFSC Code:</span>
-                        <span className="font-mono font-bold text-emerald-400 select-all">{bankDetails.ifsc}</span>
+                        <span className={`font-mono font-bold select-all ${isLight ? 'text-emerald-950 font-black' : 'text-emerald-400'}`}>{bankDetails.ifsc}</span>
                       </div>
                       <div className="flex justify-between items-center py-1">
                         <span className="opacity-60">Exact Amount:</span>
-                        <span className="font-bold text-amber-400 text-sm">₹{inrAmount.toLocaleString('en-IN')}</span>
+                        <span className={`font-bold text-sm ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>₹{inrAmount.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
                     <button
@@ -826,7 +826,9 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         setCopiedBank(true);
                         setTimeout(() => setCopiedBank(false), 2500);
                       }}
-                      className="mt-3 w-full py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-bold text-xs hover:bg-amber-500/25 transition active:scale-98 cursor-pointer"
+                      className={`mt-3 w-full py-2 rounded-xl border font-bold text-xs transition active:scale-98 cursor-pointer ${
+                        isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                      }`}
                     >
                       {copiedBank ? '✓ Bank Details Copied!' : '📋 Copy All Bank Details'}
                     </button>
@@ -890,15 +892,17 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       onChange={(e) => setPaymentDone(e.target.checked)}
                       className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
                     />
-                    <span className={`text-xs leading-snug ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
-                      I have transferred exact <strong className="text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
+                    <span className={`text-xs leading-snug ${isLight ? 'text-gray-900 font-medium' : 'text-slate-300'}`}>
+                      I have transferred exact <strong className={isLight ? "text-amber-950 font-black" : "text-amber-500"}>₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
                     </span>
                   </label>
                 </div>
 
                 {/* Notice */}
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-center mb-4">
-                  <p className="text-[11px] text-amber-600 dark:text-amber-300 font-semibold leading-tight">
+                <div className={`rounded-xl p-2.5 text-center mb-4 border ${
+                  isLight ? 'bg-amber-100 border-amber-300' : 'bg-amber-500/10 border-amber-500/30'
+                }`}>
+                  <p className={`text-[11px] font-semibold leading-tight ${isLight ? 'text-amber-950' : 'text-amber-300'}`}>
                     ⚡ Under 30 minutes activation: Admin verifies your UTR & adds credits directly.
                   </p>
                 </div>

@@ -386,15 +386,15 @@ app.use('/uploads', (req, res, next) => {
   try {
     const filename = path.basename(decodeURIComponent(req.path));
     const candidate1 = path.join(UPLOADS, filename);
-    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
+    if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
       return res.sendFile(candidate1);
     }
     const candidate2 = path.join(DATA, 'uploads', filename);
-    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
+    if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
       return res.sendFile(candidate2);
     }
     const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
-    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
+    if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
       return res.sendFile(candidate3);
     }
   } catch {}
@@ -408,15 +408,15 @@ app.use('/models', (req, res, next) => {
   try {
     const decodedPath = decodeURIComponent(req.path.replace(/^\//, ''));
     const candidate1 = path.join(MODELS_DIR, decodedPath);
-    if (fs.existsSync(candidate1) && fs.statSync(candidate1).isFile()) {
+    if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
       return res.sendFile(candidate1);
     }
     const candidate2 = path.join(ROOT, 'dist', 'models', decodedPath);
-    if (fs.existsSync(candidate2) && fs.statSync(candidate2).isFile()) {
+    if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
       return res.sendFile(candidate2);
     }
     const candidate3 = path.join(PUBLIC_DIR, 'models', decodedPath);
-    if (fs.existsSync(candidate3) && fs.statSync(candidate3).isFile()) {
+    if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
       return res.sendFile(candidate3);
     }
   } catch {}
@@ -2042,19 +2042,37 @@ app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req,
     zip.file('order_details.txt', textSummary);
     zip.file('order_details.json', JSON.stringify(reqItem, null, 2));
 
-    // Helper to fetch/load image buffers
+    // Helper to fetch/load image buffers across local directories, data URIs, and external hosts
     const fetchAssetBuffer = async (url) => {
       if (!url || typeof url !== 'string') return null;
       try {
         if (url.startsWith('data:')) {
-          const base64Data = url.split(',')[1];
-          return Buffer.from(base64Data, 'base64');
+          const parts = url.split(',');
+          if (parts.length > 1) {
+            return Buffer.from(parts[1], 'base64');
+          }
         }
         if (url.startsWith('/')) {
-          const fullPath = path.join(ROOT, url.replace(/^\//, ''));
-          return await fs.readFile(fullPath);
+          const cleanPath = decodeURIComponent(url.split('?')[0]).replace(/^\//, '');
+          const filename = path.basename(cleanPath);
+          const candidates = [
+            path.join(UPLOADS, filename),
+            path.join(DATA, 'uploads', filename),
+            path.join(ROOT, 'server', 'data', 'uploads', filename),
+            path.join(PUBLIC_DIR, cleanPath),
+            path.join(MODELS_DIR, filename),
+            path.join(ROOT, 'public', cleanPath),
+            path.join(ROOT, 'dist', cleanPath),
+            path.join(ROOT, 'dist', 'models', filename),
+            path.join(ROOT, cleanPath),
+          ];
+          for (const cand of candidates) {
+            if (fsSync.existsSync(cand) && fsSync.statSync(cand).isFile()) {
+              return await fs.readFile(cand);
+            }
+          }
         }
-        if (url.startsWith('http')) {
+        if (url.startsWith('http://') || url.startsWith('https://')) {
           const resp = await fetch(url, { headers: { 'User-Agent': 'ShivNaresh/1.0' } });
           if (resp.ok) {
             const arr = await resp.arrayBuffer();
@@ -2067,17 +2085,31 @@ app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req,
       return null;
     };
 
-    // 2. All photos and models in one file (photos_and_models.zip) AND in photos_and_models/ folder
-    const mediaZip = new JSZip();
+    const getExtension = (url, defaultExt = 'jpg') => {
+      try {
+        if (!url || typeof url !== 'string') return defaultExt;
+        if (url.startsWith('data:image/')) {
+          const mime = url.substring(11, url.indexOf(';'));
+          return mime === 'jpeg' ? 'jpg' : mime;
+        }
+        const pathname = new URL(url, 'http://localhost').pathname;
+        const ext = path.extname(pathname).replace(/^\./, '').toLowerCase();
+        if (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
+          return ext === 'jpeg' ? 'jpg' : ext;
+        }
+      } catch {}
+      return defaultExt;
+    };
+
+    // All photos and models placed cleanly into photos_and_models/ directory
     const mediaFolder = zip.folder('photos_and_models');
 
     // Load garment
     if (reqItem.clothUrl) {
       const clothBuf = await fetchAssetBuffer(reqItem.clothUrl);
       if (clothBuf) {
-        const clothFilename = '01_garment.jpg';
-        mediaFolder.file(clothFilename, clothBuf);
-        mediaZip.file(clothFilename, clothBuf);
+        const ext = getExtension(reqItem.clothUrl, 'jpg');
+        mediaFolder.file(`01_garment.${ext}`, clothBuf);
       }
     }
 
@@ -2090,9 +2122,8 @@ app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req,
       const mUrl = modelUrls[i];
       const modelBuf = await fetchAssetBuffer(mUrl);
       if (modelBuf) {
-        const filename = `02_model_pose_${i + 1}.jpg`;
-        mediaFolder.file(filename, modelBuf);
-        mediaZip.file(filename, modelBuf);
+        const ext = getExtension(mUrl, 'jpg');
+        mediaFolder.file(`02_model_pose_${i + 1}.${ext}`, modelBuf);
       }
     }
 
@@ -2100,18 +2131,18 @@ app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req,
     if (reqItem.deliveredImageUrl) {
       const delBuf = await fetchAssetBuffer(reqItem.deliveredImageUrl);
       if (delBuf) {
-        const delFilename = '03_delivered_asset.jpg';
-        mediaFolder.file(delFilename, delBuf);
-        mediaZip.file(delFilename, delBuf);
+        const ext = getExtension(reqItem.deliveredImageUrl, 'jpg');
+        mediaFolder.file(`03_delivered_asset.${ext}`, delBuf);
       }
     }
 
-    // Generate inner photos_and_models.zip
-    const mediaZipBuffer = await mediaZip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-    zip.file('photos_and_models.zip', mediaZipBuffer);
-
-    // Generate combined master zip
-    const masterZipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    // Generate combined master zip with DOS platform compatibility for Windows Explorer
+    const masterZipBuffer = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 },
+      platform: 'DOS',
+    });
 
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="custom-order-${reqItem.id}.zip"`);

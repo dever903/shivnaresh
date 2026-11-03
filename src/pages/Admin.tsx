@@ -1141,8 +1141,8 @@ ${log.stack || 'None'}
                   </p>
                 )}
 
-                <p className="text-[11px] text-center leading-relaxed opacity-55">
-                  💡 Not in primary inbox? Check <b className="text-white">Spam</b> or <b className="text-white">Promotions</b> folder. (Master backup PIN: <b className="text-amber-400">992233</b>).
+                <p className="text-[11px] text-center leading-relaxed opacity-75">
+                  💡 Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
                 </p>
 
                 <button
@@ -1158,7 +1158,7 @@ ${log.stack || 'None'}
                     type="button"
                     onClick={() => void handleRequestForgotOtp()}
                     disabled={forgotBusy}
-                    className="text-xs text-white/50 hover:text-amber-400 underline transition-colors"
+                    className={`text-xs underline transition-colors ${isLight ? 'text-slate-700 hover:text-black font-medium' : 'text-white/50 hover:text-amber-400'}`}
                   >
                     {forgotBusy ? 'Dispatching Reset OTP…' : 'Forgot Admin Password? Reset via Email OTP'}
                   </button>
@@ -1167,7 +1167,7 @@ ${log.stack || 'None'}
             ) : adminForgotMode === 'verify' ? (
               <form onSubmit={handleVerifyForgotOtpAndReset} className="space-y-4">
                 <div className="border-b border-white/10 pb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>
                     Reset Admin Password &middot; Email Verification
                   </span>
                   <p className="text-xs opacity-50 mt-0.5">Enter the 6-digit OTP code sent to Jaatshab11223315@gmail.com and your new password.</p>
@@ -1269,8 +1269,8 @@ ${log.stack || 'None'}
                   </p>
                 )}
 
-                <p className="text-[11px] text-center leading-relaxed opacity-55">
-                  💡 Not in primary inbox? Check <b className="text-white">Spam</b> or <b className="text-white">Promotions</b> folder. (Master backup PIN: <b className="text-amber-400">992233</b>).
+                <p className="text-[11px] text-center leading-relaxed opacity-75">
+                  💡 Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
                 </p>
 
                 <button
@@ -1326,7 +1326,7 @@ ${log.stack || 'None'}
             </button>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-400">
+            <span className={`text-3xl font-extrabold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>
               ⚡ {fashnCredits?.total ?? '78'}
             </span>
             <span className="text-xs opacity-60">actual credits</span>
@@ -1376,7 +1376,7 @@ ${log.stack || 'None'}
             <span className="text-xs opacity-60">total requests</span>
           </div>
           <div className="mt-3 text-[11px] opacity-70">
-            Pending: <span className="font-semibold text-amber-500">{pendingRequestsCount}</span>
+            Pending: <span className={`font-semibold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{pendingRequestsCount}</span>
           </div>
         </div>
 
@@ -1551,7 +1551,7 @@ ${log.stack || 'None'}
                   {/* SLA Countdown Timer */}
                   <div className="mt-3 flex items-center justify-between text-[11px]">
                     <span className="opacity-60">SLA 48h Window:</span>
-                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-500' : hoursLeft < 12 ? 'text-red-500 animate-pulse' : 'text-amber-500'}`}>
+                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600 animate-pulse' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
                       {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
                     </span>
                   </div>
@@ -1988,7 +1988,7 @@ ${log.stack || 'None'}
                     <td className="py-4 px-6 font-medium">
                       <div className="font-semibold text-xs">{user.email}</div>
                       <div className="text-[11px] opacity-60 mt-0.5">
-                        {user.name ? <strong className="text-amber-500 font-semibold">{user.name} · </strong> : ''}
+                        {user.name ? <strong className={isLight ? 'text-amber-950 font-bold' : 'text-amber-500 font-semibold'}>{user.name} · </strong> : ''}
                         {user.phone ? <span>📞 {user.phone} · </span> : ''}
                         <span>Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active'}</span>
                       </div>
@@ -2113,7 +2113,7 @@ ${log.stack || 'None'}
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
                                 currentFeatures.hd2k
-                                  ? 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
+                                  ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-black' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
@@ -2404,14 +2404,14 @@ ${log.stack || 'None'}
             autoComplete="off"
             className={inputClass}
           />
-          <div className="mt-3 p-3 rounded-xl border border-white/10 bg-white/[0.03] space-y-2">
+          <div className={`mt-3 p-3 rounded-xl border space-y-2 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/10 bg-white/[0.03]'}`}>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-white/70">Master Sender Email:</span>
-              <span className="text-[11px] font-mono text-emerald-400 font-bold">jaatshab11223315@gmail.com</span>
+              <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Master Sender Email:</span>
+              <span className={`text-[11px] font-mono font-bold ${isLight ? 'text-emerald-950 font-black' : 'text-emerald-400'}`}>jaatshab11223315@gmail.com</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-white/70">Master Backup Recovery Code:</span>
-              <span className="text-[11px] font-mono text-amber-400 font-bold">992233</span>
+              <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Master Backup Recovery Code:</span>
+              <span className={`text-[11px] font-mono font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>992233</span>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
@@ -3485,7 +3485,7 @@ ${log.stack || 'None'}
               )}
 
               <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/10 text-xs">
-                <span>Credits Used: <strong className="text-amber-500">{previewGenItem.creditsUsed}</strong></span>
+                <span>Credits Used: <strong className={isLight ? 'text-amber-950 font-black' : 'text-amber-500'}>{previewGenItem.creditsUsed}</strong></span>
                 <a
                   href={previewGenItem.outputUrl || previewGenItem.url || '#'}
                   target="_blank"
