@@ -1112,7 +1112,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     const mode = body.mode || state.defaultMode;
     const resolution = String(body.resolution || state.resolution || '1k').toLowerCase();
     const is2k = resolution === '2k' || resolution === '4k';
-    const creditsNeeded = is2k ? 2 : 1; // 2 credits for 2K Ultra HD, 1 credit for 1K Standard
+    const creditsNeeded = is2k ? 3 : 1; // Strictly 3 credits for 2K Ultra HD, 1 credit for 1K Standard
 
     /* 2K resolution permission check */
     if (is2k) {

@@ -2613,7 +2613,7 @@ export default function Design() {
   const modelInput = useRef<HTMLInputElement>(null);
 
   const activeMode = MODES.find((m) => m.id === mode)!;
-  const creditCost = quality === '2k' ? 2 : 1;
+  const creditCost = quality === '2k' ? 3 : 1;
   const isFivePoseBatch = poseMode === '5-pose' && mode === 'tryon';
   const totalRequiredCredits = isFivePoseBatch ? (5 * creditCost) : creditCost;
 
@@ -3163,7 +3163,7 @@ export default function Design() {
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Selected Quality:</span>
-                      <span className="font-bold text-white uppercase">{quality === '1k' ? '1K Standard Quality' : '2K Ultra HD Master'}</span>
+                      <span className="font-bold text-white uppercase">{quality === '1k' ? '1K Standard (1 Credit)' : '2K Ultra HD (3 Credits)'}</span>
                     </div>
                   </>
                 )}
