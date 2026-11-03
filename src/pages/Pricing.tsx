@@ -228,11 +228,11 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-amber-500 selection:text-black ${
-      'bg-[#070709] text-white'
+      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
     }`}>
       {/* Top Header with Shiv-Naresh Logo (Redirects to Home) & Dark/Light Toggle */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        'border-white/10 bg-[#0a0a0f]/85'
+        isLight ? 'border-[#82b095] bg-[#97c1a9]/90' : 'border-white/10 bg-[#0a0a0f]/85'
       }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
           <a href="/" className="flex items-center gap-3 group cursor-pointer" title="Return to Home">
@@ -366,7 +366,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
                   {/* Specifications Highlights */}
                   <div className={`space-y-2.5 mb-6 text-xs rounded-2xl p-3.5 border ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-gray-800' : 'bg-slate-950/60 border-slate-800/60 text-slate-300'
+                    isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60 text-slate-300'
                   }`}>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Models:</span>
@@ -404,7 +404,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${plan.featured
                     ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-lg shadow-amber-500/25 active:scale-98'
                     : plan.priceUSD === 0
-                      ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                      ? isLight ? 'bg-[#7fae92] border-[#719f85] text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
                       : isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300' : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
                     }`}
                 >
@@ -418,14 +418,14 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
         {/* Feature Comparison Highlights */}
         <div className={`rounded-3xl border p-8 sm:p-10 mb-20 backdrop-blur-md ${
-          isLight ? 'bg-white border-gray-200 shadow-sm' : 'bg-slate-900/60 border-slate-800'
+          isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'
         }`}>
           <div className="max-w-2xl mb-8">
             <h3 className={`text-2xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>Why India's Top Activewear Brands Choose SHIV-NARESH AI</h3>
             <p className={`text-sm ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>State-of-the-art neural diffusion architecture fine-tuned specifically for athletic apparel, technical fabrics, and dynamic movement.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950/60 border-slate-800/60'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
               <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-4">
                 <ShieldCheck className="w-5 h-5" />
               </div>
@@ -434,7 +434,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 If the automated neural engine undergoes third-party downtime during your billing month, our in-house fashion design team manually renders your complete quota at no extra cost.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950/60 border-slate-800/60'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-500 mb-4">
                 <Zap className="w-5 h-5" />
               </div>
@@ -443,7 +443,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 Made a mistake in your uploaded garment? You get a full 1-hour grace window to edit or delete any uploaded pose, image, or queue request without penalty.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950/60 border-slate-800/60'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
               <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-500 mb-4">
                 <Building2 className="w-5 h-5" />
               </div>
@@ -462,7 +462,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
             <p className={`text-xs ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>Everything you need to know about billing, quotas, and support</p>
           </div>
           <div className="space-y-4">
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 shadow-sm' : 'bg-slate-900/60 border-slate-800'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
               <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
                 <HelpCircle className="w-4 h-4 text-amber-500" />
                 How are plans activated after payment?
@@ -471,7 +471,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 After completing the UPI payment via QR code, enter your 12-digit UTR / Transaction ID and click "Submit & Send on WhatsApp". Our administration team verifies the transaction and manually activates your plan quotas and credits within 30 minutes.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 shadow-sm' : 'bg-slate-900/60 border-slate-800'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
               <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
                 <HelpCircle className="w-4 h-4 text-amber-500" />
                 What is the refund policy?
@@ -480,7 +480,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 We operate a strict No-Refund policy once credits or computational quotas are provisioned. However, because our infrastructure relies on third-party GPU clusters, if any system outage occurs during your billing month, our dedicated support team will manually fulfill every single try-on and video generation for you.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 shadow-sm' : 'bg-slate-900/60 border-slate-800'}`}>
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
               <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
                 <HelpCircle className="w-4 h-4 text-amber-500" />
                 Do unused credits expire?
@@ -497,7 +497,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
       {showTermsModal && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className={`border border-amber-500/40 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative ${
-            isLight ? 'bg-white text-gray-900' : 'bg-slate-900 text-white'
+            isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900 text-white'
           }`}>
             <button
               onClick={() => setShowTermsModal(false)}
@@ -515,7 +515,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
               Before activating the <span className="font-bold text-amber-500">{selectedPlan.name}</span> (${selectedPlan.priceUSD} / ≈ ₹{Math.round(selectedPlan.priceUSD * usdToInrRate).toLocaleString('en-IN')}), please review our official platform policies:
             </p>
             <div className={`rounded-2xl p-4 border text-xs space-y-2 mb-6 ${
-              isLight ? 'bg-gray-50 border-gray-200 text-gray-700' : 'bg-slate-950/80 border-slate-800 text-slate-300'
+              isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/80 border-slate-800 text-slate-300'
             }`}>
               <div className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -559,7 +559,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
       {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
-          <div className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 bg-[#0c1017] text-white p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+          <div className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 ${isLight ? 'bg-[#8eb8a0] text-slate-900 border-[#76a187]' : 'bg-[#0c1017] text-white border-amber-500/30'} p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
                 {checkoutStep === 'method' ? 'Step 1: Select Payment Method' : 'Step 2: Pay & Confirm'}
@@ -769,7 +769,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
                     {/* UPI ID Copy Card */}
                     <div className={`flex items-center justify-between rounded-xl border p-2.5 ${
-                      isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+                      isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800'
                     }`}>
                       <div className="text-left">
                         <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
@@ -787,7 +787,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 ) : (
                   /* DIRECT BANK TRANSFER DETAILS CARD (SBI) */
                   <div className={`rounded-2xl border p-4 mb-4 ${
-                    isLight ? 'bg-gray-50 border-gray-200' : 'bg-slate-950 border-slate-800'
+                    isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800'
                   }`}>
                     <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
                       <Building2 className="w-4 h-4 text-amber-500" />
@@ -843,7 +843,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
                       className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                        isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
                       }`}
                     />
                   </div>
@@ -857,7 +857,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                        isLight ? 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
                       }`}
                     />
                   </div>
@@ -875,7 +875,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
                       className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider ${
-                        isLight ? 'bg-gray-50 border-gray-200 text-amber-600 placeholder-gray-400' : 'bg-slate-950 border-slate-800 text-amber-300 placeholder-slate-500'
+                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-amber-300 placeholder-slate-500'
                       }`}
                     />
                   </div>

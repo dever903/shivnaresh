@@ -94,7 +94,9 @@ function NavBar() {
           ))}
           <a
             href="/design"
-            className="bg-white text-gray-900 text-sm font-semibold px-5 py-1.5 rounded-full hover:bg-gray-100 ml-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/60"
+            className={`text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors ${
+              theme === 'light' ? 'bg-[#82b095] text-slate-950 hover:bg-[#72a185]' : 'bg-white text-gray-900 hover:bg-gray-100'
+            }`}
           >
             Start design
           </a>
@@ -121,7 +123,9 @@ function NavBar() {
       </nav>
 
       {open && (
-        <div className="nav-drop fixed top-0 left-0 right-0 z-40 w-full bg-white pt-16 pb-6 px-5 shadow-lg md:hidden">
+        <div className={`nav-drop fixed top-0 left-0 right-0 z-40 w-full pt-16 pb-6 px-5 shadow-lg md:hidden ${
+          theme === 'light' ? 'bg-[#8ab59c] text-slate-900 border-b border-[#79a48b]' : 'bg-[#0c1017] text-white border-b border-white/10'
+        }`}>
           {NAV_LINKS.map((link) => (
             <a
               key={link.label}
@@ -645,6 +649,7 @@ function Hero() {
 /*  App                                                                */
 /* ------------------------------------------------------------------ */
 export default function App() {
+  const { theme } = useTheme();
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/$/, "") || "/";
 
   if (path === "/design" || path.startsWith("/design/")) return <Design />;
@@ -657,7 +662,9 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-[#070709] text-white tracking-[-0.02em] flex flex-col justify-between"
+      className={`min-h-screen tracking-[-0.02em] flex flex-col justify-between transition-colors ${
+        theme === 'light' ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
+      }`}
       style={{ fontFamily: "'JetBrains Mono', monospace" }}
     >
       <NavBar />

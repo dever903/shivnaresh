@@ -42,7 +42,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     if (cached.uri === uri && Date.now() - cached.failedAt < 30_000) return null;
     try {
       const { MongoClient } = await import('mongodb');
-      const client = new MongoClient(uri, { serverSelectionTimeoutMS: 7000 });
+      const client = new MongoClient(uri, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+      });
       await client.connect();
       const db = client.db(dbName);
       await db.collection('users').createIndex({ email: 1 }, { unique: true });
@@ -50,7 +55,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       return db;
     } catch (error) {
       cached = { uri, db: null, failedAt: Date.now() };
-      console.warn('[auth] MongoDB unreachable, using local file store:', error.message);
+      const isSslAlert = error.message && (error.message.includes('alert number 80') || error.message.includes('0A000438'));
+      if (isSslAlert) {
+        console.warn('[auth] MongoDB Atlas SSL Alert 80: Host IP is not whitelisted in Atlas. To enable Atlas, add 0.0.0.0/0 in MongoDB Atlas -> Network Access. Seamlessly using local file store fallback.');
+      } else {
+        console.warn('[auth] MongoDB unreachable, using local file store:', error.message);
+      }
       return null;
     }
   }

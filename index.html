@@ -7,20 +7,31 @@
     <style>
       html, body {
         background-color: #070709 !important;
-        color-scheme: dark !important;
+        color-scheme: dark;
         margin: 0;
         padding: 0;
+      }
+      html.light, html.light body {
+        background-color: #97c1a9 !important;
+        color-scheme: light;
       }
     </style>
     <script>
       (function() {
         try {
-          localStorage.setItem('shivnaresh_theme', 'dark');
+          var saved = localStorage.getItem('shivnaresh_theme');
           var root = document.documentElement;
-          root.classList.add('dark');
-          root.classList.remove('light');
-          root.style.backgroundColor = '#070709';
-          root.style.colorScheme = 'dark';
+          if (saved === 'light') {
+            root.classList.add('light');
+            root.classList.remove('dark');
+            root.style.backgroundColor = '#97c1a9';
+            root.style.colorScheme = 'light';
+          } else {
+            root.classList.add('dark');
+            root.classList.remove('light');
+            root.style.backgroundColor = '#070709';
+            root.style.colorScheme = 'dark';
+          }
         } catch (e) {}
       })();
     </script>

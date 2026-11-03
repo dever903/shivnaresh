@@ -310,7 +310,7 @@ export default function Login() {
 
   return (
     <div className={`relative min-h-screen overflow-hidden ${
-      'bg-[#08080a] text-white'
+      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#08080a] text-white'
     }`}>
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -350,7 +350,7 @@ export default function Login() {
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-16 pt-6 sm:px-0 sm:pt-10">
-        <div className={'rounded-3xl border border-white/10 bg-[#0c1017]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-white'}>
+        <div className={isLight ? 'rounded-3xl border border-[#78a48b] bg-[#8db89f]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-slate-900' : 'rounded-3xl border border-white/10 bg-[#0c1017]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-white'}>
           {step === 'password' ? (
             <>
               <h1 className="text-2xl font-semibold tracking-[-0.02em]">Create a password</h1>
@@ -584,7 +584,7 @@ export default function Login() {
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`relative w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-all ${
-            'border-white/15 bg-[#0f0f13] text-white'
+            isLight ? 'border-[#76a187] bg-[#8eb8a0] text-slate-900 shadow-2xl' : 'border-white/15 bg-[#0f0f13] text-white'
           }`}>
             <button
               onClick={() => setShowForgotModal(false)}
