@@ -247,9 +247,9 @@ export default function Login() {
       const res = await api.forgotPassword(forgotEmail.trim());
       if (res.emergencyOtp) {
         setForgotOtp(res.emergencyOtp);
-        setForgotSuccess(`⚡ Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam'})`);
+        setForgotSuccess(`Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam'})`);
       } else if (res.deliveryNote && res.deliveryNote.toLowerCase().includes('invalid')) {
-        setForgotError(`⚠️ Cloud server note: ${res.deliveryNote}. Render backend deployment is pending manual trigger on dashboard.render.com (click "Manual Deploy > Deploy latest commit") to activate Brevo delivery.`);
+        setForgotError(`Cloud server note: ${res.deliveryNote}. Render backend deployment is pending manual trigger on dashboard.render.com (click "Manual Deploy > Deploy latest commit") to activate Brevo delivery.`);
       } else if (res.deliveryNote) {
         setForgotSuccess(`${res.message || 'OTP code generated!'} (Note: ${res.deliveryNote})`);
       } else {
@@ -631,7 +631,7 @@ export default function Login() {
                   )}
 
                   <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
-                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                    Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
                   </p>
 
                   <button
@@ -693,7 +693,7 @@ export default function Login() {
                   )}
 
                   <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
-                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                    Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
                   </p>
 
                   <button
@@ -777,7 +777,7 @@ export default function Login() {
                   )}
 
                   <p className={`text-[11px] text-center leading-relaxed ${isLight ? 'text-gray-500' : 'text-white/45'}`}>
-                    💡 Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
+                    Not in primary inbox? Please check your <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Spam</b> or <b className={isLight ? 'text-gray-800' : 'text-white/80'}>Promotions</b> folder.
                   </p>
 
                   <button

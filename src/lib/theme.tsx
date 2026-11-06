@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 
 export type Theme = 'dark' | 'light';
 
@@ -47,16 +48,16 @@ export function ThemeToggle({ theme, toggleTheme }: { theme?: Theme; toggleTheme
     <button
       type="button"
       onClick={toggleTheme}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all shadow-sm cursor-pointer select-none ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all shadow-sm cursor-pointer select-none ${
         current === 'dark'
           ? 'bg-white/10 text-amber-300 hover:bg-white/20 border border-white/15'
           : 'bg-[#82b095] text-slate-900 hover:bg-[#72a185] border border-[#6b997e]'
       }`}
-      title={current === 'dark' ? 'Switch to Light Mode (#97c1a9)' : 'Switch to Dark Mode'}
+      title={current === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       aria-label="Toggle theme"
     >
-      <span>{current === 'dark' ? '☀️' : '🌙'}</span>
-      <span className="text-[11px] font-bold uppercase tracking-wider">
+      {current === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+      <span className="text-[11px] font-semibold uppercase tracking-wider">
         {current === 'dark' ? 'Light' : 'Dark'}
       </span>
     </button>

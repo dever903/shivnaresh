@@ -1,3 +1,4 @@
+import { AlertTriangle, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import SiteFooter from '../components/SiteFooter';
 
@@ -29,11 +30,11 @@ export default function Terms() {
               className={`rounded-full border p-2 text-xs transition-colors ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
               title="Toggle Dark / Light Mode"
             >
-              {isLight ? '🌙' : '☀️'}
+              {isLight ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
             </button>
             <a
               href="/pricing"
-              className="rounded-full bg-[#e5373f] px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow"
+              className="rounded-full bg-[#e5373f] px-5 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
             >
               View Plans &rarr;
             </a>
@@ -44,10 +45,10 @@ export default function Terms() {
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-6 py-16">
         <div className="space-y-4">
-          <span className="inline-block rounded-full bg-[#e5373f]/15 border border-[#e5373f]/30 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-[#e5373f]">
-            Official Legal Agreement & Platform Policies
+          <span className="inline-block rounded-full bg-[#e5373f]/15 border border-[#e5373f]/30 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#e5373f]">
+            Platform Policies
           </span>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Terms of Service & Platform Policies
           </h1>
           <p className="text-xs opacity-60">
@@ -56,13 +57,13 @@ export default function Terms() {
         </div>
 
         {/* Highlighted Policy Alert: Strict No-Refund */}
-        <div className="mt-10 rounded-3xl border border-red-500/40 bg-red-500/10 p-6 space-y-2">
-          <div className="flex items-center gap-2 text-red-500 font-bold text-sm uppercase tracking-wider">
-            <span>⚠️</span>
-            <span>Important: Strict No-Refund Policy</span>
+        <div className="mt-10 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 space-y-2">
+          <div className="flex items-center gap-2 text-red-500 font-semibold text-sm uppercase tracking-wider">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Strict no-refund policy</span>
           </div>
           <p className="text-xs leading-relaxed opacity-90">
-            All purchases, subscription plan activations, on-demand packages, and studio credit allocations are strictly non-refundable once approved or activated. Because digital GPU computing power, AI generation pipelines, and high-performance server bandwidth are allocated immediately upon transaction submission, we cannot process refunds, chargebacks, or cash reversals under any circumstances.
+            All purchases, subscription plan activations, on-demand packages, and studio credit allocations are non-refundable once approved or activated. Digital computing power, generation pipelines, and server allocations are assigned immediately upon transaction submission.
           </p>
         </div>
 
@@ -73,17 +74,18 @@ export default function Terms() {
               1. Third-Party Neural Computing & Support Team SLA Guarantee
             </h2>
             <p className="opacity-80">
-              Shiv-Naresh AI Studio leverages cutting-edge third-party neural network model providers and distributed high-end GPU clusters (including Fashn.ai infrastructure) to generate virtual try-ons and video motion.
+              Shiv-Naresh AI Studio leverages third-party neural network model providers and distributed high-end GPU clusters (including Fashn.ai infrastructure) to generate virtual try-ons and video motion.
             </p>
             <div className="rounded-2xl border p-4 backdrop-blur-sm space-y-2" style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
-              <p className="font-bold text-xs">
-                🛡️ The Shiv-Naresh Full Support Guarantee:
+              <p className="font-semibold text-xs flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>The Shiv-Naresh Support Guarantee:</span>
               </p>
               <p className="opacity-80">
-                If the automated generative system or third-party computing cluster encounters technical outages, API downtime, or server failure during your active billing month, <strong>our dedicated in-house studio support team and master tailors will manually execute, render, retouch, and deliver every single try-on image and fashion video</strong> up to your purchased plan’s exact quota for that month. You are 100% guaranteed to receive your full quota of completed deliverables.
+                If the automated generative system or third-party computing cluster encounters technical outages, API downtime, or server failure during your active billing month, <strong>our dedicated in-house studio support team and master tailors will manually execute, render, retouch, and deliver every single try-on image and fashion video</strong> up to your purchased plan’s exact quota for that month. You are guaranteed to receive your full quota of completed deliverables.
               </p>
             </div>
           </section>

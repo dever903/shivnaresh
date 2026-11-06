@@ -158,9 +158,9 @@ const RAD = Math.PI / 180;
 type ArcSpec = { r: number; from: number; to: number; dot: number; value: string; label: string };
 
 const ARCS: ArcSpec[] = [
-  { r: 330, from: -92, to: 16, dot: -46, value: '10+', label: 'YEARS KITTING' },
-  { r: 395, from: -56, to: 60, dot: 2, value: '40+', label: 'KIT TEMPLATES' },
-  { r: 460, from: -14, to: 72, dot: 44, value: '95%', label: 'REPEAT CLUBS' },
+  { r: 330, from: -92, to: 16, dot: -46, value: '10+', label: 'Years kitting' },
+  { r: 395, from: -56, to: 60, dot: 2, value: '40+', label: 'Kit templates' },
+  { r: 460, from: -14, to: 72, dot: 44, value: '95%', label: 'Repeat clubs' },
 ];
 
 const polar = (r: number, deg: number) => ({
@@ -315,18 +315,17 @@ function ChestBadge() {
               draggable={false}
             />
             <span
-              className="font-semibold uppercase leading-none text-[clamp(7px,0.82vw,11px)] tracking-[0.2em] drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
-              style={{ paddingRight: '0.2em' }}
+              className="font-medium leading-none text-[clamp(7px,0.82vw,11px)] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+              style={{ paddingRight: '0.1em' }}
             >
               Shiv-Naresh
             </span>
           </div>
-          <div className="mt-[5px] h-px w-full bg-white/35" style={{ transform: 'skewX(-18deg)' }} />
+          <div className="mt-[5px] h-px w-full bg-white/20" />
           <p
-            className="mt-[4px] text-[clamp(5px,0.56vw,7.5px)] font-medium uppercase leading-none tracking-[0.2em] text-white/65 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
-            style={{ paddingRight: '0.2em' }}
+            className="mt-[4px] text-[clamp(5px,0.56vw,7.5px)] font-normal leading-none tracking-wider text-white/70"
           >
-            Clothes Customization
+            Custom sportswear
           </p>
         </div>
       </div>
@@ -601,16 +600,16 @@ function Hero() {
       <StatsArc />
 
       {/* 5 — hero copy */}
-      <div className="absolute bottom-12 sm:bottom-16 md:bottom-24 left-5 sm:left-8 md:left-12 max-w-[300px] sm:max-w-md z-50">
+      <div className="absolute bottom-12 sm:bottom-16 md:bottom-24 left-5 sm:left-8 md:left-12 max-w-[320px] sm:max-w-md z-50">
         <p
-          className="hero-rise text-[11px] sm:text-xs font-semibold tracking-[0.12em] text-white/90"
+          className="hero-rise text-xs font-medium text-white/80"
           style={{ animationDelay: '0.15s' }}
         >
-          Custom sportswear <span className="italic">for your club</span>
+          Custom sportswear for athletic squads
         </p>
 
         <h1
-          className="hero-rise mt-3 text-4xl sm:text-5xl md:text-6xl leading-[1.05] tracking-[-0.08em] text-white"
+          className="hero-rise mt-3 text-4xl sm:text-5xl md:text-6xl font-medium leading-[1.08] tracking-[-0.03em] text-white"
           style={{ animationDelay: '0.3s' }}
         >
           Your crest.
@@ -621,23 +620,18 @@ function Hero() {
         </h1>
 
         <p
-          className="hero-rise mt-4 text-sm sm:text-base text-white/90 leading-relaxed"
+          className="hero-rise mt-4 text-sm sm:text-base text-white/80 leading-relaxed"
           style={{ animationDelay: '0.5s' }}
         >
-          Sublimated team kits, training sets and club apparel — drawn with you,
-          sampled before a stitch, cut to your squad’s measurements.
+          Sublimated team kits, training sets and club apparel, sampled before a stitch and cut to your squad’s measurements.
         </p>
 
         <div className="hero-rise mt-6 flex items-center gap-4" style={{ animationDelay: '0.7s' }}>
           <a
             href="/design"
-            className="group relative isolate inline-block overflow-hidden bg-white text-gray-900 text-sm sm:text-base font-semibold px-7 sm:px-8 py-3 sm:py-3.5 rounded-full shadow-lg shadow-black/20 transition-transform duration-300 hover:scale-[1.04] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-black/50"
+            className="inline-flex items-center justify-center bg-white text-gray-900 text-sm font-semibold px-6 py-3 rounded-full hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/15 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full"
-            />
-            <span className="relative">Design your kit</span>
+            Design your kit
           </a>
         </div>
       </div>

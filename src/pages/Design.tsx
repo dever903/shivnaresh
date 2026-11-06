@@ -1,4 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Camera,
+  Clock,
+  ExternalLink,
+  Film,
+  Folder,
+  Layers,
+  Lock,
+  Paperclip,
+  RefreshCw,
+  Sliders,
+  Trash2,
+  User as UserIcon,
+  X,
+} from 'lucide-react';
 import { useTheme, ThemeToggle } from '../lib/theme';
 import {
   api,
@@ -47,11 +62,11 @@ export interface PoseItem {
 }
 
 export const FIVE_POSES_SPECS: Omit<PoseItem, 'status'>[] = [
-  { id: 'front', name: 'Front View', angle: '0° Center', icon: '🧍', promptSuffix: 'front full-body standing fashion editorial catalog pose, direct camera gaze, symmetrical athletic posture' },
-  { id: 'three_quarter', name: '3/4 Turn', angle: '45° Dynamic', icon: '📐', promptSuffix: 'three-quarter 45 degree dynamic fashion perspective angle pose, natural catalog lighting' },
-  { id: 'profile', name: 'Side Profile', angle: '90° Silhouette', icon: '👤', promptSuffix: 'full side profile 90 degree fashion silhouette pose, athletic posture highlighting garment fit and trim' },
-  { id: 'back', name: 'Back View', angle: '180° Rear', icon: '🔄', promptSuffix: 'back view 180 degree catalog showcase pose, crisp focus on garment rear design, typography, and athletic cut' },
-  { id: 'action', name: 'Athletic Motion', angle: 'Sport Action', icon: '⚡', promptSuffix: 'dynamic athletic active motion pose, fluid sports movement showcasing active sportswear fabric movement' },
+  { id: 'front', name: 'Front View', angle: '0° Center', icon: '0°', promptSuffix: 'front full-body standing fashion editorial catalog pose, direct camera gaze, symmetrical athletic posture' },
+  { id: 'three_quarter', name: '3/4 Turn', angle: '45° Dynamic', icon: '45°', promptSuffix: 'three-quarter 45 degree dynamic fashion perspective angle pose, natural catalog lighting' },
+  { id: 'profile', name: 'Side Profile', angle: '90° Silhouette', icon: '90°', promptSuffix: 'full side profile 90 degree fashion silhouette pose, athletic posture highlighting garment fit and trim' },
+  { id: 'back', name: 'Back View', angle: '180° Rear', icon: '180°', promptSuffix: 'back view 180 degree catalog showcase pose, crisp focus on garment rear design, typography, and athletic cut' },
+  { id: 'action', name: 'Athletic Motion', angle: 'Sport Action', icon: 'Motion', promptSuffix: 'dynamic athletic active motion pose, fluid sports movement showcasing active sportswear fabric movement' },
 ];
 
 function sendDesktopNotification(title: string, body: string, icon?: string) {
@@ -157,38 +172,38 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
    ---------------------------------------------------------------- */
 function RequestSubmittedPopup({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-      <div className="w-full max-w-md rounded-3xl border border-[#e5373f]/40 bg-[#111116] p-7 shadow-2xl ring-1 ring-[#e5373f]/30">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111116] p-6 shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5373f]/20 text-2xl text-[#e5373f]">
-            ✨
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5373f]/10 text-[#e5373f]">
+            <Clock className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Custom Studio Order Placed</h3>
-            <p className="text-xs text-white/50">Transferred to Master Tailor Queue</p>
+            <h3 className="text-sm font-semibold text-white">Custom studio order placed</h3>
+            <p className="text-xs text-white/50">Transferred to master tailor queue</p>
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-white/10 bg-black/50 p-4">
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-4">
           <p className="text-xs leading-relaxed text-white/80">
-            Your custom garment and model styling instructions have been received by our head studio team.
+            Your custom garment and styling instructions have been received by our studio team.
           </p>
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 border border-amber-500/20">
-            <span>⏱️</span>
-            <span>Images will be received within <strong>24–48 hours</strong></span>
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300 border border-amber-500/20">
+            <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Delivery within <strong>24–48 hours</strong></span>
           </div>
         </div>
 
-        <p className="mt-4 text-[11px] leading-relaxed text-white/45">
-          You can track live countdown timers and review completed deliveries in your <strong>Custom Requests</strong> tab anytime.
+        <p className="mt-4 text-xs leading-relaxed text-white/50">
+          You can track status and review completed deliveries in your <strong>Custom Requests</strong> tab anytime.
         </p>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full rounded-full bg-white py-3 text-xs font-bold uppercase tracking-wider text-gray-900 hover:bg-gray-100 transition-colors"
+          className="mt-6 w-full rounded-lg bg-white py-2.5 text-xs font-semibold text-gray-900 hover:bg-gray-100 transition-colors"
         >
-          OK, Got It
+          Close
         </button>
       </div>
     </div>
@@ -248,10 +263,12 @@ function LiveCountdownTimer({ createdAt, deadlineHours }: { createdAt: number; d
 function InstructionPopup({ onGotIt }: { onGotIt: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-white/15 bg-[#111114] p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111114] p-6 shadow-2xl">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-xl">📸</span>
-          <h3 className="text-base font-bold text-white">How Upload Sets Work</h3>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+            <Camera className="h-5 w-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-white">How upload sets work</h3>
         </div>
         <ul className="mt-5 space-y-3 text-xs text-white/70">
           <li className="flex items-start gap-2">
@@ -506,7 +523,7 @@ function UserProfileModal({
         {/* Header */}
         <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
           <div className="flex items-center gap-2.5">
-            <span className="text-xl">👤</span>
+            <UserIcon className="h-5 w-5 text-current/70" />
             <div>
               <h2 className="text-base font-bold">User Profile</h2>
               <p className="text-xs opacity-60">Manage your identity and contact details</p>
@@ -519,7 +536,7 @@ function UserProfileModal({
               isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'
             }`}
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -533,8 +550,8 @@ function UserProfileModal({
                 className="h-20 w-20 rounded-full object-cover border-2 border-[#e5373f] shadow-md"
               />
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-[#e5373f] to-rose-400 text-2xl font-bold text-white shadow-md">
-                {name ? name[0].toUpperCase() : '👤'}
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#e5373f] text-2xl font-bold text-white shadow-md">
+                {name ? name[0].toUpperCase() : <UserIcon className="h-8 w-8 text-white" />}
               </div>
             )}
             <input
@@ -547,10 +564,10 @@ function UserProfileModal({
             <button
               type="button"
               onClick={() => avatarFileRef.current?.click()}
-              className="absolute bottom-0 right-0 rounded-full bg-[#e5373f] p-1.5 text-white shadow hover:bg-[#d42d35]"
+              className="absolute bottom-0 right-0 rounded-full bg-[#e5373f] p-2 text-white shadow hover:bg-[#d42d35]"
               title="Change Profile Picture (Crop & Adjust)"
             >
-              📷
+              <Camera className="h-3.5 w-3.5" />
             </button>
           </div>
 
@@ -558,10 +575,10 @@ function UserProfileModal({
             <h3 className="text-sm font-bold truncate">{name || 'Studio Member'}</h3>
             <p className="text-xs opacity-60 truncate">{user.email}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase border ${
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
                 isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
               }`}>
-                ⚡ {user.credits} Credits
+                {user.credits} credits
               </span>
               <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
                 {user.tier || 'Free'} Tier
@@ -811,11 +828,12 @@ function MySetsPanel({
           <button
             type="button"
             onClick={() => { refreshSets(); refreshGenerations(); }}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${
               isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-white/15 hover:bg-white/10 text-white/70'
             }`}
           >
-            🔄 Refresh
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>Refresh</span>
           </button>
           <button
             type="button"
@@ -823,9 +841,9 @@ function MySetsPanel({
               if (!formOpen && uploadSets.length === 0) setShowInstructions(true);
               else setFormOpen(!formOpen);
             }}
-            className="rounded-full bg-[#e5373f] px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition shadow-md"
+            className="rounded-full bg-[#e5373f] px-5 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition shadow-md"
           >
-            {formOpen ? 'Close Form' : '+ New Wardrobe Set'}
+            {formOpen ? 'Close form' : '+ New wardrobe set'}
           </button>
         </div>
       </div>
@@ -833,10 +851,10 @@ function MySetsPanel({
       {/* Filter Tabs */}
       <div className="mt-6 flex flex-wrap items-center gap-2 border-b pb-4 border-white/10">
         {[
-          { id: 'all', label: `All Archive Media (${totalCount})` },
-          { id: 'images', label: `📸 Generated Images (${imageGenerations.length})` },
-          { id: 'videos', label: `🎬 Generated Videos (${videoGenerations.length})` },
-          { id: 'sets', label: `📁 Saved Outfits (${uploadSets.length})` },
+          { id: 'all', label: `All archive (${totalCount})` },
+          { id: 'images', label: `Images (${imageGenerations.length})` },
+          { id: 'videos', label: `Videos (${videoGenerations.length})` },
+          { id: 'sets', label: `Saved outfits (${uploadSets.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -858,7 +876,7 @@ function MySetsPanel({
       {formOpen && (
         <div className={`mt-6 rounded-3xl border p-6 backdrop-blur-md ${isLight ? 'border-gray-200 bg-white shadow-md' : 'border-white/15 bg-white/[0.03]'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-700' : 'text-white/60'}`}>
-            Save Pair to Cloudinary / Permanent Archive
+            Save pair to permanent archive
           </h3>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -876,9 +894,9 @@ function MySetsPanel({
                   <img src={pendingCloth.preview} alt="Garment" className="h-full w-auto object-contain" />
                 ) : (
                   <>
-                    <span className="text-2xl mb-1">👗</span>
-                    <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select Garment Image</span>
-                    <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>Click to preview & confirm</span>
+                    <Layers className="h-6 w-6 mb-1 text-current/40" />
+                    <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select garment image</span>
+                    <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>Click to preview and confirm</span>
                   </>
                 )}
               </button>
@@ -898,9 +916,9 @@ function MySetsPanel({
                   <img src={pendingModel.preview} alt="Model" className="h-full w-auto object-contain" />
                 ) : (
                   <>
-                    <span className="text-2xl mb-1">🧍</span>
-                    <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select Model Image</span>
-                    <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>Click to preview & confirm</span>
+                    <UserIcon className="h-6 w-6 mb-1 text-current/40" />
+                    <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select model image</span>
+                    <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>Click to preview and confirm</span>
                   </>
                 )}
               </button>
@@ -951,27 +969,27 @@ function MySetsPanel({
           {(filter === 'all' || filter === 'videos') && videoGenerations.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">🎬</span>
-                <h3 className="text-sm font-bold uppercase tracking-wider">Generated Fashion Videos ({videoGenerations.length})</h3>
+                <Film className="h-4 w-4 text-current/70" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider">Generated fashion videos ({videoGenerations.length})</h3>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {videoGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-3xl border p-4 shadow-lg transition-all ${
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
                       isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
                     }`}
                   >
                     <div>
-                      <div className="relative rounded-2xl overflow-hidden bg-black/80 aspect-[9/16] max-h-80 mx-auto">
+                      <div className="relative rounded-xl overflow-hidden bg-black/80 aspect-[9/16] max-h-80 mx-auto">
                         <video src={gen.url} controls loop playsInline className="h-full w-full object-cover" />
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
-                        <span className={`font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{gen.duration || 5}s &middot; {gen.aspectRatio || '9:16'}</span>
+                        <span className={`font-semibold ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>{gen.duration || 5}s &middot; {gen.aspectRatio || '9:16'}</span>
                       </div>
                       {gen.prompt && (
-                        <p className={`mt-2 text-xs line-clamp-2 italic ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
+                        <p className={`mt-2 text-xs line-clamp-2 ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
                           "{gen.prompt}"
                         </p>
                       )}
@@ -981,28 +999,28 @@ function MySetsPanel({
                       <a
                         href={gen.highResUrl || gen.url}
                         download={`shivnaresh-video-${gen.id.slice(0, 6)}.mp4`}
-                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-bold uppercase tracking-wider shadow-md transition"
+                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition"
                       >
-                        ⬇ Download
+                        Download
                       </a>
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border px-3 py-2 text-xs font-bold transition ${
+                        className={`rounded-full border p-2 text-xs transition ${
                           isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
                         }`}
                         title="Open full video in new tab"
                       >
-                        🔗 Open
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteGen(gen.id)}
                         disabled={deletingGenId === gen.id}
-                        className="rounded-full border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition"
+                        className="rounded-full border border-red-500/30 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
                         title="Delete video"
                       >
-                        {deletingGenId === gen.id ? '…' : '🗑️'}
+                        {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -1015,37 +1033,38 @@ function MySetsPanel({
           {(filter === 'all' || filter === 'images') && imageGenerations.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📸</span>
-                <h3 className="text-sm font-bold uppercase tracking-wider">Generated Studio Images ({imageGenerations.length})</h3>
+                <Camera className="h-4 w-4 text-current/70" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider">Generated studio images ({imageGenerations.length})</h3>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {imageGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-3xl border p-4 shadow-lg transition-all ${
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
                       isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
                     }`}
                   >
                     <div>
                       <div
-                        className="relative rounded-2xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
+                        className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
                       >
-                        <img src={gen.url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
+                        <img src={gen.url} alt="" className="h-full w-full object-cover" />
+                        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider">
                           {gen.resolution || '1K'}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
                         {gen.color && (
-                          <span className="flex items-center gap-1 font-semibold text-emerald-400">
-                            🎨 {gen.colorName || gen.color}
+                          <span className="flex items-center gap-1 font-medium text-emerald-400">
+                            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: gen.color }} />
+                            <span>{gen.colorName || gen.color}</span>
                           </span>
                         )}
                       </div>
                       {gen.prompt && (
-                        <p className={`mt-2 text-xs line-clamp-2 italic ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
+                        <p className={`mt-2 text-xs line-clamp-2 ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
                           "{gen.prompt}"
                         </p>
                       )}
@@ -1055,28 +1074,28 @@ function MySetsPanel({
                       <a
                         href={gen.highResUrl || gen.url}
                         download={`shivnaresh-studio-${gen.id.slice(0, 6)}.png`}
-                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-bold uppercase tracking-wider shadow-md transition"
+                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition"
                       >
-                        ⬇ Download
+                        Download
                       </a>
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border px-3 py-2 text-xs font-bold transition ${
+                        className={`rounded-full border p-2 text-xs transition ${
                           isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
                         }`}
                         title="Open full image in new tab"
                       >
-                        🔗
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteGen(gen.id)}
                         disabled={deletingGenId === gen.id}
-                        className="rounded-full border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition"
+                        className="rounded-full border border-red-500/30 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
                         title="Delete image"
                       >
-                        {deletingGenId === gen.id ? '…' : '🗑️'}
+                        {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -1089,20 +1108,20 @@ function MySetsPanel({
           {(filter === 'all' || filter === 'sets') && uploadSets.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📁</span>
-                <h3 className="text-sm font-bold uppercase tracking-wider">Cloudinary Saved Outfit Sets ({uploadSets.length})</h3>
+                <Folder className="h-4 w-4 text-current/70" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider">Saved outfit sets ({uploadSets.length})</h3>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {uploadSets.map((set) => (
                   <div
                     key={set.id}
-                    className={`flex flex-col justify-between rounded-3xl border p-5 shadow-lg ${
+                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${
                       isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-3 py-0.5 text-xs font-bold text-[#ff9aa0]">
+                        <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-3 py-0.5 text-xs font-semibold text-[#ff9aa0]">
                           Set {set.setNumber}
                         </span>
                         <span className="text-[10px] opacity-40 font-mono">
@@ -1115,7 +1134,9 @@ function MySetsPanel({
                           {set.clothUrl ? (
                             <img src={set.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
                           ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">👗</div>
+                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
+                              <Layers className="h-5 w-5" />
+                            </div>
                           )}
                           <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.clothName || 'Garment'}</p>
                         </div>
@@ -1124,14 +1145,16 @@ function MySetsPanel({
                           {set.modelUrl ? (
                             <img src={set.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
                           ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">🧍</div>
+                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
+                              <UserIcon className="h-5 w-5" />
+                            </div>
                           )}
                           <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.modelName || 'Model'}</p>
                         </div>
                       </div>
 
                       {set.prompt && (
-                        <p className={`mt-3 rounded-xl p-2 text-[10px] line-clamp-2 italic ${isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/5 text-white/60'}`}>
+                        <p className={`mt-3 rounded-xl p-2 text-[10px] line-clamp-2 ${isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/5 text-white/60'}`}>
                           "{set.prompt}"
                         </p>
                       )}
@@ -1141,27 +1164,27 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => onUseSet(set)}
-                        className="flex-1 rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2 text-xs font-bold uppercase tracking-wider transition shadow-md"
+                        className="flex-1 rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2 text-xs font-semibold uppercase tracking-wider transition shadow-sm"
                       >
-                        ⚡ Use in Studio
+                        Use in studio
                       </button>
                       <button
                         type="button"
                         onClick={() => window.open(set.clothUrl || set.modelUrl, '_blank')}
-                        className={`rounded-full border px-3 py-2 text-xs font-bold transition ${
+                        className={`rounded-full border p-2 text-xs transition ${
                           isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
                         }`}
                         title="Open images in new tab"
                       >
-                        🔗
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => void deleteSet(set.id)}
                         disabled={deletingSetId === set.id}
-                        className="rounded-full border border-red-500/20 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition"
+                        className="rounded-full border border-red-500/20 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
                       >
-                        {deletingSetId === set.id ? '…' : '🗑️'}
+                        {deletingSetId === set.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -1172,11 +1195,11 @@ function MySetsPanel({
 
           {/* Empty state if nothing matches filter */}
           {totalCount === 0 && (
-            <div className={`rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.01]'}`}>
-              <span className="text-3xl block mb-2">📦</span>
-              <p className="text-sm font-bold">Your wardrobe archive is empty.</p>
+            <div className={`rounded-2xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.01]'}`}>
+              <Layers className="h-8 w-8 mx-auto mb-2 text-current/30" />
+              <p className="text-sm font-semibold">Your wardrobe archive is empty.</p>
               <p className="text-xs opacity-50 mt-1 max-w-sm mx-auto">
-                Generate images and fashion videos in the studio or click "+ New Wardrobe Set" above to store your first combination.
+                Generate images and fashion videos in the studio or click "+ New wardrobe set" above to store your first combination.
               </p>
             </div>
           )}
@@ -1327,9 +1350,9 @@ function CustomRequestsPanel({
             <button
               type="button"
               onClick={() => setLightboxImg(null)}
-              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black font-bold shadow-lg"
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black flex items-center justify-center font-bold shadow-lg"
             >
-              ✕
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1385,17 +1408,17 @@ function CustomRequestsPanel({
         <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${
           isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
         }`}>
-          <span className="text-4xl mb-3 block">🔒</span>
-          <h3 className={`text-lg font-bold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke Custom Orders Locked</h3>
+          <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
+          <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
           <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
-            Direct custom requests to our human master tailors are exclusive to active Pro and Ultra plan subscribers or accounts unlocked by the administrator. Please upgrade your plan to unlock bespoke team kits, embroidery, and custom 5-pose photoshoots.
+            Direct custom requests to our master tailors are available on Pro and Ultra plans or accounts enabled by the administrator. Upgrade your plan to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
             <a
               href="/pricing"
-              className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-lg transition-transform hover:scale-105"
+              className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-sm transition"
             >
-              ⚡ View Pricing &amp; Upgrade Plan
+              View pricing and plans
             </a>
           </div>
         </div>
@@ -1407,9 +1430,9 @@ function CustomRequestsPanel({
           isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900' : 'border-white/15 bg-white/[0.03]'
         }`}>
           <div className="flex items-center justify-between">
-            <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit Design Request to Admin Master Tailors</h3>
-            <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-bold text-emerald-800">
-              ⚡ Ultra Plan: Zero deduction from 500 account credits
+            <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
+            <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-semibold text-emerald-800">
+              Ultra Plan: Included with membership
             </span>
           </div>
           <p className={`text-xs mt-1 ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
@@ -1418,12 +1441,12 @@ function CustomRequestsPanel({
 
           {/* Request Type Selector */}
           <div className="mt-5">
-            <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>Delivery Output Type</p>
+            <p className={`text-[11px] font-medium uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>Delivery Output Type</p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'stills', label: '📸 2K Stills (Up to 5 Poses)', sub: 'High-res multi-angle renders' },
-                { id: 'video', label: '🎬 1080p Video (5–10s)', sub: 'Cinematic runway motion video' },
-                { id: 'both', label: '⚡ Complete Suite (Stills + Video)', sub: 'Full catalog production pack' },
+                { id: 'stills', label: '2K Stills (up to 5 poses)', sub: 'High-res multi-angle renders' },
+                { id: 'video', label: '1080p Video (5–10s)', sub: 'Cinematic runway motion video' },
+                { id: 'both', label: 'Complete Suite (Stills + Video)', sub: 'Full catalog production pack' },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -1463,8 +1486,8 @@ function CustomRequestsPanel({
                     <img src={pendingCloth.preview} alt="Garment" className="h-full w-auto object-contain" />
                   ) : (
                     <>
-                      <span className="text-2xl mb-1">🎽</span>
-                      <span className={`text-xs font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Upload Garment Image</span>
+                      <Layers className="h-6 w-6 mb-1 text-current/40" />
+                      <span className={`text-xs font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Upload garment image</span>
                       <span className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-700' : 'text-white/35'}`}>Flat lay or athlete kit shot</span>
                     </>
                   )}
@@ -1474,8 +1497,8 @@ function CustomRequestsPanel({
               {/* Fabric Color Input */}
               <div className={`rounded-2xl border p-3 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/10 bg-black/40'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                    🎨 Fabric Color / Dye Code
+                  <span className={`text-[10px] font-medium uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                    Fabric Color / Dye Code
                   </span>
                   {garmentColor && (
                     <button type="button" onClick={() => setGarmentColor('')} className="text-[10px] text-red-500 font-bold hover:underline">
@@ -1508,7 +1531,7 @@ function CustomRequestsPanel({
                       key={c}
                       type="button"
                       onClick={() => setGarmentColor(c)}
-                      className="h-5 w-5 rounded-full border border-black/20 hover:scale-110 transition-transform"
+                      className="h-5 w-5 rounded-full border border-black/20 hover:ring-2 hover:ring-offset-1 hover:ring-slate-400 transition-all"
                       style={{ backgroundColor: c }}
                       title={c}
                     />
@@ -1554,10 +1577,10 @@ function CustomRequestsPanel({
                     <button
                       type="button"
                       onClick={() => removeModel(idx)}
-                      className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-[9px] text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Remove pose"
                     >
-                      ✕
+                      <X className="h-2.5 w-2.5" />
                     </button>
                   </div>
                 ))}
@@ -1647,7 +1670,7 @@ function CustomRequestsPanel({
               }`}>
                 <div className="flex items-center gap-3">
                   <span
-                    className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
                       req.status === 'delivered'
                         ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
                         : req.status === 'in_progress'
@@ -1656,26 +1679,27 @@ function CustomRequestsPanel({
                     }`}
                   >
                     {req.status === 'delivered'
-                      ? '✓ Delivered'
+                      ? 'Delivered'
                       : req.status === 'in_progress'
-                        ? '⚡ In Progress (Master Tailor Working)'
-                        : '🕒 Queued in Studio'}
+                        ? 'In progress'
+                        : 'Queued'}
                   </span>
                   <span className={`text-xs ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
                     Ordered {new Date(req.createdAt).toLocaleDateString()}
                   </span>
                   {req.requestType && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-bold ${
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${
                       isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
                     }`}>
-                      {req.requestType === 'both' ? '⚡ Stills + Video' : req.requestType === 'video' ? '🎬 Video' : '📸 2K Stills'}
+                      {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
                     </span>
                   )}
                   {req.color && (
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono ${
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${
                       isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
                     }`}>
-                      🎨 {req.color}
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: req.color }} />
+                      {req.color}
                     </span>
                   )}
                 </div>
@@ -1683,10 +1707,10 @@ function CustomRequestsPanel({
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
                     <div className="inline-flex items-center gap-1.5">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
                         isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
                       }`}>
-                        ⏱️ 1h Grace Window
+                        1h edit window
                       </span>
                       <button
                         type="button"
@@ -1699,10 +1723,10 @@ function CustomRequestsPanel({
                             alert(err.message || 'Could not delete request');
                           }
                         }}
-                        className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-bold text-red-500 hover:bg-red-500 hover:text-white transition"
+                        className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
                         title="Cancel within 1 hour grace window"
                       >
-                        ✕ Cancel Order
+                        Cancel order
                       </button>
                     </div>
                   )}
@@ -1795,9 +1819,9 @@ function CustomRequestsPanel({
                         <a
                           href={req.deliveredImageUrl}
                           download={`shivnaresh-custom-${req.id}.png`}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors"
                         >
-                          <span>⬇</span> Download High-Res Render
+                          Download high-res render
                         </a>
                         <button
                           type="button"
@@ -1806,7 +1830,8 @@ function CustomRequestsPanel({
                             isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
                           }`}
                         >
-                          <span>🔗</span> Open in New Tab
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Open in new tab</span>
                         </button>
                       </div>
                     </div>
@@ -1831,7 +1856,7 @@ function CustomRequestsPanel({
                   {req.deliveredFileName && (
                     <div className="mt-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2.5 text-xs flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 truncate">
-                        <span>📎</span>
+                        <Paperclip className="h-3.5 w-3.5 text-blue-400" />
                         <span className="font-semibold text-blue-300 truncate">{req.deliveredFileName}</span>
                       </div>
                       {req.deliveredFileUrl && (
@@ -1840,9 +1865,9 @@ function CustomRequestsPanel({
                           download={req.deliveredFileName}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-blue-500 transition-colors"
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-blue-500 transition-colors"
                         >
-                          Download Attachment
+                          Download attachment
                         </a>
                       )}
                     </div>
@@ -1861,10 +1886,10 @@ function CustomRequestsPanel({
    Video Studio Panel (with Aspect Ratios, Purposes & Confirmation Modal)
    ---------------------------------------------------------------- */
 const ASPECT_RATIOS = [
-  { id: '9:16', label: '9:16 Vertical Reel', icon: '📱', purpose: 'Instagram Reels, Stories, TikTok & Shorts' },
-  { id: '16:9', label: '16:9 Landscape', icon: '🖥️', purpose: 'YouTube, Desktop Web & Lookbooks' },
-  { id: '1:1', label: '1:1 Square', icon: '⏹️', purpose: 'Instagram Grid & Carousel Feeds' },
-  { id: '4:5', label: '4:5 Social Portrait', icon: '🖼️', purpose: 'Facebook & Instagram Feed Ads' },
+  { id: '9:16', label: '9:16 Vertical Reel', icon: '9:16', purpose: 'Instagram Reels, Stories, TikTok & Shorts' },
+  { id: '16:9', label: '16:9 Landscape', icon: '16:9', purpose: 'YouTube, Desktop Web & Lookbooks' },
+  { id: '1:1', label: '1:1 Square', icon: '1:1', purpose: 'Instagram Grid & Carousel Feeds' },
+  { id: '4:5', label: '4:5 Social Portrait', icon: '4:5', purpose: 'Facebook & Instagram Feed Ads' },
 ] as const;
 
 function VideoStudioPanel({
@@ -1952,7 +1977,7 @@ function VideoStudioPanel({
           setProgressLabel('Complete!');
           setBusy(false);
           setIsGlobalBusy(false);
-          sendDesktopNotification('🎬 Video Render Complete', `Your ${duration}s fashion video is ready!`, videoImg || undefined);
+          sendDesktopNotification('Video Render Complete', `Your ${duration}s fashion video is ready.`, videoImg || undefined);
           void api.saveUserGeneration({
             type: 'video',
             url: vidUrl,
@@ -2078,7 +2103,7 @@ function VideoStudioPanel({
                 onClick={() => setShowConfirmModal(false)}
                 className="text-white/40 hover:text-white"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -2098,12 +2123,12 @@ function VideoStudioPanel({
                 </div>
                 <div className="flex justify-between text-white/60">
                   <span>Current Balance:</span>
-                  <span className="font-mono text-amber-300">⚡ {userCredits} Credits</span>
+                  <span className="font-mono text-amber-300">{userCredits} credits</span>
                 </div>
                 <div className="flex justify-between border-t border-white/5 pt-2 text-white/60">
                   <span>Balance After:</span>
                   <span className="font-mono text-emerald-400 font-bold">
-                    ⚡ {Math.max(0, userCredits - videoCreditCost)} Credits
+                    {Math.max(0, userCredits - videoCreditCost)} credits
                   </span>
                 </div>
               </div>
@@ -2132,14 +2157,14 @@ function VideoStudioPanel({
       {/* Banner */}
       <div className={`relative overflow-hidden rounded-3xl border p-8 ${
         isLight
-          ? 'border-red-200 bg-gradient-to-r from-red-50 via-white to-gray-50 shadow-sm'
-          : 'border-[#e5373f]/40 bg-gradient-to-r from-[#e5373f]/15 via-black/60 to-black/80'
+          ? 'border-red-200 bg-red-50/50 shadow-sm'
+          : 'border-[#e5373f]/30 bg-[#e5373f]/10'
       }`}>
         <div className="max-w-2xl">
-          <span className="inline-block rounded-full bg-[#e5373f] px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-[#e5373f]/30">
-            CINEMATIC RUNWAY MOTION &middot; 60FPS
+          <span className="inline-block rounded-full bg-[#e5373f] px-3.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+            Runway motion &middot; 60fps
           </span>
-          <h1 className={`mt-4 text-3xl font-bold tracking-tight sm:text-4xl ${isLight ? 'text-gray-900' : 'text-white'}`}>
+          <h1 className={`mt-4 text-3xl font-semibold tracking-tight sm:text-4xl ${isLight ? 'text-gray-900' : 'text-white'}`}>
             Fashion Video Studio
           </h1>
           <p className={`mt-3 text-xs leading-relaxed sm:text-sm ${isLight ? 'text-gray-600' : 'text-white/70'}`}>
@@ -2158,11 +2183,11 @@ function VideoStudioPanel({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base">🎬</span>
-              <h3 className="text-sm font-bold">Monthly Video Quota</h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+              <Film className="h-4 w-4 text-current/70" />
+              <h3 className="text-sm font-semibold">Monthly Video Quota</h3>
+              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${
                 isLimitReached
-                  ? 'bg-rose-500 text-white animate-pulse'
+                  ? 'bg-rose-500 text-white'
                   : isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/10 text-white/70'
               }`}>
                 {videosGenerated} of {maxVideos > 0 ? maxVideos : 'Unlimited'} Videos Used
@@ -2188,14 +2213,14 @@ function VideoStudioPanel({
 
         {isLimitReached && (
           <div className="mt-4 pt-4 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-rose-400">
-              ⚠️ Your monthly video quota has expired. Buy credits or upgrade your plan for more video generation.
+            <p className="text-xs font-medium text-rose-400">
+              Your monthly video quota has reached its limit. Buy credits or upgrade your plan for more video generations.
             </p>
             <a
               href="/pricing"
-              className="inline-flex items-center justify-center rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-5 py-2 text-xs font-bold uppercase tracking-wider shadow-md transition"
+              className="inline-flex items-center justify-center rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-5 py-2 text-xs font-semibold uppercase tracking-wider shadow-sm transition"
             >
-              Buy Credits / Upgrade &rarr;
+              Buy credits / upgrade &rarr;
             </a>
           </div>
         )}
@@ -2223,8 +2248,8 @@ function VideoStudioPanel({
                 <img src={videoImg} alt="Source" className="h-full w-auto object-contain" />
               ) : (
                 <>
-                  <span className="text-3xl mb-1">🎬</span>
-                  <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Upload Base Image for Video</span>
+                  <Film className="h-8 w-8 mb-2 opacity-40" />
+                  <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Upload base image for video</span>
                   <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>High-contrast athletic photos work best</span>
                 </>
               )}
@@ -2333,10 +2358,10 @@ function VideoStudioPanel({
             isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
           }`}>
             <div>
-              <span>Account Balance: <strong className={isLight ? 'text-amber-950 font-black' : 'text-amber-500'}>⚡ {userCredits} Credits</strong></span>
+              <span>Account balance: <strong className={isLight ? 'text-amber-950 font-semibold' : 'text-amber-500'}>{userCredits} credits</strong></span>
             </div>
-            <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-bold text-purple-600 border border-purple-500/20">
-              Video Quota: {videosGenerated} / {maxVideos > 0 ? maxVideos : 'Unlimited'}
+            <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-purple-600 border border-purple-500/20">
+              Video quota: {videosGenerated} / {maxVideos > 0 ? maxVideos : 'Unlimited'}
             </span>
           </div>
 
@@ -2345,7 +2370,7 @@ function VideoStudioPanel({
             type="button"
             onClick={() => handleInitiateClick(false)}
             disabled={isBusy || isLocked || isLimitReached || !hasEnoughCredits}
-            className={`w-full rounded-full py-3.5 text-xs font-bold uppercase tracking-wider transition-all shadow-lg ${
+            className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
               isBusy
                 ? isLight ? 'cursor-wait bg-gray-300 text-gray-700' : 'cursor-wait bg-gray-700 text-white opacity-80'
                 : isLocked
@@ -2354,18 +2379,18 @@ function VideoStudioPanel({
                     ? isLight ? 'cursor-not-allowed bg-purple-100 text-purple-700 border border-purple-300' : 'cursor-not-allowed bg-purple-600/30 text-purple-300 border border-purple-500/30'
                     : !hasEnoughCredits
                       ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35] hover:scale-[1.01]'
+                      : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
             }`}
           >
             {isBusy
-              ? 'Generation in Progress (Please wait)…'
+              ? 'Generation in progress…'
               : isLocked
-                ? '🔒 Account Credits Locked by Admin'
+                ? 'Credits locked by administrator'
                 : isLimitReached
-                  ? `⚠️ Monthly Video Quota Expired (${videosGenerated}/${maxVideos})`
+                  ? `Monthly video quota reached (${videosGenerated}/${maxVideos})`
                   : !hasEnoughCredits
-                    ? `⚠️ Insufficient Credits (Needs ${videoCreditCost})`
-                    : `Generate ${duration}s Fashion Video (${videoCreditCost} Credits) →`}
+                    ? `Insufficient credits (requires ${videoCreditCost})`
+                    : `Generate ${duration}s fashion video (${videoCreditCost} credits)`}
           </button>
 
           {error && (
@@ -2397,14 +2422,14 @@ function VideoStudioPanel({
                 <a
                   href={videoResult}
                   download={`shivnaresh-${duration}s-video.mp4`}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 shadow-lg shadow-emerald-900/30 transition-all"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-emerald-500 shadow-sm transition-all"
                 >
-                  <span>⬇</span> Download 1080p MP4
+                  Download 1080p MP4
                 </a>
                 <button
                   type="button"
                   onClick={() => setIsVideoEditOpen(!isVideoEditOpen)}
-                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition-all shadow-md ${
+                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
                     isVideoEditOpen
                       ? 'bg-[#e5373f] text-white border-[#e5373f]'
                       : isLight
@@ -2412,7 +2437,7 @@ function VideoStudioPanel({
                         : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
                   }`}
                 >
-                  {isVideoEditOpen ? '✕ Close Video Edit' : '🎬 Edit This Video'}
+                  {isVideoEditOpen ? 'Close video edit' : 'Edit this video'}
                 </button>
                 <button
                   type="button"
@@ -2433,11 +2458,11 @@ function VideoStudioPanel({
                 }`}>
                   <div className="flex items-center justify-between border-b pb-2 border-current/10">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🎬</span>
+                      <Film className="h-4 w-4 text-current/70" />
                       <div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider">AI Video Edit Suite</h4>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider">Video edit studio</h4>
                         <p className="text-[10px] opacity-60">
-                          Takes generated video as reference ({duration}s · {videoCreditCost} Credits)
+                          Takes generated video as reference ({duration}s · {videoCreditCost} credits)
                         </p>
                       </div>
                     </div>
@@ -2446,7 +2471,7 @@ function VideoStudioPanel({
                       onClick={() => setIsVideoEditOpen(false)}
                       className="text-xs opacity-50 hover:opacity-100 p-1"
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -2487,7 +2512,7 @@ function VideoStudioPanel({
                       <div className="flex items-center justify-between rounded-xl border border-white/10 p-2 bg-black/20">
                         <div className="flex items-center gap-2">
                           <img src={videoEditRefImage} alt="Ref" className="h-10 w-8 rounded object-cover" />
-                          <span className="text-xs text-emerald-400 font-semibold">✓ Custom Overlay Image Loaded</span>
+                          <span className="text-xs text-emerald-400 font-semibold">Overlay image loaded</span>
                         </div>
                         <button
                           type="button"
@@ -2514,9 +2539,9 @@ function VideoStudioPanel({
                     type="button"
                     onClick={() => handleInitiateClick(true)}
                     disabled={isBusy || isLocked || isLimitReached || !hasEnoughCredits}
-                    className="w-full rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2.5 text-xs font-bold uppercase tracking-wider transition shadow-md disabled:opacity-50"
+                    className="w-full rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2.5 text-xs font-semibold uppercase tracking-wider transition shadow-sm disabled:opacity-50"
                   >
-                    Generate Video Edit ({duration}s &middot; {videoCreditCost} Credits) →
+                    Generate video edit ({duration}s &middot; {videoCreditCost} credits)
                   </button>
                 </div>
               )}
@@ -2541,12 +2566,12 @@ function VideoStudioPanel({
                 <img src={videoImg} alt="Preview" className="h-full w-full object-cover opacity-60" />
               ) : (
                 <div className="text-white/30 text-center p-4">
-                  <span className="text-4xl block mb-2">{ASPECT_RATIOS.find((a) => a.id === aspectRatio)?.icon || '🎬'}</span>
+                  <Film className="h-8 w-8 mx-auto mb-2 text-white/30" />
                   <span className="text-xs">Video Canvas ({aspectRatio})</span>
                 </div>
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
-                <span className="rounded-full bg-white/20 p-3 text-white text-xl">▶</span>
+                <span className="rounded-full bg-white/20 p-3 text-white text-xs">▶</span>
                 <p className="mt-3 text-xs font-bold text-white uppercase tracking-wider">Preview Reel</p>
                 <p className="text-[10px] text-amber-300 mt-1 font-semibold">{duration}s &middot; {videoCreditCost} Credits ({aspectRatio})</p>
               </div>
@@ -2868,7 +2893,7 @@ export default function Design() {
               setProgressLabel('All 5 Poses Completed Successfully!');
               setBusy(false);
               generatingRef.current = false;
-              sendDesktopNotification('✅ 5-Pose Suite Ready', 'All 5 fashion angle renders are ready in your studio.', imgUrl);
+              sendDesktopNotification('5-Pose Suite Ready', 'All 5 fashion angle renders are ready in your studio.', imgUrl);
             }
           } else {
             // Standard single generation
@@ -2878,7 +2903,7 @@ export default function Design() {
             setBusy(false);
             generatingRef.current = false;
             setIsEditingRender(false);
-            sendDesktopNotification('✅ Render Complete', 'Your virtual try-on render is ready.', imgUrl);
+            sendDesktopNotification('Render Complete', 'Your virtual try-on render is ready.', imgUrl);
             void api.saveUserGeneration({
               type: 'image',
               url: imgUrl,
@@ -3066,7 +3091,7 @@ export default function Design() {
     } catch (e) {
       let msg = e instanceof Error ? e.message : 'Generation failed';
       if (msg.toLowerCase().includes('rendering is off') || msg.toLowerCase().includes('no render key')) {
-        msg = '⚠️ The render service key was rejected. Please contact support or try again later.';
+        msg = 'The render service key was rejected. Please contact support or try again later.';
       }
       setError(msg);
       setBusy(false);
@@ -3112,23 +3137,23 @@ export default function Design() {
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-3xl border border-amber-500/40 bg-[#121217] p-7 shadow-2xl ring-1 ring-amber-500/30">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-[#121217] p-6 shadow-2xl">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-2xl text-amber-400">
-                🔒
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+                <Lock className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">2K Ultra HD Locked</h3>
-                <p className="text-xs text-amber-300/80 font-medium">Starter accounts are limited to 1K Standard resolution</p>
+                <h3 className="text-base font-semibold text-white">2K Ultra HD locked</h3>
+                <p className="text-xs text-amber-300/80">Starter accounts are limited to 1K Standard resolution</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/50 p-4 text-xs leading-relaxed text-white/70 space-y-2">
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/50 p-4 text-xs leading-relaxed text-white/70 space-y-2">
               <p>
                 New and Free Starter accounts can generate in <strong className="text-white">1K Standard Quality</strong>.
               </p>
               <p>
-                <strong className="text-amber-300">2K Ultra HD & 4K Studio Renders</strong> are exclusive to our <strong>On-Demand ($49)</strong>, <strong>Pro ($120)</strong> and <strong>Ultra ($149)</strong> members with dedicated neural GPU allocations.
+                <strong className="text-amber-300">2K Ultra HD & 4K Studio Renders</strong> are available on On-Demand, Pro, and Ultra membership tiers with dedicated neural GPU allocations.
               </p>
             </div>
 
@@ -3136,15 +3161,15 @@ export default function Design() {
               <button
                 type="button"
                 onClick={() => setShowTierLockModal(false)}
-                className="flex-1 rounded-full border border-white/20 py-2.5 text-xs font-semibold text-white/60 hover:text-white"
+                className="flex-1 rounded-full border border-white/20 py-2 text-xs font-semibold text-white/60 hover:text-white"
               >
-                Keep 1K Resolution
+                Keep 1K resolution
               </button>
               <a
                 href="/pricing"
-                className="flex-1 text-center rounded-full bg-amber-500 py-2.5 text-xs font-bold uppercase tracking-wider text-black hover:bg-amber-400 transition-colors"
+                className="flex-1 text-center rounded-full bg-amber-500 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-amber-400 transition-colors"
               >
-                View Plans & Upgrade &rarr;
+                View plans & upgrade &rarr;
               </a>
             </div>
           </div>
@@ -3154,16 +3179,16 @@ export default function Design() {
       {/* "Are You Sure?" Generation Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-white">
+              <h3 className="text-sm font-semibold text-white">
                 {isEditingRender
-                  ? 'Confirm AI Image Edit'
+                  ? 'Confirm image edit'
                   : isFivePoseBatch
-                    ? 'Confirm 5-Pose Sequence'
+                    ? 'Confirm 5-pose sequence'
                     : mode === 'swap'
-                      ? 'Confirm Model Swap'
-                      : 'Confirm Virtual Try-On'}
+                      ? 'Confirm model swap'
+                      : 'Confirm virtual try-on'}
               </h3>
               <button
                 type="button"
@@ -3173,7 +3198,7 @@ export default function Design() {
                 }}
                 className="text-white/40 hover:text-white"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -3188,42 +3213,42 @@ export default function Design() {
                       : 'Are you sure you want to proceed with this render?'}
               </p>
 
-              <div className="rounded-2xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
+              <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
                 {isEditingRender ? (
                   <>
                     <div className="flex justify-between text-white/60">
                       <span>Task:</span>
-                      <span className="font-bold text-white">AI Image Edit</span>
+                      <span className="font-semibold text-white">Image Edit</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Base Reference:</span>
-                      <span className="font-bold text-emerald-400">Current Studio Render</span>
+                      <span className="font-semibold text-emerald-400">Current Studio Render</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Selected Quality:</span>
-                      <span className="font-bold text-white uppercase">{quality} ({creditCost} Credit{creditCost > 1 ? 's' : ''})</span>
+                      <span className="font-semibold text-white uppercase">{quality} ({creditCost} Credit{creditCost > 1 ? 's' : ''})</span>
                     </div>
                   </>
                 ) : isFivePoseBatch ? (
                   <>
                     <div className="flex justify-between text-white/60">
                       <span>Batch:</span>
-                      <span className="font-bold text-white">5-Pose Sequence (Front, 3/4, Profile, Back, Action)</span>
+                      <span className="font-semibold text-white">5-Pose Sequence (Front, 3/4, Profile, Back, Action)</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Total Poses:</span>
-                      <span className="font-bold text-amber-400">5 Distinct Studio Angles</span>
+                      <span className="font-semibold text-amber-400">5 Distinct Studio Angles</span>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="flex justify-between text-white/60">
                       <span>Mode:</span>
-                      <span className="font-bold text-white">{mode === 'swap' ? 'Model Swap' : activeMode.label}</span>
+                      <span className="font-semibold text-white">{mode === 'swap' ? 'Model Swap' : activeMode.label}</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Selected Quality:</span>
-                      <span className="font-bold text-white uppercase">{quality === '1k' ? '1K Standard (1 Credit)' : '2K Ultra HD (3 Credits)'}</span>
+                      <span className="font-semibold text-white uppercase">{quality === '1k' ? '1K Standard (1 Credit)' : '2K Ultra HD (3 Credits)'}</span>
                     </div>
                   </>
                 )}
@@ -3248,7 +3273,7 @@ export default function Design() {
               <button
                 type="button"
                 onClick={() => void runActualGeneration()}
-                className="flex-1 rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35]"
+                className="flex-1 rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35]"
               >
                 Yes, {isEditingRender ? 'Generate Edit' : 'Generate'}
               </button>
@@ -3277,7 +3302,7 @@ export default function Design() {
               <img src="/brand-mark-white.png" alt="Shiv-Naresh" className={`h-4 w-auto ${isLight ? 'invert' : ''}`} />
               SHIV-NARESH
             </a>
-            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
               isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
             }`}>
               STUDIO
@@ -3291,13 +3316,12 @@ export default function Design() {
             {/* Top Right Credit Status Pill — Visible Across ALL Tabs */}
             <a
               href="/pricing"
-              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
+              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
               title="Click to view pricing & upgrade credits"
             >
-              <span className="animate-pulse">⚡</span>
-              <span>{user ? user.credits : 10} Credits</span>
+              <span>{user ? user.credits : 10} credits</span>
               {user?.tier && (
-                <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full ${
+                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
                   user.tier === 'enterprise'
                     ? 'bg-purple-500/30 text-purple-400'
                     : user.tier === 'pro'
@@ -3307,7 +3331,7 @@ export default function Design() {
                   {user.tier}
                 </span>
               )}
-              <span className="text-[10px] font-extrabold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
+              <span className="text-[10px] font-semibold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
                 + Upgrade
               </span>
             </a>
@@ -3328,7 +3352,7 @@ export default function Design() {
                   <img src={user.avatar} alt="Profile" className="h-5 w-5 rounded-full object-cover ring-1 ring-[#e5373f]" />
                 ) : (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e5373f] text-[10px] font-bold text-white">
-                    {user.name ? user.name[0].toUpperCase() : '👤'}
+                    {user.name ? user.name[0].toUpperCase() : <UserIcon className="h-3 w-3 text-white" />}
                   </span>
                 )}
                 <span className="hidden md:inline-block max-w-[100px] truncate">{user.name || 'Profile'}</span>
@@ -3368,10 +3392,10 @@ export default function Design() {
         <div className={`border-t transition-colors ${isLight ? 'border-gray-200 bg-gray-50/80' : 'border-white/[0.06] bg-black/30'}`}>
           <div className="mx-auto flex max-w-6xl px-5 sm:px-8 gap-1 overflow-x-auto no-scrollbar">
             {[
-              { id: 'studio', label: '✦ Studio Canvas' },
-              { id: 'my-sets', label: '📦 My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
-              { id: 'custom-requests', label: '📩 Custom Requests (24–48h SLA)' + (customRequests.length ? ` (${customRequests.length})` : '') },
-              { id: 'video', label: '🎬 Video Studio' },
+              { id: 'studio', label: 'Studio Canvas' },
+              { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
+              { id: 'custom-requests', label: 'Custom Requests' + (customRequests.length ? ` (${customRequests.length})` : '') },
+              { id: 'video', label: 'Video Studio' },
             ].map((v) => (
               <button
                 key={v.id}
@@ -3383,10 +3407,10 @@ export default function Design() {
                     api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
                   }
                 }}
-                className={`border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] transition-all whitespace-nowrap ${
+                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap ${
                   pageView === v.id
                     ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
-                    : 'border-transparent ' + (isLight ? 'text-gray-400 hover:text-gray-800' : 'text-white/40 hover:text-white/70')
+                    : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
                 }`}
               >
                 {v.label}
@@ -3400,7 +3424,7 @@ export default function Design() {
       {user?.creditsLocked && (
         <div className="border-b border-rose-500/40 bg-rose-500/15 py-3">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 text-xs text-rose-300 sm:px-8 font-medium">
-            <span className="text-base">🔒</span>
+            <Lock className="h-4 w-4" />
             <span>
               <strong>Account Credits Locked by Admin:</strong> Your ability to generate new renders or submit custom orders has been restricted. Please contact support.
             </span>
@@ -3412,7 +3436,7 @@ export default function Design() {
       {settings && !settings.ready && (
         <div className="border-b border-[#ff6b6b]/30 bg-[#ff6b6b]/10">
           <div className="mx-auto max-w-6xl px-5 py-2.5 text-xs text-[#ff9aa0] sm:px-8">
-            ⚠️ Rendering engine is initializing. If generation is not ready, please contact support.
+            Rendering engine is initializing. If generation is not ready, please contact support.
           </div>
         </div>
       )}
@@ -3537,13 +3561,13 @@ export default function Design() {
                     }`}
                     title={isFreeUser ? '2K Ultra HD is locked for Free/Starter accounts. Upgrade to Pro/Enterprise.' : 'Switch to 2K Ultra HD'}
                   >
-                    {isFreeUser && <span className="text-[11px]">🔒</span>}
+                    {isFreeUser && <Lock className="h-3 w-3" />}
                     <span>2K Ultra HD</span>
                     {isFreeUser && (
                       <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${
                         isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
                       }`}>
-                        PRO
+                        Pro
                       </span>
                     )}
                   </button>
@@ -3574,7 +3598,7 @@ export default function Design() {
                         poseMode === '5-pose' ? 'bg-[#e5373f] text-white shadow-sm' : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
                       }`}
                     >
-                      ⚡ 5-Pose Sequence
+                      5-Pose Sequence
                     </button>
                   </div>
                 </div>
@@ -3820,8 +3844,8 @@ export default function Design() {
                 {/* Precision Garment Color Matching */}
                 <div className={`rounded-2xl border p-4 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      🎨 Fabric Color / Dye Code
+                    <h2 className={`text-xs font-medium tracking-normal ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                      Fabric Color / Dye Code
                     </h2>
                     {garmentColor && (
                       <button
@@ -3940,8 +3964,8 @@ export default function Design() {
                     <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-400 bg-amber-100/90 shadow-sm' : 'border-amber-500/40 bg-amber-500/10'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs uppercase tracking-wider ${isLight ? 'text-amber-950 font-black' : 'text-amber-400 font-extrabold'}`}>
-                            ⚡ Select 5 Poses for Multi-Angle Sequence
+                          <span className={`text-xs font-semibold ${isLight ? 'text-amber-950' : 'text-amber-400'}`}>
+                            Select 5 Poses for Multi-Angle Sequence
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-[9px] border ${
                             isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
@@ -3988,10 +4012,10 @@ export default function Design() {
                                       e.stopPropagation();
                                       removePoseSlot(idx);
                                     }}
-                                    className="absolute top-1 right-1 rounded-full bg-red-600/90 text-[8px] text-white w-4 h-4 flex items-center justify-center hover:bg-red-500"
+                                    className="absolute top-1 right-1 rounded-full bg-red-600/90 text-white w-4 h-4 flex items-center justify-center hover:bg-red-500"
                                     title="Remove this pose"
                                   >
-                                    ✕
+                                    <X className="h-2.5 w-2.5" />
                                   </button>
                                 )}
                               </div>
@@ -4002,7 +4026,7 @@ export default function Design() {
                         })}
                       </div>
                       <p className={`mt-2.5 text-[10px] leading-relaxed text-center ${isLight ? 'text-amber-950 font-bold' : 'text-amber-300/90'}`}>
-                        💡 Click on any of the 5 pose slots above, then pick a model below to assign that angle.
+                        Click any of the 5 pose slots above, then choose a model below to assign that angle.
                       </p>
                     </div>
                   )}
@@ -4114,38 +4138,38 @@ export default function Design() {
                   if (canRun) setShowConfirmModal(true);
                 }}
                 disabled={!canRun || isGlobalBusy}
-                className={`rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${
                   isLocked
                     ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
                     : isGlobalBusy
                     ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : canRun
                     ? isLight
-                      ? 'bg-gray-900 text-white shadow-lg hover:bg-black hover:scale-[1.02]'
-                      : 'bg-white text-gray-900 shadow-lg hover:bg-gray-100 hover:scale-[1.02]'
+                      ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                      : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
                     : isLight
                     ? 'cursor-not-allowed bg-gray-200 text-gray-400'
                     : 'cursor-not-allowed bg-white/20 text-white/40'
                 }`}
               >
                 {isLocked
-                  ? '🔒 Credits Locked by Admin'
+                  ? 'Credits locked by administrator'
                   : isGlobalBusy
                   ? 'Generation in Progress (Please wait)…'
                   : `Generate ${mode === 'swap' ? 'Swap' : ''} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
-                  🔒 Credits locked. Contact administrator to re-enable generations.
+                  Credits locked. Contact administrator to re-enable generations.
                 </p>
               ) : error ? (
                 <p className={`max-w-xs text-xs leading-relaxed ${isLight ? 'text-red-600' : 'text-[#ff9aa0]'}`}>{error}</p>
               ) : missing.length ? (
                 <p className={`text-xs ${isLight ? 'text-amber-800 font-medium' : 'text-[#ffb3b7]'}`}>
-                  ⚠️ Add ${missing.join(' and ')} to start.
+                  Add {missing.join(' and ')} to start.
                 </p>
               ) : !ready ? (
-                <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>⚠️ No render API key set. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
+                <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>No render API key configured. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
               ) : null}
             </div>
           </section>
@@ -4211,10 +4235,10 @@ export default function Design() {
                           <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
                           <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
                           <div className="mt-1">
-                            {pose.status === 'completed' && <span className="text-[9px] text-emerald-600 font-bold">✓ Ready</span>}
-                            {pose.status === 'generating' && <span className={`text-[9px] font-bold animate-pulse ${isLight ? 'text-amber-950 font-black' : 'text-amber-600'}`}>⏳ Active</span>}
-                            {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/30'}`}>🕒 Queue</span>}
-                            {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-bold">✕ Err</span>}
+                            {pose.status === 'completed' && <span className="text-[9px] text-emerald-600 font-medium">Ready</span>}
+                            {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Active</span>}
+                            {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
+                            {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-medium">Error</span>}
                           </div>
                         </button>
                       );
@@ -4286,7 +4310,7 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => setIsEditOpen((prev) => !prev)}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-all ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
                       isEditOpen
                         ? 'bg-[#e5373f] text-white border-[#e5373f]'
                         : isLight
@@ -4294,7 +4318,7 @@ export default function Design() {
                           : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
                     }`}
                   >
-                    {isEditOpen ? '✕ Close Edit' : '🎨 Edit This Render'}
+                    {isEditOpen ? 'Close edit' : 'Edit render'}
                   </button>
                 </div>
               )}
@@ -4306,9 +4330,9 @@ export default function Design() {
                 }`}>
                   <div className="flex items-center justify-between border-b pb-2 mb-3 border-current/10">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🎨</span>
+                      <Sliders className="h-4 w-4 text-current/70" />
                       <div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider">AI Edit Studio</h4>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider">Edit Studio</h4>
                         <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
                           Takes current render as reference &middot; ({quality.toUpperCase()} · {creditCost} Credit{creditCost > 1 ? 's' : ''})
                         </p>
@@ -4319,7 +4343,7 @@ export default function Design() {
                       onClick={() => setIsEditOpen(false)}
                       className="text-xs opacity-50 hover:opacity-100 p-1"
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -4328,7 +4352,7 @@ export default function Design() {
                     <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 p-2 bg-emerald-500/10">
                       <img src={result} alt="Base" className="h-12 w-10 rounded-md object-cover border border-emerald-500/40" />
                       <div className="min-w-0 flex-1">
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">✓ Current Render Locked as Base</span>
+                        <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider block">Current render locked as base</span>
                         <p className={`text-[10px] truncate ${isLight ? 'text-gray-600' : 'text-white/60'}`}>Modifications will apply on this base image</p>
                       </div>
                     </div>

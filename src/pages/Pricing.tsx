@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Check, ShieldCheck, Zap, Sparkles, Building2, HelpCircle, ArrowRight, QrCode, MessageSquare, AlertCircle, ExternalLink, X } from 'lucide-react';
+import { Check, ShieldCheck, Zap, Building2, HelpCircle, ArrowRight, QrCode, MessageSquare, AlertCircle, ExternalLink, X } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import SiteFooter from '../components/SiteFooter';
 
@@ -227,30 +227,30 @@ _Please verify payment and activate my plan within 30 minutes._`;
   const waLink = `https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(waOrderText)}`;
 
   return (
-    <div className={`min-h-screen font-sans antialiased selection:bg-amber-500 selection:text-black ${
+    <div className={`min-h-screen font-sans antialiased ${
       isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
     }`}>
-      {/* Top Header with Shiv-Naresh Logo (Redirects to Home) & Dark/Light Toggle */}
+      {/* Top Header */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
         isLight ? 'border-[#82b095] bg-[#97c1a9]/90' : 'border-white/10 bg-[#0a0a0f]/85'
       }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
-          <a href="/" className="flex items-center gap-3 group cursor-pointer" title="Return to Home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e5373f] text-xs font-black tracking-widest text-white shadow-lg transition-transform group-hover:scale-105">
+          <a href="/" className="flex items-center gap-2.5" title="Return to Home">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e5373f] text-xs font-semibold text-white">
               SN
             </span>
             <div className="flex flex-col">
-              <span className={`text-base font-extrabold uppercase tracking-[0.2em] transition-colors ${
-                isLight ? 'text-gray-900 group-hover:text-[#e5373f]' : 'text-white group-hover:text-[#e5373f]'
+              <span className={`text-sm font-semibold tracking-wider ${
+                isLight ? 'text-gray-900' : 'text-white'
               }`}>
                 Shiv-Naresh
               </span>
-              <span className="text-[9px] font-semibold tracking-wider text-amber-500 uppercase -mt-0.5">
-                AI Atelier
+              <span className="text-[10px] font-medium text-[#e5373f] -mt-0.5">
+                Studio
               </span>
             </div>
-            <span className="rounded-full bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 text-[9px] font-bold text-[#e5373f] uppercase hidden sm:inline-block ml-1">
-              Pricing &amp; Plans
+            <span className="rounded bg-[#e5373f]/10 border border-[#e5373f]/20 px-2 py-0.5 text-[10px] font-medium text-[#e5373f] hidden sm:inline-block ml-1">
+              Pricing
             </span>
           </a>
 
@@ -258,84 +258,63 @@ _Please verify payment and activate my plan within 30 minutes._`;
             <button
               type="button"
               onClick={toggleTheme}
-              className={`rounded-full border p-2 text-xs transition-colors ${
+              className={`rounded-lg border p-2 text-xs transition-colors ${
                 isLight
-                  ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
+                  ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
                   : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
               }`}
-              title="Toggle Dark / Light Mode"
+              title="Toggle theme"
             >
-              {isLight ? '🌙 Dark' : '☀️ Light'}
+              {isLight ? 'Dark' : 'Light'}
             </button>
             <a
               href="/design"
-              className="rounded-full bg-[#e5373f] px-4 sm:px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-all shadow-md active:scale-95"
+              className="rounded-lg bg-[#e5373f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
             >
-              Open Studio &rarr;
+              Open Studio
             </a>
           </div>
         </div>
       </header>
 
-      {/* Background radial effects */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent blur-3xl ${
-          isLight ? 'opacity-30' : 'opacity-60'
-        }`} />
-        <div className={`absolute top-1/3 left-0 w-96 h-96 bg-cyan-500/10 blur-3xl ${
-          isLight ? 'opacity-20' : 'opacity-40'
-        }`} />
-        <div className={`absolute top-1/2 right-0 w-96 h-96 bg-purple-500/10 blur-3xl ${
-          isLight ? 'opacity-20' : 'opacity-40'
-        }`} />
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wider uppercase mb-5 backdrop-blur-sm ${
-            isLight
-              ? 'border-amber-300 bg-amber-50 text-amber-700'
-              : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-          }`}>
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            Transparent Sportswear Atelier Pricing
-          </div>
-          <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 ${
+        <div className="text-center max-w-3xl mx-auto mb-14">
+          <p className="text-xs font-medium text-[#e5373f] mb-3">
+            Sportswear studio plans
+          </p>
+          <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight mb-4 ${
             isLight ? 'text-gray-900' : 'text-white'
           }`}>
-            Invest in High-Velocity <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 bg-clip-text text-transparent">
-              Fashion AI Generation
-            </span>
+            Plans for squad kits and seasonal collections
           </h1>
-          <p className={`text-lg max-w-2xl mx-auto leading-relaxed ${
-            isLight ? 'text-gray-600' : 'text-slate-300'
+          <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed opacity-75 ${
+            isLight ? 'text-gray-700' : 'text-slate-300'
           }`}>
-            Eliminate traditional photoshoot overhead. Generate high-resolution 2K model poses and cinematic 1080p motion videos in minutes with full commercial licensing.
+            High-resolution 2K model poses and cinematic motion videos with commercial licensing.
           </p>
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-16">
           {PLANS.map((plan) => {
             const inrPrice = Math.round(plan.priceUSD * usdToInrRate);
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 backdrop-blur-xl border ${
+                className={`relative rounded-2xl p-6 flex flex-col justify-between transition-colors border ${
                   plan.featured
                     ? isLight
-                      ? 'bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 border-amber-400 shadow-xl shadow-amber-500/10 ring-1 ring-amber-400 lg:-translate-y-2'
-                      : 'bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-950 border-amber-500/60 shadow-2xl shadow-amber-500/20 ring-1 ring-amber-500/40 lg:-translate-y-2'
+                      ? 'bg-white border-[#e5373f] shadow-sm ring-1 ring-[#e5373f]'
+                      : 'bg-[#121217] border-[#e5373f]/60 shadow-sm ring-1 ring-[#e5373f]/40'
                     : isLight
-                      ? 'bg-white hover:bg-gray-50/80 border-gray-200 hover:border-gray-300 shadow-md'
-                      : 'bg-slate-900/70 hover:bg-slate-900/90 border-slate-800 hover:border-slate-700 shadow-xl'
+                      ? 'bg-white border-gray-200 shadow-sm'
+                      : 'bg-[#101014] border-white/10 shadow-sm'
                 }`}
               >
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg">
+                    <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#e5373f] text-white">
                       {plan.badge}
                     </span>
                   </div>
@@ -401,14 +380,14 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 {/* Call to action */}
                 <button
                   onClick={() => handleChoosePlan(plan)}
-                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${plan.featured
-                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-lg shadow-amber-500/25 active:scale-98'
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
+                    ? 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
                     : plan.priceUSD === 0
-                      ? isLight ? 'bg-[#7fae92] border-[#719f85] text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
-                      : isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300' : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                      ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200' : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+                      : isLight ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-100'
                     }`}
                 >
-                  {plan.priceUSD === 0 ? 'Get Started Free' : `Activate ${plan.name}`}
+                  {plan.priceUSD === 0 ? 'Start free' : `Select ${plan.name}`}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -417,39 +396,39 @@ _Please verify payment and activate my plan within 30 minutes._`;
         </div>
 
         {/* Feature Comparison Highlights */}
-        <div className={`rounded-3xl border p-8 sm:p-10 mb-20 backdrop-blur-md ${
-          isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'
+        <div className={`rounded-2xl border p-6 sm:p-8 mb-16 ${
+          isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'
         }`}>
-          <div className="max-w-2xl mb-8">
-            <h3 className={`text-2xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>Why India's Top Activewear Brands Choose SHIV-NARESH AI</h3>
-            <p className={`text-sm ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>State-of-the-art neural diffusion architecture fine-tuned specifically for athletic apparel, technical fabrics, and dynamic movement.</p>
+          <div className="max-w-2xl mb-6">
+            <h3 className={`text-xl font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Atelier specifications & guarantees</h3>
+            <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>Engineered for athletic performance apparel, team jerseys, and technical fabrics.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-4">
-                <ShieldCheck className="w-5 h-5" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 mb-3">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-              <h4 className={`text-base font-bold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Human Atelier Guarantee</h4>
-              <p className={`text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>
-                If the automated neural engine undergoes third-party downtime during your billing month, our in-house fashion design team manually renders your complete quota at no extra cost.
+              <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Master tailor guarantee</h4>
+              <p className={`text-xs leading-relaxed opacity-75`}>
+                Bespoke and custom orders are fulfilled directly by our in-house master tailors within 24 to 48 hours.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-500 mb-4">
-                <Zap className="w-5 h-5" />
+            <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 mb-3">
+                <Zap className="w-4 h-4" />
               </div>
-              <h4 className={`text-base font-bold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Zero Credit Waste</h4>
-              <p className={`text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>
-                Made a mistake in your uploaded garment? You get a full 1-hour grace window to edit or delete any uploaded pose, image, or queue request without penalty.
+              <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>1-Hour grace window</h4>
+              <p className={`text-xs leading-relaxed opacity-75`}>
+                Uploaded an incorrect garment or asset? Edit or delete any order within 1 hour without credit deduction.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60'}`}>
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-500 mb-4">
-                <Building2 className="w-5 h-5" />
+            <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-3">
+                <Building2 className="w-4 h-4" />
               </div>
-              <h4 className={`text-base font-bold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Full Commercial Copyright</h4>
-              <p className={`text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>
-                All generated model poses and videos are 100% royalty-free for commercial billboards, Amazon, Flipkart, Myntra storefronts, and digital ad campaigns.
+              <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Commercial rights</h4>
+              <p className={`text-xs leading-relaxed opacity-75`}>
+                All output imagery and runway motion videos include unrestricted commercial rights for your e-commerce channels.
               </p>
             </div>
           </div>
@@ -608,7 +587,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         : 'bg-slate-950/70 hover:bg-slate-950 border-amber-500/30 hover:border-amber-400'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
                       <QrCode className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -643,7 +622,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         : 'bg-slate-950/70 hover:bg-slate-950 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
                       <Building2 className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -668,7 +647,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
                   <p className="text-xs text-amber-500 font-semibold leading-tight">
-                    ⚡ Under 30 minutes activation: Admin verifies your UTR & activates your plan quotas.
+                    Activation within 30 minutes: admin verifies your UTR & activates your plan quotas.
                   </p>
                 </div>
               </div>
@@ -746,27 +725,27 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       <button
                         type="button"
                         onClick={() => setShowEnlargedQr(true)}
-                        className="mt-2 text-xs text-amber-400 hover:text-amber-300 font-bold underline flex items-center gap-1 cursor-pointer"
+                        className="mt-2 text-xs text-amber-400 hover:text-amber-300 font-semibold underline flex items-center gap-1 cursor-pointer"
                       >
-                        🔍 Tap to Enlarge / Full-Screen QR
+                        Tap to enlarge QR code
                       </button>
                     </div>
 
                     {/* Supported Apps Badge */}
-                    <div className="flex items-center justify-center gap-2 my-2 text-[10px] text-slate-400 font-semibold">
-                      <span>✓ GPay</span>
-                      <span>✓ PhonePe</span>
-                      <span>✓ Paytm</span>
-                      <span>✓ BHIM</span>
-                      <span>✓ All Bank UPI Apps</span>
+                    <div className="flex items-center justify-center gap-2 my-2 text-[11px] text-slate-400">
+                      <span>GPay</span> &middot;
+                      <span>PhonePe</span> &middot;
+                      <span>Paytm</span> &middot;
+                      <span>BHIM</span> &middot;
+                      <span>Bank UPI</span>
                     </div>
 
                     {/* 1-Tap Mobile UPI Payment Link */}
                     <a
                       href={upiPayLink}
-                      className="mb-2 block w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-center font-bold text-xs uppercase tracking-wider shadow-md transition active:scale-98 cursor-pointer"
+                      className="mb-2 block w-full py-2.5 px-3 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-center font-semibold text-xs transition cursor-pointer"
                     >
-                      ⚡ 1-Tap Pay via Mobile App (GPay / PhonePe / Paytm)
+                      Pay via mobile UPI app (GPay / PhonePe / Paytm)
                     </a>
 
                     {/* UPI ID Copy Card */}
@@ -780,9 +759,9 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       <button
                         type="button"
                         onClick={handleCopyUpi}
-                        className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
+                        className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition active:scale-95 cursor-pointer"
                       >
-                        {copiedUpi ? '✓ Copied!' : 'Copy UPI'}
+                        {copiedUpi ? 'Copied' : 'Copy UPI'}
                       </button>
                     </div>
                   </div>
@@ -826,11 +805,11 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         setCopiedBank(true);
                         setTimeout(() => setCopiedBank(false), 2500);
                       }}
-                      className={`mt-3 w-full py-2 rounded-xl border font-bold text-xs transition active:scale-98 cursor-pointer ${
+                      className={`mt-3 w-full py-2 rounded-xl border font-semibold text-xs transition cursor-pointer ${
                         isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
                       }`}
                     >
-                      {copiedBank ? '✓ Bank Details Copied!' : '📋 Copy All Bank Details'}
+                      {copiedBank ? 'Bank details copied' : 'Copy bank details'}
                     </button>
                   </div>
                 )}
@@ -903,7 +882,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   isLight ? 'bg-amber-100 border-amber-300' : 'bg-amber-500/10 border-amber-500/30'
                 }`}>
                   <p className={`text-[11px] font-semibold leading-tight ${isLight ? 'text-amber-950' : 'text-amber-300'}`}>
-                    ⚡ Under 30 minutes activation: Admin verifies your UTR & adds credits directly.
+                    Activation within 30 minutes: admin verifies your UTR & adds credits directly.
                   </p>
                 </div>
 
@@ -913,7 +892,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setSubmitted(true)}
-                  className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white cursor-pointer shadow-emerald-900/30"
+                  className="w-full py-3 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" />
                   {transactionId.trim() ? 'Submit & Send UTR on WhatsApp →' : 'Send Payment Confirmation on WhatsApp →'}
@@ -925,16 +904,16 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I have a query about the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold inline-flex items-center gap-1.5"
+                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium inline-flex items-center gap-1.5"
                   >
-                    💬 Need help? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
+                    <MessageSquare size={13} /> Questions? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
                   </a>
                 </div>
 
                 {submitted && (
                   <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
-                    <p className="text-xs text-emerald-400 font-bold">
-                      ✓ Order Submitted! Admin will verify and activate your plan within 30 minutes.
+                    <p className="text-xs text-emerald-400 font-semibold">
+                      Order submitted. Admin will verify and activate your plan within 30 minutes.
                     </p>
                     <p className="text-[11px] text-slate-300">
                       If WhatsApp didn't open automatically, click the direct link below:
@@ -943,9 +922,10 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       href={waLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow transition"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold uppercase tracking-wider shadow-sm transition"
                     >
-                      💬 Open WhatsApp Chat (+91 6398743132)
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>Open WhatsApp chat (+91 6398743132)</span>
                     </a>
                   </div>
                 )}

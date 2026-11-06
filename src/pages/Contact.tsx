@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Sun, Moon, MessageSquare, Phone, Mail, Clock } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
 import SiteFooter from '../components/SiteFooter';
@@ -62,31 +63,31 @@ Message: ${message}`;
       <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/80' : 'border-white/10 bg-[#0a0a0f]/80'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <a href="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e5373f] text-xs font-black tracking-widest text-white shadow-lg">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e5373f] text-xs font-semibold text-white">
               SN
             </span>
-            <span className={`text-base font-extrabold uppercase tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
+            <span className={`text-sm font-semibold tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
               Shiv-Naresh
             </span>
-            <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-2 py-0.5 text-[9px] font-bold text-[#e5373f] uppercase">
+            <span className="rounded px-2 py-0.5 text-[10px] font-medium text-[#e5373f] bg-[#e5373f]/10 border border-[#e5373f]/20">
               Contact
             </span>
           </a>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={toggleTheme}
-              className={`rounded-full border p-2 text-xs transition-colors ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
-              title="Toggle Dark / Light Mode"
+              className={`rounded-lg border p-2 text-xs transition-colors ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
+              title="Toggle theme"
             >
-              {isLight ? '🌙' : '☀️'}
+              {isLight ? <Moon size={15} /> : <Sun size={15} />}
             </button>
             <a
               href="/pricing"
-              className="rounded-full bg-[#e5373f] px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow"
+              className="rounded-lg bg-[#e5373f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
             >
-              View Plans &rarr;
+              View plans
             </a>
           </div>
         </div>
@@ -94,147 +95,156 @@ Message: ${message}`;
 
       {/* Main Container */}
       <main className="mx-auto max-w-5xl px-6 py-16">
-        <div className="text-center space-y-4">
-          <span className="inline-block rounded-full bg-[#e5373f]/15 border border-[#e5373f]/30 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-[#e5373f]">
-            24/7 Support & Rapid Plan Activation
-          </span>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+        <div className="text-center space-y-3">
+          <p className="text-xs font-medium text-[#e5373f]">
+            Support & direct inquiries
+          </p>
+          <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
             Get in Touch With Our Studio
           </h1>
-          <p className="mx-auto max-w-2xl text-sm leading-relaxed opacity-70">
-            Have questions regarding bespoke athletic kits, custom 5-pose rendering, payment via UPI, or manual plan activation? Our team is directly reachable.
+          <p className="mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed opacity-75">
+            Questions regarding squad kit orders, multi-angle sequences, UPI payment, or manual account activation.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-10 md:grid-cols-5">
+        <div className="mt-12 grid gap-8 md:grid-cols-5">
           {/* Left: Contact Info Cards */}
           <div className="md:col-span-2 space-y-4">
             {/* WhatsApp Direct Card */}
-            <div className="rounded-3xl border p-6 space-y-3" style={{
+            <div className="rounded-2xl border p-5 space-y-3" style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 text-xl font-bold">
-                  💬
-                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <MessageSquare size={18} />
+                </div>
                 <div>
-                  <h3 className="text-sm font-bold">WhatsApp Direct Support</h3>
-                  <p className="text-[11px] opacity-60">Immediate response within minutes</p>
+                  <h3 className="text-sm font-semibold">WhatsApp support</h3>
+                  <p className="text-[11px] opacity-60">Replies usually within minutes</p>
                 </div>
               </div>
               <p className="text-xs opacity-75">
-                Send your payment screenshot or 12-digit transaction ID directly to our master admin for fast account activation.
+                Send your payment confirmation or 12-digit transaction ID directly to our desk for immediate verification.
               </p>
               <a
                 href={`https://api.whatsapp.com/send/?phone=91${profile.mobile}&text=${encodeURIComponent('Hello SHIV-NARESH Admin, I need support with AI Studio.')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors shadow-lg"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
               >
-                <span>⚡</span> Open WhatsApp Chat
+                <MessageSquare size={14} /> Open WhatsApp chat
               </a>
             </div>
 
             {/* Official Mobile */}
-            <div className="rounded-3xl border p-6 space-y-2" style={{
+            <div className="rounded-2xl border p-5 space-y-1.5" style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
-              <p className="text-[10px] uppercase font-bold tracking-wider opacity-50">Direct Calling Line</p>
-              <a href={`tel:+91${profile.mobile}`} className="text-xl font-mono font-bold text-[#e5373f] hover:underline block">
+              <div className="flex items-center gap-2 text-xs opacity-60">
+                <Phone size={13} />
+                <span className="font-medium">Direct phone</span>
+              </div>
+              <a href={`tel:+91${profile.mobile}`} className="text-lg font-mono font-semibold text-[#e5373f] hover:underline block">
                 +91 {profile.mobile}
               </a>
               <p className="text-[11px] opacity-60">Available 9:00 AM &ndash; 11:00 PM IST</p>
             </div>
 
             {/* Official Email */}
-            <div className="rounded-3xl border p-6 space-y-2" style={{
+            <div className="rounded-2xl border p-5 space-y-1.5" style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
               backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
             }}>
-              <p className="text-[10px] uppercase font-bold tracking-wider opacity-50">Inquiry & Billing Email</p>
-              <a href={`mailto:${profile.email}`} className="text-sm font-semibold hover:underline block truncate text-[#e5373f]">
+              <div className="flex items-center gap-2 text-xs opacity-60">
+                <Mail size={13} />
+                <span className="font-medium">Inquiries & billing</span>
+              </div>
+              <a href={`mailto:${profile.email}`} className="text-xs font-medium text-[#e5373f] hover:underline block truncate">
                 {profile.email}
               </a>
-              <p className="text-[11px] opacity-60">General inquiries, partnership & billing</p>
+              <p className="text-[11px] opacity-60">General inquiries and partnerships</p>
             </div>
 
             {/* Turnaround Guarantee */}
-            <div className={`rounded-3xl border p-5 text-xs space-y-1 ${
-              isLight ? 'border-amber-400 bg-amber-100 text-amber-950 font-medium' : 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+            <div className={`rounded-2xl border p-4 text-xs space-y-1 ${
+              isLight ? 'border-amber-400 bg-amber-100 text-amber-950 font-medium' : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
             }`}>
-              <span className="font-bold block">⏱️ 30-Minute Plan Activation</span>
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Clock size={14} />
+                <span>30-minute activation</span>
+              </div>
               <p className="text-[11px] opacity-90 leading-relaxed">
-                After paying via UPI, submit your 12-digit transaction ID on the checkout page or send it to our WhatsApp number. Your plan credits and video quota will be activated within 30 minutes!
+                After transferring via UPI, submit your 12-digit transaction ID on the checkout page or send it on WhatsApp. Account credits are activated promptly upon receipt.
               </p>
             </div>
           </div>
 
           {/* Right: Interactive Contact Form */}
-          <div className="md:col-span-3 rounded-3xl border p-8 backdrop-blur-md shadow-xl" style={{
+          <div className="md:col-span-3 rounded-2xl border p-6 sm:p-8 transition-colors shadow-sm" style={{
             borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
             backgroundColor: isLight ? '#ffffff' : 'rgba(255,255,255,0.02)'
           }}>
-            <h2 className="text-xl font-bold tracking-tight">Send an Official Message</h2>
+            <h2 className="text-lg font-semibold tracking-tight">Send a message</h2>
             <p className="text-xs opacity-60 mt-0.5">
-              Fill in your inquiry below to immediately dispatch it to our admin desk.
+              Fill in your details below to dispatch your message to our desk.
             </p>
 
             {sent && (
-              <div className="mt-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 p-4 text-xs text-emerald-400 space-y-2">
-                <p className="font-bold">✓ Message constructed! Your WhatsApp chat is ready.</p>
-                <p className="text-[11px] text-white/70">If WhatsApp did not open automatically, click the direct button below:</p>
+              <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-600 space-y-1.5">
+                <p className="font-semibold">Message prepared. WhatsApp chat is ready.</p>
+                <p className="text-[11px] opacity-80">If WhatsApp did not open automatically, click below:</p>
                 <a
                   href={waUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white uppercase tracking-wider hover:bg-emerald-500 transition shadow"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
                 >
-                  💬 Open WhatsApp Chat (+91 {profile.mobile})
+                  <MessageSquare size={13} /> Open WhatsApp chat
                 </a>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Full Name *</label>
+                <label className="text-xs font-medium opacity-70">Full name</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Yashveer Singh"
-                  className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-xs focus:outline-none transition-colors ${
+                  placeholder="Rahul Sharma"
+                  className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none transition-colors ${
                     isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/50 text-white focus:border-white/30'
                   }`}
                 />
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Email Address *</label>
+                  <label className="text-xs font-medium opacity-70">Email address</label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@company.com"
-                    className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-xs focus:outline-none transition-colors ${
+                    className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none transition-colors ${
                       isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/50 text-white focus:border-white/30'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Mobile Number (WhatsApp) *</label>
+                  <label className="text-xs font-medium opacity-70">Mobile number</label>
                   <input
                     type="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="10-digit mobile number"
-                    className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-xs focus:outline-none transition-colors ${
+                    className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none transition-colors ${
                       isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/50 text-white focus:border-white/30'
                     }`}
                   />
@@ -242,31 +252,31 @@ Message: ${message}`;
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Subject / Category</label>
+                <label className="text-xs font-medium opacity-70">Topic</label>
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className={`mt-1.5 w-full rounded-2xl border px-4 py-2.5 text-xs focus:outline-none transition-colors ${
+                  className={`mt-1 w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none transition-colors ${
                     isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/50 text-white focus:border-white/30'
                   }`}
                 >
-                  <option value="Plan Activation / Payment Inquiry">Plan Activation / Payment Confirmation</option>
-                  <option value="Bespoke Athletic Custom Request">Bespoke Athletic Custom Request (24-48h)</option>
-                  <option value="Credit Limit Increase">Credit Limit Increase / Upgrade</option>
-                  <option value="Enterprise Sportswear Partnership">Enterprise Sportswear Partnership</option>
-                  <option value="Technical Support">Technical Support / Bug Report</option>
+                  <option value="Plan Activation / Payment Inquiry">Plan activation and payment confirmation</option>
+                  <option value="Bespoke Athletic Custom Request">Custom athletic kit request</option>
+                  <option value="Credit Limit Increase">Credit limit increase or upgrade</option>
+                  <option value="Enterprise Sportswear Partnership">Sportswear club partnership</option>
+                  <option value="Technical Support">Technical support</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Your Message / Inquiry *</label>
+                <label className="text-xs font-medium opacity-70">Message</label>
                 <textarea
                   required
                   rows={4}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Provide any details, your transaction ID, or specific athletic design instructions..."
-                  className={`mt-1.5 w-full rounded-2xl border p-4 text-xs focus:outline-none transition-colors ${
+                  placeholder="Details, transaction ID, or design specifications"
+                  className={`mt-1 w-full rounded-xl border p-3.5 text-xs focus:outline-none transition-colors ${
                     isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/50 text-white focus:border-white/30'
                   }`}
                 />
@@ -274,9 +284,9 @@ Message: ${message}`;
 
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-[#e5373f] py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-lg"
+                className="w-full rounded-xl bg-[#e5373f] py-2.5 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
               >
-                Send Message via WhatsApp &rarr;
+                Send message via WhatsApp
               </button>
             </form>
           </div>

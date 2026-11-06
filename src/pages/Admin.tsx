@@ -17,14 +17,27 @@ import {
 } from '../lib/api';
 import { useTheme, ThemeToggle } from '../lib/theme';
 import {
+  AlertTriangle,
+  BarChart3,
+  Camera,
   Check,
   CheckCircle2,
   Copy,
+  Download,
+  FileText,
+  Film,
+  Inbox,
+  Layers,
+  Lock,
+  Paperclip,
   RefreshCw,
+  Settings,
+  ShieldAlert,
   Trash2,
   UploadCloud,
+  Users,
+  User as UserIcon,
   X,
-  ShieldAlert,
 } from 'lucide-react';
 
 export default function Admin() {
@@ -884,19 +897,18 @@ ${log.stack || 'None'}
 
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
                 isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
               }`}>
-                <span>⚡</span>
-                <span>Fashn.ai: {fashnCredits?.total ?? '78'} Credits</span>
+                <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
                   onClick={() => void loadFashnCredits()}
                   disabled={fashnCreditsLoading}
                   title="Refresh Fashn.ai balance"
-                  className="ml-1 opacity-60 hover:opacity-100 transition active:rotate-180 duration-300"
+                  className="ml-1 opacity-60 hover:opacity-100 transition"
                 >
-                  🔄
+                  <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             )}
@@ -929,31 +941,32 @@ ${log.stack || 'None'}
           <div className={`border-t transition-colors ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/5 bg-black/40'}`}>
             <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 py-2 no-scrollbar">
               {[
-                { id: 'overview', label: 'Dashboard & Metrics', icon: '📊' },
+                { id: 'overview', label: 'Metrics', icon: BarChart3 },
                 {
                   id: 'requests',
-                  label: 'Custom Orders & Reply',
-                  icon: '📩',
+                  label: 'Custom Orders',
+                  icon: Inbox,
                   badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                 },
-                { id: 'users', label: 'Registered Users & Credits', icon: '👥', count: usersList.length },
+                { id: 'users', label: 'Users & Credits', icon: Users, count: usersList.length },
                 {
                   id: 'generations',
-                  label: 'All Generations & Credits',
-                  icon: '⚡',
+                  label: 'Generations',
+                  icon: Film,
                   count: generationsList.length,
                   badge: generationsProcessingCount > 0 ? generationsProcessingCount : undefined,
                 },
-                { id: 'models', label: 'Model Library', icon: '🎭', count: modelCount },
+                { id: 'models', label: 'Model Library', icon: Layers, count: modelCount },
                 {
                   id: 'problems',
-                  label: 'Problem Logs',
-                  icon: '🚨',
+                  label: 'Diagnostics',
+                  icon: AlertTriangle,
                   badge: unresolvedProblemsCount > 0 ? unresolvedProblemsCount : undefined,
                   count: systemLogs.length,
                 },
-                { id: 'settings', label: 'Keys & System Config', icon: '⚙️' },
+                { id: 'settings', label: 'System Config', icon: Settings },
               ].map((tab) => {
+                const IconComponent = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -970,10 +983,10 @@ ${log.stack || 'None'}
                           : 'text-white/50 hover:bg-white/5 hover:text-white/80'
                     }`}
                   >
-                    <span>{tab.icon}</span>
+                    <IconComponent className="h-3.5 w-3.5" />
                     <span>{tab.label}</span>
                     {tab.badge !== undefined && (
-                      <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white animate-pulse">
+                      <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white">
                         {tab.badge}
                       </span>
                     )}
@@ -1048,37 +1061,37 @@ ${log.stack || 'None'}
 
     return shell(
       <div className="mx-auto max-w-md py-12 text-center">
-        <div className="w-16 h-16 rounded-3xl bg-[#e5373f]/15 border border-[#e5373f]/30 text-[#ff5252] flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg">
-          🛡️
+        <div className="w-16 h-16 rounded-3xl bg-[#e5373f]/10 border border-[#e5373f]/20 text-[#e5373f] flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <ShieldAlert className="h-8 w-8" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Enterprise Admin Security Portal</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Enterprise admin portal</h1>
         <p className="mt-2 text-xs opacity-60 max-w-sm mx-auto">
-          Two-Factor Authentication is strictly enforced. Restricted exclusively to <span className="text-[#ff9aa0] font-bold">Jaatshab11223315@gmail.com</span>.
+          Two-factor authentication is required. Restricted exclusively to <span className="text-[#ff9aa0] font-semibold">jaatshab11223315@gmail.com</span>.
         </p>
 
         {!isPrimaryEmail && (
           <div className={`${cardClass} mt-6 text-left`}>
-            <div className="flex items-center gap-2 text-[#ff5252] mb-2 font-bold text-xs uppercase tracking-wider">
-              <span>🔒</span> Access Restricted
+            <div className="flex items-center gap-2 text-[#ff5252] mb-2 font-semibold text-xs uppercase tracking-wider">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Access restricted</span>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
               You are currently signed in as <strong className="text-white">{me?.email || 'Guest'}</strong>. This account does not possess administrator credentials.
             </p>
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
                 isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
               }`}>
-                <span>⚡</span>
-                <span>Fashn.ai: {fashnCredits?.total ?? '78'} Credits</span>
+                <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
                   onClick={() => void loadFashnCredits()}
                   disabled={fashnCreditsLoading}
                   title="Refresh Fashn.ai balance"
-                  className="ml-1 opacity-60 hover:opacity-100 transition active:rotate-180 duration-300"
+                  className="ml-1 opacity-60 hover:opacity-100 transition"
                 >
-                  🔄
+                  <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             )}
@@ -1142,7 +1155,7 @@ ${log.stack || 'None'}
                 )}
 
                 <p className="text-[11px] text-center leading-relaxed opacity-75">
-                  💡 Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
                 </p>
 
                 <button
@@ -1270,7 +1283,7 @@ ${log.stack || 'None'}
                 )}
 
                 <p className="text-[11px] text-center leading-relaxed opacity-75">
-                  💡 Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
                 </p>
 
                 <button
@@ -1312,22 +1325,22 @@ ${log.stack || 'None'}
       {/* Top Stats Cards */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
         {/* LIVE FASHN.AI ACCOUNT CREDITS */}
-        <div className={`${cardClass} border-[#e5373f]/40 bg-gradient-to-br from-[#e5373f]/15 via-transparent to-transparent shadow-lg ring-1 ring-[#e5373f]/30`}>
+        <div className={`${cardClass} border-[#e5373f]/30 bg-[#e5373f]/5 shadow-sm`}>
           <div className="flex items-center justify-between opacity-80">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#ff5252]">Live Fashn.ai Balance</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#ff5252]">Live Fashn.ai Balance</span>
             <button
               type="button"
               onClick={() => void loadFashnCredits()}
               disabled={fashnCreditsLoading}
               title="Refresh live credits from Fashn.ai API"
-              className="text-xs p-1 rounded-md hover:bg-white/10 transition-transform active:rotate-180 duration-500"
+              className="text-xs p-1 rounded-md hover:bg-white/10 transition"
             >
-              🔄
+              <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className={`text-3xl font-extrabold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>
-              ⚡ {fashnCredits?.total ?? '78'}
+              {fashnCredits?.total ?? '78'}
             </span>
             <span className="text-xs opacity-60">actual credits</span>
           </div>
@@ -1340,8 +1353,8 @@ ${log.stack || 'None'}
         {/* Total Registered Users — PROMINENT DISPLAY */}
         <div className={cardClass}>
           <div className="flex items-center justify-between opacity-60">
-            <span className="text-[11px] font-bold uppercase tracking-widest">Total Registered Users</span>
-            <span className="text-xl">👥</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Total Registered Users</span>
+            <Users className="h-4 w-4" />
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-[#e5373f]">{usersList.length}</span>
@@ -1354,8 +1367,8 @@ ${log.stack || 'None'}
 
         <div className={cardClass}>
           <div className="flex items-center justify-between opacity-60">
-            <span className="text-[11px] font-bold uppercase tracking-widest">Active Custom Requests</span>
-            <span className="text-xl">📩</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Active Custom Requests</span>
+            <Inbox className="h-4 w-4" />
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold">{pendingRequestsCount}</span>
@@ -1368,8 +1381,8 @@ ${log.stack || 'None'}
 
         <div className={cardClass}>
           <div className="flex items-center justify-between opacity-60">
-            <span className="text-[11px] font-bold uppercase tracking-widest">Custom Orders</span>
-            <span className="text-xl">📩</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Custom Orders</span>
+            <Inbox className="h-4 w-4" />
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold">{customRequests.length}</span>
@@ -1382,8 +1395,8 @@ ${log.stack || 'None'}
 
         <div className={cardClass}>
           <div className="flex items-center justify-between opacity-60">
-            <span className="text-[11px] font-bold uppercase tracking-widest">Model Library</span>
-            <span className="text-xl">🎭</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Model Library</span>
+            <Layers className="h-4 w-4" />
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold">{modelCount}</span>
@@ -1528,11 +1541,12 @@ ${log.stack || 'None'}
                 <div>
                   {/* Top Header */}
                   <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                    <span className="text-[11px] font-semibold truncate">
-                      👤 {req.userEmail || 'Client'}
+                    <span className="text-[11px] font-semibold truncate flex items-center gap-1.5">
+                      <UserIcon className="h-3 w-3 text-current/70" />
+                      <span>{req.userEmail || 'Client'}</span>
                     </span>
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                         req.status === 'delivered'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                           : req.status === 'in_progress'
@@ -1551,7 +1565,7 @@ ${log.stack || 'None'}
                   {/* SLA Countdown Timer */}
                   <div className="mt-3 flex items-center justify-between text-[11px]">
                     <span className="opacity-60">SLA 48h Window:</span>
-                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600 animate-pulse' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
+                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
                       {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
                     </span>
                   </div>
@@ -1559,8 +1573,8 @@ ${log.stack || 'None'}
                   {/* Badges: Type & Visual Color Swatch */}
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     {req.requestType && (
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
-                        {req.requestType === 'both' ? '⚡ Stills + Video' : req.requestType === 'video' ? '🎬 Video' : '📸 2K Stills'}
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                        {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
                       </span>
                     )}
                     {req.color && (
@@ -1600,9 +1614,11 @@ ${log.stack || 'None'}
                         onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
                       >
                         {req.clothUrl ? (
-                          <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
+                          <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
                         ) : (
-                          <div className="flex aspect-[3/4] w-full items-center justify-center text-2xl opacity-20">👗</div>
+                          <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
+                            <Layers className="h-6 w-6" />
+                          </div>
                         )}
                         <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
                           {req.clothName || 'Garment'}
@@ -1615,7 +1631,7 @@ ${log.stack || 'None'}
                           req.modelImages.map((mUrl, mIdx) => (
                             <div
                               key={mIdx}
-                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 transition-all hover:scale-105 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
+                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
                               onClick={() => setLightboxImg(mUrl)}
                             >
                               <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
@@ -1629,7 +1645,7 @@ ${log.stack || 'None'}
                             className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
                             onClick={() => setLightboxImg(req.modelUrl || '')}
                           >
-                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105" />
+                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
                             <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
                               {req.modelName || 'Model'}
                             </p>
@@ -1676,7 +1692,7 @@ ${log.stack || 'None'}
                   {req.deliveredFileName && (
                     <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 truncate">
-                        <span>📎</span>
+                        <Paperclip className="h-3 w-3 text-blue-400" />
                         <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
                       </div>
                       {req.deliveredFileUrl && (
@@ -1700,7 +1716,7 @@ ${log.stack || 'None'}
                     type="button"
                     onClick={() => void handleDownloadOrderZip(req)}
                     disabled={downloadingZipId === req.id}
-                    className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                    className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
                       isLight
                         ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
@@ -1708,13 +1724,13 @@ ${log.stack || 'None'}
                   >
                     {downloadingZipId === req.id ? (
                       <>
-                        <span className="animate-spin text-sm">⏳</span>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                         <span>Packaging ZIP…</span>
                       </>
                     ) : (
                       <>
-                        <span>📦</span>
-                        <span>Download Order ZIP</span>
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Download order ZIP</span>
                       </>
                     )}
                   </button>
@@ -1727,9 +1743,9 @@ ${log.stack || 'None'}
                       setReplyMessage(req.adminReply || '');
                       setReplyImageUrl(req.deliveredImageUrl || '');
                     }}
-                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
+                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
                   >
-                    {req.status === 'delivered' ? 'Edit Delivery / Reply' : 'Reply & Deliver Render'}
+                    {req.status === 'delivered' ? 'Edit delivery / reply' : 'Reply & deliver render'}
                   </button>
                 </div>
               </div>
@@ -1741,10 +1757,10 @@ ${log.stack || 'None'}
       {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
       {selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className={`w-full max-w-lg rounded-3xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
+          <div className={`w-full max-w-lg rounded-2xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
             <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
               <div>
-                <h3 className="text-base font-bold">Order Reply & Delivery Desk</h3>
+                <h3 className="text-base font-semibold">Order reply & delivery desk</h3>
                 <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1752,7 +1768,7 @@ ${log.stack || 'None'}
                   type="button"
                   onClick={() => void handleDownloadOrderZip(selectedRequest)}
                   disabled={downloadingZipId === selectedRequest.id}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all shadow-sm ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${
                     isLight
                       ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
                       : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
@@ -1761,12 +1777,12 @@ ${log.stack || 'None'}
                 >
                   {downloadingZipId === selectedRequest.id ? (
                     <>
-                      <span className="animate-spin text-xs">⏳</span>
+                      <RefreshCw className="h-3 w-3 animate-spin" />
                       <span>Packaging…</span>
                     </>
                   ) : (
                     <>
-                      <span>📦</span>
+                      <Download className="h-3 w-3" />
                       <span>Download ZIP</span>
                     </>
                   )}
@@ -1776,7 +1792,7 @@ ${log.stack || 'None'}
                   onClick={() => setSelectedRequest(null)}
                   className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                 >
-                  ✕
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -1790,13 +1806,13 @@ ${log.stack || 'None'}
                       key={s}
                       type="button"
                       onClick={() => setReplyStatus(s)}
-                      className={`rounded-xl py-2 text-xs font-bold capitalize transition-colors ${
+                      className={`rounded-xl py-2 text-xs font-semibold capitalize transition-colors ${
                         replyStatus === s
                           ? s === 'delivered'
-                            ? 'bg-emerald-600 text-white shadow-md'
+                            ? 'bg-emerald-600 text-white shadow-sm'
                             : s === 'in_progress'
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-amber-600 text-white shadow-md'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'bg-amber-600 text-white shadow-sm'
                           : isLight
                             ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             : 'bg-white/5 text-white/50 hover:bg-white/10'
@@ -1850,9 +1866,10 @@ ${log.stack || 'None'}
                   <button
                     type="button"
                     onClick={() => replyFileInput.current?.click()}
-                    className="rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-bold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-semibold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
                   >
-                    📎 Upload Any File Type from PC
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span>Upload file from device</span>
                   </button>
                   <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
                 </div>
@@ -1860,7 +1877,7 @@ ${log.stack || 'None'}
                 {replyAttachment && (
                   <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
                     <div className="flex items-center gap-2 truncate">
-                      <span>📄</span>
+                      <FileText className="h-3.5 w-3.5" />
                       <strong className="truncate">{replyAttachment.name}</strong>
                       <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
                     </div>
@@ -1869,7 +1886,7 @@ ${log.stack || 'None'}
                       onClick={() => setReplyAttachment(null)}
                       className="text-xs text-red-500 hover:text-red-700 ml-2"
                     >
-                      ✕ Remove
+                      Remove
                     </button>
                   </div>
                 )}
@@ -1989,7 +2006,7 @@ ${log.stack || 'None'}
                       <div className="font-semibold text-xs">{user.email}</div>
                       <div className="text-[11px] opacity-60 mt-0.5">
                         {user.name ? <strong className={isLight ? 'text-amber-950 font-bold' : 'text-amber-500 font-semibold'}>{user.name} · </strong> : ''}
-                        {user.phone ? <span>📞 {user.phone} · </span> : ''}
+                        {user.phone ? <span>{user.phone} · </span> : ''}
                         <span>Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active'}</span>
                       </div>
                     </td>
@@ -2111,16 +2128,16 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
                                 currentFeatures.hd2k
-                                  ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-black' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
+                                  ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-bold' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
                               }`}
                               title="Toggle 2K Ultra HD Generation"
                             >
-                              2K {currentFeatures.hd2k ? '✓' : '✗'}
+                              2K {currentFeatures.hd2k ? 'On' : 'Off'}
                             </button>
                             <button
                               type="button"
@@ -2131,7 +2148,7 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
                                 currentFeatures.fivePose
                                   ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
                                   : isLight
@@ -2140,7 +2157,7 @@ ${log.stack || 'None'}
                               }`}
                               title="Toggle 5-Pose Sequence"
                             >
-                              5-Pose {currentFeatures.fivePose ? '✓' : '✗'}
+                              5-Pose {currentFeatures.fivePose ? 'On' : 'Off'}
                             </button>
                             <button
                               type="button"
@@ -2151,7 +2168,7 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
                                 currentFeatures.video
                                   ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
                                   : isLight
@@ -2160,7 +2177,7 @@ ${log.stack || 'None'}
                               }`}
                               title="Toggle Runway Video"
                             >
-                              Video {currentFeatures.video ? '✓' : '✗'}
+                              Video {currentFeatures.video ? 'On' : 'Off'}
                             </button>
                             <button
                               type="button"
@@ -2171,7 +2188,7 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition ${
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
                                 currentFeatures.customRequests
                                   ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
                                   : isLight
@@ -2180,7 +2197,7 @@ ${log.stack || 'None'}
                               }`}
                               title="Toggle Bespoke Custom Requests"
                             >
-                              Custom {currentFeatures.customRequests ? '✓' : '✗'}
+                              Custom {currentFeatures.customRequests ? 'On' : 'Off'}
                             </button>
                           </div>
                         );
@@ -2197,13 +2214,13 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), creditsLocked: !isLocked },
                           }))
                         }
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                           isLocked
                             ? 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white'
                             : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white'
                         }`}
                       >
-                        {isLocked ? '🔒 Locked' : '✓ Active'}
+                        {isLocked ? 'Locked' : 'Active'}
                       </button>
                     </td>
 
@@ -2214,23 +2231,23 @@ ${log.stack || 'None'}
                           type="button"
                           onClick={() => void handleSaveUserRow(user)}
                           disabled={isSaving}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
                             isSaved
                               ? 'bg-emerald-600 text-white'
-                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black'
+                              : 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
                           }`}
                           title="Save this user's credits, video quota, model quota, and lock status"
                         >
-                          {isSaving ? 'Saving…' : isSaved ? '✓ Saved' : '💾 Save'}
+                          {isSaving ? 'Saving…' : isSaved ? 'Saved' : 'Save'}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => void handleDeleteUser(user.id, user.email)}
-                          className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+                          className="rounded-full border border-red-500/30 bg-red-500/10 p-2 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
                           title="Permanently delete user account"
                         >
-                          🗑️
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
@@ -2419,11 +2436,11 @@ ${log.stack || 'None'}
               type="button"
               disabled={testEmailBusy}
               onClick={handleTestEmail}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-600 text-white transition disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer shadow-sm"
+              className="px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer shadow-sm"
             >
-              {testEmailBusy ? 'Sending Test Email…' : '✉️ Send Live Test Email to Admin'}
+              {testEmailBusy ? 'Sending test email…' : 'Send test email to admin'}
             </button>
-            <p className="text-[10px] text-white/40 italic">Sends live OTP test to jaatshab11223315@gmail.com</p>
+            <p className="text-[10px] text-white/40">Sends live OTP test to jaatshab11223315@gmail.com</p>
           </div>
           {testEmailMsg && (
             <div className={`mt-3 p-3 rounded-xl text-xs font-semibold ${testEmailMsg.ok ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'}`}>
@@ -2431,7 +2448,7 @@ ${log.stack || 'None'}
             </div>
           )}
           <p className="mt-2 text-[11px] leading-relaxed opacity-50">
-            ⚡ Important: In Brevo Security Settings under "Authorized IP addresses", ensure <b>Deactivate for API keys</b> is clicked so cloud deployments are not IP-blocked. Check Spam / Promotions folder in Gmail.
+            Important: In Brevo Security Settings under "Authorized IP addresses", ensure <b>Deactivate for API keys</b> is clicked so cloud deployments are not IP-blocked. Check Spam / Promotions folder in Gmail.
           </p>
         </section>
 
@@ -2611,7 +2628,7 @@ ${log.stack || 'None'}
                       className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 text-[10px] shadow hover:bg-red-500"
                       title="Remove Photo"
                     >
-                      ✕
+                      <X className="h-3 w-3" />
                     </button>
                   )}
                 </div>
@@ -2621,12 +2638,13 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => devPhotoFileRef.current?.click()}
-                      className="rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-2 text-xs font-semibold shadow transition"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-2 text-xs font-semibold shadow-sm transition"
                     >
-                      📷 Choose / Upload Photo
+                      <Camera className="h-3.5 w-3.5" />
+                      <span>Choose photo</span>
                     </button>
                     {devProfile.avatar && (
-                      <span className="text-[11px] text-emerald-400 font-medium">✓ Photo loaded</span>
+                      <span className="text-[11px] text-emerald-400 font-medium">Photo loaded</span>
                     )}
                   </div>
                   <input
@@ -2675,9 +2693,9 @@ ${log.stack || 'None'}
                 type="button"
                 onClick={() => void saveDeveloperProfile()}
                 disabled={savingProfile}
-                className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 text-xs font-bold uppercase tracking-wider transition shadow-md"
+                className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 text-xs font-semibold uppercase tracking-wider transition shadow-sm"
               >
-                {savingProfile ? 'Saving…' : profileSaved ? '✓ Profile Saved!' : '💾 Save Profile & Contact Info'}
+                {savingProfile ? 'Saving…' : profileSaved ? 'Profile saved' : 'Save profile'}
               </button>
             </div>
           </div>
@@ -2891,7 +2909,9 @@ ${log.stack || 'None'}
                     alt="Preview"
                     className="h-12 w-9 rounded-lg object-cover border border-white/20"
                   />
-                  <span className="text-xs text-emerald-400 font-medium">✓ Image ready</span>
+                  <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> Image ready
+                  </span>
                 </div>
               )}
             </div>
@@ -2935,7 +2955,7 @@ ${log.stack || 'None'}
                   <img
                     src={item.url}
                     alt={item.name}
-                    className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-105 cursor-pointer"
+                    className="aspect-[3/4] w-full object-cover cursor-pointer"
                     onClick={() => setLightboxImg(item.url)}
                   />
                   
@@ -2977,8 +2997,9 @@ ${log.stack || 'None'}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              <span>🚨</span> System Problem Logs & Diagnostics
+            <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <span>System problem logs & diagnostics</span>
             </h2>
             <p className="text-xs opacity-60">
               Captures all technical failures, Fashn.ai API rejections, video errors, and database exceptions.
@@ -3097,7 +3118,7 @@ ${log.stack || 'None'}
                         }`}
                       >
                         {isCopied ? <Check size={12} /> : <Copy size={12} />}
-                        {isCopied ? 'Copied for AI Agent!' : '📋 Copy Problem for AI Agent'}
+                        {isCopied ? 'Copied for AI agent' : 'Copy problem for AI agent'}
                       </button>
 
                       <button
@@ -3192,8 +3213,9 @@ ${log.stack || 'None'}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className={`text-lg font-bold tracking-tight flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-              <span>⚡</span> All Studio Generations & Credit Deductions
+            <h2 className={`text-lg font-semibold tracking-tight flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              <Film className="h-5 w-5 text-[#e5373f]" />
+              <span>Studio generations & credit audit</span>
             </h2>
             <p className={`text-xs ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
               Audit trail of every AI try-on, model-swap, and video render with exact credit deductions, status, and cluster error details.
@@ -3221,19 +3243,19 @@ ${log.stack || 'None'}
           </div>
           <div className={cardClass}>
             <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-amber-900' : 'text-amber-400'}`}>Total Credits Deducted</p>
-            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-amber-900' : 'text-amber-400'}`}>⚡ {generationsCreditsTotal}</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>{generationsCreditsTotal}</p>
           </div>
           <div className={cardClass}>
             <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-emerald-900' : 'text-emerald-400'}`}>Successful Renders</p>
-            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-emerald-900' : 'text-emerald-400'}`}>✓ {generationsSuccessCount}</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-emerald-900' : 'text-emerald-400'}`}>{generationsSuccessCount}</p>
           </div>
           <div className={cardClass}>
             <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-rose-900' : 'text-rose-400'}`}>Failed with Error</p>
-            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-rose-900' : 'text-rose-400'}`}>✗ {generationsFailedCount}</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-rose-900' : 'text-rose-400'}`}>{generationsFailedCount}</p>
           </div>
           <div className={cardClass}>
             <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-cyan-900' : 'text-cyan-400'}`}>In Progress</p>
-            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-cyan-900' : 'text-cyan-400'}`}>⏳ {generationsProcessingCount}</p>
+            <p className={`mt-1 text-2xl font-extrabold ${isLight ? 'text-cyan-900' : 'text-cyan-400'}`}>{generationsProcessingCount}</p>
           </div>
         </div>
 
@@ -3262,10 +3284,10 @@ ${log.stack || 'None'}
               }`}
             >
               <option value="all">All Statuses</option>
-              <option value="completed">✓ Completed Only</option>
-              <option value="failed">✗ Failed Only (Errors)</option>
-              <option value="processing">⏳ Processing</option>
-              <option value="refunded">↺ Refunded</option>
+              <option value="completed">Completed Only</option>
+              <option value="failed">Failed Only (Errors)</option>
+              <option value="processing">Processing</option>
+              <option value="refunded">Refunded</option>
             </select>
 
             <select
@@ -3333,7 +3355,7 @@ ${log.stack || 'None'}
                                 ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-500/30'
                                 : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
                           }`}>
-                            {g.type === 'video' ? '🎬 Video' : g.mode === 'swap' || g.type === 'model-swap' ? '👥 Swap' : '✦ Try-On'}
+                            {g.type === 'video' ? 'Video' : g.mode === 'swap' || g.type === 'model-swap' ? 'Swap' : 'Try-On'}
                           </span>
                           <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
                             {g.resolution || (g.type === 'video' ? 'HD' : '1K')}
@@ -3346,29 +3368,29 @@ ${log.stack || 'None'}
                               ? isLight ? 'text-amber-900 font-extrabold' : 'text-amber-400 font-extrabold'
                               : 'opacity-50'
                           }`}>
-                            {g.creditsUsed > 0 ? `⚡ -${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
+                            {g.creditsUsed > 0 ? `-${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
                           </span>
                         </td>
 
                         <td className="py-3 px-4">
                           {isSuccess && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-800 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              ✓ Completed
+                              Completed
                             </span>
                           )}
                           {isFailed && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-800 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              ✗ Failed
+                              Failed
                             </span>
                           )}
                           {isProcessing && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold animate-pulse">
-                              ⏳ Processing
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold">
+                              Processing
                             </span>
                           )}
                           {isRefunded && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 text-cyan-800 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              ↺ Refunded
+                              Refunded
                             </span>
                           )}
                         </td>
@@ -3386,7 +3408,7 @@ ${log.stack || 'None'}
                                 <img
                                   src={displayUrl}
                                   alt="render"
-                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 hover:scale-105 transition"
+                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 transition-opacity hover:opacity-90"
                                   onClick={() => setPreviewGenItem(g)}
                                 />
                               )}
