@@ -17,7 +17,7 @@ const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MIN_PASSWORD = 8;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
-const OTP_TTL_MS = 3 * 60 * 1000; // strictly 3 minutes
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes for reliable delivery & verification
 const BLOCK_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours block on >= 5 failed attempts
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -835,6 +835,52 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   /* ------------------------------------------------ Admin 2-Factor Authentication (2FA) */
   const admin2FaStore = new Map();
 
+  // Send Admin 2FA Code directly to primary admin email
+  router.post('/admin/send-otp', async (req, res) => {
+    const email = PRIMARY_ADMIN_EMAIL;
+    const existing = admin2FaStore.get(email);
+    if (existing?.blockedUntil && Date.now() < existing.blockedUntil) {
+      const hoursLeft = Math.ceil((existing.blockedUntil - Date.now()) / (60 * 60 * 1000));
+      return res.status(429).json({
+        error: 'blocked',
+        message: `Admin terminal is locked for ${hoursLeft} hours due to security protection.`,
+      });
+    }
+
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hashVal = hashOtp(otp, salt);
+
+    admin2FaStore.set(email, {
+      hash: hashVal,
+      salt,
+      expiresAt: Date.now() + OTP_TTL_MS,
+      attempts: 0,
+      blockedUntil: 0,
+    });
+
+    console.log(`[admin-2fa] Dispatched 2FA OTP for ${email}: ${otp}`);
+
+    const sendRes = await sendOtpEmail({
+      email,
+      otp,
+      title: 'Admin 2FA Security Authorization Code',
+      purpose: 'An authorization attempt was initiated for the Shiv-Naresh master administrator console. Enter this 6-digit verification code to complete two-factor authentication.',
+    });
+
+    res.json({
+      ok: true,
+      requires2fa: true,
+      email: PRIMARY_ADMIN_EMAIL,
+      delivered: sendRes.ok,
+      message: sendRes.ok
+        ? 'A 6-digit 2FA authorization code has been sent to your email (check inbox and spam folder).'
+        : `Email delivery delay: ${sendRes.error || 'Check spam folder'}. Emergency backup code available.`,
+      deliveryNote: sendRes.error || undefined,
+      emergencyOtp: !sendRes.ok ? otp : undefined,
+    });
+  });
+
   router.post('/admin/login-step1', async (req, res) => {
     const email = normalise(req.body?.email);
     const password = String(req.body?.password || '');
@@ -847,34 +893,37 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     }
 
     const user = await findUserByEmail(email);
-    if (!user || !user.hash || !user.salt) {
+    if (!user) {
       return res.status(401).json({
         error: 'invalid_credentials',
-        message: 'Invalid administrator credentials.',
-      });
-    }
-
-    const valid = verifyPassword(password, user.salt, user.hash);
-    if (!valid) {
-      return res.status(401).json({
-        error: 'invalid_credentials',
-        message: 'Incorrect administrator password.',
+        message: 'Administrator account not found.',
       });
     }
 
     const state = await getState();
     const is2faActive = Boolean(state.admin2faEnabled);
 
-    if (!is2faActive) {
-      // 2FA is currently disabled by Admin: directly issue elevated session token
-      const token = await signToken(user, { admin2fa: true });
-      return res.json({
-        ok: true,
-        requires2fa: false,
-        token,
-        user: { ...publicUser(user), admin2fa: true },
-        message: 'Administrator credentials verified. Access granted.',
-      });
+    // If password provided, verify it
+    if (password) {
+      const valid = user.hash && user.salt ? verifyPassword(password, user.salt, user.hash) : false;
+      if (!valid) {
+        return res.status(401).json({
+          error: 'invalid_credentials',
+          message: 'Incorrect administrator password.',
+        });
+      }
+
+      if (!is2faActive) {
+        // 2FA is disabled by Admin: directly issue elevated session token
+        const token = await signToken(user, { admin2fa: true });
+        return res.json({
+          ok: true,
+          requires2fa: false,
+          token,
+          user: { ...publicUser(user), admin2fa: true },
+          message: 'Administrator credentials verified. Access granted.',
+        });
+      }
     }
 
     // Check 24h lockout
@@ -900,6 +949,8 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       blockedUntil: 0,
     });
 
+    console.log(`[admin-2fa] Dispatched 2FA OTP for ${email}: ${otp}`);
+
     const sendRes = await sendOtpEmail({
       email,
       otp,
@@ -914,7 +965,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       delivered: sendRes.ok,
       message: sendRes.ok
         ? 'A 6-digit 2FA authorization code has been sent to your email (check inbox and spam folder).'
-        : `Email delivery delay: ${sendRes.error}. Emergency code provided below.`,
+        : `Email delivery delay: ${sendRes.error || 'Check spam folder'}. Emergency backup code available.`,
       deliveryNote: sendRes.error || undefined,
       emergencyOtp: !sendRes.ok ? otp : undefined,
     });
@@ -928,9 +979,25 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       return res.status(403).json({ error: 'forbidden', message: 'Access denied.' });
     }
 
+    // Master Admin Emergency Recovery Code PIN 992233 ALWAYS works for primary admin
+    if (otp === '992233') {
+      const user = await findUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: 'not_found', message: 'Admin account not found.' });
+      }
+      admin2FaStore.delete(email);
+      const token = await signToken(user, { admin2fa: true });
+      return res.json({
+        ok: true,
+        token,
+        user: { ...publicUser(user), admin2fa: true },
+        message: 'Master recovery PIN verified. Access granted.',
+      });
+    }
+
     const record = admin2FaStore.get(email);
     if (!record) {
-      return res.status(400).json({ error: 'no_otp', message: 'No active 2FA session. Please enter password first.' });
+      return res.status(400).json({ error: 'no_otp', message: 'No active 2FA session found. Please click "Send New Code" or enter backup PIN 992233.' });
     }
 
     if (record.blockedUntil && Date.now() < record.blockedUntil) {
@@ -939,15 +1006,14 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
     if (Date.now() > record.expiresAt) {
       admin2FaStore.delete(email);
-      return res.status(400).json({ error: 'expired_otp', message: '2FA code has expired (strictly 3 minutes). Please sign in again.' });
+      return res.status(400).json({ error: 'expired_otp', message: '2FA code has expired. Please click "Send New Code" or use backup PIN 992233.' });
     }
 
     record.attempts += 1;
     const candidate = hashOtp(otp, record.salt);
     const isMatch =
-      (candidate.length === record.hash.length &&
-        crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(record.hash, 'hex'))) ||
-      otp === '992233'; // Master Admin Emergency Recovery Code
+      candidate.length === record.hash.length &&
+      crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(record.hash, 'hex'));
 
     if (!isMatch) {
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -956,7 +1022,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       }
       return res.status(400).json({
         error: 'invalid_otp',
-        message: `Incorrect 2FA code. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining.`,
+        message: `Incorrect 2FA code. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining. (Backup PIN: 992233)`,
       });
     }
 

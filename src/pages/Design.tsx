@@ -1369,7 +1369,7 @@ function CustomRequestsPanel({
       )}
 
       {/* Header */}
-      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-6 ${isLight ? 'border-[#78a48b]' : 'border-white/10'}`}>
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-6 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
         <div>
           <div className="flex items-center gap-2">
             <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Bespoke Custom Requests</h1>
@@ -1387,7 +1387,7 @@ function CustomRequestsPanel({
             type="button"
             onClick={onRefresh}
             className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]' : 'border-white/15 text-white/60 hover:text-white'
+              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
             }`}
           >
             Refresh
@@ -1427,7 +1427,7 @@ function CustomRequestsPanel({
       {/* Submission Form */}
       {formOpen && (
         <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${
-          isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900' : 'border-white/15 bg-white/[0.03]'
+          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
         }`}>
           <div className="flex items-center justify-between">
             <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
@@ -1456,7 +1456,7 @@ function CustomRequestsPanel({
                     requestType === t.id
                       ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
                       : isLight
-                        ? 'border-[#78a48b] bg-[#82b095]/40 hover:bg-[#82b095]/70'
+                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/10 bg-black/40 hover:border-white/20'
                   }`}
                 >
@@ -1478,7 +1478,7 @@ function CustomRequestsPanel({
                   onClick={() => clothRef.current?.click()}
                   className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed transition-colors p-4 ${
                     isLight
-                      ? 'border-[#78a48b] bg-[#82b095]/40 hover:bg-[#82b095]/60'
+                      ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                       : 'border-white/20 bg-black/40 hover:border-white/40'
                   }`}
                 >
@@ -1495,7 +1495,7 @@ function CustomRequestsPanel({
               </div>
 
               {/* Fabric Color Input */}
-              <div className={`rounded-2xl border p-3 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/10 bg-black/40'}`}>
+              <div className={`rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-[10px] font-medium uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                     Fabric Color / Dye Code
@@ -1520,7 +1520,7 @@ function CustomRequestsPanel({
                     placeholder="e.g. #E5373F or Crimson Red, Deep Navy..."
                     className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095]/50 text-slate-900 placeholder:text-slate-600'
+                        ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
                     }`}
                   />
@@ -1568,7 +1568,7 @@ function CustomRequestsPanel({
               <div className="grid grid-cols-3 gap-2">
                 {pendingModels.map((m, idx) => (
                   <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
-                    isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/20 bg-black/60'
+                    isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
                   }`}>
                     <img src={m.preview} alt={`Pose ${idx + 1}`} className="h-full w-full object-cover" />
                     <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -1591,7 +1591,7 @@ function CustomRequestsPanel({
                     onClick={() => multiModelRef.current?.click()}
                     className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095]/30 hover:bg-[#82b095]/50'
+                        ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
                     }`}
                   >
@@ -1618,7 +1618,7 @@ function CustomRequestsPanel({
               placeholder="e.g. Ensure the athletic logo sits precisely 2 inches below the collar. We need athletic poses with dynamic running motion. Keep jersey color exact."
               className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${
                 isLight
-                  ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                  ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                   : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
               }`}
             />
@@ -1651,7 +1651,7 @@ function CustomRequestsPanel({
         <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Loading custom orders…</div>
       ) : requests.length === 0 ? (
         <div className={`mt-12 rounded-3xl border p-12 text-center ${
-          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.01]'
+          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
         }`}>
           <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request" above.</p>
         </div>
@@ -1661,7 +1661,7 @@ function CustomRequestsPanel({
             <div
               key={req.id}
               className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${
-                isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900' : 'border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]'
+                isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
               }`}
             >
               {/* Status Header */}
@@ -1747,7 +1747,7 @@ function CustomRequestsPanel({
                     {req.clothUrl && (
                       <div
                         className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-[#78a48b] bg-[#82b095]/40 hover:border-[#6b997e]' : 'border-white/10 bg-white/5 hover:border-white/30'
+                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
                         }`}
                         onClick={() => setLightboxImg(req.clothUrl || null)}
                       >
@@ -1761,7 +1761,7 @@ function CustomRequestsPanel({
                         <div
                           key={mIdx}
                           className={`overflow-hidden rounded-xl border w-20 cursor-pointer transition ${
-                            isLight ? 'border-[#78a48b] bg-[#82b095]/40 hover:border-[#6b997e]' : 'border-white/10 bg-white/5 hover:border-white/30'
+                            isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
                           }`}
                           onClick={() => setLightboxImg(mUrl)}
                         >
@@ -1772,7 +1772,7 @@ function CustomRequestsPanel({
                     ) : req.modelUrl ? (
                       <div
                         className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-[#78a48b] bg-[#82b095]/40 hover:border-[#6b997e]' : 'border-white/10 bg-white/5 hover:border-white/30'
+                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
                         }`}
                         onClick={() => setLightboxImg(req.modelUrl || null)}
                       >
@@ -1783,7 +1783,7 @@ function CustomRequestsPanel({
                   </div>
                   {req.prompt && (
                     <div className={`mt-3 rounded-2xl border p-3 text-xs italic ${
-                      isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/5 bg-black/40 text-white/70'
+                      isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/5 bg-black/40 text-white/70'
                     }`}>
                       "{req.prompt}"
                     </div>
@@ -1792,7 +1792,7 @@ function CustomRequestsPanel({
 
                 {/* Admin Delivery & Reply */}
                 <div className={`rounded-2xl border p-5 ${
-                  isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/10 bg-black/40'
+                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40'
                 }`}>
                   <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                     Studio Delivery & Admin Response
@@ -3513,7 +3513,7 @@ export default function Design() {
                           ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
                           : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
                         : isLight
-                          ? 'border border-[#78a48b] bg-[#8db89f] text-slate-900 hover:bg-[#82b095]'
+                          ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
                           : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
                     }`}
                   >
@@ -3525,13 +3525,13 @@ export default function Design() {
 
             {/* Resolution / Quality & 5-Pose Mode Pickers */}
             <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${
-              isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'
+              isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
             }`}>
               <div>
                 <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                   Render Quality
                 </span>
-                <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-[#78a48b] bg-[#82b095]' : 'border-white/15 bg-black/40'}`}>
+                <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
                   <button
                     type="button"
                     onClick={() => setQuality('1k')}
@@ -3579,7 +3579,7 @@ export default function Design() {
                   <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                     Multi-Angle Batch
                   </span>
-                  <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-[#78a48b] bg-[#82b095]' : 'border-white/15 bg-black/40'}`}>
+                  <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
                     <button
                       type="button"
                       onClick={() => setPoseMode('single')}
@@ -3608,7 +3608,7 @@ export default function Design() {
             {mode === 'swap' ? (
               <>
                 {/* SLOT 1: Kis Model ko change karna hai (Source Model / Original Outfit) */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -3645,14 +3645,14 @@ export default function Design() {
                     onClick={() => swapSourceInput.current?.click()}
                     className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095]/40 hover:bg-[#82b095]/60'
+                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/15 hover:border-white/35'
                     }`}
                   >
                     {swapSource ? (
                       <img src={swapSource.preview ?? swapSource.url} alt="Source Model" className="h-20 w-16 rounded-lg object-cover border-2 border-[#e5373f]" />
                     ) : (
-                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-[#82b095] text-slate-800' : 'bg-white/5 text-white/30'}`}>+</span>
+                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
                     )}
                     <span className="text-sm">
                       <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -3666,7 +3666,7 @@ export default function Design() {
                 </div>
 
                 {/* SLOT 2: Kis Model ke sath change karna hai (Target Model / Persona) */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -3777,7 +3777,7 @@ export default function Design() {
                 </div>
 
                 {/* SLOT 3: Instructions */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       3 &middot; Swap Instructions (Optional)
@@ -3790,7 +3790,7 @@ export default function Design() {
                     placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
                     className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
                       isLight
-                        ? 'bg-[#82b095]/40 border-[#78a48b] text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                     }`}
                   />
@@ -3799,7 +3799,7 @@ export default function Design() {
             ) : (
               <>
                 {/* Garment Upload Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>1 &middot; Garment</h2>
                     {cloth && (
@@ -3825,14 +3825,14 @@ export default function Design() {
                     disabled={uploading}
                     className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095]/40 hover:bg-[#82b095]/60'
+                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/15 hover:border-white/35'
                     }`}
                   >
                     {cloth ? (
                       <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
                     ) : (
-                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-[#82b095] text-slate-800' : 'bg-white/5 text-white/30'}`}>+</span>
+                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
                     )}
                     <span className="text-sm">
                       <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>{cloth ? cloth.name : 'Drop or choose a garment image'}</span>
@@ -3842,7 +3842,7 @@ export default function Design() {
                 </div>
 
                 {/* Precision Garment Color Matching */}
-                <div className={`rounded-2xl border p-4 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-xs font-medium tracking-normal ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
                       Fabric Color / Dye Code
@@ -3875,7 +3875,7 @@ export default function Design() {
                       placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
                       className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
                         isLight
-                          ? 'border-[#78a48b] bg-[#82b095]/50 text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                          ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                           : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
                       }`}
                     />
@@ -3900,7 +3900,7 @@ export default function Design() {
                           garmentColor.includes(sw.hex)
                             ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
                             : isLight
-                              ? 'border-[#78a48b] bg-[#82b095]/60 text-slate-900 hover:border-[#6b997e]'
+                              ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                               : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
                         }`}
                       >
@@ -3912,7 +3912,7 @@ export default function Design() {
                 </div>
 
                 {/* Model Selection Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
                     <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
@@ -3950,7 +3950,7 @@ export default function Design() {
                   />
 
                   {model && (
-                    <div className={`mt-4 flex items-center gap-3 rounded-xl border p-2 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/15 bg-white/[0.04]'}`}>
+                    <div className={`mt-4 flex items-center gap-3 rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
                       <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-cover" />
                       <div className="text-xs">
                         <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
@@ -4094,7 +4094,7 @@ export default function Design() {
                 </div>
 
                 {/* Instructions Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>3 &middot; Instructions</h2>
                     {settings?.defaultPrompt && (
@@ -4114,7 +4114,7 @@ export default function Design() {
                     placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
                     className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
                       isLight
-                        ? 'bg-[#82b095]/40 border-[#78a48b] text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                     }`}
                   />
@@ -4176,8 +4176,8 @@ export default function Design() {
 
           {/* Result Aside Canvas */}
           <aside className="space-y-5">
-            <div className={`overflow-hidden rounded-3xl border ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
-              <div className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10'}`}>
+            <div className={`overflow-hidden rounded-3xl border ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+              <div className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10'}`}>
                 <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>Result Canvas</span>
                 <div className="flex items-center gap-3">
                   {busy && <span className={`text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{fmtTime(elapsedSec)}</span>}
@@ -4186,7 +4186,7 @@ export default function Design() {
               </div>
 
               {busy && (
-                <div className={`border-b px-4 py-3 ${isLight ? 'border-[#78a48b]' : 'border-white/10'}`}>
+                <div className={`border-b px-4 py-3 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
                   <div className={`flex items-center justify-between text-[11px] ${isLight ? 'text-slate-900 font-bold' : 'text-white/60'}`}>
                     <span>{progressLabel}</span>
                     <span className="font-mono">{Math.round(progress)}%</span>
@@ -4205,7 +4205,7 @@ export default function Design() {
 
               {/* 5-Pose Multi-Angle Strip */}
               {fivePoseItems.length > 0 && (
-                <div className={`border-b p-3 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/10 bg-black/30'}`}>
+                <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       5 Studio Angles ({fivePoseItems.filter(p => p.status === 'completed').length}/5 Completed)
@@ -4227,7 +4227,7 @@ export default function Design() {
                             isSelected
                               ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
                               : isLight
-                                ? 'border-[#78a48b] bg-[#82b095] hover:bg-[#72a185]'
+                                ? 'border-gray-300 bg-white hover:bg-gray-50'
                                 : 'border-white/10 bg-black/40 hover:border-white/20'
                           }`}
                         >
@@ -4247,7 +4247,7 @@ export default function Design() {
                 </div>
               )}
 
-              <div className={`grid min-h-[360px] place-items-center p-4 ${isLight ? 'bg-[#82b095]/20' : 'bg-black/40'}`}>
+              <div className={`grid min-h-[360px] place-items-center p-4 ${isLight ? 'bg-gray-50' : 'bg-black/40'}`}>
                 {result ? (
                   <img src={result} alt="Generated" className="max-h-[520px] w-full rounded-xl object-contain shadow-2xl" />
                 ) : busy ? (
@@ -4264,13 +4264,13 @@ export default function Design() {
               </div>
 
               {result && (
-                <div className={`flex flex-wrap gap-2 border-t p-3 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40' : 'border-white/10'}`}>
+                <div className={`flex flex-wrap gap-2 border-t p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10'}`}>
                   <a
                     href={result}
                     download={`shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]'
+                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                     }`}
                   >
@@ -4301,7 +4301,7 @@ export default function Design() {
                     rel="noreferrer"
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${
                       isLight
-                        ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]'
+                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                     }`}
                   >
@@ -4375,7 +4375,7 @@ export default function Design() {
                         }}
                       />
                       {editRefImage ? (
-                        <div className={`flex items-center justify-between rounded-xl border p-2 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/10 bg-black/30'}`}>
+                        <div className={`flex items-center justify-between rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/30'}`}>
                           <div className="flex items-center gap-2 min-w-0">
                             <img src={editRefImage.url} alt="Ref" className="h-10 w-8 rounded object-cover" />
                             <span className="text-xs truncate">{editRefImage.name}</span>
@@ -4393,7 +4393,7 @@ export default function Design() {
                           type="button"
                           onClick={() => editRefInput.current?.click()}
                           className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${
-                            isLight ? 'border-[#78a48b] bg-[#82b095]/40 hover:bg-[#82b095]/60 text-slate-900 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                            isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
                           }`}
                         >
                           + Add Reference Image (Optional)
@@ -4413,7 +4413,7 @@ export default function Design() {
                         placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
                         className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${
                           isLight
-                            ? 'bg-[#82b095]/40 border-[#78a48b] text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                            ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                             : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
                         }`}
                       />
@@ -4445,7 +4445,7 @@ export default function Design() {
             </div>
 
             {/* Collections Drawer */}
-            <div className={`rounded-3xl border p-4 ${isLight ? 'border-[#78a48b] bg-[#8db89f] text-slate-900 shadow-md' : 'border-white/10 bg-white/[0.02]'}`}>
+            <div className={`rounded-3xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
               <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                 Saved Collections
               </h3>
@@ -4453,7 +4453,7 @@ export default function Design() {
                 {collections.length === 0 && <p className={`text-xs ${isLight ? 'text-slate-700' : 'text-white/30'}`}>No collections yet.</p>}
                 {collections.map((c) => (
                   <div key={c.id} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                    isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/5 bg-black/40'
+                    isLight ? 'border-gray-200 bg-white text-gray-900' : 'border-white/5 bg-black/40'
                   }`}>
                     <span className={`truncate text-xs ${isLight ? 'text-slate-900 font-medium' : 'text-white/80'}`}>{c.name} ({c.items.length})</span>
                     <button
@@ -4482,7 +4482,7 @@ export default function Design() {
                   placeholder="New collection name"
                   className={`min-w-0 flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none transition-colors ${
                     isLight
-                      ? 'border-[#78a48b] bg-[#82b095]/50 text-slate-900 placeholder:text-slate-600 focus:border-slate-800'
+                      ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                       : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
                   }`}
                 />
@@ -4496,7 +4496,7 @@ export default function Design() {
                   }}
                   className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     isLight
-                      ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]'
+                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                       : 'border-white/20 text-white/70 hover:text-white'
                   }`}
                 >

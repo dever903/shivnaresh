@@ -479,6 +479,8 @@ const isAdmin = async (req) => {
   if (!req.user || !req.user.email) return false;
   const email = String(req.user.email).trim().toLowerCase();
   if (email !== PRIMARY_ADMIN_EMAIL.toLowerCase()) return false;
+  const state = await readState();
+  if (!state.admin2faEnabled) return true;
   return Boolean(req.user.admin2fa || req.tokenPayload?.admin2fa);
 };
 
@@ -493,12 +495,15 @@ const requireAdmin = async (req, res, next) => {
 app.get('/api/admin/access', async (req, res) => {
   const email = String(req.user?.email || '').trim().toLowerCase();
   const isPrimary = email === PRIMARY_ADMIN_EMAIL.toLowerCase();
+  const state = await readState();
+  const is2faEnforced = Boolean(state.admin2faEnabled);
   const has2fa = Boolean(req.user?.admin2fa || req.tokenPayload?.admin2fa);
+  const isAuthorized = Boolean(isPrimary && (!is2faEnforced || has2fa));
   res.json({
     claimed: true,
-    admin: Boolean(isPrimary && has2fa),
+    admin: isAuthorized,
     isPrimaryAdmin: isPrimary,
-    requires2fa: Boolean(isPrimary && !has2fa),
+    requires2fa: Boolean(isPrimary && is2faEnforced && !has2fa),
     signedIn: Boolean(req.user),
     email: PRIMARY_ADMIN_EMAIL.replace(/^(.)[^@]*(@.*)$/, '$1•••$2'),
   });

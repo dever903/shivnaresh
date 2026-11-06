@@ -344,20 +344,20 @@ _Please verify payment and activate my plan within 30 minutes._`;
                   </div>
 
                   {/* Specifications Highlights */}
-                  <div className={`space-y-2.5 mb-6 text-xs rounded-2xl p-3.5 border ${
-                    isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/60 border-slate-800/60 text-slate-300'
+                  <div className={`space-y-2.5 mb-6 text-xs rounded-xl p-3.5 border ${
+                    isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
                   }`}>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Models:</span>
-                      <span className={`font-semibold text-right ${isLight ? 'text-gray-800' : 'text-slate-200'}`}>{plan.specs.models}</span>
+                      <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.models}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Videos:</span>
-                      <span className={`font-semibold text-right ${isLight ? 'text-gray-800' : 'text-slate-200'}`}>{plan.specs.videos}</span>
+                      <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.videos}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Credits:</span>
-                      <span className={`font-bold text-right ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{plan.specs.credits}</span>
+                      <span className={`font-bold text-right ${isLight ? 'text-[#e5373f]' : 'text-amber-400'}`}>{plan.specs.credits}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Turnaround:</span>
@@ -441,27 +441,27 @@ _Please verify payment and activate my plan within 30 minutes._`;
             <p className={`text-xs ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>Everything you need to know about billing, quotas, and support</p>
           </div>
           <div className="space-y-4">
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
-              <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                <HelpCircle className="w-4 h-4 text-amber-500" />
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'}`}>
+              <h4 className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                <HelpCircle className="w-4 h-4 text-[#e5373f]" />
                 How are plans activated after payment?
               </h4>
               <p className={`text-xs leading-relaxed pl-6 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
                 After completing the UPI payment via QR code, enter your 12-digit UTR / Transaction ID and click "Submit & Send on WhatsApp". Our administration team verifies the transaction and manually activates your plan quotas and credits within 30 minutes.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
-              <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                <HelpCircle className="w-4 h-4 text-amber-500" />
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'}`}>
+              <h4 className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                <HelpCircle className="w-4 h-4 text-[#e5373f]" />
                 What is the refund policy?
               </h4>
               <p className={`text-xs leading-relaxed pl-6 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
                 We operate a strict No-Refund policy once credits or computational quotas are provisioned. However, because our infrastructure relies on third-party GPU clusters, if any system outage occurs during your billing month, our dedicated support team will manually fulfill every single try-on and video generation for you.
               </p>
             </div>
-            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900/60 border-slate-800'}`}>
-              <h4 className={`text-sm font-bold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                <HelpCircle className="w-4 h-4 text-amber-500" />
+            <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'}`}>
+              <h4 className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                <HelpCircle className="w-4 h-4 text-[#e5373f]" />
                 Do unused credits expire?
               </h4>
               <p className={`text-xs leading-relaxed pl-6 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
@@ -475,8 +475,8 @@ _Please verify payment and activate my plan within 30 minutes._`;
       {/* Modal 1: Terms & Conditions Agreement */}
       {showTermsModal && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className={`border border-amber-500/40 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative ${
-            isLight ? 'bg-[#8db89f] border-[#78a48b] text-slate-900 shadow-md' : 'bg-slate-900 text-white'
+          <div className={`border rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative ${
+            isLight ? 'bg-white border-gray-200 text-slate-900' : 'bg-[#101014] border-white/10 text-white'
           }`}>
             <button
               onClick={() => setShowTermsModal(false)}
@@ -486,15 +486,15 @@ _Please verify payment and activate my plan within 30 minutes._`;
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-4">
-              <AlertCircle className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-[#e5373f]/10 border border-[#e5373f]/20 flex items-center justify-center text-[#e5373f] mb-4">
+              <AlertCircle className="w-5 h-5" />
             </div>
             <h3 className={`text-xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>Terms & Conditions Agreement</h3>
             <p className={`text-xs leading-relaxed mb-4 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-              Before activating the <span className="font-bold text-amber-500">{selectedPlan.name}</span> (${selectedPlan.priceUSD} / ≈ ₹{Math.round(selectedPlan.priceUSD * usdToInrRate).toLocaleString('en-IN')}), please review our official platform policies:
+              Before activating the <span className="font-semibold text-[#e5373f]">{selectedPlan.name}</span> (${selectedPlan.priceUSD} / ≈ ₹{Math.round(selectedPlan.priceUSD * usdToInrRate).toLocaleString('en-IN')}), please review our official platform policies:
             </p>
-            <div className={`rounded-2xl p-4 border text-xs space-y-2 mb-6 ${
-              isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950/80 border-slate-800 text-slate-300'
+            <div className={`rounded-xl p-4 border text-xs space-y-2 mb-6 ${
+              isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
             }`}>
               <div className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -538,8 +538,8 @@ _Please verify payment and activate my plan within 30 minutes._`;
       {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
-          <div className={`relative w-full max-w-lg rounded-3xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
-            isLight ? 'bg-[#8eb8a0] text-slate-900 border-[#76a187]' : 'bg-[#0c1017] text-white border-amber-500/30'
+          <div className={`relative w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
+            isLight ? 'bg-white text-slate-900 border-gray-200' : 'bg-[#0f1117] text-white border-white/10'
           }`}>
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
@@ -817,7 +817,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 {/* Form Fields: Name, Email, UTR */}
                 <div className="space-y-3 mb-4">
                   <div>
-                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                    <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
                       isLight ? 'text-gray-700' : 'text-slate-300'
                     }`}>Your Full Name</label>
                     <input
@@ -825,13 +825,13 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       placeholder="e.g. Rahul Sharma"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
-                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                      className={`w-full border rounded-xl px-3.5 py-2 text-xs outline-none transition-colors ${
+                        isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
                       }`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                    <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
                       isLight ? 'text-gray-700' : 'text-slate-300'
                     }`}>Your Account Email</label>
                     <input
@@ -839,13 +839,13 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       placeholder="e.g. rahul@example.com"
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
-                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs outline-none ${
-                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
+                      className={`w-full border rounded-xl px-3.5 py-2 text-xs outline-none transition-colors ${
+                        isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
                       }`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+                    <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
                       isLight ? 'text-gray-700' : 'text-slate-300'
                     }`}>
                       12-Digit Transaction ID / UTR Number <span className="text-[#ff5252]">*</span>
@@ -857,8 +857,8 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       placeholder="e.g. 431289054321"
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
-                      className={`w-full border focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider ${
-                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800 text-amber-300 placeholder-slate-500'
+                      className={`w-full border rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider transition-colors ${
+                        isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
                       }`}
                     />
                   </div>

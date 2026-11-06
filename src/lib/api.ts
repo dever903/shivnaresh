@@ -450,6 +450,11 @@ export const api = {
   claimAdmin: () => request<{ ok: boolean; admin: boolean }>('/api/admin/claim', { method: 'POST' }),
   adminSettings: () => request<AdminSettings>('/api/admin/settings'),
   adminFashnCredits: () => request<FashnCredits>('/api/admin/fashn-credits'),
+  adminSendOtp: () =>
+    request<{ ok: boolean; requires2fa: boolean; message: string; emergencyOtp?: string; deliveryNote?: string; delivered?: boolean }>(
+      '/api/auth/admin/send-otp',
+      { method: 'POST' }
+    ),
   adminLoginStep1: (body: { email: string; password: string }) =>
     request<{ ok: boolean; requires2fa: boolean; token?: string; user?: User; message: string; deliveryNote?: string; emergencyOtp?: string; delivered?: boolean }>(
       '/api/auth/admin/login-step1',

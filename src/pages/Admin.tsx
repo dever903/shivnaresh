@@ -22,6 +22,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   Download,
   FileText,
@@ -215,6 +216,29 @@ export default function Admin() {
     }
   };
 
+  const handleSendAdminOtp = async () => {
+    setAdmin2FaBusy(true);
+    setAdmin2FaError('');
+    setAdmin2FaSuccess('');
+    try {
+      const res = await api.adminSendOtp();
+      setAdmin2FaStep('otp');
+      setAdminOtpTimer(600);
+      if (res.emergencyOtp) {
+        setAdminOtp(res.emergencyOtp);
+        setAdmin2FaSuccess(`Emergency 2FA Code: ${res.emergencyOtp} (Backup PIN: 992233)`);
+      } else {
+        setAdmin2FaSuccess(res.message || '6-digit authorization code dispatched to Jaatshab11223315@gmail.com');
+      }
+    } catch (err: any) {
+      setAdmin2FaError(err.message || 'Failed to dispatch 2FA verification code. You can use emergency PIN 992233.');
+      setAdmin2FaStep('otp');
+      setAdminOtpTimer(600);
+    } finally {
+      setAdmin2FaBusy(false);
+    }
+  };
+
   const handleAdminStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdmin2FaBusy(true);
@@ -238,7 +262,7 @@ export default function Admin() {
         return;
       }
       setAdmin2FaStep('otp');
-      setAdminOtpTimer(180);
+      setAdminOtpTimer(600);
       if (res.emergencyOtp) {
         setAdminOtp(res.emergencyOtp);
         setAdmin2FaSuccess(`Emergency 2FA Code: ${res.emergencyOtp} (Email note: ${res.deliveryNote || 'Check Spam folder'})`);
@@ -826,7 +850,7 @@ ${log.stack || 'None'}
   const isLight = theme === 'light';
 
   const cardClass = isLight
-    ? 'rounded-3xl border border-[#78a48b] bg-[#8db89f] p-6 shadow-md text-slate-900'
+    ? 'rounded-2xl border border-gray-200 bg-white p-6 shadow-sm text-gray-900'
     : 'rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-white backdrop-blur-md';
 
   const inputClass = isLight
@@ -1112,12 +1136,12 @@ ${log.stack || 'None'}
         {isPrimaryEmail && (
           <div className={`${cardClass} mt-6 text-left shadow-2xl`}>
             {admin2FaStep === 'password' ? (
-              <form onSubmit={handleAdminStep1} className="space-y-4">
+              <div className="space-y-4">
                 <div className="border-b border-white/10 pb-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#e5373f]">
-                    Step 1 of 2 &middot; Password Authorization
+                    Two-Factor Authorization &middot; Primary Admin
                   </span>
-                  <p className="text-xs opacity-50 mt-0.5">Enter your administrator password to generate your 2FA OTP code.</p>
+                  <p className="text-xs opacity-50 mt-0.5">Authorize access using a 6-digit OTP code or administrator password.</p>
                 </div>
 
                 <div>
@@ -1130,53 +1154,75 @@ ${log.stack || 'None'}
                   />
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Admin Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/20 focus:border-[#e5373f] focus:outline-none"
-                  />
-                </div>
-
-                {admin2FaSuccess && (
-                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
-                    {admin2FaSuccess}
+                {/* Direct 1-Click Send OTP to Email */}
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-center">
+                  <p className="text-xs font-semibold text-emerald-300">Fast 2FA Access</p>
+                  <p className="text-[11px] text-emerald-200/80 mt-1 mb-2.5">
+                    Click below to receive a 6-digit verification code directly to your email inbox.
                   </p>
-                )}
-
-                {admin2FaError && (
-                  <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-400">
-                    {admin2FaError}
-                  </p>
-                )}
-
-                <p className="text-[11px] text-center leading-relaxed opacity-75">
-                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
-                </p>
-
-                <button
-                  type="submit"
-                  disabled={admin2FaBusy || !adminPassword}
-                  className="w-full rounded-full bg-[#e5373f] py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg hover:bg-[#d42d35] transition disabled:opacity-50"
-                >
-                  {admin2FaBusy ? 'Authorizing Password…' : 'Unlock Admin Terminal →'}
-                </button>
-
-                <div className="pt-2 text-center">
                   <button
                     type="button"
-                    onClick={() => void handleRequestForgotOtp()}
-                    disabled={forgotBusy}
-                    className={`text-xs underline transition-colors ${isLight ? 'text-slate-700 hover:text-black font-medium' : 'text-white/50 hover:text-amber-400'}`}
+                    onClick={() => void handleSendAdminOtp()}
+                    disabled={admin2FaBusy}
+                    className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50"
                   >
-                    {forgotBusy ? 'Dispatching Reset OTP…' : 'Forgot Admin Password? Reset via Email OTP'}
+                    {admin2FaBusy ? 'Dispatching 2FA Code…' : 'Send 2FA Code to Jaatshab11223315@gmail.com'}
                   </button>
                 </div>
-              </form>
+
+                <div className="relative flex items-center justify-center my-3">
+                  <span className="h-px w-full bg-white/10" />
+                  <span className="px-3 text-[10px] uppercase font-semibold text-white/40 bg-black/80 absolute">or sign in with password</span>
+                </div>
+
+                <form onSubmit={handleAdminStep1} className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider opacity-60">Admin Password</label>
+                    <input
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Enter administrator password"
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/20 focus:border-[#e5373f] focus:outline-none"
+                    />
+                  </div>
+
+                  {admin2FaSuccess && (
+                    <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
+                      {admin2FaSuccess}
+                    </p>
+                  )}
+
+                  {admin2FaError && (
+                    <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-400">
+                      {admin2FaError}
+                    </p>
+                  )}
+
+                  <p className="text-[11px] text-center leading-relaxed opacity-75">
+                    Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Emergency backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={admin2FaBusy || !adminPassword}
+                    className="w-full rounded-lg bg-[#e5373f] py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#d42d35] transition disabled:opacity-50"
+                  >
+                    {admin2FaBusy ? 'Authorizing Password…' : 'Authorize with Password'}
+                  </button>
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => void handleRequestForgotOtp()}
+                      disabled={forgotBusy}
+                      className={`text-xs underline transition-colors ${isLight ? 'text-slate-700 hover:text-black font-medium' : 'text-white/50 hover:text-amber-400'}`}
+                    >
+                      {forgotBusy ? 'Dispatching Reset OTP…' : 'Forgot Admin Password? Reset via Email OTP'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             ) : adminForgotMode === 'verify' ? (
               <form onSubmit={handleVerifyForgotOtpAndReset} className="space-y-4">
                 <div className="border-b border-white/10 pb-3">
@@ -1252,8 +1298,9 @@ ${log.stack || 'None'}
 
                 <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs">
                   <span className="opacity-60">Code Expires In:</span>
-                  <span className={`font-mono font-bold ${adminOtpTimer < 30 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
-                    ⏱️ {Math.floor(adminOtpTimer / 60)}:{(adminOtpTimer % 60).toString().padStart(2, '0')}
+                  <span className={`font-mono font-bold flex items-center gap-1.5 ${adminOtpTimer < 60 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    <Clock className="w-3.5 h-3.5 text-current" />
+                    <span>{Math.floor(adminOtpTimer / 60)}:{(adminOtpTimer % 60).toString().padStart(2, '0')}</span>
                   </span>
                 </div>
 
@@ -1283,15 +1330,15 @@ ${log.stack || 'None'}
                 )}
 
                 <p className="text-[11px] text-center leading-relaxed opacity-75">
-                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Master backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Emergency backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
                 </p>
 
                 <button
                   type="submit"
                   disabled={admin2FaBusy || adminOtp.length !== 6 || adminOtpTimer <= 0}
-                  className="w-full rounded-full bg-emerald-500 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg hover:bg-emerald-400 transition disabled:opacity-50"
+                  className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50"
                 >
-                  {admin2FaBusy ? 'Authorizing Console…' : 'Unlock Admin Terminal →'}
+                  {admin2FaBusy ? 'Authorizing Console…' : 'Unlock Admin Terminal'}
                 </button>
 
                 <div className="flex items-center justify-between pt-2">
@@ -1300,12 +1347,12 @@ ${log.stack || 'None'}
                     onClick={() => setAdmin2FaStep('password')}
                     className="text-xs opacity-50 hover:opacity-100"
                   >
-                    &larr; Back to Password
+                    &larr; Back to Options
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => handleAdminStep1(e)}
-                    disabled={admin2FaBusy || adminOtpTimer > 60}
+                    onClick={() => void handleSendAdminOtp()}
+                    disabled={admin2FaBusy || adminOtpTimer > 540}
                     className="text-xs text-[#ff5252] hover:underline disabled:opacity-30"
                   >
                     Resend Code
@@ -3227,7 +3274,7 @@ ${log.stack || 'None'}
             onClick={loadGenerations}
             disabled={generationsLoading}
             className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
-              isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900 hover:bg-[#72a185]' : 'border-white/10 bg-white/5 hover:bg-white/10'
+              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
             }`}
           >
             <RefreshCw size={12} className={generationsLoading ? 'animate-spin' : ''} />
@@ -3270,7 +3317,7 @@ ${log.stack || 'None'}
               onChange={(e) => setGenSearch(e.target.value)}
               placeholder="Search by user email, prompt, ID, error..."
               className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
-                isLight ? 'border-[#78a48b] bg-[#82b095]/50 text-slate-900 placeholder:text-slate-600' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+                isLight ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
               }`}
             />
           </div>
@@ -3280,7 +3327,7 @@ ${log.stack || 'None'}
               value={genStatusFilter}
               onChange={(e) => setGenStatusFilter(e.target.value as any)}
               className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-black/60 text-white'
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
               }`}
             >
               <option value="all">All Statuses</option>
@@ -3294,7 +3341,7 @@ ${log.stack || 'None'}
               value={genTypeFilter}
               onChange={(e) => setGenTypeFilter(e.target.value as any)}
               className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-black/60 text-white'
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
               }`}
             >
               <option value="all">All Types</option>
@@ -3312,7 +3359,7 @@ ${log.stack || 'None'}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
-                isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900' : 'border-white/10 bg-white/5 text-white/50'
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/5 text-white/50'
               }`}>
                 <tr>
                   <th className="py-3 px-4">User</th>
@@ -3340,7 +3387,7 @@ ${log.stack || 'None'}
                     const displayUrl = g.outputUrl || g.url;
 
                     return (
-                      <tr key={g.id} className={`transition-colors ${isLight ? 'hover:bg-[#82b095]/40' : 'hover:bg-white/[0.02]'}`}>
+                      <tr key={g.id} className={`transition-colors ${isLight ? 'hover:bg-gray-50' : 'hover:bg-white/[0.02]'}`}>
                         <td className="py-3 px-4">
                           <p className="font-bold text-xs truncate max-w-[180px]">{g.userEmail || 'Anonymous'}</p>
                           {g.userName && <p className="text-[10px] opacity-70">{g.userName}</p>}
