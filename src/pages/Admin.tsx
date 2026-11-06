@@ -226,12 +226,12 @@ export default function Admin() {
       setAdminOtpTimer(600);
       if (res.emergencyOtp) {
         setAdminOtp(res.emergencyOtp);
-        setAdmin2FaSuccess(`Emergency 2FA Code: ${res.emergencyOtp} (Backup PIN: 992233)`);
+        setAdmin2FaSuccess(`2FA Code: ${res.emergencyOtp}`);
       } else {
         setAdmin2FaSuccess(res.message || '6-digit authorization code dispatched to Jaatshab11223315@gmail.com');
       }
     } catch (err: any) {
-      setAdmin2FaError(err.message || 'Failed to dispatch 2FA verification code. You can use emergency PIN 992233.');
+      setAdmin2FaError(err.message || 'Failed to dispatch 2FA verification code. Please try again.');
       setAdmin2FaStep('otp');
       setAdminOtpTimer(600);
     } finally {
@@ -1200,7 +1200,7 @@ ${log.stack || 'None'}
                   )}
 
                   <p className="text-[11px] text-center leading-relaxed opacity-75">
-                    Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Emergency backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                    Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder.
                   </p>
 
                   <button
@@ -1330,7 +1330,7 @@ ${log.stack || 'None'}
                 )}
 
                 <p className="text-[11px] text-center leading-relaxed opacity-75">
-                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder. (Emergency backup PIN: <b className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>992233</b>).
+                  Not in primary inbox? Check <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Spam</b> or <b className={isLight ? "text-slate-900 font-extrabold" : "text-white"}>Promotions</b> folder.
                 </p>
 
                 <button
@@ -2468,14 +2468,10 @@ ${log.stack || 'None'}
             autoComplete="off"
             className={inputClass}
           />
-          <div className={`mt-3 p-3 rounded-xl border space-y-2 ${isLight ? 'border-[#78a48b] bg-[#82b095]/40 text-slate-900' : 'border-white/10 bg-white/[0.03]'}`}>
+          <div className={`mt-3 p-3 rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/[0.03]'}`}>
             <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Master Sender Email:</span>
-              <span className={`text-[11px] font-mono font-bold ${isLight ? 'text-emerald-950 font-black' : 'text-emerald-400'}`}>jaatshab11223315@gmail.com</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Master Backup Recovery Code:</span>
-              <span className={`text-[11px] font-mono font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>992233</span>
+              <span className={`text-[11px] font-semibold ${isLight ? 'text-gray-700' : 'text-white/70'}`}>Master Admin Email:</span>
+              <span className={`text-[11px] font-mono font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>jaatshab11223315@gmail.com</span>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">

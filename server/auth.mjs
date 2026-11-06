@@ -765,12 +765,11 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     // Increment attempts atomically
     record.attempts += 1;
 
-    // Verify hash timing-safe or Master Admin Emergency Recovery Code (992233)
+    // Verify hash timing-safe (strict match against generated OTP)
     const candidate = hashOtp(otp, record.salt);
     const isMatch =
-      (candidate.length === record.hash.length &&
-        crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(record.hash, 'hex'))) ||
-      otp === '992233';
+      candidate.length === record.hash.length &&
+      crypto.timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(record.hash, 'hex'));
 
     if (!isMatch) {
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -979,25 +978,9 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       return res.status(403).json({ error: 'forbidden', message: 'Access denied.' });
     }
 
-    // Master Admin Emergency Recovery Code PIN 992233 ALWAYS works for primary admin
-    if (otp === '992233') {
-      const user = await findUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ error: 'not_found', message: 'Admin account not found.' });
-      }
-      admin2FaStore.delete(email);
-      const token = await signToken(user, { admin2fa: true });
-      return res.json({
-        ok: true,
-        token,
-        user: { ...publicUser(user), admin2fa: true },
-        message: 'Master recovery PIN verified. Access granted.',
-      });
-    }
-
     const record = admin2FaStore.get(email);
     if (!record) {
-      return res.status(400).json({ error: 'no_otp', message: 'No active 2FA session found. Please click "Send New Code" or enter backup PIN 992233.' });
+      return res.status(400).json({ error: 'no_otp', message: 'No active 2FA session found. Please click "Send 2FA Code".' });
     }
 
     if (record.blockedUntil && Date.now() < record.blockedUntil) {
@@ -1006,7 +989,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
     if (Date.now() > record.expiresAt) {
       admin2FaStore.delete(email);
-      return res.status(400).json({ error: 'expired_otp', message: '2FA code has expired. Please click "Send New Code" or use backup PIN 992233.' });
+      return res.status(400).json({ error: 'expired_otp', message: '2FA code has expired. Please click "Resend Code" to receive a new code.' });
     }
 
     record.attempts += 1;
@@ -1022,7 +1005,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       }
       return res.status(400).json({
         error: 'invalid_otp',
-        message: `Incorrect 2FA code. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining. (Backup PIN: 992233)`,
+        message: `Incorrect 2FA code. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining.`,
       });
     }
 
