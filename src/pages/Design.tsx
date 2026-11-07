@@ -2728,13 +2728,24 @@ export default function Design() {
   const [videoBusy, setVideoBusy] = useState(false);
   const isGlobalBusy = busy || videoBusy;
 
-  /* 5-Pose Multi-Angle Engine State */
+  /* Batch Engine State (5-Pose Multi-Angle or Multi-Model / Multi-Garment) */
   const [fivePoseItems, setFivePoseItems] = useState<PoseItem[]>([]);
   const [selectedPoseIndex, setSelectedPoseIndex] = useState<number>(0);
   const activePoseIndexRef = useRef<number>(-1);
-  const fivePosesBatchPayloadRef = useRef<{
+  const batchPayloadRef = useRef<{
+    isFivePose: boolean;
+    total: number;
     payload: Record<string, unknown>;
     basePrompt: string;
+    items: Array<{
+      id: string;
+      name: string;
+      angle: string;
+      icon: string;
+      model?: Pick;
+      cloth?: Pick;
+      promptSuffix?: string;
+    }>;
   } | null>(null);
 
   /* 5-Pose Selection Slots State (User can choose up to 5 models from library/uploads) */
@@ -2788,7 +2799,14 @@ export default function Design() {
   const activeMode = MODES.find((m) => m.id === mode)!;
   const creditCost = quality === '2k' ? 3 : 1;
   const isFivePoseBatch = poseMode === '5-pose' && mode === 'tryon';
-  const totalRequiredCredits = isFivePoseBatch ? (5 * creditCost) : creditCost;
+  const effectiveModels = selectedModels.length > 0 ? selectedModels : (model ? [model] : []);
+  const effectiveClothes = selectedClothes.length > 0 ? selectedClothes : (cloth ? [cloth] : []);
+  const multiBatchCount = mode === 'tryon' && !isFivePoseBatch && (effectiveModels.length > 1 || effectiveClothes.length > 1)
+    ? Math.max(effectiveModels.length, effectiveClothes.length)
+    : 1;
+  const totalRequiredCredits = isFivePoseBatch
+    ? (5 * creditCost)
+    : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -2923,11 +2941,13 @@ export default function Design() {
         if (next.status === 'completed' && next.output?.[0]) {
           const imgUrl = next.output[0];
 
-          if (activePoseIndexRef.current >= 0 && activePoseIndexRef.current < 5) {
+          if (activePoseIndexRef.current >= 0 && batchPayloadRef.current) {
             const currentIdx = activePoseIndexRef.current;
             const nextIdx = currentIdx + 1;
+            const batchCtx = batchPayloadRef.current;
+            const currentItem = batchCtx.items[currentIdx];
 
-            // Mark current pose completed
+            // Mark current item completed
             setFivePoseItems((prev) =>
               prev.map((p, idx) => (idx === currentIdx ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
             );
@@ -2936,52 +2956,61 @@ export default function Design() {
             void api.saveUserGeneration({
               type: 'image',
               url: imgUrl,
-              prompt: prompt.trim() || `Pose ${currentIdx + 1}: ${FIVE_POSES_SPECS[currentIdx].name}`,
+              prompt: prompt.trim() || `${currentItem?.name || 'Studio Render'} (${currentIdx + 1}/${batchCtx.total})`,
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
             }).catch(() => {});
 
-            if (nextIdx < 5 && fivePosesBatchPayloadRef.current) {
-              // Advance to next pose in sequence
+            if (nextIdx < batchCtx.total) {
+              // Advance to next item in sequence
               activePoseIndexRef.current = nextIdx;
+              const nextItem = batchCtx.items[nextIdx];
               setFivePoseItems((prev) =>
                 prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'generating' } : p))
               );
-              setProgress(Math.round(((currentIdx + 1) / 5) * 100));
-              setProgressLabel(`Completed Pose ${currentIdx + 1}/5! Starting Pose ${nextIdx + 1}/5 (${FIVE_POSES_SPECS[nextIdx].name})…`);
+              setProgress(Math.round(((currentIdx + 1) / batchCtx.total) * 100));
+              setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Starting ${nextItem.name} (${nextIdx + 1}/${batchCtx.total})…`);
 
               try {
-                const nextPrompt = `${fivePosesBatchPayloadRef.current.basePrompt} · ${FIVE_POSES_SPECS[nextIdx].promptSuffix}`.trim();
-                const poseModel = selectedPoses[nextIdx] || selectedPoses[0] || model;
-                const nextRes = await api.generate({
-                  ...fivePosesBatchPayloadRef.current.payload,
-                  ...(poseModel?.url ? { model: poseModel.url } : {}),
-                  prompt: nextPrompt,
-                });
+                const nextPayload: Record<string, unknown> = {
+                  ...batchCtx.payload,
+                  ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
+                  ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
+                };
+                if (batchCtx.isFivePose && nextItem.promptSuffix) {
+                  nextPayload.prompt = `${batchCtx.basePrompt} · ${nextItem.promptSuffix}`.trim();
+                }
+                const nextRes = await api.generate(nextPayload);
                 if (typeof nextRes.credits === 'number') {
                   setUser((prev) => (prev ? { ...prev, credits: nextRes.credits! } : null));
                 }
                 setJob({ id: nextRes.id, status: 'starting' });
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Error starting next pose in sequence');
+                setError(err instanceof Error ? err.message : 'Error starting next render in sequence');
                 setFivePoseItems((prev) =>
                   prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'failed' } : p))
                 );
                 setBusy(false);
                 generatingRef.current = false;
                 activePoseIndexRef.current = -1;
-                fivePosesBatchPayloadRef.current = null;
+                batchPayloadRef.current = null;
               }
             } else {
-              // All 5 poses finished
+              // All items finished
+              const totalDone = batchCtx.total;
+              const is5 = batchCtx.isFivePose;
               activePoseIndexRef.current = -1;
-              fivePosesBatchPayloadRef.current = null;
+              batchPayloadRef.current = null;
               setProgress(100);
-              setProgressLabel('All 5 Poses Completed Successfully!');
+              setProgressLabel(`All ${totalDone} ${is5 ? 'Poses' : 'Models'} Completed Successfully!`);
               setBusy(false);
               generatingRef.current = false;
-              sendDesktopNotification('5-Pose Suite Ready', 'All 5 fashion angle renders are ready in your studio.', imgUrl);
+              sendDesktopNotification(
+                `${is5 ? '5-Pose Suite' : `${totalDone} Models`} Ready`,
+                `All ${totalDone} fashion renders are ready in your studio.`,
+                imgUrl
+              );
             }
           } else {
             // Standard single generation
@@ -3010,7 +3039,7 @@ export default function Design() {
               prev.map((p, idx) => (idx === currentIdx ? { ...p, status: 'failed' } : p))
             );
             activePoseIndexRef.current = -1;
-            fivePosesBatchPayloadRef.current = null;
+            batchPayloadRef.current = null;
           }
           const msg = next.error?.message || 'Generation failed — please try again.';
           setError(msg);
@@ -3025,7 +3054,7 @@ export default function Design() {
         setBusy(false);
         generatingRef.current = false;
         activePoseIndexRef.current = -1;
-        fivePosesBatchPayloadRef.current = null;
+        batchPayloadRef.current = null;
         setIsEditingRender(false);
       }
     }, 1500);
@@ -3116,8 +3145,8 @@ export default function Design() {
     if (generatingRef.current || isGlobalBusy) return;
     setShowConfirmModal(false);
 
-    if (isFivePoseBatch && (user?.credits ?? 0) < totalRequiredCredits) {
-      setError(`Insufficient credits. You need ${totalRequiredCredits} credits for the 5-pose sequence, but currently have ${user?.credits ?? 0} credits.`);
+    if ((user?.credits ?? 0) < totalRequiredCredits) {
+      setError(`Insufficient credits. You need ${totalRequiredCredits} credits for ${isFivePoseBatch ? 'the 5-pose sequence' : `${multiBatchCount} model renders`}, but currently have ${user?.credits ?? 0} credits.`);
       return;
     }
 
@@ -3159,31 +3188,78 @@ export default function Design() {
         payload.source = cloth?.url;
       }
 
-      /* 5-pose sequence or standard execution */
-      if (isFivePoseBatch && !isEditingRender) {
-        const initialPoses: PoseItem[] = FIVE_POSES_SPECS.map((spec, i) => ({
-          ...spec,
+      /* Batch Execution (5-pose sequence or multi-model batch) */
+      if ((isFivePoseBatch || multiBatchCount > 1) && !isEditingRender) {
+        let batchItems: Array<{
+          id: string;
+          name: string;
+          angle: string;
+          icon: string;
+          model?: Pick;
+          cloth?: Pick;
+          promptSuffix?: string;
+        }> = [];
+
+        if (isFivePoseBatch) {
+          batchItems = FIVE_POSES_SPECS.map((spec, i) => ({
+            id: spec.id,
+            name: spec.name,
+            angle: spec.angle,
+            icon: spec.icon,
+            promptSuffix: spec.promptSuffix,
+            model: selectedPoses[i] || selectedPoses[0] || model,
+            cloth: cloth,
+          }));
+        } else {
+          // Multi-model batch: generate images equal to the number of uploaded/selected models
+          batchItems = Array.from({ length: multiBatchCount }, (_, i) => {
+            const m = effectiveModels[i % effectiveModels.length] || model;
+            const c = effectiveClothes[i % effectiveClothes.length] || effectiveClothes[0] || cloth;
+            return {
+              id: `model-${i + 1}`,
+              name: m?.name || `Model ${i + 1}`,
+              angle: `Model ${i + 1} of ${multiBatchCount}`,
+              icon: `#${i + 1}`,
+              model: m,
+              cloth: c,
+            };
+          });
+        }
+
+        const initialPoses: PoseItem[] = batchItems.map((spec, i) => ({
+          id: spec.id,
+          name: spec.name,
+          angle: spec.angle,
+          icon: spec.icon,
+          promptSuffix: spec.promptSuffix || '',
           status: i === 0 ? 'generating' : 'pending',
         }));
+
         setFivePoseItems(initialPoses);
         setSelectedPoseIndex(0);
         activePoseIndexRef.current = 0;
-        fivePosesBatchPayloadRef.current = {
+        batchPayloadRef.current = {
+          isFivePose: isFivePoseBatch,
+          total: batchItems.length,
           payload,
           basePrompt: prompt.trim(),
+          items: batchItems,
         };
 
+        const firstItem = batchItems[0];
         setProgress(5);
-        setProgressLabel(`Starting Pose 1 of 5 (${FIVE_POSES_SPECS[0].name})…`);
+        setProgressLabel(`Starting ${isFivePoseBatch ? `Pose 1 of 5 (${FIVE_POSES_SPECS[0].name})` : `Model 1 of ${multiBatchCount} (${firstItem.name})`}…`);
 
-        const pose1Prompt = `${prompt.trim()} · ${FIVE_POSES_SPECS[0].promptSuffix}`.trim();
-        const pose1Model = selectedPoses[0] || model;
-        const res1 = await api.generate({
+        const firstPayload: Record<string, unknown> = {
           ...payload,
-          ...(pose1Model?.url ? { model: pose1Model.url } : {}),
-          prompt: pose1Prompt,
-        });
+          ...(firstItem.model?.url ? { model: firstItem.model.url } : {}),
+          ...(firstItem.cloth?.url ? { cloth: firstItem.cloth.url, source: firstItem.cloth.url } : {}),
+        };
+        if (isFivePoseBatch && firstItem.promptSuffix) {
+          firstPayload.prompt = `${prompt.trim()} · ${firstItem.promptSuffix}`.trim();
+        }
 
+        const res1 = await api.generate(firstPayload);
         if (res1.credits !== undefined && user) {
           setUser({ ...user, credits: res1.credits });
         }
@@ -3191,7 +3267,7 @@ export default function Design() {
       } else {
         setFivePoseItems([]);
         activePoseIndexRef.current = -1;
-        fivePosesBatchPayloadRef.current = null;
+        batchPayloadRef.current = null;
         setProgress(5);
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
@@ -3212,7 +3288,7 @@ export default function Design() {
       setProgressLabel('');
       generatingRef.current = false;
       activePoseIndexRef.current = -1;
-      fivePosesBatchPayloadRef.current = null;
+      batchPayloadRef.current = null;
       setIsEditingRender(false);
     }
   }
@@ -3321,9 +3397,11 @@ export default function Design() {
                   ? 'Are you sure you want to apply this AI edit to your generated image?'
                   : isFivePoseBatch
                     ? 'Are you sure you want to proceed with this 5-pose multi-angle sequence?'
-                    : mode === 'swap'
-                      ? 'Are you sure you want to proceed with this Model Swap?'
-                      : 'Are you sure you want to proceed with this render?'}
+                    : multiBatchCount > 1
+                      ? `Are you sure you want to generate ${multiBatchCount} images for all selected models?`
+                      : mode === 'swap'
+                        ? 'Are you sure you want to proceed with this Model Swap?'
+                        : 'Are you sure you want to proceed with this render?'}
               </p>
 
               <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
@@ -3351,6 +3429,17 @@ export default function Design() {
                     <div className="flex justify-between text-white/60">
                       <span>Total Poses:</span>
                       <span className="font-semibold text-amber-400">5 Distinct Studio Angles</span>
+                    </div>
+                  </>
+                ) : multiBatchCount > 1 ? (
+                  <>
+                    <div className="flex justify-between text-white/60">
+                      <span>Batch:</span>
+                      <span className="font-semibold text-white">Multi-Model Studio Generation</span>
+                    </div>
+                    <div className="flex justify-between text-white/60">
+                      <span>Total Models:</span>
+                      <span className="font-semibold text-amber-400">{multiBatchCount} Models ({totalRequiredCredits} Credits Total)</span>
                     </div>
                   </>
                 ) : (
@@ -4560,7 +4649,7 @@ export default function Design() {
                   ? 'Credits locked by administrator'
                   : isGlobalBusy
                   ? 'Generation in Progress (Please wait)…'
-                  : `Generate ${mode === 'swap' ? 'Swap' : ''} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`}
+                  : `Generate ${mode === 'swap' ? 'Swap' : ''} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 && !isFivePoseBatch ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
@@ -4607,16 +4696,18 @@ export default function Design() {
                 </div>
               )}
 
-              {/* 5-Pose Multi-Angle Strip */}
+              {/* Batch Renders Strip (5-Pose or Multi-Model) */}
               {fivePoseItems.length > 0 && (
                 <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      5 Studio Angles ({fivePoseItems.filter(p => p.status === 'completed').length}/5 Completed)
+                      {poseMode === '5-pose'
+                        ? `5 Studio Angles (${fivePoseItems.filter(p => p.status === 'completed').length}/5 Completed)`
+                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter(p => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
                     </span>
-                    <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Angle</span>
+                    <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
                   </div>
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
                     {fivePoseItems.map((pose, idx) => {
                       const isSelected = selectedPoseIndex === idx;
                       return (
@@ -4678,7 +4769,7 @@ export default function Design() {
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                     }`}
                   >
-                    Download Current Angle
+                    Download {poseMode === '5-pose' ? 'Current Angle' : 'Current Render'}
                   </a>
                   {fivePoseItems.filter(p => p.status === 'completed').length > 1 && (
                     <button
@@ -4688,7 +4779,7 @@ export default function Design() {
                           if (p.url) {
                             const a = document.createElement('a');
                             a.href = p.url;
-                            a.download = `shivnaresh-${p.id}.png`;
+                            a.download = `shivnaresh-${p.id || `render-${i + 1}`}.png`;
                             a.target = '_blank';
                             setTimeout(() => a.click(), i * 350);
                           }
@@ -4696,7 +4787,7 @@ export default function Design() {
                       }}
                       className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-500/30"
                     >
-                      ⬇️ Download All 5 Angles
+                      ⬇️ Download All {fivePoseItems.length} {poseMode === '5-pose' ? 'Angles' : 'Renders'}
                     </button>
                   )}
                   <a

@@ -1418,13 +1418,13 @@ function buildRequest(mode, state, src, is2k = false) {
     default: {
       // For 1K image: use tryon-v1.6 (strictly 1 credit on Fashn API)
       // For 2K Ultra HD: use tryon-max (Ultra HD resolution)
+      // Fashn try-on models only accept garment_image/product_image and model_image. "prompt" is strictly not allowed.
       if (!is2k) {
         return {
           model_name: 'tryon-v1.6',
           fields: {
             garment_image: cloth,
             model_image: model,
-            ...(text ? { prompt: text } : {}),
           },
         };
       }
@@ -1433,7 +1433,6 @@ function buildRequest(mode, state, src, is2k = false) {
         fields: {
           product_image: cloth,
           model_image: model,
-          ...(text ? { prompt: text } : {}),
         },
       };
     }
@@ -1628,6 +1627,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     delete inputs.resolution;
     delete inputs.target_image;
     delete inputs.face_image;
+    if (model_name.startsWith('tryon') || mode === 'tryon') {
+      delete inputs.prompt;
+    }
 
     /* prevent duplicate requests — a request ID based on the images */
     const requestKey = `${mode}-${JSON.stringify(Object.keys(inputs).sort())}`;
