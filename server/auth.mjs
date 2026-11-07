@@ -1169,6 +1169,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     patchUser,
     deleteUser,
     findUserById,
+    findUserByEmail,
     readLocalUsers: readLocal,
     getAllUsers,
     storage: async () => Boolean(await getDb()),

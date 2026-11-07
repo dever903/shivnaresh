@@ -217,6 +217,61 @@ export type HostStatus = {
   generated: { total: number; hosted: number };
 };
 
+export type GatewayConfig = {
+  ok: boolean;
+  upiId: string;
+  payeeName: string;
+  bankDetails: {
+    accountHolder: string;
+    accountNumber: string;
+    ifsc: string;
+    bankName: string;
+    accountType?: string;
+  };
+  accounts: {
+    id: string;
+    provider: string;
+    label: string;
+    upi_id?: string;
+    payee_name?: string;
+    is_default: boolean;
+    is_hosted: boolean;
+  }[];
+  externalGatewayConfigured: boolean;
+};
+
+export type GatewayOrder = {
+  id: string;
+  order_no: string;
+  client_order_id: string;
+  plan_id: string;
+  plan_name: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'review' | 'paid' | 'expired' | 'failed';
+  payment_method: 'upi' | 'bank';
+  payment_account_id?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_mobile?: string;
+  user_id?: string | null;
+  note?: string;
+  redirect_url?: string;
+  upi_intent?: string;
+  qr_data_url?: string;
+  payment_url?: string;
+  utr?: string | null;
+  customer_utr?: string | null;
+  utr_attempts?: number;
+  provider_txn_id?: string | null;
+  provider_response?: any;
+  verified_by?: string | null;
+  rejection_reason?: string | null;
+  paid_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+};
+
 const TOKEN_KEY = 'sn_token';
 
 export const getToken = (): string => {
@@ -468,6 +523,61 @@ export const api = {
   startHostSync: () => request<{ started: boolean; running: boolean }>('/api/admin/host', { method: 'POST' }),
   saveAdminSettings: (patch: Record<string, unknown>) =>
     request<{ ok: boolean }>('/api/admin/settings', { ...json(patch), method: 'PUT' }),
+
+  /* upi gateway (compatible with mynkdev-21/upi-gateway) */
+  gatewayConfig: () => request<GatewayConfig>('/api/upi-gateway/config'),
+  createGatewayOrder: (body: {
+    amount: number;
+    plan_id: string;
+    customer_name?: string;
+    customer_email?: string;
+    customer_mobile?: string;
+    payment_method?: 'upi' | 'bank';
+    note?: string;
+    redirect_url?: string;
+  }) => request<{ success: boolean; data: GatewayOrder }>('/api/upi-gateway/orders', json(body)),
+  getGatewayOrder: (orderNo: string) =>
+    request<{ success: boolean; data: GatewayOrder }>(`/api/upi-gateway/orders/${encodeURIComponent(orderNo)}`),
+  getGatewayOrderStatus: (orderNo: string) =>
+    request<{ success: boolean; status: string; paid: boolean; utr?: string; redirect?: string }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/status`
+    ),
+  submitGatewayUtr: (orderNo: string, utr: string) =>
+    request<{ success: boolean; message: string; data: GatewayOrder }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/submit-utr`,
+      json({ utr })
+    ),
+  adminGatewayOrders: () =>
+    request<{
+      success: boolean;
+      stats: { totalOrders: number; totalRevenue: number; reviewCount: number; paidCount: number; pendingCount: number };
+      orders: GatewayOrder[];
+      accounts: any[];
+    }>('/api/upi-gateway/admin/orders'),
+  adminApproveGatewayOrder: (orderNo: string, body?: { bank_utr?: string; note?: string }) =>
+    request<{ success: boolean; message: string; data: GatewayOrder }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/approve`,
+      json(body || {})
+    ),
+  adminRejectGatewayOrder: (orderNo: string, reason?: string) =>
+    request<{ success: boolean; message: string; data: GatewayOrder }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/reject`,
+      json({ reason })
+    ),
+  adminGatewaySettings: () =>
+    request<{
+      success: boolean;
+      upiId: string;
+      payeeName: string;
+      paytmMid: string;
+      paytmMidMasked: string;
+      upiGatewayUrl: string;
+      upiGatewayApiKey: string;
+      upiGatewayApiKeyMasked: string;
+      accounts: any[];
+    }>('/api/upi-gateway/admin/settings'),
+  saveAdminGatewaySettings: (patch: Record<string, unknown>) =>
+    request<{ success: boolean; message: string }>('/api/upi-gateway/admin/settings', { ...json(patch), method: 'PUT' }),
 };
 
 export function fileToDataUrl(file: File): Promise<string> {

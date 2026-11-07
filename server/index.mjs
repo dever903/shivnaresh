@@ -12,6 +12,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
+import { createUpiGateway } from './upiGateway.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -437,6 +438,17 @@ const auth = createAuth({ dataDir: DATA, getState: readState, patchState, env: p
 /* resolve the session before any route — including the auth router itself */
 app.use(auth.attachUser);
 app.use('/api/auth', auth.router);
+
+/* UPI Payment Gateway & Bank Transfer Engine (compatible with mynkdev-21/upi-gateway) */
+const upiGateway = createUpiGateway({
+  dataDir: DATA,
+  getState: readState,
+  patchState,
+  auth,
+  recordProblem: recordSystemProblem,
+});
+app.use('/api/upi-gateway', upiGateway.router);
+app.use('/api/v1', upiGateway.router);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

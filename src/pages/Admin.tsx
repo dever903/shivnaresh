@@ -14,23 +14,28 @@ import {
   type SystemLog,
   type User,
   type FashnCredits,
+  type GatewayOrder,
 } from '../lib/api';
 import { useTheme, ThemeToggle } from '../lib/theme';
 import {
   AlertTriangle,
   BarChart3,
+  Building2,
   Camera,
   Check,
   CheckCircle2,
   Clock,
   Copy,
+  CreditCard,
   Download,
+  ExternalLink,
   FileText,
   Film,
   Inbox,
   Layers,
   Lock,
   Paperclip,
+  QrCode,
   RefreshCw,
   Settings,
   ShieldAlert,
@@ -51,8 +56,35 @@ export default function Admin() {
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'requests' | 'users' | 'generations' | 'settings' | 'models' | 'problems'
+    'overview' | 'requests' | 'users' | 'generations' | 'gateway' | 'settings' | 'models' | 'problems'
   >('overview');
+
+  /* UPI Gateway Admin State */
+  const [gatewayOrders, setGatewayOrders] = useState<GatewayOrder[]>([]);
+  const [gatewayStats, setGatewayStats] = useState<{
+    totalOrders: number;
+    totalRevenue: number;
+    reviewCount: number;
+    paidCount: number;
+    pendingCount: number;
+  }>({ totalOrders: 0, totalRevenue: 0, reviewCount: 0, paidCount: 0, pendingCount: 0 });
+  const [gatewayAccounts, setGatewayAccounts] = useState<any[]>([]);
+  const [gatewayLoading, setGatewayLoading] = useState(false);
+  const [gatewayFilter, setGatewayFilter] = useState<'all' | 'review' | 'paid' | 'pending' | 'rejected'>('all');
+  const [orderActionBusy, setOrderActionBusy] = useState<string | null>(null);
+
+  /* Gateway Settings Form */
+  const [gwUpiId, setGwUpiId] = useState('');
+  const [gwPayeeName, setGwPayeeName] = useState('');
+  const [gwPaytmMid, setGwPaytmMid] = useState('');
+  const [gwUpiGatewayUrl, setGwUpiGatewayUrl] = useState('');
+  const [gwUpiGatewayApiKey, setGwUpiGatewayApiKey] = useState('');
+  const [gwBankAccountNumber, setGwBankAccountNumber] = useState('');
+  const [gwBankIfsc, setGwBankIfsc] = useState('');
+  const [gwBankAccountHolder, setGwBankAccountHolder] = useState('');
+  const [gwBankName, setGwBankName] = useState('');
+  const [savingGwSettings, setSavingGwSettings] = useState(false);
+  const [gwSettingsStatus, setGwSettingsStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   /* Settings Form State */
   const [apiKey, setApiKey] = useState('');
@@ -491,6 +523,7 @@ export default function Admin() {
             loadSystemLogs(),
             loadFashnCredits(),
             loadGenerations(),
+            loadGatewayData(),
           ]);
         }
       } catch {
@@ -498,6 +531,103 @@ export default function Admin() {
       }
     })();
   }, []);
+
+  async function loadGatewayData() {
+    setGatewayLoading(true);
+    try {
+      const [ordersRes, settingsRes] = await Promise.all([
+        api.adminGatewayOrders(),
+        api.adminGatewaySettings(),
+      ]);
+      if (ordersRes?.success) {
+        setGatewayOrders(ordersRes.orders || []);
+        if (ordersRes.stats) setGatewayStats(ordersRes.stats);
+        if (ordersRes.accounts) setGatewayAccounts(ordersRes.accounts);
+      }
+      if (settingsRes?.success) {
+        setGwUpiId(settingsRes.upiId || '');
+        setGwPayeeName(settingsRes.payeeName || '');
+        setGwPaytmMid(settingsRes.paytmMidMasked || settingsRes.paytmMid || '');
+        setGwUpiGatewayUrl(settingsRes.upiGatewayUrl || '');
+        setGwUpiGatewayApiKey(settingsRes.upiGatewayApiKeyMasked || settingsRes.upiGatewayApiKey || '');
+        const bank = settingsRes.accounts?.find((ac: any) => ac.provider === 'bank')?.bank_details;
+        if (bank) {
+          setGwBankAccountNumber(bank.accountNumber || '');
+          setGwBankIfsc(bank.ifsc || '');
+          setGwBankAccountHolder(bank.accountHolder || '');
+          setGwBankName(bank.bankName || '');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Failed to load gateway data:', err);
+    } finally {
+      setGatewayLoading(false);
+    }
+  }
+
+  async function handleApproveGatewayOrder(orderNo: string) {
+    setOrderActionBusy(orderNo);
+    try {
+      const res = await api.adminApproveGatewayOrder(orderNo);
+      if (res?.success) {
+        void loadGatewayData();
+        void loadUsers();
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Failed to approve order');
+    } finally {
+      setOrderActionBusy(null);
+    }
+  }
+
+  async function handleRejectGatewayOrder(orderNo: string) {
+    const reason = window.prompt('Enter optional rejection note for this payment:', 'UTR could not be verified on bank statement');
+    if (reason === null) return;
+    setOrderActionBusy(orderNo);
+    try {
+      const res = await api.adminRejectGatewayOrder(orderNo, reason);
+      if (res?.success) {
+        void loadGatewayData();
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Failed to reject order');
+    } finally {
+      setOrderActionBusy(null);
+    }
+  }
+
+  async function handleSaveGatewaySettings() {
+    setSavingGwSettings(true);
+    setGwSettingsStatus(null);
+    try {
+      const patch: Record<string, unknown> = {
+        upiId: gwUpiId.trim(),
+        payeeName: gwPayeeName.trim(),
+        bankDetails: {
+          accountNumber: gwBankAccountNumber.trim(),
+          ifsc: gwBankIfsc.trim(),
+          accountHolder: gwBankAccountHolder.trim(),
+          bankName: gwBankName.trim(),
+        },
+      };
+      if (gwPaytmMid && !gwPaytmMid.includes('•••')) {
+        patch.paytmMid = gwPaytmMid.trim();
+      }
+      if (gwUpiGatewayUrl) {
+        patch.upiGatewayUrl = gwUpiGatewayUrl.trim();
+      }
+      if (gwUpiGatewayApiKey && !gwUpiGatewayApiKey.includes('•••')) {
+        patch.upiGatewayApiKey = gwUpiGatewayApiKey.trim();
+      }
+      const res = await api.saveAdminGatewaySettings(patch);
+      setGwSettingsStatus({ ok: true, message: res.message || 'Payment settings saved successfully!' });
+      void loadGatewayData();
+    } catch (err: any) {
+      setGwSettingsStatus({ ok: false, message: err?.message || 'Failed to save gateway settings' });
+    } finally {
+      setSavingGwSettings(false);
+    }
+  }
 
   async function saveSettings() {
     setSaving(true);
@@ -973,6 +1103,13 @@ ${log.stack || 'None'}
                   badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                 },
                 { id: 'users', label: 'Users & Credits', icon: Users, count: usersList.length },
+                {
+                  id: 'gateway',
+                  label: 'Payments & UPI',
+                  icon: CreditCard,
+                  count: gatewayOrders.length,
+                  badge: gatewayStats.reviewCount > 0 ? gatewayStats.reviewCount : undefined,
+                },
                 {
                   id: 'generations',
                   label: 'Generations',
@@ -3568,11 +3705,428 @@ ${log.stack || 'None'}
     );
   };
 
+  const renderGateway = () => {
+    const filteredOrders = gatewayOrders.filter((ord) => {
+      if (gatewayFilter === 'review') return ord.status === 'review';
+      if (gatewayFilter === 'paid') return ord.status === 'paid';
+      if (gatewayFilter === 'pending') return ord.status === 'pending';
+      if (gatewayFilter === 'rejected') return ord.status === 'expired' || ord.status === 'failed';
+      return true;
+    });
+
+    return (
+      <div className="space-y-8 animate-in fade-in-50 duration-200">
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                <CreditCard className="w-5 h-5" />
+              </span>
+              <h2 className="text-xl font-bold tracking-tight">UPI Gateway & Bank Settlements</h2>
+            </div>
+            <p className="text-xs opacity-60 mt-1 max-w-xl">
+              Real-time payment tracking for UPI QR codes and Direct Bank Transfers. Auto-verifies with Paytm for Business and enables 1-click quota provisioning.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadGatewayData()}
+              disabled={gatewayLoading}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                isLight ? 'border-gray-200 bg-white hover:bg-gray-50 text-slate-800' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+              }`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${gatewayLoading ? 'animate-spin' : ''}`} />
+              <span>Refresh Orders</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Top KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={cardClass}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Verified Revenue</span>
+            <div className="mt-1 text-2xl font-black text-emerald-500">
+              ₹{(gatewayStats.totalRevenue || 0).toLocaleString('en-IN')}
+            </div>
+            <p className="mt-1 text-[11px] opacity-60">Total received via UPI & Bank</p>
+          </div>
+
+          <div className={cardClass}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Total Orders</span>
+            <div className="mt-1 text-2xl font-black">
+              {gatewayStats.totalOrders || gatewayOrders.length}
+            </div>
+            <p className="mt-1 text-[11px] opacity-60">Total gateway transactions</p>
+          </div>
+
+          <div className={cardClass}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Needs Review</span>
+              {gatewayStats.reviewCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </div>
+            <div className="mt-1 text-2xl font-black text-amber-500">
+              {gatewayStats.reviewCount || 0}
+            </div>
+            <p className="mt-1 text-[11px] opacity-60">Customer submitted UTR</p>
+          </div>
+
+          <div className={cardClass}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Paid & Active</span>
+            <div className="mt-1 text-2xl font-black text-emerald-400">
+              {gatewayStats.paidCount || 0}
+            </div>
+            <p className="mt-1 text-[11px] opacity-60">Plans provisioned</p>
+          </div>
+        </div>
+
+        {/* Orders Table Card */}
+        <div className={cardClass}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <QrCode className="w-4 h-4 text-[#e5373f]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider">Gateway Transactions</h3>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {[
+                { id: 'all', label: `All (${gatewayOrders.length})` },
+                { id: 'review', label: `Needs Review (${gatewayStats.reviewCount || 0})` },
+                { id: 'paid', label: `Paid (${gatewayStats.paidCount || 0})` },
+                { id: 'pending', label: `Pending (${gatewayStats.pendingCount || 0})` },
+                { id: 'rejected', label: 'Rejected' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setGatewayFilter(f.id as typeof gatewayFilter)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${
+                    gatewayFilter === f.id
+                      ? 'bg-[#e5373f] text-white shadow-sm'
+                      : isLight
+                      ? 'bg-gray-100 hover:bg-gray-200 text-slate-700'
+                      : 'bg-white/5 hover:bg-white/10 text-white/70'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredOrders.length === 0 ? (
+            <div className="py-16 text-center text-xs opacity-60">
+              No gateway orders found for the selected filter.
+            </div>
+          ) : (
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 opacity-60 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Order Ref</th>
+                    <th className="py-2.5 px-3">Customer</th>
+                    <th className="py-2.5 px-3">Plan</th>
+                    <th className="py-2.5 px-3">Amount</th>
+                    <th className="py-2.5 px-3">Method</th>
+                    <th className="py-2.5 px-3">Customer UTR</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredOrders.map((ord) => {
+                    const isBusy = orderActionBusy === ord.order_no;
+                    return (
+                      <tr key={ord.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3 px-3 font-mono font-bold text-amber-500 whitespace-nowrap">
+                          {ord.order_no}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold">{ord.customer_name || 'Customer'}</div>
+                          <div className="text-[11px] opacity-60 truncate max-w-[160px]">{ord.customer_email || 'No email'}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10">
+                            {ord.plan_name || ord.plan_id}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-bold whitespace-nowrap">
+                          ₹{Number(ord.amount).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 opacity-80">
+                            {ord.payment_method === 'bank' ? (
+                              <>
+                                <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                                <span>SBI Bank</span>
+                              </>
+                            ) : (
+                              <>
+                                <QrCode className="w-3.5 h-3.5 text-amber-400" />
+                                <span>UPI QR</span>
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px]">
+                          {ord.utr || ord.customer_utr ? (
+                            <span className="font-bold text-emerald-400 select-all">
+                              {ord.utr || ord.customer_utr}
+                            </span>
+                          ) : (
+                            <span className="opacity-40 italic">Not submitted</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            ord.status === 'paid'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : ord.status === 'review'
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              : ord.status === 'pending'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {ord.status === 'paid' && <CheckCircle2 className="w-3 h-3" />}
+                            <span>{ord.status}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-[11px] opacity-60 whitespace-nowrap">
+                          {new Date(ord.created_at).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          {ord.status === 'paid' ? (
+                            <span className="text-[11px] text-emerald-400 font-semibold inline-flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Active</span>
+                            </span>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleApproveGatewayOrder(ord.order_no)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition shadow-sm disabled:opacity-50 cursor-pointer"
+                              >
+                                {isBusy ? 'Saving...' : 'Approve & Activate'}
+                              </button>
+                              {ord.status !== 'expired' && (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => void handleRejectGatewayOrder(ord.order_no)}
+                                  className="px-2 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 font-semibold text-[11px] transition disabled:opacity-50 cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Payment Accounts & Configuration Form */}
+        <div className={cardClass}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <Settings className="w-4 h-4 text-[#e5373f]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider">Payment Account Settings</h3>
+            </div>
+            {gatewayAccounts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] opacity-80">
+                <span className="font-semibold">Connected Routes:</span>
+                {gatewayAccounts.map((ac: any) => (
+                  <span key={ac.id} className="px-2 py-0.5 rounded-full bg-white/10 font-medium">
+                    {ac.label || ac.id}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {gwSettingsStatus && (
+            <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+              gwSettingsStatus.ok
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
+              {gwSettingsStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+              <span>{gwSettingsStatus.message}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
+            {/* Column 1: UPI & Paytm Auto-Verification */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Primary UPI & Paytm for Business</span>
+              </h4>
+
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Payee UPI ID</label>
+                <input
+                  type="text"
+                  value={gwUpiId}
+                  onChange={(e) => setGwUpiId(e.target.value)}
+                  placeholder="e.g. 6398743132@paytm"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Payee Display Name</label>
+                <input
+                  type="text"
+                  value={gwPayeeName}
+                  onChange={(e) => setGwPayeeName(e.target.value)}
+                  placeholder="e.g. PAWAN KUMAR"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Paytm Merchant ID (MID) &middot; Auto-Verification</label>
+                <input
+                  type="text"
+                  value={gwPaytmMid}
+                  onChange={(e) => setGwPaytmMid(e.target.value)}
+                  placeholder="Enter Paytm for Business MID for instant automated checks"
+                  className={inputClass}
+                />
+                <p className="text-[10px] opacity-50 mt-1">
+                  Enables zero-touch verification using Paytm's Merchant Status API against the order number.
+                </p>
+              </div>
+            </div>
+
+            {/* Column 2: Direct Bank Transfer Details (SBI) */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>State Bank of India (Direct Bank Transfer)</span>
+              </h4>
+
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Beneficiary Name</label>
+                <input
+                  type="text"
+                  value={gwBankAccountHolder}
+                  onChange={(e) => setGwBankAccountHolder(e.target.value)}
+                  placeholder="e.g. PAWAN KUMAR"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Bank Name</label>
+                <input
+                  type="text"
+                  value={gwBankName}
+                  onChange={(e) => setGwBankName(e.target.value)}
+                  placeholder="e.g. State Bank of India"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold opacity-70 block">Account Number</label>
+                  <input
+                    type="text"
+                    value={gwBankAccountNumber}
+                    onChange={(e) => setGwBankAccountNumber(e.target.value)}
+                    placeholder="41614259248"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold opacity-70 block">IFSC Code</label>
+                  <input
+                    type="text"
+                    value={gwBankIfsc}
+                    onChange={(e) => setGwBankIfsc(e.target.value)}
+                    placeholder="SBIN0011558"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* External UPI Gateway Integration (mynkdev-21/upi-gateway) */}
+          <div className="mt-6 pt-5 border-t border-white/10 space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>External UPI Gateway Bridge (mynkdev-21/upi-gateway)</span>
+            </h4>
+            <p className="text-[11px] opacity-60">
+              Optional: connect an external self-hosted Laravel instance of `mynkdev-21/upi-gateway` if hosted on a separate PHP/MySQL server.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Gateway Base URL</label>
+                <input
+                  type="text"
+                  value={gwUpiGatewayUrl}
+                  onChange={(e) => setGwUpiGatewayUrl(e.target.value)}
+                  placeholder="e.g. https://gateway.yourdomain.com"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold opacity-70 block">Gateway Secret / Bearer API Key</label>
+                <input
+                  type="password"
+                  value={gwUpiGatewayApiKey}
+                  onChange={(e) => setGwUpiGatewayApiKey(e.target.value)}
+                  placeholder="Enter API token for external webhook/order creation"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-white/10 flex justify-end">
+            <button
+              type="button"
+              disabled={savingGwSettings}
+              onClick={() => void handleSaveGatewaySettings()}
+              className="px-5 py-2.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white font-bold text-xs uppercase tracking-wider transition shadow-md disabled:opacity-50 cursor-pointer"
+            >
+              {savingGwSettings ? 'Saving Settings...' : 'Save Payment Settings'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return shell(
     <div>
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'requests' && renderRequests()}
       {activeTab === 'users' && renderUsers()}
+      {activeTab === 'gateway' && renderGateway()}
       {activeTab === 'generations' && renderGenerations()}
       {activeTab === 'settings' && renderSettings()}
       {activeTab === 'models' && renderModels()}
