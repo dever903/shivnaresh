@@ -23,6 +23,21 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
   const ORDERS_FILE = path.join(dataDir, 'gateway_orders.json');
   const ACCOUNTS_FILE = path.join(dataDir, 'gateway_accounts.json');
 
+  const logGatewayError = (title, err, details = {}) => {
+    console.error(`[gateway] ${title}:`, err);
+    if (typeof recordProblem === 'function') {
+      recordProblem({
+        module: 'payment-gateway',
+        severity: 'error',
+        userEmail: details.email || 'guest',
+        title: `Payment Gateway: ${title}`,
+        message: String(err?.message || err),
+        details: JSON.stringify(details, null, 2),
+        stack: String(err?.stack || ''),
+      }).catch(() => {});
+    }
+  };
+
   const PLAN_DEFINITIONS = {
     starter: {
       id: 'starter',
@@ -332,7 +347,6 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const customerMobile = String(body.customer_mobile || req.user?.phone || '').trim();
       const paymentMethod = String(body.payment_method || 'upi').toLowerCase(); // 'upi' | 'bank'
 
-      const state = await getState();
       const accounts = await readAccounts();
 
       let selectedAccount = null;
@@ -411,7 +425,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         data: newOrder,
       });
     } catch (err) {
-      console.error('[gateway] Order creation error:', err);
+      logGatewayError('Order creation error', err, { body: req.body });
       res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -551,6 +565,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         data: order,
       });
     } catch (err) {
+      logGatewayError('UTR submission error', err, { orderNo: req.params.orderNo, body: req.body });
       res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -594,6 +609,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         data: order,
       });
     } catch (err) {
+      logGatewayError('Order approval error', err, { orderNo: req.params.orderNo });
       res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -627,6 +643,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         data: order,
       });
     } catch (err) {
+      logGatewayError('Order rejection error', err, { orderNo: req.params.orderNo });
       res.status(500).json({ success: false, error: err.message });
     }
   });

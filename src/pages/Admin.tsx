@@ -523,6 +523,15 @@ export default function Admin() {
     void loadHost();
   }, [access?.admin]);
 
+  // Live polling for diagnostics & technical problems so failures are seen immediately
+  useEffect(() => {
+    if (!access?.admin) return;
+    const timer = setInterval(() => {
+      void loadSystemLogs();
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [access?.admin]);
+
   useEffect(() => {
     if (!host?.running) return;
     const timer = setInterval(() => void loadHost(), 2000);
