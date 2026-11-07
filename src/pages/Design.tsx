@@ -882,7 +882,7 @@ function MySetsPanel({
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>1 &middot; Garment Image</p>
-              <input ref={clothRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleFileSelected(e, 'cloth')} />
+              <input ref={clothRef} type="file" accept="image/*,.png,.jpg,.jpeg,.webp" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} onChange={(e) => handleFileSelected(e, 'cloth')} />
               <button
                 type="button"
                 onClick={() => clothRef.current?.click()}
@@ -904,7 +904,7 @@ function MySetsPanel({
 
             <div>
               <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>2 &middot; Model Image</p>
-              <input ref={modelRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleFileSelected(e, 'model')} />
+              <input ref={modelRef} type="file" accept="image/*,.png,.jpg,.jpeg,.webp" className="hidden" onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} onChange={(e) => handleFileSelected(e, 'model')} />
               <button
                 type="button"
                 onClick={() => modelRef.current?.click()}
@@ -1228,7 +1228,7 @@ function CustomRequestsPanel({
   isLight?: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
-  const [pendingCloth, setPendingCloth] = useState<{ file: File; preview: string } | null>(null);
+  const [pendingClothes, setPendingClothes] = useState<Array<{ file: File; preview: string; name: string }>>([]);
   const [pendingModels, setPendingModels] = useState<Array<{ file: File; preview: string; name: string }>>([]);
   const [garmentColor, setGarmentColor] = useState('');
   const [requestType, setRequestType] = useState<'stills' | 'video' | 'both'>('stills');
@@ -1243,14 +1243,19 @@ function CustomRequestsPanel({
   const multiModelRef = useRef<HTMLInputElement>(null);
 
   function handleClothSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     e.target.value = '';
-    const reader = new FileReader();
-    reader.onload = () => {
-      setConfirming({ kind: 'cloth', file, preview: String(reader.result) });
-    };
-    reader.readAsDataURL(file);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPendingClothes((prev) => [
+          ...prev,
+          { file, preview: String(reader.result), name: file.name },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function handleModelSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1272,7 +1277,10 @@ function CustomRequestsPanel({
   function confirmImage() {
     if (!confirming) return;
     if (confirming.kind === 'cloth') {
-      setPendingCloth({ file: confirming.file, preview: confirming.preview });
+      setPendingClothes((prev) => [
+        ...prev,
+        { file: confirming.file, preview: confirming.preview, name: confirming.file.name },
+      ]);
     } else {
       setPendingModels((prev) => [
         ...prev,
@@ -1280,6 +1288,10 @@ function CustomRequestsPanel({
       ]);
     }
     setConfirming(null);
+  }
+
+  function removeCloth(index: number) {
+    setPendingClothes((prev) => prev.filter((_, i) => i !== index));
   }
 
   function removeModel(index: number) {
@@ -1291,22 +1303,26 @@ function CustomRequestsPanel({
       setError('Your account credits are locked by an administrator. Custom order creation is disabled.');
       return;
     }
-    if (!pendingCloth && pendingModels.length === 0 && !promptText.trim()) {
+    if (pendingClothes.length === 0 && pendingModels.length === 0 && !promptText.trim()) {
       setError('Please provide at least a garment image, at least one model pose, or design instructions.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      const clothDataUrl = pendingCloth ? await fileToDataUrl(pendingCloth.file) : undefined;
+      const clothImages: string[] = [];
+      for (const c of pendingClothes) {
+        clothImages.push(await fileToDataUrl(c.file));
+      }
       const modelImages: string[] = [];
       for (const m of pendingModels) {
         modelImages.push(await fileToDataUrl(m.file));
       }
 
       await api.createCustomRequest({
-        cloth: clothDataUrl,
-        clothName: pendingCloth?.file.name,
+        cloth: clothImages[0] || undefined,
+        clothName: pendingClothes[0]?.name || undefined,
+        clothImages: clothImages.length > 0 ? clothImages : undefined,
         model: modelImages[0] || undefined,
         modelName: pendingModels[0]?.name || undefined,
         modelImages: modelImages.length > 0 ? modelImages : undefined,
@@ -1315,7 +1331,7 @@ function CustomRequestsPanel({
         prompt: promptText.trim(),
       });
 
-      setPendingCloth(null);
+      setPendingClothes([]);
       setPendingModels([]);
       setGarmentColor('');
       setRequestType('stills');
@@ -1463,27 +1479,62 @@ function CustomRequestsPanel({
             {/* Garment Upload & Color */}
             <div className="space-y-3">
               <div>
-                <p className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>Garment Asset</p>
-                <input ref={clothRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleClothSelected} />
-                <button
-                  type="button"
-                  onClick={() => clothRef.current?.click()}
-                  className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed transition-colors p-4 ${
-                    isLight
-                      ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                      : 'border-white/20 bg-black/40 hover:border-white/40'
-                  }`}
-                >
-                  {pendingCloth ? (
-                    <img src={pendingCloth.preview} alt="Garment" className="h-full w-auto object-contain" />
-                  ) : (
-                    <>
-                      <Layers className="h-6 w-6 mb-1 text-current/40" />
-                      <span className={`text-xs font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Upload garment image</span>
-                      <span className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-700' : 'text-white/35'}`}>Flat lay or athlete kit shot</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                    Garment Assets ({pendingClothes.length} Uploaded)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => clothRef.current?.click()}
+                    className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                  >
+                    + Add Garment {pendingClothes.length + 1}
+                  </button>
+                </div>
+                <input
+                  ref={clothRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.png,.jpg,.jpeg,.webp"
+                  className="hidden"
+                  onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                  onChange={handleClothSelected}
+                />
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {pendingClothes.map((c, idx) => (
+                    <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
+                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
+                    }`}>
+                      <img src={c.preview} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
+                      <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        Garment {idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeCloth(idx)}
+                        className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove garment"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => clothRef.current?.click()}
+                    className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
+                      isLight
+                        ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                        : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                    }`}
+                  >
+                    <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                    <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                      {pendingClothes.length === 0 ? 'Upload Garments' : `Add Garment ${pendingClothes.length + 1}`}
+                    </span>
+                    <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Select 3-4 or any number</span>
+                  </button>
+                </div>
               </div>
 
               {/* Fabric Color Input */}
@@ -2602,6 +2653,17 @@ export default function Design() {
 
   /* Try-on inputs */
   const [cloth, setCloth] = useState<Pick>(null);
+  const [selectedClothes, setSelectedClothes] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
+
+  function removeSelectedCloth(index: number) {
+    setSelectedClothes((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (cloth && cloth.url === prev[index]?.url) {
+        setCloth(next[0] || null);
+      }
+      return next;
+    });
+  }
   const [model, setModel] = useState<Pick>(null);
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
@@ -2963,7 +3025,12 @@ export default function Design() {
         const pick = { url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name };
 
         if (kind === 'cloth') {
-          // Select this uploaded garment
+          // Add to selected clothes list so multiple garments can be chosen
+          setSelectedClothes((prev) => {
+            const exists = prev.some((p) => p && p.url === pick.url);
+            return exists ? prev : [...prev, pick];
+          });
+          // Set as active cloth
           setCloth(pick);
         } else {
           // Select this uploaded model
@@ -3806,13 +3873,16 @@ export default function Design() {
                 <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>1 &middot; Garment</h2>
-                    {cloth && (
+                    {(cloth || selectedClothes.length > 0) && (
                       <button
                         type="button"
-                        onClick={() => setCloth(null)}
+                        onClick={() => {
+                          setCloth(null);
+                          setSelectedClothes([]);
+                        }}
                         className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
                       >
-                        Remove
+                        Clear All
                       </button>
                     )}
                   </div>
@@ -3820,58 +3890,134 @@ export default function Design() {
                     ref={clothInput}
                     type="file"
                     multiple
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/*,.png,.jpg,.jpeg,.webp"
                     className="hidden"
+                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                     onChange={(e) => void handleMultipleFiles(e.target.files, 'cloth')}
                   />
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      void handleMultipleFiles(e.dataTransfer.files, 'cloth');
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => clothInput.current?.click()}
-                      disabled={uploading}
-                      className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
-                        isLight
-                          ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                          : 'border-white/15 hover:border-white/35'
-                      }`}
+
+                  {/* Multi-Garment Selector Grid (when multiple garments uploaded or selected) */}
+                  {selectedClothes.length > 1 ? (
+                    <div className="mt-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                          {selectedClothes.length} Cloths Selected &middot; Click to set Active Try-On
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => clothInput.current?.click()}
+                          disabled={uploading}
+                          className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                        >
+                          + Add More Cloths
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {selectedClothes.map((item, idx) => {
+                          const isCurrent = cloth?.url === item.url;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setCloth(item)}
+                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${
+                                isCurrent
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
+                                  : isLight
+                                    ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
+                                    : 'border-white/15 bg-black/40 hover:border-white/30'
+                              }`}
+                            >
+                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
+                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
+                              }`}>
+                                {isCurrent ? 'Active Try-On' : `Cloth ${idx + 1}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedCloth(idx);
+                                }}
+                                className="absolute top-1.5 right-1.5 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove cloth"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                              <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
+                                {item.name}
+                              </p>
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={() => clothInput.current?.click()}
+                          disabled={uploading}
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
+                            isLight
+                              ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                              : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          }`}
+                        >
+                          <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
+                          <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Cloths</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        void handleMultipleFiles(e.dataTransfer.files, 'cloth');
+                      }}
                     >
-                      {uploading && uploadProgress?.kind === 'cloth' ? (
-                        <div className="flex items-center gap-3 w-full py-1">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent" />
-                          <div>
-                            <span className={`block font-semibold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                              Uploading {uploadProgress.current} of {uploadProgress.total} garments...
-                            </span>
-                            <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                              Adding to your try-on studio library
-                            </span>
+                      <button
+                        type="button"
+                        onClick={() => clothInput.current?.click()}
+                        disabled={uploading}
+                        className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
+                          isLight
+                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                            : 'border-white/15 hover:border-white/35'
+                        }`}
+                      >
+                        {uploading && uploadProgress?.kind === 'cloth' ? (
+                          <div className="flex items-center gap-3 w-full py-1">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent" />
+                            <div>
+                              <span className={`block font-semibold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                Uploading {uploadProgress.current} of {uploadProgress.total} garments...
+                              </span>
+                              <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                                Adding to your try-on studio library
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <>
-                          {cloth ? (
-                            <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
-                          ) : (
-                            <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
-                          )}
-                          <span className="text-sm">
-                            <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                              {cloth ? cloth.name : 'Drop or choose garment images (upload any number)'}
+                        ) : (
+                          <>
+                            {cloth ? (
+                              <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
+                            ) : (
+                              <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
+                            )}
+                            <span className="text-sm">
+                              <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                {cloth ? cloth.name : 'Drop or choose garment images (select 3-4 or any number)'}
+                              </span>
+                              <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                                PNG, JPEG or WEBP &middot; select multiple simultaneously &middot; flat lay works best
+                              </span>
                             </span>
-                            <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                              PNG, JPEG or WEBP &middot; single or multi-select &middot; flat lay works best
-                            </span>
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Uploaded Garments Quick Tray */}
                   {uploads.length > 0 && (
@@ -3896,7 +4042,14 @@ export default function Design() {
                             <button
                               key={item.id}
                               type="button"
-                              onClick={() => setCloth({ url: item.url, preview: item.url, name: item.name })}
+                              onClick={() => {
+                                const pickItem = { url: item.url, preview: item.url, name: item.name };
+                                setSelectedClothes((prev) => {
+                                  const exists = prev.some((p) => p && p.url === item.url);
+                                  return exists ? prev : [...prev, pickItem];
+                                });
+                                setCloth(pickItem);
+                              }}
                               className={`relative shrink-0 rounded-lg overflow-hidden border transition ${
                                 isCurrent
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 scale-105'
@@ -4023,8 +4176,9 @@ export default function Design() {
                     ref={modelInput}
                     type="file"
                     multiple
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/*,.png,.jpg,.jpeg,.webp"
                     className="hidden"
+                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                     onChange={(e) => void handleMultipleFiles(e.target.files, 'model')}
                   />
 

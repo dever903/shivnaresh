@@ -2100,6 +2100,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
 
     const {
       cloth,
+      clothImages = [],
       model,
       modelImages = [],
       prompt = '',
@@ -2109,7 +2110,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
       requestType = 'still',
     } = req.body || {};
 
-    if (!cloth && !model && (!Array.isArray(modelImages) || modelImages.length === 0) && !prompt) {
+    if (!cloth && !model && (!Array.isArray(modelImages) || modelImages.length === 0) && (!Array.isArray(clothImages) || clothImages.length === 0) && !prompt) {
       return res.status(400).json({
         error: 'empty_request',
         message: 'Please provide at least a garment image, model image, or design instructions.',
@@ -2121,31 +2122,51 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
 
     let clothUrl = cloth || '';
     let modelUrl = model || '';
+    const uploadedCloths = [];
     const uploadedModels = [];
 
-    /* Process Garment */
-    if (cloth && typeof cloth === 'string') {
-      if (cloth.startsWith('data:')) {
+    /* Process all uploaded garments */
+    const rawClothList = [];
+    if (Array.isArray(clothImages) && clothImages.length > 0) {
+      rawClothList.push(...clothImages);
+    } else if (cloth) {
+      rawClothList.push(cloth);
+    }
+
+    for (let i = 0; i < rawClothList.length; i += 1) {
+      const img = rawClothList[i];
+      if (!img) continue;
+      if (typeof img === 'string' && img.startsWith('data:')) {
         try {
-          const r = await uploadToCloudinary(cloth, userId, 'req-cloth');
-          clothUrl = r.secure_url || r.url;
+          const r = await uploadToCloudinary(img, userId, `req-cloth-${i + 1}`);
+          if (r && (r.secure_url || r.url)) {
+            uploadedCloths.push(r.secure_url || r.url);
+          } else {
+            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-cloth-${i + 1}`);
+            uploadedCloths.push(loc);
+          }
         } catch {
-          clothUrl = await saveLocalAsset(cloth, 'sets', `${userId}-req-cloth`);
+          const loc = await saveLocalAsset(img, 'sets', `${userId}-req-cloth-${i + 1}`).catch(() => img);
+          uploadedCloths.push(loc);
         }
-      } else {
-        clothUrl = cloth;
+      } else if (typeof img === 'string' && img.trim()) {
+        uploadedCloths.push(img.trim());
       }
     }
+    if (uploadedCloths.length > 0) {
+      clothUrl = uploadedCloths[0];
+    }
+    const finalClothImages = uploadedCloths.length > 0 ? uploadedCloths : (clothUrl ? [clothUrl] : []);
 
     /* Process all uploaded model poses individually */
     const rawModelList = [];
     if (Array.isArray(modelImages) && modelImages.length > 0) {
-      rawModelList.push(...modelImages.slice(0, 5));
+      rawModelList.push(...modelImages);
     } else if (model) {
       rawModelList.push(model);
     }
 
-    for (let i = 0; i < Math.min(rawModelList.length, 5); i += 1) {
+    for (let i = 0; i < rawModelList.length; i += 1) {
       const img = rawModelList[i];
       if (!img) continue;
       if (typeof img === 'string' && img.startsWith('data:')) {
@@ -2181,6 +2202,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
       userEmail,
       clothUrl,
       clothName,
+      clothImages: finalClothImages,
       modelUrl,
       modelName,
       modelImages: finalModelImages,

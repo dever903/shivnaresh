@@ -382,6 +382,7 @@ export const api = {
   customRequests: () => request<{ items: CustomRequest[] }>('/api/custom-requests'),
   createCustomRequest: (body: {
     cloth?: string;
+    clothImages?: string[];
     model?: string;
     modelImages?: string[];
     prompt: string;
