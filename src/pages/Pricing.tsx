@@ -337,6 +337,11 @@ export default function Pricing() {
         setActiveOrder(res.data);
         setUtrSubmitSuccess(true);
         setSubmitted(true);
+        if (res.data.status === 'paid' || (res as any).paid || (res as any).autoActivated) {
+          try {
+            await api.me();
+          } catch {}
+        }
       }
     } catch (err: any) {
       setUtrSubmitError(err?.message || 'Failed to record UTR. Please check the digits and try again.');
@@ -804,7 +809,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
                   <p className="text-xs text-amber-500 font-semibold leading-tight">
-                    Activation within 30 minutes: admin verifies your UTR & activates your plan quotas.
+                    Instant UPI activation: plan quotas activate automatically upon submitting your 12-digit UTR. Bank transfers are reviewed within 30 minutes.
                   </p>
                 </div>
               </div>
@@ -1109,17 +1114,24 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     )}
                   </button>
 
-                  {/* Primary Action Button (WhatsApp Backup) */}
-                  <a
-                    href={waLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setSubmitted(true)}
-                    className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Send Confirmation on WhatsApp &rarr;</span>
-                  </a>
+                  {paymentMethod === 'bank' ? (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setSubmitted(true)}
+                      className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Send Bank Receipt on WhatsApp &rarr;</span>
+                    </a>
+                  ) : (
+                    <div className={`p-2.5 rounded-xl border text-center text-[11px] leading-relaxed ${
+                      isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      <span>✨ <strong>Instant UPI Activation:</strong> No WhatsApp required! Enter your 12-digit UTR above and click <strong>Submit & Verify UTR</strong> to activate your plan immediately.</span>
+                    </div>
+                  )}
 
                   {/* Direct Support WhatsApp Link Always Visible */}
                   <div className={`mt-3 pt-3 border-t text-center ${isLight ? 'border-gray-200' : 'border-slate-800'}`}>
@@ -1133,13 +1145,13 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     </a>
                   </div>
 
-                  {submitted && (
+                  {submitted && paymentMethod === 'bank' && (
                     <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
                       <p className="text-xs text-emerald-400 font-semibold">
-                        Order recorded. Admin will verify your UTR and activate your plan.
+                        Bank transfer recorded. Admin will verify your UTR and activate your plan.
                       </p>
                       <p className="text-[11px] text-slate-300">
-                        You can also chat directly with Pawan Kumar on WhatsApp for instant confirmation:
+                        You can also send your receipt directly to Pawan Kumar on WhatsApp for faster verification:
                       </p>
                       <a
                         href={waLink}
@@ -1148,7 +1160,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold uppercase tracking-wider shadow-sm transition"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
-                        <span>Open WhatsApp chat (+91 6398743132)</span>
+                        <span>Send Receipt on WhatsApp (+91 6398743132)</span>
                       </a>
                     </div>
                   )}

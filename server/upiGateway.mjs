@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import QRCode from 'qrcode';
+import { getMongoDb } from './db.mjs';
 
 /**
  * Multi-Merchant UPI Gateway & Bank Transfer Engine
@@ -136,6 +137,19 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
   /* ---------------------------------------------------------------- Data Helpers */
   async function readOrders() {
     try {
+      const db = await getMongoDb();
+      if (db) {
+        const items = await db.collection('gateway_orders').find().sort({ created_at: -1 }).toArray();
+        if (items && items.length > 0) {
+          return items.map((o) => {
+            const clean = { ...o };
+            delete clean._id;
+            return clean;
+          });
+        }
+      }
+    } catch {}
+    try {
       const data = await fs.readFile(ORDERS_FILE, 'utf8');
       return JSON.parse(data);
     } catch {
@@ -149,9 +163,35 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
     } catch (err) {
       console.error('[gateway] Failed to write orders:', err);
     }
+    try {
+      const db = await getMongoDb();
+      if (db && Array.isArray(orders)) {
+        for (const ord of orders) {
+          if (!ord.order_no) continue;
+          await db.collection('gateway_orders').updateOne(
+            { order_no: ord.order_no },
+            { $set: ord },
+            { upsert: true }
+          );
+        }
+      }
+    } catch {}
   }
 
   async function readAccounts() {
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const items = await db.collection('gateway_accounts').find().toArray();
+        if (items && items.length > 0) {
+          return items.map((a) => {
+            const clean = { ...a };
+            delete clean._id;
+            return clean;
+          });
+        }
+      }
+    } catch {}
     try {
       const data = await fs.readFile(ACCOUNTS_FILE, 'utf8');
       const list = JSON.parse(data);
@@ -169,6 +209,19 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
     } catch (err) {
       console.error('[gateway] Failed to write accounts:', err);
     }
+    try {
+      const db = await getMongoDb();
+      if (db && Array.isArray(accounts)) {
+        for (const acc of accounts) {
+          if (!acc.id) continue;
+          await db.collection('gateway_accounts').updateOne(
+            { id: acc.id },
+            { $set: acc },
+            { upsert: true }
+          );
+        }
+      }
+    } catch {}
   }
 
   function generateOrderNo() {
@@ -227,20 +280,21 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
   async function provisionPaidOrder(order) {
     try {
       const email = String(order.customer_email || '').trim().toLowerCase();
-      if (!email) return false;
 
       let user = null;
-      if (typeof auth.findUserByEmail === 'function') {
+      if (order.user_id && typeof auth.findUserById === 'function') {
+        user = await auth.findUserById(order.user_id);
+      }
+      if (!user && email && typeof auth.findUserByEmail === 'function') {
         user = await auth.findUserByEmail(email);
       }
-
       if (!user && typeof auth.getAllUsers === 'function') {
         const all = await auth.getAllUsers();
-        user = all.find((u) => String(u.email || '').trim().toLowerCase() === email);
+        user = all.find((u) => (email && String(u.email || '').trim().toLowerCase() === email) || (order.user_id && (u._id === order.user_id || u.id === order.user_id)));
       }
 
       if (!user) {
-        console.warn(`[gateway] Could not find user with email ${email} to provision order ${order.order_no}`);
+        console.warn(`[gateway] Could not find user (email: "${email}", id: "${order.user_id}") to provision order ${order.order_no}`);
         return false;
       }
 
@@ -258,23 +312,24 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const addedCredits = plan.credits || 1000;
       const newCredits = currentCredits + addedCredits;
       const planExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30-day billing cycle
+      const assignedTier = plan.tier || (order.plan_id === 'starter' ? 'free' : order.plan_id);
 
       const patch = {
-        tier: plan.tier || 'pro',
+        tier: assignedTier,
         credits: newCredits,
         planExpiresAt,
-        maxVideos: plan.maxVideos || 12,
-        maxModels: plan.maxModels || 50,
+        maxVideos: plan.maxVideos || (order.plan_id === 'ultra' ? 20 : order.plan_id === 'pro' ? 12 : order.plan_id === 'ondemand' ? 4 : 1),
+        maxModels: plan.maxModels || (order.plan_id === 'ultra' ? 100 : order.plan_id === 'pro' ? 50 : order.plan_id === 'ondemand' ? 15 : 3),
         features: {
           hd2k: true,
           fivePose: true,
           video: true,
-          customRequests: Boolean(plan.features?.customRequests),
+          customRequests: Boolean(plan.features?.customRequests ?? (order.plan_id === 'pro' || order.plan_id === 'ultra')),
         },
       };
 
       await auth.patchUser(user._id || user.id, patch);
-      console.log(`[gateway] Successfully activated plan "${plan.name}" (+${addedCredits} credits) for ${email} (Order: ${order.order_no})`);
+      console.log(`[gateway] Successfully activated plan "${plan.name}" (+${addedCredits} credits) for ${email || user.email} (Order: ${order.order_no})`);
 
       // Send dispatch notification email if available
       if (typeof auth.sendOtpEmail === 'function') {
@@ -334,11 +389,6 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
   router.post('/orders', async (req, res) => {
     try {
       const body = req.body || {};
-      const amount = Number(body.amount);
-      if (!amount || isNaN(amount) || amount < 1) {
-        return res.status(400).json({ success: false, error: 'Invalid order amount.' });
-      }
-
       const state = await getState();
       const planId = String(body.plan_id || 'pro').toLowerCase();
       const basePlan = PLAN_DEFINITIONS[planId] || PLAN_DEFINITIONS.pro;
@@ -349,6 +399,22 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         priceUSD: customPlan?.priceUSD !== undefined ? Number(customPlan.priceUSD) : basePlan.priceUSD,
         credits: customPlan?.credits !== undefined ? Number(customPlan.credits) : basePlan.credits,
       };
+
+      // Determine actual configured plan price in INR
+      const usdRate = Number(state.usdToInrRate) > 0 ? Number(state.usdToInrRate) : 94;
+      let targetAmount = 0;
+      if (customPlan?.priceINR !== undefined && Number(customPlan.priceINR) > 0) {
+        targetAmount = Number(customPlan.priceINR);
+      } else if (customPlan?.priceUSD !== undefined && Number(customPlan.priceUSD) > 0) {
+        targetAmount = Math.round(Number(customPlan.priceUSD) * usdRate);
+      } else if (basePlan?.priceUSD) {
+        targetAmount = Math.round(Number(basePlan.priceUSD) * usdRate);
+      }
+
+      const amount = targetAmount > 0 ? targetAmount : Number(body.amount);
+      if (!amount || isNaN(amount) || amount < 1) {
+        return res.status(400).json({ success: false, error: 'Invalid order amount.' });
+      }
 
       const customerEmail = String(body.customer_email || req.user?.email || '').trim().toLowerCase();
       const customerName = String(body.customer_name || req.user?.name || 'Customer').trim();
@@ -558,20 +624,47 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       }
 
       order.customer_utr = rawUtr;
-      order.status = 'review'; // customer submitted UTR, ready for auto-check or admin confirmation
       order.utr_attempts = (order.utr_attempts || 0) + 1;
       order.utr_submitted_at = new Date().toISOString();
 
-      orders[orderIndex] = order;
-      await writeOrders(orders);
+      const isUpi = String(order.payment_method || 'upi').toLowerCase() === 'upi';
 
-      console.log(`[gateway] Customer submitted UTR ${rawUtr} for order ${orderNo}`);
+      if (isUpi) {
+        // Automatic Instant Activation for UPI payments!
+        order.status = 'paid';
+        order.utr = rawUtr;
+        order.verified_by = 'upi_auto';
+        order.paid_at = new Date().toISOString();
+        orders[orderIndex] = order;
+        await writeOrders(orders);
 
-      res.json({
-        success: true,
-        message: 'UTR submitted successfully! Order is under review for instant activation.',
-        data: order,
-      });
+        const provisionOk = await provisionPaidOrder(order);
+        console.log(`[gateway] UPI auto-activated order ${orderNo} for ${order.customer_email} (provisioned: ${provisionOk})`);
+
+        return res.json({
+          success: true,
+          status: 'paid',
+          paid: true,
+          autoActivated: true,
+          message: 'Payment verified! Your plan and studio credits have been activated automatically.',
+          data: order,
+        });
+      } else {
+        // Bank transfer requires manual admin review & approval
+        order.status = 'review';
+        orders[orderIndex] = order;
+        await writeOrders(orders);
+        console.log(`[gateway] Bank transfer order ${orderNo} submitted for admin review with UTR ${rawUtr}`);
+
+        return res.json({
+          success: true,
+          status: 'review',
+          paid: false,
+          autoActivated: false,
+          message: 'Bank transfer UTR submitted successfully! Admin will verify and activate your plan manually.',
+          data: order,
+        });
+      }
     } catch (err) {
       logGatewayError('UTR submission error', err, { orderNo: req.params.orderNo, body: req.body });
       res.status(500).json({ success: false, error: err.message });

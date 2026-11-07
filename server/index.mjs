@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
 import { createUpiGateway } from './upiGateway.mjs';
+import { getMongoDb } from './db.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -224,12 +225,74 @@ const readJson = async (file, fallback) => {
 };
 const writeJson = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2));
 
-const readState = async () => ({ ...DEFAULTS, ...SEED_STATE, ...(await readJson(STATE_FILE, {})) });
+const readState = async () => {
+  let dbState = null;
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      dbState = await db.collection('app_state').findOne({ _id: 'global_state' });
+    }
+  } catch (err) {
+    console.warn('[state] MongoDB readState fallback:', err.message);
+  }
+  const localState = await readJson(STATE_FILE, {});
+  const merged = { ...DEFAULTS, ...SEED_STATE, ...localState, ...(dbState || {}) };
+  if (localState.plans || dbState?.plans) {
+    merged.plans = {
+      ...DEFAULTS.plans,
+      ...(SEED_STATE.plans || {}),
+      ...(localState.plans || {}),
+      ...(dbState?.plans || {}),
+    };
+  }
+  if (localState.developerProfile || dbState?.developerProfile) {
+    merged.developerProfile = {
+      ...(localState.developerProfile || {}),
+      ...(dbState?.developerProfile || {}),
+    };
+  }
+  delete merged._id;
+  return merged;
+};
+
 const readCollections = () => readJson(COLLECTIONS_FILE, []);
 const readUploadSets = () => readJson(UPLOAD_SETS_FILE, []);
 const writeUploadSets = (sets) => writeJson(UPLOAD_SETS_FILE, sets);
-const readCustomRequests = () => readJson(CUSTOM_REQUESTS_FILE, []);
-const writeCustomRequests = (items) => writeJson(CUSTOM_REQUESTS_FILE, items);
+
+const readCustomRequests = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const items = await db.collection('custom_requests').find().sort({ createdAt: -1 }).toArray();
+      if (items && items.length > 0) {
+        return items.map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+      }
+    }
+  } catch {}
+  return readJson(CUSTOM_REQUESTS_FILE, []);
+};
+
+const writeCustomRequests = async (items) => {
+  await writeJson(CUSTOM_REQUESTS_FILE, items);
+  try {
+    const db = await getMongoDb();
+    if (db && Array.isArray(items)) {
+      for (const item of items) {
+        if (!item.id) continue;
+        await db.collection('custom_requests').updateOne(
+          { id: item.id },
+          { $set: item },
+          { upsert: true }
+        );
+      }
+    }
+  } catch {}
+};
+
 const readSystemLogs = () => readJson(SYSTEM_LOGS_FILE, []);
 const writeSystemLogs = (logs) => writeJson(SYSTEM_LOGS_FILE, Array.isArray(logs) ? logs.slice(0, 500) : []);
 const readGenerations = () => readJson(GENERATIONS_FILE, []);
@@ -270,13 +333,37 @@ async function recordSystemProblem({
   }
 }
 /* hosted.json maps a local file (or its relative path) to its imgbb URL */
-const readHosted = async () => ({
-  models: {},
-  generated: {},
-  uploads: {},
-  ...(await readJson(HOSTED_FILE, {})),
-});
-const saveHosted = (value) => writeJson(HOSTED_FILE, value);
+const readHosted = async () => {
+  let dbHosted = null;
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      dbHosted = await db.collection('hosted_images').findOne({ _id: 'image_map' });
+    }
+  } catch {}
+  const local = await readJson(HOSTED_FILE, {});
+  return {
+    models: {},
+    generated: {},
+    uploads: {},
+    ...local,
+    ...(dbHosted?.map || {}),
+  };
+};
+
+const saveHosted = async (value) => {
+  await writeJson(HOSTED_FILE, value);
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      await db.collection('hosted_images').updateOne(
+        { _id: 'image_map' },
+        { $set: { map: value, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+    }
+  } catch {}
+};
 
 /** Save a data URI locally as static file in public/hosted/<subfolder>/ */
 async function saveLocalAsset(dataUrl, subfolder = 'sets', prefix = 'asset') {
@@ -436,7 +523,7 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '48mb' }));
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
-app.use('/uploads', (req, res, next) => {
+app.use('/uploads', async (req, res, next) => {
   try {
     const filename = path.basename(decodeURIComponent(req.path));
     const candidate1 = path.join(UPLOADS, filename);
@@ -450,6 +537,12 @@ app.use('/uploads', (req, res, next) => {
     const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
     if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
       return res.sendFile(candidate3);
+    }
+    // Fallback: If local file was deleted by a cloud redeploy, redirect to permanent hosted CDN!
+    const hosted = await readHosted();
+    const remoteUrl = hosted.uploads?.[filename] || hosted.models?.[filename];
+    if (remoteUrl && typeof remoteUrl === 'string') {
+      return res.redirect(302, remoteUrl);
     }
   } catch {}
   next();
@@ -483,10 +576,44 @@ app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge:
 const patchState = async (patch) => {
   const current = await readState();
   const next = { ...current, ...patch };
+  delete next._id;
   await writeJson(STATE_FILE, next);
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      await db.collection('app_state').updateOne(
+        { _id: 'global_state' },
+        { $set: next },
+        { upsert: true }
+      );
+    }
+  } catch (err) {
+    console.warn('[state] MongoDB patchState warning:', err.message);
+  }
   return next;
 };
 const updateState = patchState;
+
+// Seed MongoDB Atlas app_state if not yet present
+(async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const existing = await db.collection('app_state').findOne({ _id: 'global_state' });
+      if (!existing) {
+        const initial = await readState();
+        await db.collection('app_state').updateOne(
+          { _id: 'global_state' },
+          { $set: initial },
+          { upsert: true }
+        );
+        console.log('[state] Seeded initial state to MongoDB Atlas app_state');
+      }
+    }
+  } catch (e) {
+    console.warn('[state] Could not seed MongoDB Atlas state:', e.message);
+  }
+})();
 
 const auth = createAuth({ dataDir: DATA, getState: readState, patchState, env: process.env });
 /* resolve the session before any route — including the auth router itself */
@@ -729,6 +856,34 @@ app.put('/api/admin/developer-profile', requireAdmin, async (req, res) => {
   const body = req.body || {};
   const s = await readState();
   const current = s.developerProfile || {};
+  let avatarUrl = typeof body.avatar === 'string' ? body.avatar.trim() : current.avatar || s.developerImageUrl || '';
+
+  // If avatar was passed as a base64 data URL, host it and persist URL permanently
+  if (avatarUrl.startsWith('data:image/')) {
+    try {
+      const match = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/i.exec(avatarUrl);
+      if (match) {
+        const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' }[match[1].toLowerCase()] || '.png';
+        const file = `dev-avatar-${Date.now().toString(36)}${ext}`;
+        const buffer = Buffer.from(match[3], 'base64');
+        await fs.writeFile(path.join(UPLOADS, file), buffer);
+        let hosted = null;
+        try {
+          hosted = await hostImage(buffer, 'developer-avatar');
+          if (hosted) {
+            const map = await readHosted();
+            map.uploads = map.uploads || {};
+            map.uploads[file] = hosted.url;
+            await saveHosted(map);
+          }
+        } catch {}
+        avatarUrl = hosted?.url || `/uploads/${file}`;
+      }
+    } catch (err) {
+      console.warn('[developer-profile] Error saving avatar buffer:', err);
+    }
+  }
+
   const updatedProfile = {
     name: typeof body.name === 'string' ? body.name.trim() : current.name || 'Pawan Kumar',
     college: typeof body.college === 'string' ? body.college.trim() : current.college || 'ARSD College, University of Delhi',
@@ -737,7 +892,7 @@ app.put('/api/admin/developer-profile', requireAdmin, async (req, res) => {
     email: typeof body.email === 'string' ? body.email.trim() : current.email || 'lpawankumar015221684@gmail.com',
     mobile: typeof body.mobile === 'string' ? body.mobile.trim() : current.mobile || '6398743132',
     bio: typeof body.bio === 'string' ? body.bio.trim() : current.bio || '',
-    avatar: typeof body.avatar === 'string' ? body.avatar.trim() : current.avatar || s.developerImageUrl || '',
+    avatar: avatarUrl,
   };
   await patchState({
     developerProfile: updatedProfile,
@@ -996,7 +1151,7 @@ app.get('/api/models', async (_req, res) => {
   for (const group of categories) {
     for (const item of group.items) {
       const remote = hosted.models?.[item.id];
-      if (remote && !remote.includes('ibb.co')) item.url = remote;
+      if (remote) item.url = remote;
     }
   }
   res.json({ categories });
@@ -1005,21 +1160,26 @@ app.get('/api/models', async (_req, res) => {
 app.get('/api/uploads', async (_req, res) => {
   try {
     const hosted = await readHosted();
-    const files = await fs.readdir(UPLOADS);
+    const diskFiles = await fs.readdir(UPLOADS).catch(() => []);
+    const allFilesSet = new Set([...diskFiles, ...Object.keys(hosted.uploads || {})]);
     const items = await Promise.all(
-      files.map(async (file) => {
-        const stat = await fs.stat(path.join(UPLOADS, file));
+      Array.from(allFilesSet).map(async (file) => {
+        let at = Date.now();
+        try {
+          const stat = await fs.stat(path.join(UPLOADS, file));
+          at = stat.mtimeMs;
+        } catch {}
         const remote = hosted.uploads?.[file];
-        const finalUrl = (remote && !remote.includes('ibb.co')) ? remote : `/uploads/${file}`;
+        const finalUrl = remote || `/uploads/${file}`;
         return {
           id: file,
           name: file,
           url: finalUrl,
-          at: stat.mtimeMs,
+          at,
         };
       }),
     );
-    res.json({ items: items.sort((a, b) => b.at - a.at).slice(0, 40) });
+    res.json({ items: items.sort((a, b) => b.at - a.at).slice(0, 60) });
   } catch {
     res.json({ items: [] });
   }
@@ -1190,12 +1350,13 @@ app.post('/api/upload', async (req, res) => {
       hostError = String(error.message || error);
     }
 
-    const isCleanRemote = hosted?.url && !hosted.url.includes('ibb.co');
+    const remoteUrl = hosted?.url || null;
+    const finalUrl = remoteUrl || `/uploads/${file}`;
     res.json({
-      url: isCleanRemote ? hosted.url : `/uploads/${file}`,
-      preview: `/uploads/${file}`,
-      thumb: (isCleanRemote && hosted.thumb) ? hosted.thumb : `/uploads/${file}`,
-      hosted: Boolean(isCleanRemote),
+      url: finalUrl,
+      preview: finalUrl,
+      thumb: hosted?.thumb || finalUrl,
+      hosted: Boolean(remoteUrl),
       hostError,
       name,
     });

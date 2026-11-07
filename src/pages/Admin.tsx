@@ -149,10 +149,19 @@ export default function Admin() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = String(reader.result || '');
       setDevProfile((prev) => ({ ...prev, avatar: dataUrl }));
       setDeveloperImageUrl(dataUrl);
+      try {
+        const res = await api.upload(dataUrl, 'model', 'developer-avatar');
+        if (res?.url) {
+          setDevProfile((prev) => ({ ...prev, avatar: res.url }));
+          setDeveloperImageUrl(res.url);
+        }
+      } catch (uploadErr) {
+        console.warn('Developer photo background upload note:', uploadErr);
+      }
     };
     reader.readAsDataURL(file);
   }
