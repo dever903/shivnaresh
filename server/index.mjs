@@ -478,6 +478,7 @@ const patchState = async (patch) => {
   await writeJson(STATE_FILE, next);
   return next;
 };
+const updateState = patchState;
 
 const auth = createAuth({ dataDir: DATA, getState: readState, patchState, env: process.env });
 /* resolve the session before any route — including the auth router itself */
@@ -727,7 +728,7 @@ app.put('/api/admin/developer-profile', requireAdmin, async (req, res) => {
     bio: typeof body.bio === 'string' ? body.bio.trim() : current.bio || '',
     avatar: typeof body.avatar === 'string' ? body.avatar.trim() : current.avatar || s.developerImageUrl || '',
   };
-  await updateState({
+  await patchState({
     developerProfile: updatedProfile,
     ...(updatedProfile.avatar ? { developerImageUrl: updatedProfile.avatar } : {}),
   });
