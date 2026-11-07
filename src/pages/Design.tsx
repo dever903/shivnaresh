@@ -2665,6 +2665,43 @@ export default function Design() {
     });
   }
   const [model, setModel] = useState<Pick>(null);
+  const [selectedModels, setSelectedModels] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
+
+  function removeSelectedModel(index: number) {
+    setSelectedModels((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (model && model.url === prev[index]?.url) {
+        setModel(next[0] || null);
+      }
+      return next;
+    });
+  }
+
+  function toggleModelSelection(item: { url: string; name: string }) {
+    if (poseMode === '5-pose') {
+      selectPoseForSlot(item);
+    } else {
+      const pickItem = { url: item.url, preview: item.url, name: item.name };
+      setSelectedModels((prev) => {
+        const isSelected = prev.some((p) => p && p.url === item.url);
+        if (isSelected) {
+          const next = prev.filter((p) => p.url !== item.url);
+          if (model?.url === item.url) {
+            setModel(next[0] || null);
+          }
+          return next;
+        } else {
+          let base = [...prev];
+          if (base.length === 0 && model && model.url !== item.url) {
+            base = [{ url: model.url, preview: model.preview || model.url, name: model.name }];
+          }
+          const next = [...base, pickItem];
+          setModel(pickItem);
+          return next;
+        }
+      });
+    }
+  }
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
 
@@ -3033,7 +3070,12 @@ export default function Design() {
           // Set as active cloth
           setCloth(pick);
         } else {
-          // Select this uploaded model
+          // Add to selected models list so multiple models can be chosen
+          setSelectedModels((prev) => {
+            const exists = prev.some((p) => p && p.url === pick.url);
+            return exists ? prev : [...prev, pick];
+          });
+          // Set as active model
           setModel(pick);
           if (poseMode === '5-pose') {
             setSelectedPoses((prev) => {
@@ -4148,6 +4190,19 @@ export default function Design() {
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
                     <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
+                      {(model || selectedModels.length > 0 || selectedPoses.length > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModel(null);
+                            setSelectedModels([]);
+                            setSelectedPoses([]);
+                          }}
+                          className={`font-semibold hover:underline ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
+                        >
+                          Clear All
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setTab('library')}
@@ -4189,15 +4244,112 @@ export default function Design() {
                     </div>
                   )}
 
-                  {model && (
-                    <div className={`mt-4 flex items-center gap-3 rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
-                      <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-cover" />
-                      <div className="text-xs">
-                        <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
-                        <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
+                  {/* Multi-Model Selector Grid (when multiple models uploaded or selected) */}
+                  {selectedModels.length > 1 ? (
+                    <div className="mt-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                          {selectedModels.length} Models Selected &middot; Click to set Active Try-On
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedModels([]);
+                              setModel(null);
+                            }}
+                            className={`text-[11px] font-medium hover:underline ${isLight ? 'text-slate-500 hover:text-slate-700' : 'text-white/50 hover:text-white'}`}
+                          >
+                            Clear All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => modelInput.current?.click()}
+                            disabled={uploading}
+                            className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                          >
+                            + Add More Models
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {selectedModels.map((item, idx) => {
+                          const isCurrent = model?.url === item.url;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setModel(item)}
+                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${
+                                isCurrent
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
+                                  : isLight
+                                    ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
+                                    : 'border-white/15 bg-black/40 hover:border-white/30'
+                              }`}
+                            >
+                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
+                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
+                              }`}>
+                                {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedModel(idx);
+                                }}
+                                className="absolute top-1.5 right-1.5 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove model"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                              <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
+                                {item.name}
+                              </p>
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={() => modelInput.current?.click()}
+                          disabled={uploading}
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
+                            isLight
+                              ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                              : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          }`}
+                        >
+                          <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
+                          <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Models</span>
+                        </button>
                       </div>
                     </div>
-                  )}
+                  ) : model ? (
+                    <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
+                      <div className="flex items-center gap-3">
+                        <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-cover" />
+                        <div className="text-xs">
+                          <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
+                          <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModel(null);
+                          setSelectedModels([]);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors"
+                        title="Deselect model"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
 
                   {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees and chooses all 5 poses) */}
                   {poseMode === '5-pose' && (
@@ -4280,21 +4432,27 @@ export default function Design() {
                             {group.items.map((item) => {
                               const isSelected =
                                 (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                                selectedModels.some((p) => p && p.url === item.url) ||
                                 model?.url === item.url;
                               return (
                                 <button
                                   key={item.id}
                                   type="button"
-                                  onClick={() => selectPoseForSlot({ url: item.url, name: item.name })}
-                                  className={`overflow-hidden rounded-md border transition ${
+                                  onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                  className={`group relative overflow-hidden rounded-md border transition ${
                                     isSelected
-                                      ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                      ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                       : isLight
                                         ? 'border-gray-200 hover:border-gray-400'
                                         : 'border-transparent hover:border-white/30'
                                   }`}
                                 >
                                   <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                  {isSelected && (
+                                    <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
+                                      ✓
+                                    </span>
+                                  )}
                                 </button>
                               );
                             })}
@@ -4308,21 +4466,27 @@ export default function Design() {
                           {uploads.map((item) => {
                             const isSelected =
                               (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                              selectedModels.some((p) => p && p.url === item.url) ||
                               model?.url === item.url;
                             return (
                               <button
                                 key={item.id}
                                 type="button"
-                                onClick={() => selectPoseForSlot({ url: item.url, name: item.name })}
-                                className={`overflow-hidden rounded-md border transition ${
+                                onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                className={`group relative overflow-hidden rounded-md border transition ${
                                   isSelected
-                                    ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                     : isLight
                                       ? 'border-gray-200 hover:border-gray-400'
                                       : 'border-transparent hover:border-white/30'
                                 }`}
                               >
                                 <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
+                                {isSelected && (
+                                  <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
+                                    ✓
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
