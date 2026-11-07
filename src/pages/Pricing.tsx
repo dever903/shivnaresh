@@ -12,6 +12,7 @@ interface Plan {
   name: string;
   tagline: string;
   priceUSD: number;
+  priceINR?: number;
   featured?: boolean;
   badge?: string;
   specs: {
@@ -128,6 +129,7 @@ export default function Pricing() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
 
+  const [plansList, setPlansList] = useState<Plan[]>(PLANS);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -181,7 +183,41 @@ export default function Pricing() {
     // Fetch live gateway configuration
     api.gatewayConfig()
       .then((cfg) => {
-        if (cfg?.ok) setGatewayConfig(cfg);
+        if (cfg?.ok) {
+          setGatewayConfig(cfg);
+          if (cfg.plans) {
+            setPlansList((prev) =>
+              prev.map((p) => {
+                const custom = cfg.plans?.[p.id];
+                if (!custom) return p;
+                return {
+                  ...p,
+                  priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
+                  priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
+                };
+              })
+            );
+          }
+        }
+      })
+      .catch(() => {});
+
+    // Fetch dynamic plans if available
+    api.plans()
+      .then((res) => {
+        if (res?.plans) {
+          setPlansList((prev) =>
+            prev.map((p) => {
+              const custom = res.plans[p.id];
+              if (!custom) return p;
+              return {
+                ...p,
+                priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
+                priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
+              };
+            })
+          );
+        }
       })
       .catch(() => {});
   }, []);
@@ -228,7 +264,11 @@ export default function Pricing() {
     setShowCheckoutModal(true);
   };
 
-  const inrAmount = selectedPlan ? Math.round(selectedPlan.priceUSD * usdToInrRate) : 0;
+  const inrAmount = selectedPlan
+    ? (selectedPlan.priceINR && selectedPlan.priceINR > 0
+        ? selectedPlan.priceINR
+        : Math.round(selectedPlan.priceUSD * usdToInrRate))
+    : 0;
   const upiId = gatewayConfig?.upiId || '6398743132@ptaxis';
   const payeeName = gatewayConfig?.payeeName || 'PAWAN KUMAR';
   const bankDetails = gatewayConfig?.bankDetails || {
@@ -405,8 +445,8 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-16">
-          {PLANS.map((plan) => {
-            const inrPrice = Math.round(plan.priceUSD * usdToInrRate);
+          {plansList.map((plan) => {
+            const inrPrice = plan.priceINR && plan.priceINR > 0 ? plan.priceINR : Math.round(plan.priceUSD * usdToInrRate);
             return (
               <div
                 key={plan.id}

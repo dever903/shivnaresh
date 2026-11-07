@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Settings,
   ShieldAlert,
+  Tag,
   Trash2,
   UploadCloud,
   Users,
@@ -85,6 +86,23 @@ export default function Admin() {
   const [gwBankName, setGwBankName] = useState('');
   const [savingGwSettings, setSavingGwSettings] = useState(false);
   const [gwSettingsStatus, setGwSettingsStatus] = useState<{ ok: boolean; message: string } | null>(null);
+
+  /* Plan Pricing State */
+  const [planPrices, setPlanPrices] = useState<Record<string, {
+    name?: string;
+    priceUSD: number;
+    priceINR?: number;
+    credits: number;
+    maxVideos?: number;
+    maxModels?: number;
+  }>>({
+    starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3 },
+    ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 300, maxVideos: 4, maxModels: 15 },
+    pro: { name: 'Pro Atelier', priceUSD: 149, priceINR: 0, credits: 1000, maxVideos: 12, maxModels: 50 },
+    ultra: { name: 'Ultra Haute-Couture', priceUSD: 249, priceINR: 0, credits: 200, maxVideos: 20, maxModels: 100 },
+  });
+  const [savingPlans, setSavingPlans] = useState(false);
+  const [planSaveStatus, setPlanSaveStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   /* Settings Form State */
   const [apiKey, setApiKey] = useState('');
@@ -388,6 +406,12 @@ export default function Admin() {
     setResendFromEmail(s.resendFromEmail || 'Shiv-Naresh AI Studio <onboarding@resend.dev>');
     setAdmin2faEnabled(Boolean(s.admin2faEnabled));
     setDeveloperImageUrl(s.developerImageUrl || '');
+    if (s.plans) {
+      setPlanPrices((prev) => ({
+        ...prev,
+        ...s.plans,
+      }));
+    }
     try {
       const dp = await api.developerProfile();
       if (dp.name) {
@@ -558,10 +582,29 @@ export default function Admin() {
           setGwBankName(bank.bankName || '');
         }
       }
+      try {
+        const pRes = await api.plans();
+        if (pRes?.plans) {
+          setPlanPrices((prev) => ({ ...prev, ...pRes.plans }));
+        }
+      } catch {}
     } catch (err: any) {
       console.warn('Failed to load gateway data:', err);
     } finally {
       setGatewayLoading(false);
+    }
+  }
+
+  async function handleSavePlanPrices() {
+    setSavingPlans(true);
+    setPlanSaveStatus(null);
+    try {
+      const res = await api.adminUpdatePlans(planPrices);
+      setPlanSaveStatus({ ok: true, message: res.message || 'Plan prices and credit allocations updated successfully!' });
+    } catch (err: any) {
+      setPlanSaveStatus({ ok: false, message: err?.message || 'Failed to update plan prices.' });
+    } finally {
+      setSavingPlans(false);
     }
   }
 
@@ -2450,8 +2493,11 @@ ${log.stack || 'None'}
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold tracking-tight">System Keys & Studio Presets</h2>
-        <p className="text-xs opacity-60">Configure render provider credentials, CDN buckets, and studio defaults.</p>
+        <p className="text-xs opacity-60">Configure render provider credentials, subscription plan prices, CDN buckets, and studio defaults.</p>
       </div>
+
+      {/* Plan Pricing & Credit Quotas Editor */}
+      {renderPlanPricingCard()}
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Render Provider Key */}
@@ -3705,6 +3751,164 @@ ${log.stack || 'None'}
     );
   };
 
+  const renderPlanPricingCard = () => {
+    const plansMeta = [
+      { id: 'starter', name: 'Starter Trial', badge: 'Free Trial', badgeColor: 'bg-slate-500/20 text-slate-300' },
+      { id: 'ondemand', name: 'On-Demand Growth', badge: 'Growth Drops', badgeColor: 'bg-blue-500/20 text-blue-400' },
+      { id: 'pro', name: 'Pro Atelier', badge: 'Most Popular', badgeColor: 'bg-[#e5373f]/20 text-[#e5373f]' },
+      { id: 'ultra', name: 'Ultra Haute-Couture', badge: 'Enterprise Atelier', badgeColor: 'bg-amber-500/20 text-amber-400' },
+    ];
+
+    return (
+      <div className={cardClass}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/10">
+          <div>
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-[#e5373f]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider">Subscription Plans & Pricing Editor</h3>
+            </div>
+            <p className="text-xs opacity-60 mt-0.5">
+              Edit the prices (USD & optional fixed INR) and monthly credit allocations for customer plans. Changes apply immediately across the entire studio and payment gateway.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={savingPlans}
+            onClick={() => void handleSavePlanPrices()}
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-md transition disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            {savingPlans ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving Prices...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Save Plan Prices</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {planSaveStatus && (
+          <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+            planSaveStatus.ok
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            {planSaveStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+            <span>{planSaveStatus.message}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+          {plansMeta.map((pm) => {
+            const p = planPrices[pm.id] || { priceUSD: 0, credits: 0 };
+            const effectiveInr = p.priceINR && Number(p.priceINR) > 0 ? Number(p.priceINR) : Math.round((p.priceUSD || 0) * 94);
+            return (
+              <div
+                key={pm.id}
+                className={`p-4 rounded-2xl border transition ${
+                  isLight
+                    ? 'bg-gray-50 border-gray-200'
+                    : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <h4 className="text-xs font-extrabold truncate">{pm.name}</h4>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 ${pm.badgeColor}`}>
+                    {pm.badge}
+                  </span>
+                </div>
+
+                {/* Price in USD */}
+                <div className="mt-3">
+                  <label className="text-[10px] font-semibold opacity-70 block uppercase tracking-wider">
+                    Price in USD ($)
+                  </label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={p.priceUSD}
+                      onChange={(e) => {
+                        const val = Math.max(0, Number(e.target.value));
+                        setPlanPrices((prev) => ({
+                          ...prev,
+                          [pm.id]: { ...prev[pm.id], priceUSD: val },
+                        }));
+                      }}
+                      className={`${inputClass} pl-7 mt-0`}
+                    />
+                  </div>
+                </div>
+
+                {/* Fixed Price in INR (Optional) */}
+                <div className="mt-3">
+                  <label className="text-[10px] font-semibold opacity-70 block uppercase tracking-wider">
+                    Fixed INR (₹, optional)
+                  </label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Auto (USD conversion)"
+                      value={p.priceINR ? p.priceINR : ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value));
+                        setPlanPrices((prev) => ({
+                          ...prev,
+                          [pm.id]: { ...prev[pm.id], priceINR: val },
+                        }));
+                      }}
+                      className={`${inputClass} pl-7 mt-0`}
+                    />
+                  </div>
+                  <span className="text-[9px] opacity-50 mt-1 block">
+                    {p.priceINR && Number(p.priceINR) > 0 ? 'Fixed manual INR override' : 'Auto-converts from USD'}
+                  </span>
+                </div>
+
+                {/* Monthly Credits */}
+                <div className="mt-3">
+                  <label className="text-[10px] font-semibold opacity-70 block uppercase tracking-wider">
+                    Monthly Credits
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={p.credits}
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value));
+                      setPlanPrices((prev) => ({
+                        ...prev,
+                        [pm.id]: { ...prev[pm.id], credits: val },
+                      }));
+                    }}
+                    className={`${inputClass} mt-1`}
+                  />
+                </div>
+
+                {/* Live effective price calculation */}
+                <div className={`mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] ${
+                  isLight ? 'text-slate-800' : 'text-slate-300'
+                }`}>
+                  <span className="opacity-60">Customer Pays:</span>
+                  <span className="font-extrabold text-amber-500">
+                    {pm.id === 'starter' && p.priceUSD === 0 ? 'Free' : `₹${effectiveInr.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderGateway = () => {
     const filteredOrders = gatewayOrders.filter((ord) => {
       if (gatewayFilter === 'review') return ord.status === 'review';
@@ -3942,6 +4146,9 @@ ${log.stack || 'None'}
             </div>
           )}
         </div>
+
+        {/* Plan Pricing Editor */}
+        {renderPlanPricingCard()}
 
         {/* Payment Accounts & Configuration Form */}
         <div className={cardClass}>

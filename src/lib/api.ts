@@ -10,6 +10,17 @@ export type Studio = {
   defaultMode: string;
 };
 
+export type PlanConfig = {
+  id: string;
+  name: string;
+  priceUSD: number;
+  priceINR?: number;
+  credits: number;
+  tier?: string;
+  maxVideos?: number;
+  maxModels?: number;
+};
+
 /** Provider keys and account wiring — admin only. */
 export type AdminSettings = {
   apiKeySet: boolean;
@@ -39,6 +50,7 @@ export type AdminSettings = {
   resolution: string;
   generationMode: string;
   defaultMode: string;
+  plans?: Record<string, PlanConfig>;
 };
 
 export type Job = {
@@ -238,6 +250,7 @@ export type GatewayConfig = {
     is_hosted: boolean;
   }[];
   externalGatewayConfigured: boolean;
+  plans?: Record<string, PlanConfig>;
 };
 
 export type GatewayOrder = {
@@ -523,6 +536,12 @@ export const api = {
   startHostSync: () => request<{ started: boolean; running: boolean }>('/api/admin/host', { method: 'POST' }),
   saveAdminSettings: (patch: Record<string, unknown>) =>
     request<{ ok: boolean }>('/api/admin/settings', { ...json(patch), method: 'PUT' }),
+  plans: () => request<{ ok: boolean; plans: Record<string, PlanConfig> }>('/api/plans'),
+  adminUpdatePlans: (plans: Record<string, Partial<PlanConfig>>) =>
+    request<{ ok: boolean; message: string; plans: Record<string, PlanConfig> }>('/api/admin/plans', {
+      ...json({ plans }),
+      method: 'PUT',
+    }),
 
   /* upi gateway (compatible with mynkdev-21/upi-gateway) */
   gatewayConfig: () => request<GatewayConfig>('/api/upi-gateway/config'),

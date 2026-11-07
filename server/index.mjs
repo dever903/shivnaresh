@@ -131,6 +131,49 @@ const SEED_STATE = {
   developerImageUrl: '',
 };
 
+export const DEFAULT_PLANS = {
+  starter: {
+    id: 'starter',
+    name: 'Starter Trial',
+    priceUSD: 0,
+    priceINR: 0,
+    credits: 5,
+    tier: 'free',
+    maxVideos: 1,
+    maxModels: 3,
+  },
+  ondemand: {
+    id: 'ondemand',
+    name: 'On-Demand Growth',
+    priceUSD: 49,
+    priceINR: 0,
+    credits: 300,
+    tier: 'ondemand',
+    maxVideos: 4,
+    maxModels: 15,
+  },
+  pro: {
+    id: 'pro',
+    name: 'Pro Atelier',
+    priceUSD: 149,
+    priceINR: 0,
+    credits: 1000,
+    tier: 'pro',
+    maxVideos: 12,
+    maxModels: 50,
+  },
+  ultra: {
+    id: 'ultra',
+    name: 'Ultra Haute-Couture',
+    priceUSD: 249,
+    priceINR: 0,
+    credits: 200,
+    tier: 'ultra',
+    maxVideos: 20,
+    maxModels: 100,
+  },
+};
+
 /* ---------------------------------------------------------------- state */
 const DEFAULTS = {
   apiKey: '',
@@ -139,6 +182,8 @@ const DEFAULTS = {
   resolution: '1k',
   generationMode: 'balanced',
   defaultMode: 'tryon',
+  /* plans */
+  plans: DEFAULT_PLANS,
   /* accounts */
   mongoUri: '',
   googleClientId: '',
@@ -598,7 +643,37 @@ app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
     brevoApiKeyMasked: mask(s.brevoApiKey || process.env.BREVO_API_KEY || getDefaultBrevoKey()),
     admin2faEnabled: Boolean(s.admin2faEnabled),
     developerImageUrl: s.developerImageUrl || '',
+    plans: { ...DEFAULT_PLANS, ...(s.plans || {}) },
   });
+});
+
+app.get('/api/plans', async (_req, res) => {
+  const s = await readState();
+  const plans = { ...DEFAULT_PLANS, ...(s.plans || {}) };
+  res.json({ ok: true, plans });
+});
+
+app.put('/api/admin/plans', requireAdmin, async (req, res) => {
+  const body = req.body || {};
+  const inputPlans = body.plans || {};
+  const current = await readState();
+  const mergedPlans = { ...DEFAULT_PLANS, ...(current.plans || {}) };
+
+  for (const [key, p] of Object.entries(inputPlans)) {
+    if (!DEFAULT_PLANS[key]) continue;
+    mergedPlans[key] = {
+      ...mergedPlans[key],
+      ...p,
+      priceUSD: p.priceUSD !== undefined ? Math.max(0, Number(p.priceUSD)) : mergedPlans[key].priceUSD,
+      priceINR: p.priceINR !== undefined ? Math.max(0, Number(p.priceINR)) : (mergedPlans[key].priceINR || 0),
+      credits: p.credits !== undefined ? Math.max(0, Number(p.credits)) : mergedPlans[key].credits,
+      maxVideos: p.maxVideos !== undefined ? Math.max(0, Number(p.maxVideos)) : mergedPlans[key].maxVideos,
+      maxModels: p.maxModels !== undefined ? Math.max(0, Number(p.maxModels)) : mergedPlans[key].maxModels,
+    };
+  }
+
+  await patchState({ plans: mergedPlans });
+  res.json({ ok: true, message: 'Plan prices updated successfully', plans: mergedPlans });
 });
 
 app.post('/api/admin/test-email', auth.attachUser, auth.requireUser, async (req, res) => {
@@ -708,6 +783,22 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   }
   if (body.clearBrevoApiKey) patch.brevoApiKey = '';
   if (typeof body.resendFromEmail === 'string' && body.resendFromEmail.trim()) patch.resendFromEmail = body.resendFromEmail.trim();
+
+  if (body.plans && typeof body.plans === 'object') {
+    const s = await readState();
+    const currentPlans = { ...DEFAULT_PLANS, ...(s.plans || {}) };
+    for (const [key, p] of Object.entries(body.plans)) {
+      if (!DEFAULT_PLANS[key]) continue;
+      currentPlans[key] = {
+        ...currentPlans[key],
+        ...p,
+        priceUSD: p.priceUSD !== undefined ? Math.max(0, Number(p.priceUSD)) : currentPlans[key].priceUSD,
+        priceINR: p.priceINR !== undefined ? Math.max(0, Number(p.priceINR)) : (currentPlans[key].priceINR || 0),
+        credits: p.credits !== undefined ? Math.max(0, Number(p.credits)) : currentPlans[key].credits,
+      };
+    }
+    patch.plans = currentPlans;
+  }
 
   const next = await patchState(patch);
   res.json({

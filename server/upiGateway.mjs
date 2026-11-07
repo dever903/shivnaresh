@@ -221,7 +221,16 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         return false;
       }
 
-      const plan = PLAN_DEFINITIONS[order.plan_id] || PLAN_DEFINITIONS.pro;
+      const state = await getState();
+      const basePlan = PLAN_DEFINITIONS[order.plan_id] || PLAN_DEFINITIONS.pro;
+      const customPlan = state.plans?.[order.plan_id];
+      const plan = {
+        ...basePlan,
+        ...(customPlan || {}),
+        credits: customPlan?.credits !== undefined ? Number(customPlan.credits) : basePlan.credits,
+        maxVideos: customPlan?.maxVideos !== undefined ? Number(customPlan.maxVideos) : basePlan.maxVideos,
+        maxModels: customPlan?.maxModels !== undefined ? Number(customPlan.maxModels) : basePlan.maxModels,
+      };
       const currentCredits = typeof user.credits === 'number' ? user.credits : 0;
       const addedCredits = plan.credits || 1000;
       const newCredits = currentCredits + addedCredits;
@@ -294,6 +303,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         is_hosted: a.provider === 'phonepe_pg' || a.provider === 'paytm_pg',
       })),
       externalGatewayConfigured: Boolean(state.upiGatewayUrl && state.upiGatewayApiKey),
+      plans: { ...PLAN_DEFINITIONS, ...(state.plans || {}) },
     });
   });
 
@@ -306,8 +316,16 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         return res.status(400).json({ success: false, error: 'Invalid order amount.' });
       }
 
+      const state = await getState();
       const planId = String(body.plan_id || 'pro').toLowerCase();
-      const plan = PLAN_DEFINITIONS[planId] || PLAN_DEFINITIONS.pro;
+      const basePlan = PLAN_DEFINITIONS[planId] || PLAN_DEFINITIONS.pro;
+      const customPlan = state.plans?.[planId];
+      const plan = {
+        ...basePlan,
+        ...(customPlan || {}),
+        priceUSD: customPlan?.priceUSD !== undefined ? Number(customPlan.priceUSD) : basePlan.priceUSD,
+        credits: customPlan?.credits !== undefined ? Number(customPlan.credits) : basePlan.credits,
+      };
 
       const customerEmail = String(body.customer_email || req.user?.email || '').trim().toLowerCase();
       const customerName = String(body.customer_name || req.user?.name || 'Customer').trim();
