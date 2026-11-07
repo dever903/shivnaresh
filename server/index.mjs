@@ -1179,7 +1179,7 @@ app.get('/api/uploads', async (_req, res) => {
         };
       }),
     );
-    res.json({ items: items.sort((a, b) => b.at - a.at).slice(0, 60) });
+    res.json({ items: items.sort((a, b) => b.at - a.at).slice(0, 1000) });
   } catch {
     res.json({ items: [] });
   }

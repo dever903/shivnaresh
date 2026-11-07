@@ -1257,19 +1257,13 @@ function CustomRequestsPanel({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     e.target.value = '';
-    const availableSlots = 5 - pendingModels.length;
-    if (availableSlots <= 0) {
-      setError('You can upload a maximum of 5 model poses per custom request.');
-      return;
-    }
-    const filesToAdd = files.slice(0, availableSlots);
-    filesToAdd.forEach((file) => {
+    files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
-        setPendingModels((prev) => {
-          if (prev.length >= 5) return prev;
-          return [...prev, { file, preview: String(reader.result), name: file.name }];
-        });
+        setPendingModels((prev) => [
+          ...prev,
+          { file, preview: String(reader.result), name: file.name },
+        ]);
       };
       reader.readAsDataURL(file);
     });
@@ -1280,12 +1274,10 @@ function CustomRequestsPanel({
     if (confirming.kind === 'cloth') {
       setPendingCloth({ file: confirming.file, preview: confirming.preview });
     } else {
-      if (pendingModels.length < 5) {
-        setPendingModels((prev) => [
-          ...prev,
-          { file: confirming.file, preview: confirming.preview, name: confirming.file.name },
-        ]);
-      }
+      setPendingModels((prev) => [
+        ...prev,
+        { file: confirming.file, preview: confirming.preview, name: confirming.file.name },
+      ]);
     }
     setConfirming(null);
   }
@@ -1544,17 +1536,15 @@ function CustomRequestsPanel({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                  Photoshoot Poses ({pendingModels.length}/5 Uploaded · 1 Photoshoot = 5 Poses)
+                  Photoshoot Poses ({pendingModels.length} Uploaded · 1 Photoshoot = 5 Poses)
                 </p>
-                {pendingModels.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => multiModelRef.current?.click()}
-                    className="text-[11px] font-bold text-[#e5373f] hover:underline"
-                  >
-                    + Add Pose {pendingModels.length + 1}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => multiModelRef.current?.click()}
+                  className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                >
+                  + Add Pose {pendingModels.length + 1}
+                </button>
               </div>
               <input
                 ref={multiModelRef}
@@ -1585,24 +1575,22 @@ function CustomRequestsPanel({
                   </div>
                 ))}
 
-                {pendingModels.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => multiModelRef.current?.click()}
-                    className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                      isLight
-                        ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                    }`}
-                  >
-                    <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                    <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Pose {pendingModels.length + 1}</span>
-                    <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Upload angle</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => multiModelRef.current?.click()}
+                  className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
+                    isLight
+                      ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                      : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                  }`}
+                >
+                  <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                  <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add Pose {pendingModels.length + 1}</span>
+                  <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Upload any angle</span>
+                </button>
               </div>
               <p className={`mt-2 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>
-                Upload up to 5 model images (front, 3/4 angle, profile side, back view, action shot).
+                Upload any number of model images (front, 3/4 angle, profile side, back view, action shots).
               </p>
             </div>
           </div>
@@ -2683,6 +2671,7 @@ export default function Design() {
   const [newCollection, setNewCollection] = useState('');
   const [savedTo, setSavedTo] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; kind: 'cloth' | 'model' } | null>(null);
 
   /* Generation confirmation modal */
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -2954,43 +2943,58 @@ export default function Design() {
     return () => clearInterval(timer);
   }, [busy, genStartTime]);
 
-  async function handleFile(file: File | undefined, kind: 'cloth' | 'model') {
-    if (!file) return;
+  async function handleMultipleFiles(files: FileList | null | File[] | undefined, kind: 'cloth' | 'model') {
+    if (!files) return;
+    const fileArr = Array.isArray(files) ? files : Array.from(files);
+    if (fileArr.length === 0) return;
+
     try {
       setError('');
       setUploading(true);
-      const dataUrl = await fileToDataUrl(file);
-      const uploaded = await api.upload(dataUrl, kind, file.name);
-      const pick = { url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name };
-      if (kind === 'cloth') setCloth(pick);
-      else setModel(pick);
-      void loadUploads();
+      setUploadProgress({ current: 0, total: fileArr.length, kind });
+
+      let slotOffset = activeSlotIndex;
+
+      for (let i = 0; i < fileArr.length; i++) {
+        const file = fileArr[i];
+        setUploadProgress({ current: i + 1, total: fileArr.length, kind });
+        const dataUrl = await fileToDataUrl(file);
+        const uploaded = await api.upload(dataUrl, kind, file.name);
+        const pick = { url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name };
+
+        if (kind === 'cloth') {
+          // Select this uploaded garment
+          setCloth(pick);
+        } else {
+          // Select this uploaded model
+          setModel(pick);
+          if (poseMode === '5-pose') {
+            setSelectedPoses((prev) => {
+              const next = [...prev];
+              if (slotOffset < 5) {
+                next[slotOffset] = pick;
+                slotOffset++;
+              }
+              return next;
+            });
+          }
+        }
+      }
+
+      if (kind === 'model') {
+        setTab('uploads');
+      }
+
+      await loadUploads();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
-  async function handleMultipleModelFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    try {
-      setError('');
-      setUploading(true);
-      const fileArr = Array.from(files).slice(0, 5);
-      for (const file of fileArr) {
-        const dataUrl = await fileToDataUrl(file);
-        const uploaded = await api.upload(dataUrl, 'model', file.name);
-        setModel({ url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name });
-      }
-      setTab('uploads');
-      void loadUploads();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }
+
 
   /* ------------------------------------------------
      Unified Execution Function (runs after user clicks Yes in confirmation)
@@ -3815,30 +3819,105 @@ export default function Design() {
                   <input
                     ref={clothInput}
                     type="file"
+                    multiple
                     accept="image/png,image/jpeg,image/webp"
                     className="hidden"
-                    onChange={(e) => void handleFile(e.target.files?.[0], 'cloth')}
+                    onChange={(e) => void handleMultipleFiles(e.target.files, 'cloth')}
                   />
-                  <button
-                    type="button"
-                    onClick={() => clothInput.current?.click()}
-                    disabled={uploading}
-                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
-                      isLight
-                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/15 hover:border-white/35'
-                    }`}
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      void handleMultipleFiles(e.dataTransfer.files, 'cloth');
+                    }}
                   >
-                    {cloth ? (
-                      <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
-                    ) : (
-                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
-                    )}
-                    <span className="text-sm">
-                      <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>{cloth ? cloth.name : 'Drop or choose a garment image'}</span>
-                      <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>PNG, JPEG or WEBP &middot; flat lay works best</span>
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => clothInput.current?.click()}
+                      disabled={uploading}
+                      className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
+                        isLight
+                          ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                          : 'border-white/15 hover:border-white/35'
+                      }`}
+                    >
+                      {uploading && uploadProgress?.kind === 'cloth' ? (
+                        <div className="flex items-center gap-3 w-full py-1">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent" />
+                          <div>
+                            <span className={`block font-semibold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              Uploading {uploadProgress.current} of {uploadProgress.total} garments...
+                            </span>
+                            <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                              Adding to your try-on studio library
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {cloth ? (
+                            <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
+                          ) : (
+                            <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
+                          )}
+                          <span className="text-sm">
+                            <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {cloth ? cloth.name : 'Drop or choose garment images (upload any number)'}
+                            </span>
+                            <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                              PNG, JPEG or WEBP &middot; single or multi-select &middot; flat lay works best
+                            </span>
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Uploaded Garments Quick Tray */}
+                  {uploads.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                          Your Uploads Library ({uploads.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => clothInput.current?.click()}
+                          disabled={uploading}
+                          className="text-[11px] text-[#e5373f] hover:underline font-semibold"
+                        >
+                          + Upload More
+                        </button>
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+                        {uploads.map((item) => {
+                          const isCurrent = cloth?.url === item.url;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setCloth({ url: item.url, preview: item.url, name: item.name })}
+                              className={`relative shrink-0 rounded-lg overflow-hidden border transition ${
+                                isCurrent
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 scale-105'
+                                  : isLight
+                                    ? 'border-gray-200 hover:border-gray-400 opacity-80 hover:opacity-100'
+                                    : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
+                              }`}
+                              title={item.name}
+                            >
+                              <img src={item.url} alt={item.name} className="h-14 w-11 object-cover" />
+                              {isCurrent && (
+                                <span className="absolute bottom-0 inset-x-0 bg-[#e5373f] text-white text-[8px] font-bold text-center py-0.5 leading-none">
+                                  Selected
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Precision Garment Color Matching */}
@@ -3936,7 +4015,7 @@ export default function Design() {
                         disabled={uploading}
                         className="text-[#e5373f] hover:underline disabled:opacity-30 font-semibold"
                       >
-                        + Upload
+                        + Upload Models
                       </button>
                     </div>
                   </div>
@@ -3946,8 +4025,15 @@ export default function Design() {
                     multiple
                     accept="image/png,image/jpeg,image/webp"
                     className="hidden"
-                    onChange={(e) => void handleMultipleModelFiles(e.target.files)}
+                    onChange={(e) => void handleMultipleFiles(e.target.files, 'model')}
                   />
+
+                  {uploading && uploadProgress?.kind === 'model' && (
+                    <div className="mt-3 flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent shrink-0" />
+                      <span>Uploading {uploadProgress.current} of {uploadProgress.total} model images...</span>
+                    </div>
+                  )}
 
                   {model && (
                     <div className={`mt-4 flex items-center gap-3 rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
