@@ -141,6 +141,8 @@ export const DEFAULT_PLANS = {
     tier: 'free',
     maxVideos: 1,
     maxModels: 3,
+    photoshoots: 3,
+    photoshootRule: '1 photoshoot = 5 poses',
   },
   ondemand: {
     id: 'ondemand',
@@ -151,6 +153,8 @@ export const DEFAULT_PLANS = {
     tier: 'ondemand',
     maxVideos: 4,
     maxModels: 15,
+    photoshoots: 15,
+    photoshootRule: '1 photoshoot = 5 poses',
   },
   pro: {
     id: 'pro',
@@ -161,6 +165,8 @@ export const DEFAULT_PLANS = {
     tier: 'pro',
     maxVideos: 12,
     maxModels: 50,
+    photoshoots: 50,
+    photoshootRule: '1 photoshoot = 5 poses',
   },
   ultra: {
     id: 'ultra',
@@ -171,6 +177,8 @@ export const DEFAULT_PLANS = {
     tier: 'ultra',
     maxVideos: 20,
     maxModels: 100,
+    photoshoots: 100,
+    photoshootRule: '1 photoshoot = 5 poses',
   },
 };
 
@@ -662,6 +670,7 @@ app.put('/api/admin/plans', requireAdmin, async (req, res) => {
 
   for (const [key, p] of Object.entries(inputPlans)) {
     if (!DEFAULT_PLANS[key]) continue;
+    const psCount = p.photoshoots !== undefined ? Math.max(0, Number(p.photoshoots)) : (p.maxModels !== undefined ? Math.max(0, Number(p.maxModels)) : mergedPlans[key].photoshoots || mergedPlans[key].maxModels);
     mergedPlans[key] = {
       ...mergedPlans[key],
       ...p,
@@ -669,7 +678,9 @@ app.put('/api/admin/plans', requireAdmin, async (req, res) => {
       priceINR: p.priceINR !== undefined ? Math.max(0, Number(p.priceINR)) : (mergedPlans[key].priceINR || 0),
       credits: p.credits !== undefined ? Math.max(0, Number(p.credits)) : mergedPlans[key].credits,
       maxVideos: p.maxVideos !== undefined ? Math.max(0, Number(p.maxVideos)) : mergedPlans[key].maxVideos,
-      maxModels: p.maxModels !== undefined ? Math.max(0, Number(p.maxModels)) : mergedPlans[key].maxModels,
+      maxModels: psCount,
+      photoshoots: psCount,
+      photoshootRule: '1 photoshoot = 5 poses',
     };
   }
 
@@ -790,12 +801,17 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
     const currentPlans = { ...DEFAULT_PLANS, ...(s.plans || {}) };
     for (const [key, p] of Object.entries(body.plans)) {
       if (!DEFAULT_PLANS[key]) continue;
+      const psCount = p.photoshoots !== undefined ? Math.max(0, Number(p.photoshoots)) : (p.maxModels !== undefined ? Math.max(0, Number(p.maxModels)) : currentPlans[key].photoshoots || currentPlans[key].maxModels);
       currentPlans[key] = {
         ...currentPlans[key],
         ...p,
         priceUSD: p.priceUSD !== undefined ? Math.max(0, Number(p.priceUSD)) : currentPlans[key].priceUSD,
         priceINR: p.priceINR !== undefined ? Math.max(0, Number(p.priceINR)) : (currentPlans[key].priceINR || 0),
         credits: p.credits !== undefined ? Math.max(0, Number(p.credits)) : currentPlans[key].credits,
+        maxVideos: p.maxVideos !== undefined ? Math.max(0, Number(p.maxVideos)) : currentPlans[key].maxVideos,
+        maxModels: psCount,
+        photoshoots: psCount,
+        photoshootRule: '1 photoshoot = 5 poses',
       };
     }
     patch.plans = currentPlans;

@@ -88,6 +88,7 @@ export default function Admin() {
   const [gwSettingsStatus, setGwSettingsStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   /* Plan Pricing State */
+  const isEditingPlansRef = useRef(false);
   const [planPrices, setPlanPrices] = useState<Record<string, {
     name?: string;
     priceUSD: number;
@@ -95,11 +96,18 @@ export default function Admin() {
     credits: number;
     maxVideos?: number;
     maxModels?: number;
-  }>>({
-    starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3 },
-    ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 300, maxVideos: 4, maxModels: 15 },
-    pro: { name: 'Pro Atelier', priceUSD: 149, priceINR: 0, credits: 1000, maxVideos: 12, maxModels: 50 },
-    ultra: { name: 'Ultra Haute-Couture', priceUSD: 249, priceINR: 0, credits: 200, maxVideos: 20, maxModels: 100 },
+    photoshoots?: number;
+  }>>(() => {
+    try {
+      const cached = localStorage.getItem('cached_plan_prices');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return {
+      starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3, photoshoots: 3 },
+      ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 300, maxVideos: 4, maxModels: 15, photoshoots: 15 },
+      pro: { name: 'Pro Atelier', priceUSD: 149, priceINR: 0, credits: 1000, maxVideos: 12, maxModels: 50, photoshoots: 50 },
+      ultra: { name: 'Ultra Haute-Couture', priceUSD: 249, priceINR: 0, credits: 200, maxVideos: 20, maxModels: 100, photoshoots: 100 },
+    };
   });
   const [savingPlans, setSavingPlans] = useState(false);
   const [planSaveStatus, setPlanSaveStatus] = useState<{ ok: boolean; message: string } | null>(null);
@@ -406,11 +414,14 @@ export default function Admin() {
     setResendFromEmail(s.resendFromEmail || 'Shiv-Naresh AI Studio <onboarding@resend.dev>');
     setAdmin2faEnabled(Boolean(s.admin2faEnabled));
     setDeveloperImageUrl(s.developerImageUrl || '');
-    if (s.plans) {
+    if (s.plans && !isEditingPlansRef.current) {
       setPlanPrices((prev) => ({
         ...prev,
         ...s.plans,
       }));
+      try {
+        localStorage.setItem('cached_plan_prices', JSON.stringify(s.plans));
+      } catch {}
     }
     try {
       const dp = await api.developerProfile();
@@ -593,8 +604,11 @@ export default function Admin() {
       }
       try {
         const pRes = await api.plans();
-        if (pRes?.plans) {
+        if (pRes?.plans && !isEditingPlansRef.current) {
           setPlanPrices((prev) => ({ ...prev, ...pRes.plans }));
+          try {
+            localStorage.setItem('cached_plan_prices', JSON.stringify(pRes.plans));
+          } catch {}
         }
       } catch {}
     } catch (err: any) {
@@ -604,12 +618,22 @@ export default function Admin() {
     }
   }
 
-  async function handleSavePlanPrices() {
+  async function handleSavePlanPrices(pricesToSave?: typeof planPrices) {
+    const payload = pricesToSave || planPrices;
     setSavingPlans(true);
     setPlanSaveStatus(null);
     try {
-      const res = await api.adminUpdatePlans(planPrices);
-      setPlanSaveStatus({ ok: true, message: res.message || 'Plan prices and credit allocations updated successfully!' });
+      const res = await api.adminUpdatePlans(payload);
+      if (res?.plans) {
+        setPlanPrices(res.plans);
+        setSettings((prev: any) => (prev ? { ...prev, plans: res.plans } : prev));
+        try {
+          localStorage.setItem('cached_plan_prices', JSON.stringify(res.plans));
+        } catch {}
+      }
+      isEditingPlansRef.current = false;
+      setPlanSaveStatus({ ok: true, message: res.message || 'Plan prices and photoshoot limits saved permanently!' });
+      setTimeout(() => setPlanSaveStatus(null), 5000);
     } catch (err: any) {
       setPlanSaveStatus({ ok: false, message: err?.message || 'Failed to update plan prices.' });
     } finally {
@@ -661,6 +685,7 @@ export default function Admin() {
           accountHolder: gwBankAccountHolder.trim(),
           bankName: gwBankName.trim(),
         },
+        plans: planPrices,
       };
       if (gwPaytmMid && !gwPaytmMid.includes('•••')) {
         patch.paytmMid = gwPaytmMid.trim();
@@ -672,6 +697,8 @@ export default function Admin() {
         patch.upiGatewayApiKey = gwUpiGatewayApiKey.trim();
       }
       const res = await api.saveAdminGatewaySettings(patch);
+      await api.adminUpdatePlans(planPrices).catch(() => {});
+      isEditingPlansRef.current = false;
       setGwSettingsStatus({ ok: true, message: res.message || 'Payment settings saved successfully!' });
       void loadGatewayData();
     } catch (err: any) {
@@ -737,6 +764,7 @@ export default function Admin() {
         brevoApiKey: validBrevo,
         admin2faEnabled,
         developerImageUrl: developerImageUrl.trim() || undefined,
+        plans: planPrices,
       });
 
       setApiKey('');
@@ -2218,7 +2246,7 @@ ${log.stack || 'None'}
                 <th className="py-4 px-3">Plan / Tier</th>
                 <th className="py-4 px-3">Credits</th>
                 <th className="py-4 px-3">Video Limit</th>
-                <th className="py-4 px-3">Model Quota</th>
+                <th className="py-4 px-3">Photoshoots (1=5 poses)</th>
                 <th className="py-4 px-3">Feature Toggles</th>
                 <th className="py-4 px-3">Credit Lock</th>
                 <th className="py-4 px-6 text-right">Individual Save & Delete</th>
@@ -2324,22 +2352,25 @@ ${log.stack || 'None'}
                       </div>
                     </td>
 
-                    {/* Model Quota */}
+                    {/* Photoshoot Quota (1 photoshoot = 5 poses) */}
                     <td className="py-4 px-3">
-                      <input
-                        type="number"
-                        min="0"
-                        value={currentModels}
-                        onChange={(e) =>
-                          setUserRowEdits((prev) => ({
-                            ...prev,
-                            [user.id]: { ...(prev[user.id] || {}), maxModels: Number(e.target.value) },
-                          }))
-                        }
-                        className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
-                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
-                        }`}
-                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={currentModels}
+                          onChange={(e) =>
+                            setUserRowEdits((prev) => ({
+                              ...prev,
+                              [user.id]: { ...(prev[user.id] || {}), maxModels: Number(e.target.value) },
+                            }))
+                          }
+                          className={`w-14 rounded-lg border px-2 py-1 font-mono text-xs ${
+                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
+                          }`}
+                        />
+                        <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 5} poses)</span>
+                      </div>
                     </td>
 
                     {/* Feature Toggles */}
@@ -3843,6 +3874,7 @@ ${log.stack || 'None'}
                       min="0"
                       value={p.priceUSD}
                       onChange={(e) => {
+                        isEditingPlansRef.current = true;
                         const val = Math.max(0, Number(e.target.value));
                         setPlanPrices((prev) => ({
                           ...prev,
@@ -3867,6 +3899,7 @@ ${log.stack || 'None'}
                       placeholder="Auto (USD conversion)"
                       value={p.priceINR ? p.priceINR : ''}
                       onChange={(e) => {
+                        isEditingPlansRef.current = true;
                         const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value));
                         setPlanPrices((prev) => ({
                           ...prev,
@@ -3891,6 +3924,7 @@ ${log.stack || 'None'}
                     min="0"
                     value={p.credits}
                     onChange={(e) => {
+                      isEditingPlansRef.current = true;
                       const val = Math.max(0, Number(e.target.value));
                       setPlanPrices((prev) => ({
                         ...prev,
@@ -3899,6 +3933,30 @@ ${log.stack || 'None'}
                     }}
                     className={`${inputClass} mt-1`}
                   />
+                </div>
+
+                {/* Photoshoots Quota (1 photoshoot = 5 poses) */}
+                <div className="mt-3">
+                  <label className="text-[10px] font-semibold opacity-70 block uppercase tracking-wider">
+                    Photoshoots (1 = 5 poses)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 50 : pm.id === 'ondemand' ? 15 : 3))}
+                    onChange={(e) => {
+                      isEditingPlansRef.current = true;
+                      const val = Math.max(0, Number(e.target.value));
+                      setPlanPrices((prev) => ({
+                        ...prev,
+                        [pm.id]: { ...prev[pm.id], photoshoots: val, maxModels: val },
+                      }));
+                    }}
+                    className={`${inputClass} mt-1`}
+                  />
+                  <span className="text-[9px] text-[#e5373f] opacity-80 mt-1 block font-semibold">
+                    1 photoshoot = 5 poses (Total {(p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 50 : pm.id === 'ondemand' ? 15 : 3))) * 5} poses)
+                  </span>
                 </div>
 
                 {/* Live effective price calculation */}

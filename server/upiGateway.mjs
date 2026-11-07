@@ -47,6 +47,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       tier: 'free',
       maxVideos: 1,
       maxModels: 3,
+      photoshoots: 3,
+      photoshootRule: '1 photoshoot = 5 poses',
       features: { hd2k: false, fivePose: false, video: true, customRequests: false },
     },
     ondemand: {
@@ -57,6 +59,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       tier: 'ondemand',
       maxVideos: 4,
       maxModels: 15,
+      photoshoots: 15,
+      photoshootRule: '1 photoshoot = 5 poses',
       features: { hd2k: true, fivePose: true, video: true, customRequests: false },
     },
     pro: {
@@ -67,6 +71,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       tier: 'pro',
       maxVideos: 12,
       maxModels: 50,
+      photoshoots: 50,
+      photoshootRule: '1 photoshoot = 5 poses',
       features: { hd2k: true, fivePose: true, video: true, customRequests: true },
     },
     ultra: {
@@ -77,6 +83,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       tier: 'ultra',
       maxVideos: 20,
       maxModels: 100,
+      photoshoots: 100,
+      photoshootRule: '1 photoshoot = 5 poses',
       features: { hd2k: true, fivePose: true, video: true, customRequests: true },
     },
   };
@@ -722,6 +730,27 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       if (typeof body.upiGatewayUrl === 'string') patch.upiGatewayUrl = body.upiGatewayUrl.trim().replace(/\/+$/, '');
       if (typeof body.upiGatewayApiKey === 'string') patch.upiGatewayApiKey = body.upiGatewayApiKey.trim();
       if (typeof body.upiGatewayApiSecret === 'string') patch.upiGatewayApiSecret = body.upiGatewayApiSecret.trim();
+
+      if (body.plans && typeof body.plans === 'object') {
+        const s = await getState();
+        const currentPlans = { ...PLAN_DEFINITIONS, ...(s.plans || {}) };
+        for (const [key, p] of Object.entries(body.plans)) {
+          if (!PLAN_DEFINITIONS[key]) continue;
+          const psCount = p.photoshoots !== undefined ? Math.max(0, Number(p.photoshoots)) : (p.maxModels !== undefined ? Math.max(0, Number(p.maxModels)) : currentPlans[key].photoshoots || currentPlans[key].maxModels);
+          currentPlans[key] = {
+            ...currentPlans[key],
+            ...p,
+            priceUSD: p.priceUSD !== undefined ? Math.max(0, Number(p.priceUSD)) : currentPlans[key].priceUSD,
+            priceINR: p.priceINR !== undefined ? Math.max(0, Number(p.priceINR)) : (currentPlans[key].priceINR || 0),
+            credits: p.credits !== undefined ? Math.max(0, Number(p.credits)) : currentPlans[key].credits,
+            maxVideos: p.maxVideos !== undefined ? Math.max(0, Number(p.maxVideos)) : currentPlans[key].maxVideos,
+            maxModels: psCount,
+            photoshoots: psCount,
+            photoshootRule: '1 photoshoot = 5 poses',
+          };
+        }
+        patch.plans = currentPlans;
+      }
 
       await patchState(patch);
 

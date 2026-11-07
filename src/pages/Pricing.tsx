@@ -16,7 +16,8 @@ interface Plan {
   featured?: boolean;
   badge?: string;
   specs: {
-    models: string;
+    photoshoots: string;
+    models?: string;
     videos: string;
     credits: string;
     bonusCredits?: string;
@@ -34,6 +35,7 @@ const PLANS: Plan[] = [
     tagline: 'Instant zero-risk trial for emerging sportswear designers',
     priceUSD: 0,
     specs: {
+      photoshoots: 'Self-Service Catalog',
       models: 'Self-Service Catalog',
       videos: 'Trial Generation',
       credits: '5 Free Credits',
@@ -45,7 +47,7 @@ const PLANS: Plan[] = [
       '5 free trial credits upon verified signup',
       'Balanced 2K photorealistic image generation',
       'Standard 5s neural motion video preview',
-      'Full access to curated studio model library',
+      'Full access to curated studio photoshoot library',
       'SHIV-NARESH verified branding in prompts',
       'Instant AI pipeline access'
     ]
@@ -56,7 +58,8 @@ const PLANS: Plan[] = [
     tagline: 'Ideal for seasonal sportswear drops and catalogue shoots',
     priceUSD: 49,
     specs: {
-      models: '15 Curated Models (5 Poses Each = 75 High-Res Poses)',
+      photoshoots: '15 Curated Photoshoots (1 Photoshoot = 5 Poses · 75 High-Res Images)',
+      models: '15 Curated Photoshoots (1 Photoshoot = 5 Poses · 75 High-Res Images)',
       videos: '4 High-Def Neural Videos (5-10s)',
       credits: '300 Monthly Credits',
       delivery: 'Instant Neural Engine',
@@ -64,10 +67,10 @@ const PLANS: Plan[] = [
       resolution: 'Balanced 2K Master Quality'
     },
     features: [
-      '15 Curated AI Models (each with 5 multi-angle poses = 75 images)',
+      '15 Curated Photoshoots (1 photoshoot = 5 multi-angle poses = 75 photos)',
       '4 High-Def 5-10 second vertical/horizontal sportswear videos',
       '300 active monthly credits (rollover for 30 billing days)',
-      'Dual model swap & fabric color accuracy conditioning',
+      'Dual photoshoot swap & fabric color accuracy conditioning',
       '1-hour grace window to edit/delete uploaded assets',
       'Priority email & WhatsApp customer support'
     ]
@@ -80,7 +83,8 @@ const PLANS: Plan[] = [
     featured: true,
     badge: 'MOST POPULAR',
     specs: {
-      models: '50 Models (5 Poses Each = 250 High-Res Poses) · 1 Month Expiry',
+      photoshoots: '50 Photoshoots (1 Photoshoot = 5 Poses · 250 High-Res Images) · 1 Month Expiry',
+      models: '50 Photoshoots (1 Photoshoot = 5 Poses · 250 High-Res Images) · 1 Month Expiry',
       videos: '12 Cinematic 1080p Videos · 1 Month Expiry',
       credits: '800 Credits + 200 Bonus = 1,000 Total',
       delivery: 'High-Priority Neural Queue',
@@ -88,10 +92,10 @@ const PLANS: Plan[] = [
       resolution: 'Ultra 2K Photoreal + 1080p Motion'
     },
     features: [
-      '50 Curated Models (each with 5 multi-angle poses = 250 images)',
+      '50 Curated Photoshoots (1 photoshoot = 5 multi-angle poses = 250 photos)',
       '12 Cinematic 1080p Videos (9:16 Reels & 16:9 Sportswear cuts)',
       '800 Monthly Credits + 200 FREE Bonus Credits (1,000 credits total)',
-      'All models & videos valid for 1 month subscription cycle',
+      'All photoshoots & videos valid for 1 month subscription cycle',
       'Priority rendering queue for instant zero-wait generation',
       'Dedicated WhatsApp account executive',
       'Iterative prompt refiner with fabric color-matching precision',
@@ -105,7 +109,8 @@ const PLANS: Plan[] = [
     priceUSD: 249,
     badge: 'ENTERPRISE ATELIER',
     specs: {
-      models: '100 Custom Models (Max 10 Models/Day) · 1 Month Expiry',
+      photoshoots: '100 Custom Photoshoots (Max 10 Photoshoots/Day · 1 Photoshoot = 5 Poses) · 1 Month Expiry',
+      models: '100 Custom Photoshoots (Max 10 Photoshoots/Day · 1 Photoshoot = 5 Poses) · 1 Month Expiry',
       videos: '20 Studio Videos (Max 1 Video/Day) · 1 Month Expiry',
       credits: '200 Account Credits (Custom shoots free)',
       delivery: 'Guaranteed 24-48h Delivery',
@@ -114,10 +119,10 @@ const PLANS: Plan[] = [
     },
     features: [
       'Custom Atelier Service: upload cloths & garments in Custom Requests',
-      'Daily Production Quota: Max 10 custom models and 1 video per day',
-      'Total 100 Models + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
+      'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 5 poses) and 1 video per day',
+      'Total 100 Photoshoots (500 Poses) + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
       '200 extra credits in your account for rapid neural experimentation',
-      'Models & studio videos in custom requests do NOT consume your account credits',
+      'Photoshoots & studio videos in custom requests do NOT consume your account credits',
       'Post-generation touch-ups, prompt refinements, and multi-pose changes',
       '100% human studio team fulfillment guarantee if neural API undergoes downtime',
       'Direct line to lead fashion director & 24/7 VIP assistance'
@@ -129,7 +134,24 @@ export default function Pricing() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
 
-  const [plansList, setPlansList] = useState<Plan[]>(PLANS);
+  const [plansList, setPlansList] = useState<Plan[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_plan_prices');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return PLANS.map((p) => {
+          const custom = parsed[p.id];
+          if (!custom) return p;
+          return {
+            ...p,
+            priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
+            priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
+          };
+        });
+      }
+    } catch {}
+    return PLANS;
+  });
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -180,46 +202,34 @@ export default function Pricing() {
       })
       .catch(() => {});
 
-    // Fetch live gateway configuration
-    api.gatewayConfig()
-      .then((cfg) => {
-        if (cfg?.ok) {
-          setGatewayConfig(cfg);
-          if (cfg.plans) {
-            setPlansList((prev) =>
-              prev.map((p) => {
-                const custom = cfg.plans?.[p.id];
-                if (!custom) return p;
-                return {
-                  ...p,
-                  priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
-                  priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
-                };
-              })
-            );
-          }
-        }
-      })
-      .catch(() => {});
+    const applyDynamicPlans = (plansObj: Record<string, any>) => {
+      if (!plansObj || typeof plansObj !== 'object') return;
+      try {
+        localStorage.setItem('cached_plan_prices', JSON.stringify(plansObj));
+      } catch {}
+      setPlansList((prev) =>
+        prev.map((p) => {
+          const custom = plansObj[p.id];
+          if (!custom) return p;
+          return {
+            ...p,
+            priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
+            priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
+          };
+        })
+      );
+    };
 
-    // Fetch dynamic plans if available
-    api.plans()
-      .then((res) => {
-        if (res?.plans) {
-          setPlansList((prev) =>
-            prev.map((p) => {
-              const custom = res.plans[p.id];
-              if (!custom) return p;
-              return {
-                ...p,
-                priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
-                priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
-              };
-            })
-          );
-        }
-      })
-      .catch(() => {});
+    // Parallel fetch without race conditions or UI flickers
+    void Promise.allSettled([api.plans(), api.gatewayConfig()]).then(([pRes, gRes]) => {
+      if (gRes.status === 'fulfilled' && gRes.value?.ok) {
+        setGatewayConfig(gRes.value);
+        if (gRes.value.plans) applyDynamicPlans(gRes.value.plans);
+      }
+      if (pRes.status === 'fulfilled' && pRes.value?.plans) {
+        applyDynamicPlans(pRes.value.plans);
+      }
+    });
   }, []);
 
   // Poll active order status every 3.5s while checkout modal is open
@@ -439,7 +449,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
           <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed opacity-75 ${
             isLight ? 'text-gray-700' : 'text-slate-300'
           }`}>
-            High-resolution 2K model poses and cinematic motion videos with commercial licensing.
+            High-resolution 2K photoshoot poses (1 photoshoot = 5 poses) and cinematic motion videos with commercial licensing.
           </p>
         </div>
 
@@ -484,7 +494,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     </div>
                     {plan.priceUSD > 0 ? (
                       <p className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isLight ? 'text-amber-700' : 'text-amber-400/90'}`}>
-                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR <span className={isLight ? 'text-gray-400 font-normal' : 'text-slate-500 font-normal'}>(@ ₹{usdToInrRate}/USD live)</span>
+                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR {plan.priceINR && plan.priceINR > 0 ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold">Fixed INR</span> : <span className={isLight ? 'text-gray-400 font-normal' : 'text-slate-500 font-normal'}>(@ ₹{usdToInrRate}/USD live)</span>}
                       </p>
                     ) : (
                       <p className={`text-xs font-semibold mt-1 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>100% Free Signup Forever</p>
@@ -496,8 +506,13 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
                   }`}>
                     <div className="flex justify-between items-center">
-                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Models:</span>
-                      <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.models}</span>
+                      <div>
+                        <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Photoshoots:</span>
+                        <span className="block text-[9px] text-[#e5373f] font-bold tracking-tight">1 photoshoot = 5 poses</span>
+                      </div>
+                      <span className={`font-semibold text-right text-xs max-w-[55%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
+                        {plan.specs.photoshoots || plan.specs.models}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Videos:</span>
@@ -808,7 +823,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                       {selectedPlan.name} Plan Activated
                     </p>
                     <p className={`text-xs max-w-sm mx-auto leading-relaxed mt-2 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                      Your transaction has been verified. Studio credits, models, and custom order features are now active on your account.
+                      Your transaction has been verified. Studio credits, photoshoots (1 photoshoot = 5 poses), and custom order features are now active on your account.
                     </p>
                   </div>
                   <div className={`p-3 rounded-xl border text-xs font-mono ${isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'}`}>

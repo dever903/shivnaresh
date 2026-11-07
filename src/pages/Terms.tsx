@@ -96,11 +96,11 @@ export default function Terms() {
               2. Plan Quotas, Defined Limits & Monthly Expiration
             </h2>
             <p className="opacity-80">
-              Each user plan is strictly defined up to the exact number of credits, model pose limits (e.g. 15 models = 75 poses on On-Demand, 40 models on Pro, 70 models on Ultra), and video generation quotas allocated for that specific billing month.
+              Each user plan is strictly defined up to the exact number of credits, photoshoot limits (1 photoshoot = 5 poses; e.g. 15 photoshoots = 75 poses on On-Demand, 50 photoshoots = 250 poses on Pro, 100 photoshoots = 500 poses on Ultra), and video generation quotas allocated for that specific billing month.
             </p>
             <ul className="list-disc pl-5 space-y-1.5 opacity-80">
               <li>
-                <strong>Monthly Expiration:</strong> All unused credits, video generation quotas, and model allotments expire at the conclusion of each monthly billing cycle and do not roll over to subsequent months unless explicitly stated in your agreement.
+                <strong>Monthly Expiration:</strong> All unused credits, video generation quotas, and photoshoot allotments expire at the conclusion of each monthly billing cycle and do not roll over to subsequent months unless explicitly stated in your agreement.
               </li>
               <li>
                 <strong>Accountability:</strong> Users are responsible for utilizing their allocated quotas within the active 30-day billing window.

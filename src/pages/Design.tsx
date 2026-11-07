@@ -1540,11 +1540,11 @@ function CustomRequestsPanel({
               </div>
             </div>
 
-            {/* Target Models (Up to 5 Poses) */}
+            {/* Target Photoshoot (1 Photoshoot = 5 Poses) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                  Model Poses ({pendingModels.length}/5 Uploaded)
+                  Photoshoot Poses ({pendingModels.length}/5 Uploaded · 1 Photoshoot = 5 Poses)
                 </p>
                 {pendingModels.length < 5 && (
                   <button
@@ -3965,7 +3965,7 @@ export default function Design() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-semibold ${isLight ? 'text-amber-950' : 'text-amber-400'}`}>
-                            Select 5 Poses for Multi-Angle Sequence
+                            1 Photoshoot = 5 Poses (Multi-Angle Sequence)
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-[9px] border ${
                             isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'

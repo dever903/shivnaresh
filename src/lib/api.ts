@@ -19,6 +19,8 @@ export type PlanConfig = {
   tier?: string;
   maxVideos?: number;
   maxModels?: number;
+  photoshoots?: number;
+  photoshootRule?: string;
 };
 
 /** Provider keys and account wiring — admin only. */
