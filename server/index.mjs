@@ -255,9 +255,67 @@ const readState = async () => {
   return merged;
 };
 
-const readCollections = () => readJson(COLLECTIONS_FILE, []);
-const readUploadSets = () => readJson(UPLOAD_SETS_FILE, []);
-const writeUploadSets = (sets) => writeJson(UPLOAD_SETS_FILE, sets);
+const readCollections = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const items = await db.collection('collections').find().toArray();
+      if (items && items.length > 0) {
+        return items.map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+      }
+    }
+  } catch {}
+  return readJson(COLLECTIONS_FILE, []);
+};
+
+const writeCollections = async (items) => {
+  await writeJson(COLLECTIONS_FILE, items);
+  try {
+    const db = await getMongoDb();
+    if (db && Array.isArray(items)) {
+      for (const col of items) {
+        if (!col.id) continue;
+        await db.collection('collections').updateOne(
+          { id: col.id },
+          { $set: col },
+          { upsert: true }
+        );
+      }
+    }
+  } catch {}
+};
+
+const readUploadSets = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const doc = await db.collection('app_data').findOne({ _id: 'upload_sets' });
+      if (doc && Array.isArray(doc.sets) && doc.sets.length > 0) {
+        void writeJson(UPLOAD_SETS_FILE, doc.sets).catch(() => {});
+        return doc.sets;
+      }
+    }
+  } catch {}
+  return readJson(UPLOAD_SETS_FILE, []);
+};
+
+const writeUploadSets = async (sets) => {
+  await writeJson(UPLOAD_SETS_FILE, sets);
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      await db.collection('app_data').updateOne(
+        { _id: 'upload_sets' },
+        { $set: { sets, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+    }
+  } catch {}
+};
 
 const readCustomRequests = async () => {
   try {
@@ -293,10 +351,84 @@ const writeCustomRequests = async (items) => {
   } catch {}
 };
 
-const readSystemLogs = () => readJson(SYSTEM_LOGS_FILE, []);
-const writeSystemLogs = (logs) => writeJson(SYSTEM_LOGS_FILE, Array.isArray(logs) ? logs.slice(0, 500) : []);
-const readGenerations = () => readJson(GENERATIONS_FILE, []);
-const writeGenerations = (list) => writeJson(GENERATIONS_FILE, Array.isArray(list) ? list.slice(0, 1000) : []);
+const readSystemLogs = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const logs = await db.collection('system_logs').find().sort({ timestamp: -1 }).limit(500).toArray();
+      if (logs && logs.length > 0) {
+        const cleanLogs = logs.map(l => { const c = { ...l }; delete c._id; return c; });
+        void writeJson(SYSTEM_LOGS_FILE, cleanLogs).catch(() => {});
+        return cleanLogs;
+      }
+    }
+  } catch {}
+  return readJson(SYSTEM_LOGS_FILE, []);
+};
+
+const writeSystemLogs = async (logs) => {
+  const safeLogs = Array.isArray(logs) ? logs.slice(0, 500) : [];
+  await writeJson(SYSTEM_LOGS_FILE, safeLogs);
+  try {
+    const db = await getMongoDb();
+    if (db && safeLogs.length > 0) {
+      const bulkOps = safeLogs.slice(0, 50).map((log) => ({
+        updateOne: {
+          filter: { id: log.id },
+          update: { $set: log },
+          upsert: true,
+        },
+      }));
+      if (bulkOps.length > 0) {
+        await db.collection('system_logs').bulkWrite(bulkOps, { ordered: false });
+      }
+    }
+  } catch {}
+};
+
+const readGenerations = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const items = await db.collection('generations').find().sort({ createdAt: -1 }).limit(1000).toArray();
+      if (items && items.length > 0) {
+        const cleanItems = items.map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+        void writeJson(GENERATIONS_FILE, cleanItems).catch(() => {});
+        return cleanItems;
+      }
+    }
+  } catch (err) {
+    console.warn('[generations] MongoDB read error, falling back to local file:', err.message);
+  }
+  return readJson(GENERATIONS_FILE, []);
+};
+
+const writeGenerations = async (list) => {
+  const safeList = Array.isArray(list) ? list.slice(0, 1000) : [];
+  await writeJson(GENERATIONS_FILE, safeList);
+  try {
+    const db = await getMongoDb();
+    if (db && safeList.length > 0) {
+      const recent = safeList.slice(0, 100);
+      const bulkOps = recent.map((gen) => ({
+        updateOne: {
+          filter: { id: gen.id },
+          update: { $set: gen },
+          upsert: true,
+        },
+      }));
+      if (bulkOps.length > 0) {
+        await db.collection('generations').bulkWrite(bulkOps, { ordered: false });
+      }
+    }
+  } catch (err) {
+    console.warn('[generations] MongoDB write warning:', err.message);
+  }
+};
 
 /** Record any technical error or warning into server/data/system_logs.json for admin diagnostics */
 async function recordSystemProblem({
@@ -2461,6 +2593,10 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     }
     list.splice(index, 1);
     await writeGenerations(list);
+    try {
+      const db = await getMongoDb();
+      if (db) await db.collection('generations').deleteOne({ id: req.params.id, userId: req.user._id });
+    } catch {}
     res.json({ ok: true, deleted: req.params.id, refunded, refundedCredits });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
@@ -3231,6 +3367,10 @@ app.delete('/api/admin/generations/:id', requireAdmin, async (req, res) => {
     const list = await readGenerations();
     const filtered = list.filter((g) => g.id !== req.params.id);
     await writeGenerations(filtered);
+    try {
+      const db = await getMongoDb();
+      if (db) await db.collection('generations').deleteOne({ id: req.params.id });
+    } catch {}
     res.json({ ok: true, deleted: req.params.id });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });
@@ -3509,7 +3649,7 @@ app.post('/api/collections', auth.requireUser, async (req, res) => {
     items: [],
   };
   items.push(collection);
-  await writeJson(COLLECTIONS_FILE, items);
+  await writeCollections(items);
   res.json(collection);
 });
 
@@ -3520,7 +3660,7 @@ app.post('/api/collections/:id/items', auth.requireUser, async (req, res) => {
   const { url, label = '' } = req.body || {};
   if (!url) return res.status(400).json({ error: 'url_required', message: 'Nothing to save.' });
   collection.items.unshift({ url, label, at: Date.now() });
-  await writeJson(COLLECTIONS_FILE, items);
+  await writeCollections(items);
   res.json(collection);
 });
 
