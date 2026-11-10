@@ -15,6 +15,8 @@ interface Plan {
   priceINR?: number;
   featured?: boolean;
   badge?: string;
+  active?: boolean;
+  deleted?: boolean;
   specs: {
     photoshoots: string;
     models?: string;
@@ -156,6 +158,7 @@ export default function Pricing() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [transactionId, setTransactionId] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
@@ -196,6 +199,7 @@ export default function Pricing() {
     api.me()
       .then((res) => {
         if (res?.user) {
+          setCurrentUser(res.user);
           if (res.user.email) setUserEmail(res.user.email);
           if (res.user.name) setUserName(res.user.name);
         }
@@ -215,6 +219,8 @@ export default function Pricing() {
             ...p,
             priceUSD: custom.priceUSD !== undefined ? Number(custom.priceUSD) : p.priceUSD,
             priceINR: custom.priceINR !== undefined && Number(custom.priceINR) > 0 ? Number(custom.priceINR) : undefined,
+            active: custom.active !== undefined ? Boolean(custom.active) : true,
+            deleted: custom.deleted !== undefined ? Boolean(custom.deleted) : false,
           };
         })
       );
@@ -460,22 +466,37 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-16">
-          {plansList.map((plan) => {
+          {plansList.filter((p) => !p.deleted).map((plan) => {
             const inrPrice = plan.priceINR && plan.priceINR > 0 ? plan.priceINR : Math.round(plan.priceUSD * usdToInrRate);
+            const userTier = currentUser?.tier || 'free';
+            const isCurrentPlan = (userTier === plan.id) || (userTier === 'free' && plan.id === 'starter');
+            const isUltraUser = userTier === 'ultra';
+            const isDeactivated = plan.active === false;
+
             return (
               <div
                 key={plan.id}
                 className={`relative rounded-2xl p-6 flex flex-col justify-between transition-colors border ${
-                  plan.featured
+                  isCurrentPlan
                     ? isLight
-                      ? 'bg-white border-[#e5373f] shadow-sm ring-1 ring-[#e5373f]'
-                      : 'bg-[#121217] border-[#e5373f]/60 shadow-sm ring-1 ring-[#e5373f]/40'
-                    : isLight
-                      ? 'bg-white border-gray-200 shadow-sm'
-                      : 'bg-[#101014] border-white/10 shadow-sm'
+                      ? 'bg-emerald-50/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500'
+                      : 'bg-emerald-950/20 border-emerald-500/60 shadow-sm ring-1 ring-emerald-500/40'
+                    : plan.featured
+                      ? isLight
+                        ? 'bg-white border-[#e5373f] shadow-sm ring-1 ring-[#e5373f]'
+                        : 'bg-[#121217] border-[#e5373f]/60 shadow-sm ring-1 ring-[#e5373f]/40'
+                      : isLight
+                        ? 'bg-white border-gray-200 shadow-sm'
+                        : 'bg-[#101014] border-white/10 shadow-sm'
                 }`}
               >
-                {plan.badge && (
+                {isCurrentPlan ? (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white shadow">
+                      ACTIVE PLAN
+                    </span>
+                  </div>
+                ) : plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#e5373f] text-white">
                       {plan.badge}
@@ -485,7 +506,14 @@ _Please verify payment and activate my plan within 30 minutes._`;
 
                 <div>
                   <div className="mb-4">
-                    <h3 className={`text-xl font-bold tracking-wide mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>{plan.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className={`text-xl font-bold tracking-wide mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>{plan.name}</h3>
+                      {isDeactivated && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-400 font-bold uppercase">
+                          Deactivated
+                        </span>
+                      )}
+                    </div>
                     <p className={`text-xs min-h-[32px] leading-relaxed ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>{plan.tagline}</p>
                   </div>
 
@@ -546,18 +574,36 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 </div>
 
                 {/* Call to action */}
-                <button
-                  onClick={() => handleChoosePlan(plan)}
-                  className={`w-full py-3 px-4 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
-                    ? 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
-                    : plan.priceUSD === 0
-                      ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200' : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
-                      : isLight ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-100'
-                    }`}
-                >
-                  {plan.priceUSD === 0 ? 'Start free' : `Select ${plan.name}`}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                {isCurrentPlan ? (
+                  <div className="w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-sm cursor-default">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                    <span>Current Active Plan</span>
+                  </div>
+                ) : isDeactivated ? (
+                  <div className="w-full py-3 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/25 text-red-400 cursor-not-allowed">
+                    <X className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>Plan Deactivated</span>
+                  </div>
+                ) : isUltraUser ? (
+                  <div className={`w-full py-3 px-4 rounded-xl font-medium text-xs flex items-center justify-center gap-2 border cursor-default ${
+                    isLight ? 'bg-gray-100 border-gray-200 text-gray-500' : 'bg-white/5 border-white/10 text-white/40'
+                  }`}>
+                    <span>Included in your Ultra tier</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleChoosePlan(plan)}
+                    className={`w-full py-3 px-4 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
+                      ? 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
+                      : plan.priceUSD === 0
+                        ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200' : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+                        : isLight ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-100'
+                      }`}
+                  >
+                    {plan.priceUSD === 0 ? 'Start free' : `Select ${plan.name}`}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}

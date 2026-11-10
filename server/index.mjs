@@ -145,6 +145,8 @@ export const DEFAULT_PLANS = {
     maxModels: 3,
     photoshoots: 3,
     photoshootRule: '1 photoshoot = 5 poses',
+    active: true,
+    deleted: false,
   },
   ondemand: {
     id: 'ondemand',
@@ -157,6 +159,8 @@ export const DEFAULT_PLANS = {
     maxModels: 15,
     photoshoots: 15,
     photoshootRule: '1 photoshoot = 5 poses',
+    active: true,
+    deleted: false,
   },
   pro: {
     id: 'pro',
@@ -169,6 +173,8 @@ export const DEFAULT_PLANS = {
     maxModels: 50,
     photoshoots: 50,
     photoshootRule: '1 photoshoot = 5 poses',
+    active: true,
+    deleted: false,
   },
   ultra: {
     id: 'ultra',
@@ -181,6 +187,8 @@ export const DEFAULT_PLANS = {
     maxModels: 100,
     photoshoots: 100,
     photoshootRule: '1 photoshoot = 5 poses',
+    active: true,
+    deleted: false,
   },
 };
 
@@ -977,6 +985,8 @@ app.put('/api/admin/plans', requireAdmin, async (req, res) => {
       maxModels: psCount,
       photoshoots: psCount,
       photoshootRule: '1 photoshoot = 5 poses',
+      active: p.active !== undefined ? Boolean(p.active) : (mergedPlans[key].active !== false),
+      deleted: p.deleted !== undefined ? Boolean(p.deleted) : Boolean(mergedPlans[key].deleted),
     };
   }
 
@@ -1441,11 +1451,12 @@ app.get('/api/uploads', async (_req, res) => {
       if (db) {
         const dbUploads = await db.collection('user_uploads').find().sort({ createdAt: -1 }).limit(300).toArray();
         for (const u of dbUploads) {
-          itemsMap.set(u.url || u.id, {
+          const resolvedUrl = u.remoteUrl || u.dataUrl || u.url;
+          itemsMap.set(u.id || u.url, {
             id: u.id || u.url,
-            name: u.name || 'Uploaded Garment',
-            url: u.remoteUrl || u.url,
-            kind: u.kind || 'cloth',
+            name: u.name || (u.kind === 'model' ? 'Uploaded Model' : 'Uploaded Garment'),
+            url: resolvedUrl,
+            kind: u.kind || (String(u.id || '').startsWith('model') ? 'model' : 'cloth'),
             at: u.createdAt || Date.now(),
           });
         }
@@ -1660,6 +1671,7 @@ app.post('/api/upload', async (req, res) => {
           id: file,
           name: String(name || file),
           url: localUrl,
+          dataUrl: String(dataUrl || ''),
           kind: String(kind || 'cloth'),
           createdAt: Date.now(),
         });
@@ -2955,12 +2967,12 @@ app.get('/api/custom-requests', auth.requireUser, async (req, res) => {
 
 app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
   try {
-    const isProOrUltra = ['pro', 'ultra'].includes(req.user?.tier);
-    const isCustomAllowed = isProOrUltra || req.user?.features?.customRequests === true;
+    const isUltra = req.user?.tier === 'ultra';
+    const isCustomAllowed = isUltra || req.user?.features?.customRequests === true;
     if (!isCustomAllowed) {
       return res.status(403).json({
         error: 'plan_locked',
-        message: 'Bespoke Custom Requests are locked on your current plan. Please upgrade to Pro or Ultra or contact admin to unlock.',
+        message: 'Bespoke Custom Requests are locked on your current plan. Custom requests are an exclusive Ultra feature. Please upgrade to Ultra or contact admin to unlock.',
       });
     }
 

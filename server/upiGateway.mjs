@@ -324,7 +324,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
           hd2k: true,
           fivePose: true,
           video: true,
-          customRequests: Boolean(plan.features?.customRequests ?? (order.plan_id === 'pro' || order.plan_id === 'ultra')),
+          customRequests: Boolean(plan.features?.customRequests ?? (order.plan_id === 'ultra')),
         },
       };
 
@@ -393,6 +393,9 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const planId = String(body.plan_id || 'pro').toLowerCase();
       const basePlan = PLAN_DEFINITIONS[planId] || PLAN_DEFINITIONS.pro;
       const customPlan = state.plans?.[planId];
+      if (customPlan?.active === false || customPlan?.deleted === true) {
+        return res.status(400).json({ success: false, error: 'This subscription plan is currently deactivated or unavailable.' });
+      }
       const plan = {
         ...basePlan,
         ...(customPlan || {}),

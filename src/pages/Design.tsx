@@ -23,7 +23,6 @@ import {
   formatCatalogSquare,
   prepareAndStandardizeImage,
   setToken,
-  type Collection,
   type CustomRequest,
   type Job,
   type ModelCategory,
@@ -1567,7 +1566,7 @@ function CustomRequestsPanel({
           <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
           <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
           <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
-            Direct custom requests to our master tailors are available on Pro and Ultra plans or accounts enabled by the administrator. Upgrade your plan to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
+            Direct custom requests to our master tailors are available exclusively on the Ultra plan or accounts enabled by the administrator. Upgrade to Ultra to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
             <a
@@ -2777,8 +2776,7 @@ export default function Design() {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Studio | null>(null);
   const [categories, setCategories] = useState<ModelCategory[]>([]);
-  const [uploads, setUploads] = useState<{ id: string; name: string; url: string }[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
   const [uploadSets, setUploadSets] = useState<UploadSet[]>([]);
   const [loadingSets, setLoadingSets] = useState(false);
   const [userGenerations, setUserGenerations] = useState<UserGeneration[]>([]);
@@ -3053,8 +3051,6 @@ export default function Design() {
     setActiveSlotIndex(slotIdx);
   }
 
-  const [newCollection, setNewCollection] = useState('');
-  const [savedTo, setSavedTo] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; kind: 'cloth' | 'model' } | null>(null);
 
@@ -3112,46 +3108,42 @@ export default function Design() {
       : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
 
   const previousGarmentsList = (() => {
-    const map = new Map<string, { url: string; name: string }>();
+    const map = new Map<string, { url: string; name: string; at: number }>();
     uploads.forEach((u) => {
-      if (!u.id?.startsWith('model-')) {
-        map.set(u.url, { url: u.url, name: u.name || 'Garment' });
+      const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
+      if (!isModel) {
+        map.set(u.url, { url: u.url, name: u.name || 'Garment', at: u.at || 0 });
       }
     });
     uploadSets.forEach((s) => {
-      if (s.clothUrl) {
-        map.set(s.clothUrl, { url: s.clothUrl, name: s.clothName || 'Saved Garment' });
+      if (s.clothUrl && !map.has(s.clothUrl)) {
+        map.set(s.clothUrl, { url: s.clothUrl, name: s.clothName || 'Saved Garment', at: s.createdAt || 0 });
       }
     });
-    return Array.from(map.values());
+    // Sort descending by timestamp: newest / most recently uploaded image is ALWAYS FIRST!
+    return Array.from(map.values()).sort((a, b) => (b.at || 0) - (a.at || 0));
   })();
 
   const previousModelsList = (() => {
-    const map = new Map<string, { url: string; name: string }>();
+    const map = new Map<string, { url: string; name: string; at: number }>();
     uploads.forEach((u) => {
-      if (u.id?.startsWith('model-')) {
-        map.set(u.url, { url: u.url, name: u.name || 'Custom Model' });
+      const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
+      if (isModel) {
+        map.set(u.url, { url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
       }
     });
     uploadSets.forEach((s) => {
-      if (s.modelUrl) {
-        map.set(s.modelUrl, { url: s.modelUrl, name: s.modelName || 'Studio Model' });
+      if (s.modelUrl && !map.has(s.modelUrl)) {
+        map.set(s.modelUrl, { url: s.modelUrl, name: s.modelName || 'Studio Model', at: s.createdAt || 0 });
       }
     });
-    return Array.from(map.values());
+    // Sort descending by timestamp: newest / most recently uploaded model is ALWAYS FIRST!
+    return Array.from(map.values()).sort((a, b) => (b.at || 0) - (a.at || 0));
   })();
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
-    }
-  }, []);
-
-  const loadCollections = useCallback(async () => {
-    try {
-      setCollections((await api.collections()).items);
-    } catch {
-      /* non-fatal */
     }
   }, []);
 
@@ -3247,12 +3239,11 @@ export default function Design() {
       }
 
       void loadUploads();
-      void loadCollections();
       void loadUploadSets();
       void loadCustomRequests();
       void loadUserGenerations();
     })();
-  }, [loadUploadSets, loadCustomRequests, loadUserGenerations, loadUploads, loadCollections]);
+  }, [loadUploadSets, loadCustomRequests, loadUserGenerations, loadUploads]);
 
   /* Poll job */
   useEffect(() => {
@@ -3436,6 +3427,12 @@ export default function Design() {
         const standardized = await prepareAndStandardizeImage(file);
         const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
         const pick = { url: uploaded.url, preview: uploaded.preview || standardized.dataUrl, name: file.name };
+
+        // Prepend immediately to uploads state so newest upload is at the very front
+        setUploads((prev) => [
+          { id: uploaded.url, name: file.name, url: uploaded.url, kind, at: Date.now() },
+          ...prev.filter((p) => p.url !== uploaded.url),
+        ]);
 
         if (kind === 'cloth') {
           // Add to selected clothes list so multiple garments can be chosen
@@ -3989,12 +3986,12 @@ export default function Design() {
             <a
               href="/pricing"
               className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
-              title="Click to view pricing & upgrade credits"
+              title={user?.tier === 'ultra' ? 'Ultra Active Plan' : 'Click to view pricing & upgrade credits'}
             >
               <span>{user ? user.credits : 10} credits</span>
               {user?.tier && (
                 <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
-                  user.tier === 'enterprise'
+                  user.tier === 'ultra' || user.tier === 'enterprise'
                     ? 'bg-purple-500/30 text-purple-400'
                     : user.tier === 'pro'
                       ? 'bg-blue-500/30 text-blue-400'
@@ -4003,9 +4000,11 @@ export default function Design() {
                   {user.tier}
                 </span>
               )}
-              <span className="text-[10px] font-semibold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
-                + Upgrade
-              </span>
+              {user?.tier !== 'ultra' && (
+                <span className="text-[10px] font-semibold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
+                  + Upgrade
+                </span>
+              )}
             </a>
 
             {/* User Profile Button */}
@@ -4140,7 +4139,7 @@ export default function Design() {
           }}
           creditsLocked={isLocked}
           customRequestsLocked={
-            !(user?.tier === 'pro' || user?.tier === 'ultra' || user?.features?.customRequests === true)
+            !(user?.tier === 'ultra' || user?.features?.customRequests === true)
           }
           isLight={isLight}
         />
@@ -4517,16 +4516,16 @@ export default function Design() {
                       ))}
 
                     {swapTab === 'uploads' &&
-                      (uploads.length ? (
+                      ((previousModelsList.length > 0 || uploads.length > 0) ? (
                         <div className="grid grid-cols-6 gap-2">
-                          {uploads.map((item) => (
+                          {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => (
                             <button
-                              key={item.id}
+                              key={item.url || idx}
                               type="button"
                               onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
                               className={`overflow-hidden rounded-md border transition ${
                                 (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                  ? 'border-[#e5373f]'
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                   : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                               }`}
                             >
@@ -5744,67 +5743,6 @@ export default function Design() {
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Collections Drawer */}
-            <div className={`rounded-3xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-              <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                Saved Collections
-              </h3>
-              <div className="mt-3 space-y-2">
-                {collections.length === 0 && <p className={`text-xs ${isLight ? 'text-slate-700' : 'text-white/30'}`}>No collections yet.</p>}
-                {collections.map((c) => (
-                  <div key={c.id} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                    isLight ? 'border-gray-200 bg-white text-gray-900' : 'border-white/5 bg-black/40'
-                  }`}>
-                    <span className={`truncate text-xs ${isLight ? 'text-slate-900 font-medium' : 'text-white/80'}`}>{c.name} ({c.items.length})</span>
-                    <button
-                      type="button"
-                      disabled={!result}
-                      onClick={async () => {
-                        if (!result) return;
-                        await api.addToCollection(c.id, result);
-                        setSavedTo(c.id);
-                        void loadCollections();
-                        setTimeout(() => setSavedTo(''), 2000);
-                      }}
-                      className={`text-[10px] uppercase font-bold disabled:opacity-30 ${
-                        isLight ? 'text-slate-900 hover:text-black' : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      {savedTo === c.id ? 'Saved!' : '+ Add'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={newCollection}
-                  onChange={(e) => setNewCollection(e.target.value)}
-                  placeholder="New collection name"
-                  className={`min-w-0 flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none transition-colors ${
-                    isLight
-                      ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                      : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!newCollection.trim()) return;
-                    await api.createCollection(newCollection.trim());
-                    setNewCollection('');
-                    void loadCollections();
-                  }}
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    isLight
-                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                      : 'border-white/20 text-white/70 hover:text-white'
-                  }`}
-                >
-                  Create
-                </button>
-              </div>
             </div>
           </aside>
         </div>

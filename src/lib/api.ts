@@ -21,6 +21,8 @@ export type PlanConfig = {
   maxModels?: number;
   photoshoots?: number;
   photoshootRule?: string;
+  active?: boolean;
+  deleted?: boolean;
 };
 
 /** Provider keys and account wiring — admin only. */
@@ -359,7 +361,7 @@ export const api = {
   /* customer studio */
   studio: () => request<Studio>('/api/studio'),
   models: () => request<{ categories: ModelCategory[] }>('/api/models'),
-  uploads: () => request<{ items: { id: string; name: string; url: string }[] }>('/api/uploads'),
+  uploads: () => request<{ items: { id: string; name: string; url: string; kind?: string; at?: number }[] }>('/api/uploads'),
   upload: (dataUrl: string, kind: 'cloth' | 'model', name: string) =>
     request<{
       url: string;
