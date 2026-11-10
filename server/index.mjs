@@ -729,6 +729,66 @@ app.use('/uploads', async (req, res, next) => {
 });
 
 app.use('/generated', express.static(GENERATED, { maxAge: '1d' }));
+app.use('/generated', async (req, res, next) => {
+  try {
+    const filename = path.basename(decodeURIComponent(req.path));
+    const candidate1 = path.join(GENERATED, filename);
+    if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
+      return res.sendFile(candidate1);
+    }
+    const candidate2 = path.join(DATA, 'generated', filename);
+    if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
+      return res.sendFile(candidate2);
+    }
+
+    // Fallback 1: Lookup MongoDB generations collection
+    const jobId = filename.replace(/-\d+\.[^.]+$/, '');
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const gen = await db.collection('generations').findOne({
+          $or: [
+            { id: jobId },
+            { id: { $regex: `^${jobId}`, $options: 'i' } },
+            { id: filename },
+            { url: `/generated/${filename}` },
+            { url: { $regex: filename, $options: 'i' } },
+            { outputUrl: `/generated/${filename}` },
+            { outputUrl: { $regex: filename, $options: 'i' } }
+          ]
+        });
+        if (gen) {
+          const remoteUrl = gen.remoteUrl || gen.highResUrl || gen.rawOutputUrl;
+          if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
+            const upstream = await fetch(remoteUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+            });
+            if (upstream.ok) {
+              const contentType = upstream.headers.get('content-type') || 'image/png';
+              const buf = Buffer.from(await upstream.arrayBuffer());
+              try { await fs.writeFile(candidate1, buf); } catch {}
+              res.set('Content-Type', contentType);
+              res.set('Cache-Control', 'public, max-age=86400');
+              return res.send(buf);
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback 2: Check hosted.json
+    try {
+      const hosted = await readHosted();
+      const remoteUrl = hosted.generated?.[filename];
+      if (remoteUrl && typeof remoteUrl === 'string') {
+        return res.redirect(302, remoteUrl);
+      }
+    } catch {}
+  } catch {}
+  next();
+});
 app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
 app.use('/models', express.static(path.join(ROOT, 'dist', 'models'), { maxAge: '7d' }));
 app.use('/models', (req, res, next) => {
@@ -821,6 +881,19 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 
   try {
+    if (imageUrl.startsWith('/')) {
+      const cleanPath = imageUrl.replace(/^\/+/, '');
+      const localFile = path.join(DATA, cleanPath);
+      if (fsSync.existsSync(localFile) && fsSync.statSync(localFile).isFile()) {
+        const buffer = await fs.readFile(localFile);
+        const contentType = localFile.endsWith('.jpg') || localFile.endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Content-Type', contentType);
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
+    }
+
     const parsed = new URL(imageUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return res.status(400).json({ error: 'Invalid URL protocol' });
@@ -870,36 +943,89 @@ app.get('/api/download-proxy', async (req, res) => {
   }
 
   try {
-    const parsed = new URL(imageUrl);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return res.status(400).json({ error: 'Invalid URL protocol' });
+    let buffer;
+    let contentType = 'image/png';
+
+    if (imageUrl.startsWith('/')) {
+      const cleanPath = imageUrl.replace(/^\/+/, '');
+      const localFile = path.join(DATA, cleanPath);
+      if (fsSync.existsSync(localFile) && fsSync.statSync(localFile).isFile()) {
+        buffer = await fs.readFile(localFile);
+        contentType = localFile.endsWith('.jpg') || localFile.endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+      } else {
+        const id = path.basename(cleanPath).replace(/-\d+\.[^.]+$/, '');
+        const filename = path.basename(cleanPath);
+        const db = await getMongoDb();
+        if (db) {
+          const gen = await db.collection('generations').findOne({
+            $or: [
+              { id },
+              { id: { $regex: `^${id}`, $options: 'i' } },
+              { id: filename },
+              { url: imageUrl },
+              { url: { $regex: filename, $options: 'i' } },
+              { outputUrl: imageUrl },
+              { outputUrl: { $regex: filename, $options: 'i' } }
+            ]
+          });
+          const targetUrl = gen?.remoteUrl || gen?.highResUrl || gen?.rawOutputUrl;
+          if (targetUrl && typeof targetUrl === 'string' && targetUrl.startsWith('http')) {
+            const upstream = await fetch(targetUrl);
+            if (upstream.ok) {
+              buffer = Buffer.from(await upstream.arrayBuffer());
+              contentType = upstream.headers.get('content-type') || 'image/png';
+            }
+          }
+        }
+        if (!buffer) {
+          try {
+            const hosted = await readHosted();
+            const remoteUrl = hosted.generated?.[filename] || hosted.uploads?.[filename];
+            if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
+              const upstream = await fetch(remoteUrl);
+              if (upstream.ok) {
+                buffer = Buffer.from(await upstream.arrayBuffer());
+                contentType = upstream.headers.get('content-type') || 'image/png';
+              }
+            }
+          } catch {}
+        }
+      }
+      if (!buffer) {
+        return res.status(404).json({ error: 'Image file not found on server' });
+      }
+    } else {
+      const parsed = new URL(imageUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ error: 'Invalid URL protocol' });
+      }
+
+      const host = parsed.hostname.toLowerCase();
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host.startsWith('10.') ||
+        host.startsWith('192.168.') ||
+        host.startsWith('172.16.') ||
+        host.startsWith('169.254.')
+      ) {
+        return res.status(403).json({ error: 'Private network addresses are forbidden' });
+      }
+
+      const upstream = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({ error: `Upstream error HTTP ${upstream.status}` });
+      }
+
+      contentType = upstream.headers.get('content-type') || 'image/png';
+      buffer = Buffer.from(await upstream.arrayBuffer());
     }
-
-    const host = parsed.hostname.toLowerCase();
-    if (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '::1' ||
-      host.startsWith('10.') ||
-      host.startsWith('192.168.') ||
-      host.startsWith('172.16.') ||
-      host.startsWith('169.254.')
-    ) {
-      return res.status(403).json({ error: 'Private network addresses are forbidden' });
-    }
-
-    const upstream = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
-
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: `Upstream error HTTP ${upstream.status}` });
-    }
-
-    const contentType = upstream.headers.get('content-type') || 'image/png';
-    const buffer = Buffer.from(await upstream.arrayBuffer());
 
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Content-Disposition', `attachment; filename="${String(filename).replace(/["\r\n]/g, '')}"`);
@@ -2096,6 +2222,8 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         found.status = 'completed';
         found.outputUrl = localOutputs[0] || null;
         found.url = found.outputUrl;
+        found.remoteUrl = generatedUrls[0] || null;
+        found.highResUrl = found.highResUrl || generatedUrls[0] || found.url;
         found.completedAt = Date.now();
         await writeGenerations(genList);
       }
@@ -2711,6 +2839,7 @@ app.get('/api/job/:id', async (req, res) => {
     }
 
     if (data.status === 'completed' && Array.isArray(data.output)) {
+      const originalRemoteUrls = [...data.output];
       const local = [];
       for (let i = 0; i < data.output.length; i += 1) {
         const remote = data.output[i];
@@ -2753,25 +2882,29 @@ app.get('/api/job/:id', async (req, res) => {
         local.push(permanent || `/generated/${file}`);
       }
       data.output = local;
-    }
 
-    if (data.status === 'completed' || data.status === 'failed') {
-      try {
-        const genList = await readGenerations();
-        const found = genList.find((g) => g.id === req.params.id);
-        if (found) {
-          found.status = data.status === 'completed' ? 'completed' : 'failed';
-          if (data.status === 'completed') {
-            found.outputUrl = (Array.isArray(data.output) && data.output[0]) ? data.output[0] : null;
-            found.url = found.outputUrl;
-          } else {
-            found.error = data.error || data.message || data.detail || 'Render rejected or failed on cluster.';
+      if (data.status === 'completed' || data.status === 'failed') {
+        try {
+          const genList = await readGenerations();
+          const found = genList.find((g) => g.id === req.params.id);
+          if (found) {
+            found.status = data.status === 'completed' ? 'completed' : 'failed';
+            if (data.status === 'completed') {
+              const rawOutput = (Array.isArray(data.output) && data.output[0]) ? data.output[0] : null;
+              const directUpstream = (Array.isArray(originalRemoteUrls) && originalRemoteUrls[0] && /^https?:/.test(originalRemoteUrls[0])) ? originalRemoteUrls[0] : null;
+              found.outputUrl = rawOutput;
+              found.url = rawOutput;
+              found.remoteUrl = directUpstream || (rawOutput && /^https?:/.test(rawOutput) ? rawOutput : null);
+              found.highResUrl = found.highResUrl || directUpstream || rawOutput;
+            } else {
+              found.error = data.error || data.message || data.detail || 'Render rejected or failed on cluster.';
+            }
+            found.completedAt = Date.now();
+            await writeGenerations(genList);
           }
-          found.completedAt = Date.now();
-          await writeGenerations(genList);
+        } catch (genUpdateErr) {
+          console.error('[generations] Failed to update status in generations.json:', genUpdateErr.message);
         }
-      } catch (genUpdateErr) {
-        console.error('[generations] Failed to update status in generations.json:', genUpdateErr.message);
       }
     }
 
@@ -2902,6 +3035,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       type = 'image',
       url,
       highResUrl,
+      remoteUrl,
       prompt = '',
       color = '',
       colorName = '',
@@ -2915,13 +3049,37 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       return res.status(400).json({ error: 'url_required', message: 'Generation URL is required.' });
     }
 
+    let resolvedRemoteUrl = remoteUrl || '';
+    if (!resolvedRemoteUrl && typeof url === 'string' && url.startsWith('/generated/')) {
+      try {
+        const filename = path.basename(url);
+        const jobId = filename.replace(/-\d+\.[^.]+$/, '');
+        const db = await getMongoDb();
+        if (db) {
+          const orig = await db.collection('generations').findOne({
+            $or: [
+              { id: jobId },
+              { id: { $regex: `^${jobId}`, $options: 'i' } },
+              { id: filename },
+              { url },
+              { outputUrl: url }
+            ]
+          });
+          if (orig) {
+            resolvedRemoteUrl = orig.remoteUrl || orig.highResUrl || '';
+          }
+        }
+      } catch {}
+    }
+
     const item = {
       id: crypto.randomUUID(),
       userId: req.user._id,
       userEmail: req.user.email || '',
       type: type === 'video' ? 'video' : 'image',
       url,
-      highResUrl: highResUrl || url,
+      highResUrl: highResUrl || resolvedRemoteUrl || url,
+      remoteUrl: resolvedRemoteUrl || (typeof highResUrl === 'string' && /^https?:/.test(highResUrl) ? highResUrl : ''),
       prompt: String(prompt || '').slice(0, 600),
       color: String(color || ''),
       colorName: String(colorName || ''),
