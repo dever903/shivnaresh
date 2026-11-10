@@ -1513,6 +1513,169 @@ async function refundOutfitCredits(userId, amount) {
   }
 }
 
+/* In-memory job registry for asynchronous Multimodal Agent jobs */
+const localJobMap = new Map();
+
+async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded }) {
+  const abortController = new AbortController();
+  const existing = localJobMap.get(jobId);
+  if (existing) {
+    existing.abortController = abortController;
+  } else {
+    localJobMap.set(jobId, {
+      id: jobId,
+      status: 'processing',
+      output: null,
+      error: null,
+      userId,
+      creditsUsed: creditsNeeded,
+      startedAt: Date.now(),
+      abortController,
+    });
+  }
+
+  try {
+    const response = await fetch(`${FASHN}/agent/images`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${state.apiKey}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        images,
+      }),
+      signal: abortController.signal,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = data.message || data.detail || `Agent service rejected request (${response.status})`;
+      throw new Error(msg);
+    }
+
+    // Extract outputs from Fashn agent response
+    let generatedUrls = [];
+    if (Array.isArray(data.predictions)) {
+      for (const pred of data.predictions) {
+        if (Array.isArray(pred.results)) generatedUrls.push(...pred.results);
+        else if (Array.isArray(pred.output)) generatedUrls.push(...pred.output);
+        else if (typeof pred.url === 'string') generatedUrls.push(pred.url);
+        else if (typeof pred.image === 'string') generatedUrls.push(pred.image);
+      }
+    }
+    if (generatedUrls.length === 0 && Array.isArray(data.output)) {
+      generatedUrls = data.output;
+    }
+    if (generatedUrls.length === 0 && Array.isArray(data.results)) {
+      generatedUrls = data.results;
+    }
+    if (generatedUrls.length === 0 && typeof data.image === 'string') {
+      generatedUrls = [data.image];
+    }
+
+    if (generatedUrls.length === 0) {
+      throw new Error('Fashn AI Agent completed successfully but returned no image outputs.');
+    }
+
+    // Download and store locally
+    const localOutputs = [];
+    for (let i = 0; i < generatedUrls.length; i++) {
+      const remote = generatedUrls[i];
+      if (!/^https?:/.test(remote)) {
+        localOutputs.push(remote);
+        continue;
+      }
+      const file = `${jobId}-${i}.png`;
+      const target = path.join(GENERATED, file);
+      try {
+        await fs.access(target);
+      } catch {
+        const img = await fetch(remote);
+        if (img.ok) await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
+      }
+
+      let permanent = '';
+      try {
+        const map = await readHosted();
+        permanent = map.generated?.[file] || '';
+        if (!permanent) {
+          const uploaded = await hostImage(await fs.readFile(target), file);
+          if (uploaded) {
+            permanent = uploaded.url;
+            map.generated = map.generated || {};
+            map.generated[file] = permanent;
+            await saveHosted(map);
+          }
+        }
+      } catch {}
+
+      localOutputs.push(permanent || `/generated/${file}`);
+    }
+
+    const job = localJobMap.get(jobId);
+    if (job && job.status !== 'cancelled') {
+      job.status = 'completed';
+      job.output = localOutputs;
+    }
+
+    // Update generations.json
+    try {
+      const genList = await readGenerations();
+      const found = genList.find((g) => g.id === jobId);
+      if (found) {
+        found.status = 'completed';
+        found.outputUrl = localOutputs[0] || null;
+        found.url = found.outputUrl;
+        found.completedAt = Date.now();
+        await writeGenerations(genList);
+      }
+    } catch (saveErr) {
+      console.warn('[agent] Failed to update completed generation status:', saveErr.message);
+    }
+
+  } catch (err) {
+    if (abortController.signal.aborted) {
+      console.log(`[agent] Job ${jobId} was aborted by user cancel.`);
+      return;
+    }
+    console.error(`[agent] Job ${jobId} failed:`, err.message);
+    const job = localJobMap.get(jobId);
+    if (job && job.status !== 'cancelled') {
+      job.status = 'failed';
+      job.error = { message: err.message };
+    }
+
+    // Auto-refund user credits on any failure
+    if (userId && creditsNeeded > 0) {
+      try {
+        const u = await auth.findUserById(userId);
+        if (u) {
+          const restored = (Number(u.credits) || 0) + creditsNeeded;
+          await auth.patchUser(userId, { credits: restored });
+          console.log(`[billing] Restored ${creditsNeeded} credits to ${userId} on agent failure. Balance: ${restored}`);
+        }
+      } catch (refundErr) {
+        console.error('[billing] Failed to restore agent credits:', refundErr.message);
+      }
+    }
+
+    // Update generations.json
+    try {
+      const genList = await readGenerations();
+      const found = genList.find((g) => g.id === jobId);
+      if (found) {
+        found.status = 'failed';
+        found.error = err.message;
+        found.completedAt = Date.now();
+        await writeGenerations(genList);
+      }
+    } catch {}
+  } finally {
+    unlockUser(jobId);
+  }
+}
+
 app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     /* Strict single concurrency: only 1 generation active at a time per user */
@@ -1618,99 +1781,108 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       });
     }
 
-    /* Full Outfit Chaining: 2-step sequential calls for upper + lower */
-    if (mode === 'outfit' && body.topCloth && body.bottomCloth && body.model) {
-      // Deduct credits ONCE before any API call (1 credit for 1K, 3 for 2K)
+    /* ==============================================================
+       Fashn AI Multimodal Agent: 1-Pass Full Outfit & Prompted Try-On
+       (1 Credit, 1 Generation, Preserves Props/Basketball & Colors)
+       ============================================================== */
+    const isOutfit = mode === 'outfit' || (mode === 'tryon' && body.topCloth && body.bottomCloth);
+    const hasSpecialPromptOrProps = Boolean(
+      (body.prompt && body.prompt.trim()) ||
+      (body.color && body.color.trim()) ||
+      body.category === 'bottoms' ||
+      body.preserveProps
+    );
+
+    if (isOutfit || (mode === 'tryon' && hasSpecialPromptOrProps && body.cloth && body.model)) {
+      // Deduct credits ONCE before running (1 credit for 1K, 3 for 2K)
+      const remainingCredits = Math.max(0, userCredits - creditsNeeded);
       await auth.patchUser(req.user._id, {
-        credits: userCredits - creditsNeeded,
+        credits: remainingCredits,
         modelsGenerated: modelsGenerated + 1,
         dailyModelsUsed: dailyModels + 1,
       });
-      lockUser(req, 'outfit-chain');
+      req.user.credits = remainingCredits;
 
-      try {
-        // Step 1: Apply top garment onto model
-        const step1Fields = is2k
-          ? { product_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model) }
-          : { garment_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops', mode: 'quality', garment_photo_type: 'auto' };
-        delete step1Fields.prompt;
+      const agentJobId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      lockUser(req, agentJobId);
 
-        const step1Resp = await fetch(`${FASHN}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.apiKey}` },
-          body: JSON.stringify({ model_name: is2k ? 'tryon-max' : 'tryon-v1.6', inputs: step1Fields }),
-        });
-        const step1Data = await step1Resp.json().catch(() => ({}));
-        if (!step1Resp.ok) {
-          unlockUser('outfit-chain');
-          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
-          return res.status(step1Resp.status).json({ error: 'outfit_step1_failed', message: step1Data.message || 'Top garment application failed' });
-        }
-        const step1JobId = step1Data.id;
+      const modelUri = await toDataUri(body.model);
+      const topClothUri = isOutfit ? await toDataUri(body.topCloth || body.cloth) : null;
+      const bottomClothUri = isOutfit && body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
+      const singleClothUri = !isOutfit ? await toDataUri(body.cloth) : null;
 
-        // Poll step 1 until complete
-        let step1Result = null;
-        for (let attempt = 0; attempt < 60; attempt++) {
-          await new Promise(r => setTimeout(r, 2000));
-          const pollResp = await fetch(`${FASHN}/status/${step1JobId}`, {
-            headers: { Authorization: `Bearer ${state.apiKey}` }
-          });
-          const pollData = await pollResp.json().catch(() => ({}));
-          if (pollData.status === 'completed' && pollData.output?.[0]) {
-            step1Result = pollData.output[0];
-            break;
-          }
-          if (pollData.status === 'failed') {
-            unlockUser('outfit-chain');
-            if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
-            return res.status(500).json({ error: 'outfit_step1_failed', message: pollData.error?.message || 'Top garment step failed' });
-          }
-        }
-        if (!step1Result) {
-          unlockUser('outfit-chain');
-          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
-          return res.status(500).json({ error: 'outfit_timeout', message: 'Full outfit generation timed out at step 1.' });
-        }
+      const images = isOutfit
+        ? (bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri])
+        : [modelUri, singleClothUri];
 
-        // Step 2: Apply bottom garment onto the step 1 intermediate result
-        const step2Fields = is2k
-          ? { product_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result) }
-          : { garment_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms', mode: 'quality', garment_photo_type: 'auto' };
-        delete step2Fields.prompt;
-
-        const step2Resp = await fetch(`${FASHN}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.apiKey}` },
-          body: JSON.stringify({ model_name: is2k ? 'tryon-max' : 'tryon-v1.6', inputs: step2Fields }),
-        });
-        const step2Data = await step2Resp.json().catch(() => ({}));
-        unlockUser('outfit-chain');
-
-        if (!step2Resp.ok) {
-          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
-          return res.status(step2Resp.status).json({ error: 'outfit_step2_failed', message: step2Data.message || 'Bottom garment application failed' });
-        }
-
-        if (step2Data.id) {
-          lockUser(req, step2Data.id);
-          jobKeyMap.set(step2Data.id, {
-            requestKey: `outfit-${step2Data.id}`,
-            clearTimer: setTimeout(() => {}, 120000),
-            userId: req.user?._id,
-            userLockKey: getUserLockKey(req),
-            creditsUsed: creditsNeeded,
-          });
-        }
-
-        // Return step 2 job ID — client polls as normal
-        return res.json({
-          id: step2Data.id,
-          credits: userCredits - creditsNeeded,
-        });
-      } catch (err) {
-        unlockUser('outfit-chain');
-        return res.status(500).json({ error: 'outfit_chain_failed', message: err.message || 'Full outfit generation failed' });
+      let agentPrompt = 'SHIV-NARESH athletic sportswear. ';
+      if (isOutfit && bottomClothUri) {
+        agentPrompt += 'Dress the athlete in the first image wearing both garments simultaneously: the top garment from the second image and the bottom pants from the third image as a complete matching sportswear outfit. ';
+        agentPrompt += 'Maintain professional athletic studio presentation. Both garments must be worn naturally together. The top garment is worn on the upper torso. The bottom garment is worn on the legs as full-length athletic pants matching the garment image, reaching down to the sneakers (not shorts). ';
+      } else if (body.category === 'bottoms') {
+        agentPrompt += 'Replace the pants/lower garment on the athlete in the first image with the bottom garment from the second image. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and pose intact. ';
+      } else {
+        agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
       }
+
+      agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+
+      if (body.color && typeof body.color === 'string' && body.color.trim()) {
+        agentPrompt += `Exact fabric color: ${body.color.trim()}. Maintain true garment dye and athlete kit tones with accurate color matching. `;
+      }
+      if (body.prompt && typeof body.prompt === 'string' && body.prompt.trim()) {
+        agentPrompt += `Specific styling instructions: ${body.prompt.trim()}. `;
+      }
+
+      localJobMap.set(agentJobId, {
+        id: agentJobId,
+        status: 'processing',
+        output: null,
+        error: null,
+        userId: req.user._id,
+        creditsUsed: creditsNeeded,
+        startedAt: Date.now(),
+      });
+
+      // Record in generations.json immediately
+      try {
+        const genList = await readGenerations();
+        genList.unshift({
+          id: agentJobId,
+          userId: req.user._id,
+          userEmail: req.user.email || 'user',
+          userName: req.user.name || '',
+          type: 'tryon',
+          mode: isOutfit ? 'outfit' : 'tryon',
+          resolution: resolution.toUpperCase(),
+          creditsUsed: creditsNeeded,
+          status: 'processing',
+          error: null,
+          prompt: agentPrompt,
+          cloth: isOutfit ? 'Full Outfit (Top + Bottom)' : 'Athletic Garment',
+          model: typeof body.model === 'string' ? (body.model.startsWith('data:') ? 'Custom Model' : body.model) : '',
+          outputUrl: null,
+          createdAt: Date.now(),
+        });
+        await writeGenerations(genList);
+      } catch {}
+
+      // Fire off agent job in background
+      runAgentJob({
+        jobId: agentJobId,
+        state,
+        prompt: agentPrompt,
+        images,
+        userId: req.user._id,
+        creditsNeeded,
+      });
+
+      return res.json({
+        id: agentJobId,
+        mode: isOutfit ? 'outfit' : 'tryon',
+        credits: remainingCredits,
+        creditsUsed: creditsNeeded,
+      });
     }
 
     /* validate that image URLs/paths actually exist before calling Fashn */
@@ -1927,6 +2099,23 @@ const jobKeyMap = new Map();
 
 app.get('/api/job/:id', async (req, res) => {
   try {
+    const local = localJobMap.get(req.params.id);
+    if (local) {
+      if (local.status === 'completed') {
+        unlockUser(req.params.id);
+        return res.json({ id: req.params.id, status: 'completed', output: local.output });
+      }
+      if (local.status === 'failed') {
+        unlockUser(req.params.id);
+        return res.json({ id: req.params.id, status: 'failed', error: local.error || { message: 'Generation failed' } });
+      }
+      if (local.status === 'cancelled') {
+        unlockUser(req.params.id);
+        return res.json({ id: req.params.id, status: 'failed', error: { message: 'Generation cancelled by user' } });
+      }
+      return res.json({ id: req.params.id, status: 'processing' });
+    }
+
     const state = await readState();
     if (!state.apiKey) {
       return res.status(400).json({ error: 'not_ready', message: 'No API key configured.' });
@@ -2049,6 +2238,33 @@ app.get('/api/job/:id', async (req, res) => {
 /* Cancel a running job and refund the credit — prevents credit waste */
 app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
   try {
+    const local = localJobMap.get(req.params.id);
+    if (local) {
+      local.status = 'cancelled';
+      if (local.abortController) {
+        try { local.abortController.abort(); } catch {}
+      }
+      unlockUser(req.params.id);
+      let refunded = false;
+      let refundedCredits = 0;
+      if (local.userId && local.creditsUsed > 0 && !local.refunded) {
+        local.refunded = true;
+        try {
+          const u = await auth.findUserById(local.userId);
+          if (u) {
+            refundedCredits = local.creditsUsed;
+            const newCredits = (Number(u.credits) || 0) + refundedCredits;
+            await auth.patchUser(local.userId, { credits: newCredits });
+            refunded = true;
+            console.log(`[billing] Refunded ${refundedCredits} credits to ${local.userId} on agent cancel.`);
+          }
+        } catch (refundErr) {
+          console.error('[billing] Failed to refund agent credits on cancel:', refundErr.message);
+        }
+      }
+      return res.json({ ok: true, cancelled: true, refunded, refundedCredits, message: 'Generation cancelled and credit refunded.' });
+    }
+
     const state = await readState();
     if (!state.apiKey) return res.status(400).json({ error: 'not_ready' });
 
@@ -2170,9 +2386,25 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     if (index === -1) {
       return res.status(404).json({ error: 'not_found', message: 'Item not found.' });
     }
+    const gen = list[index];
+    let refunded = false;
+    let refundedCredits = 0;
+    // Auto-refund credit if discarded within 15 minutes or if ?refund=true
+    const isRecent = gen.createdAt && (Date.now() - gen.createdAt < 15 * 60 * 1000);
+    if ((req.query.refund === 'true' || isRecent) && gen.creditsUsed > 0 && !gen.refunded) {
+      const u = await auth.findUserById(req.user._id);
+      if (u) {
+        refundedCredits = gen.creditsUsed;
+        const newCredits = (Number(u.credits) || 0) + refundedCredits;
+        await auth.patchUser(req.user._id, { credits: newCredits });
+        gen.refunded = true;
+        refunded = true;
+        console.log(`[billing] Refunded ${refundedCredits} credits to ${req.user._id} on generation discard.`);
+      }
+    }
     list.splice(index, 1);
     await writeGenerations(list);
-    res.json({ ok: true, deleted: req.params.id });
+    res.json({ ok: true, deleted: req.params.id, refunded, refundedCredits });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
   }

@@ -442,8 +442,11 @@ export const api = {
   userGenerations: () => request<{ items: UserGeneration[] }>('/api/user/generations'),
   saveUserGeneration: (body: Partial<UserGeneration>) =>
     request<UserGeneration>('/api/user/generations', json(body)),
-  deleteUserGeneration: (id: string) =>
-    request<{ ok: boolean; deleted: string }>(`/api/user/generations/${id}`, { method: 'DELETE' }),
+  deleteUserGeneration: (id: string, refund = false) =>
+    request<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
+      `/api/user/generations/${id}${refund ? '?refund=true' : ''}`,
+      { method: 'DELETE' }
+    ),
 
   /* admin user management */
   adminUsers: () => request<{ items: AdminUser[]; total: number }>('/api/admin/users'),

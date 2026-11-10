@@ -2856,6 +2856,34 @@ export default function Design() {
     }
   }
 
+  const [discarding, setDiscarding] = useState(false);
+
+  async function handleDiscardCurrentRender() {
+    if (!result) return;
+    if (!confirm('Are you sure you want to discard this render? Your credit will be refunded.')) return;
+    setDiscarding(true);
+    try {
+      const curPose = fivePoseItems[selectedPoseIndex];
+      const genItem = userGenerations.find(g => g.url === result) || (curPose?.jobId ? userGenerations.find(g => g.id === curPose.jobId) : null);
+      const targetId = genItem?.id || curPose?.jobId;
+      if (targetId) {
+        const res = await api.deleteUserGeneration(targetId, true);
+        const refundAmt = (res.refunded && typeof res.refundedCredits === 'number') ? res.refundedCredits : creditCost;
+        setUser(prev => prev ? { ...prev, credits: prev.credits + refundAmt } : null);
+        setUserGenerations(prev => prev.filter(g => g.id !== targetId));
+      } else if (user) {
+        setUser({ ...user, credits: user.credits + creditCost });
+      }
+      setFivePoseItems(prev => prev.filter((_, i) => i !== selectedPoseIndex));
+      setResult(null);
+      setError('Render discarded and credit restored to your account.');
+    } catch (err) {
+      setError('Failed to discard render: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDiscarding(false);
+    }
+  }
+
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
@@ -5186,18 +5214,22 @@ export default function Design() {
                           }}
                           className={`rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${
                             isSelected
-                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
                               : isLight
                                 ? 'border-gray-300 bg-white hover:bg-gray-50'
                                 : 'border-white/10 bg-black/40 hover:border-white/20'
                           }`}
                         >
-                          <span className="text-sm">{pose.icon}</span>
+                          {pose.url ? (
+                            <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
+                          ) : (
+                            <span className="text-sm">{pose.icon}</span>
+                          )}
                           <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
                           <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
                           <div className="mt-1">
-                            {pose.status === 'completed' && <span className="text-[9px] text-emerald-600 font-medium">Ready</span>}
-                            {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Active</span>}
+                            {pose.status === 'completed' && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
+                            {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
                             {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
                             {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-medium">Error</span>}
                           </div>
@@ -5280,6 +5312,15 @@ export default function Design() {
                     }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDiscardCurrentRender()}
+                    disabled={discarding}
+                    className="rounded-full border border-rose-500/40 bg-rose-500/10 px-3.5 py-1.5 text-xs font-semibold text-rose-500 hover:bg-rose-500 hover:text-white transition-colors disabled:opacity-50"
+                    title="Discard this render and refund credits to your balance"
+                  >
+                    {discarding ? 'Refunding…' : `🗑️ Discard & Refund (${creditCost} Credit)`}
                   </button>
                   <button
                     type="button"
