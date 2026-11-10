@@ -18,7 +18,9 @@ import { useTheme, ThemeToggle } from '../lib/theme';
 import {
   api,
   ApiError,
+  downloadDirectFile,
   fileToDataUrl,
+  prepareAndStandardizeImage,
   setToken,
   type Collection,
   type CustomRequest,
@@ -32,14 +34,45 @@ import {
 
 type Pick = { url: string; name: string; preview?: string } | null;
 
-type GarmentRole = 'tops-front' | 'tops-back' | 'bottoms' | 'unknown';
-type TryOnTarget = 'upper' | 'lower' | 'both';
+export type GarmentRole =
+  | 'top-front'
+  | 'top-back'
+  | 'bottom'
+  | 'left-sleeve'
+  | 'right-sleeve'
+  | 'logo'
+  | 'left-bottom'
+  | 'right-bottom'
+  | 'custom'
+  | 'tops-front'
+  | 'tops-back'
+  | 'bottoms'
+  | 'unknown';
 
-interface ClassifiedGarment {
+export type TryOnTarget = 'upper' | 'lower' | 'both';
+
+export const GARMENT_ROLE_LABELS: Record<string, string> = {
+  'top-front': '👕 Top Front',
+  'top-back': '🔄 Top Back',
+  'bottom': '👖 Bottom',
+  'left-sleeve': '👈 Left Sleeve',
+  'right-sleeve': '👉 Right Sleeve',
+  'logo': '🔍 Logo Close-Up',
+  'left-bottom': '🩳 Left Bottom',
+  'right-bottom': '🩳 Right Bottom',
+  'custom': '✏️ Custom View',
+  'tops-front': '👕 Top Front',
+  'tops-back': '🔄 Top Back',
+  'bottoms': '👖 Bottom',
+  'unknown': '❓ Garment Angle',
+};
+
+export interface ClassifiedGarment {
   url: string;
   preview?: string;
   name: string;
   role: GarmentRole;
+  customLabel?: string;
 }
 
 const MODES = [
@@ -69,6 +102,7 @@ export interface PoseItem {
   status: 'pending' | 'generating' | 'completed' | 'failed';
   url?: string;
   jobId?: string;
+  model?: Pick;
 }
 
 export const FIVE_POSES_SPECS: Omit<PoseItem, 'status'>[] = [
@@ -179,14 +213,15 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
 
 function classifyGarmentByHeuristic(name: string): GarmentRole {
   const n = name.toLowerCase();
-  // Check for bottoms keywords
-  if (/pant|trouser|short|bottom|lower|leg|waist|cargo|jean|denim|jogger/.test(n)) return 'bottoms';
-  // Check for back keywords
-  if (/back|rear|behind|dorsal/.test(n)) return 'tops-back';
-  // Check for front/top keywords
-  if (/front|chest|jacket|hoodie|shirt|tee|top|upper|sleeve|jersey|coat|sweater/.test(n)) return 'tops-front';
-  // Default to tops-front (most common upload)
-  return 'tops-front';
+  if (/left.*(bottom|leg|pant)|(bottom|pant).*left/.test(n)) return 'left-bottom';
+  if (/right.*(bottom|leg|pant)|(bottom|pant).*right/.test(n)) return 'right-bottom';
+  if (/left.*sleeve|sleeve.*left/.test(n)) return 'left-sleeve';
+  if (/right.*sleeve|sleeve.*right/.test(n)) return 'right-sleeve';
+  if (/logo|badge|crest|brand|emblem|patch/.test(n)) return 'logo';
+  if (/pant|trouser|short|bottom|lower|leg|waist|cargo|jean|denim|jogger/.test(n)) return 'bottom';
+  if (/back|rear|behind|dorsal/.test(n)) return 'top-back';
+  if (/front|chest|jacket|hoodie|shirt|tee|top|upper|jersey|coat|sweater/.test(n)) return 'top-front';
+  return 'top-front';
 }
 
 /* ----------------------------------------------------------------
@@ -727,10 +762,44 @@ function MySetsPanel({
   const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'sets'>('all');
   const [showInstructions, setShowInstructions] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [selectedGenIds, setSelectedGenIds] = useState<string[]>([]);
+  const [zipping, setZipping] = useState(false);
   const [pendingCloth, setPendingCloth] = useState<{ file: File; preview: string } | null>(null);
   const [pendingModel, setPendingModel] = useState<{ file: File; preview: string } | null>(null);
   const [confirming, setConfirming] = useState<{ kind: 'cloth' | 'model'; file: File; preview: string } | null>(null);
   const [setPromptText, setSetPromptText] = useState('');
+
+  async function handleDownloadZip() {
+    if (selectedGenIds.length === 0) return;
+    setZipping(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const folder = zip.folder('shivnaresh-studio');
+      const selectedGens = generations.filter((g) => selectedGenIds.includes(g.id));
+      for (let i = 0; i < selectedGens.length; i++) {
+        const g = selectedGens[i];
+        try {
+          const res = await fetch(g.highResUrl || g.url);
+          const blob = await res.blob();
+          folder?.file(`render-${i + 1}-${g.id.slice(0, 6)}.png`, blob);
+        } catch {}
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const objectUrl = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `shivnaresh-batch-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+    } catch (err) {
+      setError('Failed to create ZIP: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setZipping(false);
+    }
+  }
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [deletingSetId, setDeletingSetId] = useState('');
@@ -1054,9 +1123,38 @@ function MySetsPanel({
           {/* Section B: Generated Images */}
           {(filter === 'all' || filter === 'images') && imageGenerations.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Camera className="h-4 w-4 text-current/70" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider">Generated studio images ({imageGenerations.length})</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-current/70" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider">Generated studio images ({imageGenerations.length})</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedGenIds.length === imageGenerations.length) {
+                        setSelectedGenIds([]);
+                      } else {
+                        setSelectedGenIds(imageGenerations.map((g) => g.id));
+                      }
+                    }}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+                      isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
+                    }`}
+                  >
+                    {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                  {selectedGenIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadZip()}
+                      disabled={zipping}
+                      className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5"
+                    >
+                      {zipping ? 'Compressing ZIP…' : `⬇️ Download Selected (${selectedGenIds.length}) as ZIP`}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {imageGenerations.map((gen) => (
@@ -1069,9 +1167,24 @@ function MySetsPanel({
                     <div>
                       <div
                         className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
-                        onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
                       >
-                        <img src={gen.url} alt="" className="h-full w-full object-cover" />
+                        <img src={gen.url} alt="" className="h-full w-full object-cover" onClick={() => window.open(gen.highResUrl || gen.url, '_blank')} />
+                        <label
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-2 left-2 z-10 flex items-center justify-center h-5 w-5 rounded bg-black/70 border border-white/40 cursor-pointer transition hover:bg-black"
+                          title="Select for batch ZIP download"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedGenIds.includes(gen.id)}
+                            onChange={(e) => {
+                              setSelectedGenIds((prev) =>
+                                e.target.checked ? [...prev, gen.id] : prev.filter((id) => id !== gen.id)
+                              );
+                            }}
+                            className="h-3 w-3 accent-[#e5373f] cursor-pointer"
+                          />
+                        </label>
                         <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider">
                           {gen.resolution || '1K'}
                         </span>
@@ -1093,13 +1206,13 @@ function MySetsPanel({
                     </div>
 
                     <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-white/5">
-                      <a
-                        href={gen.highResUrl || gen.url}
-                        download={`shivnaresh-studio-${gen.id.slice(0, 6)}.png`}
-                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition"
+                      <button
+                        type="button"
+                        onClick={() => void downloadDirectFile(gen.highResUrl || gen.url, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`)}
+                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer"
                       >
                         Download
-                      </a>
+                      </button>
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
@@ -2703,6 +2816,10 @@ export default function Design() {
     setClassifiedGarments((prev) => prev.map((g) => g.url === url ? { ...g, role: newRole } : g));
   }
 
+  function updateGarmentCustomLabel(url: string, customLabel: string) {
+    setClassifiedGarments((prev) => prev.map((g) => g.url === url ? { ...g, customLabel } : g));
+  }
+
   function swapTopAndBottomGarments() {
     setClassifiedGarments((prev) => {
       if (prev.length < 2) return prev;
@@ -2712,7 +2829,7 @@ export default function Design() {
       next[1] = temp;
       return next.map((g, idx) => ({
         ...g,
-        role: idx === 0 ? 'tops-front' : idx === 1 ? 'bottoms' : g.role,
+        role: idx === 0 ? 'top-front' : idx === 1 ? 'bottom' : g.role,
       }));
     });
   }
@@ -2947,7 +3064,7 @@ export default function Design() {
   const effectiveModels = selectedModels.length > 0 ? selectedModels : (model ? [model] : []);
   const effectiveClothes = selectedClothes.length > 0 ? selectedClothes : (cloth ? [cloth] : []);
   // Smart garment role selectors — computed from classifiedGarments
-  const explicitBottom = classifiedGarments.find((g) => g.role === 'bottoms');
+  const explicitBottom = classifiedGarments.find((g) => g.role === 'bottom' || g.role === 'bottoms' || g.role === 'left-bottom' || g.role === 'right-bottom');
   const bottomGarment: Pick | null = (() => {
     if (explicitBottom) return { url: explicitBottom.url, preview: explicitBottom.preview, name: explicitBottom.name };
     // In Full Outfit mode, if 2+ garments are present, 2nd garment is automatically Bottom
@@ -2958,18 +3075,17 @@ export default function Design() {
     return null;
   })();
   const topFrontGarment: Pick | null = (() => {
-    const g = classifiedGarments.find((g) => g.role === 'tops-front') ?? classifiedGarments[0];
+    const g = classifiedGarments.find((g) => g.role === 'top-front' || g.role === 'tops-front') ?? classifiedGarments[0];
     return g ? { url: g.url, preview: g.preview, name: g.name } : null;
   })();
   const topBackGarment: Pick | null = (() => {
-    const g = classifiedGarments.find((g) => g.role === 'tops-back') ?? classifiedGarments.find((g) => g.role === 'tops-front') ?? classifiedGarments[0];
+    const g = classifiedGarments.find((g) => g.role === 'top-back' || g.role === 'tops-back') ?? classifiedGarments.find((g) => g.role === 'top-front' || g.role === 'tops-front') ?? classifiedGarments[0];
     return g ? { url: g.url, preview: g.preview, name: g.name } : null;
   })();
   const hasClassifiedGarments = classifiedGarments.length > 0;
+  const selectedModelCount = selectedModels.length > 0 ? selectedModels.length : (model ? 1 : 0);
   const multiBatchCount = mode === 'tryon' && !isFivePoseBatch
-    ? (tryOnTarget === 'both'
-        ? (effectiveModels.length > 0 ? effectiveModels.length : 1)
-        : (effectiveModels.length > 1 || effectiveClothes.length > 1 ? Math.max(effectiveModels.length, effectiveClothes.length) : 1))
+    ? Math.max(1, selectedModelCount)
     : 1;
 
   const validSwapDrafts = swapDrafts.filter((d) => Boolean(d.source?.url && d.target?.url));
@@ -3145,7 +3261,10 @@ export default function Design() {
                 prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'generating' } : p))
               );
               setProgress(Math.round(((currentIdx + 1) / batchCtx.total) * 100));
-              setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Starting ${nextItem.name} (${nextIdx + 1}/${batchCtx.total})…`);
+              setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Cooling down 1.5s before ${nextItem.name}…`);
+
+              // Explicit 1500ms delay between consecutive batch requests to eliminate 409 concurrency lock collision
+              await new Promise((resolve) => setTimeout(resolve, 1500));
 
               try {
                 const nextPayload: Record<string, unknown> = {
@@ -3170,7 +3289,9 @@ export default function Design() {
                 }
                 setJob({ id: nextRes.id, status: 'starting' });
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Error starting next render in sequence');
+                const errMsg = err instanceof Error ? err.message : 'Error starting next render in sequence';
+                setError(errMsg);
+                void api.reportClientError({ title: 'Batch Render Sequence Error', message: errMsg, details: err });
                 setFivePoseItems((prev) =>
                   prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'failed' } : p))
                 );
@@ -3269,9 +3390,9 @@ export default function Design() {
       for (let i = 0; i < fileArr.length; i++) {
         const file = fileArr[i];
         setUploadProgress({ current: i + 1, total: fileArr.length, kind });
-        const dataUrl = await fileToDataUrl(file);
-        const uploaded = await api.upload(dataUrl, kind, file.name);
-        const pick = { url: uploaded.url, preview: uploaded.preview || dataUrl, name: file.name };
+        const standardized = await prepareAndStandardizeImage(file);
+        const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
+        const pick = { url: uploaded.url, preview: uploaded.preview || standardized.dataUrl, name: file.name };
 
         if (kind === 'cloth') {
           // Add to selected clothes list so multiple garments can be chosen
@@ -3310,7 +3431,9 @@ export default function Design() {
 
       await loadUploads();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed');
+      const msg = e instanceof Error ? e.message : 'Upload failed';
+      setError(msg);
+      void api.reportClientError({ title: 'Design Image Upload Error', message: msg, details: e });
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -3367,8 +3490,17 @@ export default function Design() {
         payload.source = swapSource?.url;
         payload.model = swapTarget?.url;
       } else {
-        // Smart garment routing based on tryOnTarget and classifiedGarments
+        // Multi-view garment references
         if (hasClassifiedGarments) {
+          const garmentViews = classifiedGarments.map((g, idx) => ({
+            url: g.url,
+            role: g.role,
+            label: (g.role === 'custom' && g.customLabel?.trim())
+              ? g.customLabel.trim()
+              : (GARMENT_ROLE_LABELS[g.role] || `View ${idx + 1}`),
+          }));
+          payload.garmentViews = garmentViews;
+
           if (tryOnTarget === 'upper') {
             payload.mode = 'tryon';
             payload.cloth = topFrontGarment?.url || cloth?.url;
@@ -3477,6 +3609,7 @@ export default function Design() {
           angle: spec.angle,
           icon: spec.icon,
           promptSuffix: spec.promptSuffix || '',
+          model: spec.model || spec.targetModel,
           status: i === 0 ? 'generating' : 'pending',
         }));
 
@@ -3555,6 +3688,7 @@ export default function Design() {
         msg = 'The render service key was rejected. Please contact support or try again later.';
       }
       setError(msg);
+      void api.reportClientError({ title: 'Studio Generation Error', message: msg, details: e });
       setBusy(false);
       setProgress(0);
       setProgressLabel('');
@@ -4497,13 +4631,29 @@ export default function Design() {
                                   className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${
                                     isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
                                   }`}
-                                  title="Auto-detected category — click to change if wrong"
+                                  title="Specify garment view angle"
                                 >
-                                  <option value="tops-front">👕 Top Front</option>
-                                  <option value="tops-back">🔄 Top Back</option>
-                                  <option value="bottoms">👖 Bottom</option>
-                                  <option value="unknown">❓ Unknown</option>
+                                  <option value="top-front">👕 Top Front</option>
+                                  <option value="top-back">🔄 Top Back</option>
+                                  <option value="bottom">👖 Bottom</option>
+                                  <option value="left-sleeve">👈 Left Sleeve</option>
+                                  <option value="right-sleeve">👉 Right Sleeve</option>
+                                  <option value="logo">🔍 Logo Close-Up</option>
+                                  <option value="left-bottom">🩳 Left Bottom</option>
+                                  <option value="right-bottom">🩳 Right Bottom</option>
+                                  <option value="custom">✏️ Custom View…</option>
                                 </select>
+                                {garment.role === 'custom' && (
+                                  <input
+                                    type="text"
+                                    value={garment.customLabel || ''}
+                                    onChange={(e) => updateGarmentCustomLabel(garment.url, e.target.value)}
+                                    placeholder="e.g. Collar, Pocket"
+                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${
+                                      isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                                    }`}
+                                  />
+                                )}
                               </div>
                             </div>
                           );
@@ -4631,6 +4781,42 @@ export default function Design() {
                           </>
                         )}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Quick Pick from Previous Clothes */}
+                  {uploads.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                          ⚡ Previous Garments Library
+                        </span>
+                        <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                          Click to add view
+                        </span>
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        {uploads.slice(0, 15).map((item) => (
+                          <button
+                            key={item.id || item.url}
+                            type="button"
+                            onClick={() => {
+                              const pick = { url: item.url, preview: item.url, name: item.name };
+                              addClassifiedGarment(pick);
+                              setCloth(pick);
+                            }}
+                            className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
+                              isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                            }`}
+                            title={`Add ${item.name} to garment views`}
+                          >
+                            <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                            <span className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                              +
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -5183,85 +5369,131 @@ export default function Design() {
                     {fivePoseItems.map((pose, idx) => {
                       const isSelected = selectedPoseIndex === idx;
                       return (
-                        <button
-                          key={pose.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPoseIndex(idx);
-                            if (pose.url) setResult(pose.url);
-                          }}
-                          className={`rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${
-                            isSelected
-                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
-                              : isLight
-                                ? 'border-gray-300 bg-white hover:bg-gray-50'
-                                : 'border-white/10 bg-black/40 hover:border-white/20'
-                          }`}
-                        >
-                          {pose.url ? (
-                            <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
-                          ) : (
-                            <span className="text-sm">{pose.icon}</span>
-                          )}
-                          <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
-                          <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
-                          <div className="mt-1">
-                            {pose.status === 'completed' && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
-                            {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
-                            {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
-                            {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-medium">Error</span>}
-                          </div>
-                        </button>
+                        <div key={pose.id} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPoseIndex(idx);
+                              if (pose.url) setResult(pose.url);
+                            }}
+                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${
+                              isSelected
+                                ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
+                                : isLight
+                                  ? 'border-gray-300 bg-white hover:bg-gray-50'
+                                  : 'border-white/10 bg-black/40 hover:border-white/20'
+                            }`}
+                          >
+                            {pose.url ? (
+                              <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
+                            ) : (
+                              <span className="text-sm">{pose.icon}</span>
+                            )}
+                            <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
+                            <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
+                            <div className="mt-1">
+                              {pose.status === 'completed' && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
+                              {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
+                              {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
+                              {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-medium">Error</span>}
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFivePoseItems((prev) => prev.filter((_, pIdx) => pIdx !== idx));
+                              if (selectedPoseIndex === idx) {
+                                setSelectedPoseIndex(Math.max(0, idx - 1));
+                              }
+                            }}
+                            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete this pose"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               )}
 
-              <div className={`grid min-h-[360px] place-items-center p-4 ${isLight ? 'bg-gray-50' : 'bg-black/40'}`}>
+              <div className={`p-4 ${isLight ? 'bg-gray-50' : 'bg-black/40'}`}>
                 {result ? (
-                  <img src={result} alt="Generated" className="max-h-[520px] w-full rounded-xl object-contain shadow-2xl" />
+                  <div className="space-y-4">
+                    {/* Before & After: Show Selected Model alongside or above Generated Output */}
+                    {(() => {
+                      const activeSelectedModel =
+                        fivePoseItems[selectedPoseIndex]?.model?.url ||
+                        (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null) ||
+                        activePoseList[selectedPoseIndex]?.url ||
+                        selectedPoses[selectedPoseIndex]?.url ||
+                        selectedModels[selectedPoseIndex]?.url ||
+                        model?.url;
+                      return activeSelectedModel ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider opacity-60">
+                            <span>🎯 Selected Model (Target Pose)</span>
+                          </div>
+                          <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-h-[220px] flex items-center justify-center">
+                            <img src={activeSelectedModel} alt="Target Pose" className="max-h-[220px] w-full object-contain" />
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                        <span>✨ Generated AI Studio Render</span>
+                        <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
+                      </div>
+                      <img src={result} alt="Generated" className="max-h-[480px] w-full rounded-xl object-contain shadow-2xl border border-emerald-500/20" />
+                    </div>
+                  </div>
                 ) : busy ? (
-                  <div className="text-center">
-                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                    <p className={`mt-3 text-xs ${isLight ? 'text-slate-900 font-medium' : 'text-white/50'}`}>{progressLabel || 'Rendering image…'}</p>
-                    <p className={`mt-1 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Elapsed: {fmtTime(elapsedSec)}</p>
+                  <div className="grid min-h-[360px] place-items-center text-center">
+                    <div>
+                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                      <p className={`mt-3 text-xs ${isLight ? 'text-slate-900 font-medium' : 'text-white/50'}`}>{progressLabel || 'Rendering image…'}</p>
+                      <p className={`mt-1 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Elapsed: {fmtTime(elapsedSec)}</p>
+                    </div>
                   </div>
                 ) : (
-                  <p className={`max-w-[240px] text-center text-xs leading-relaxed ${isLight ? 'text-slate-800 font-medium' : 'text-white/30'}`}>
-                    Your rendered fashion image appears here. Select quality and click Generate.
-                  </p>
+                  <div className="grid min-h-[360px] place-items-center text-center">
+                    <p className={`max-w-[240px] text-xs leading-relaxed ${isLight ? 'text-slate-800 font-medium' : 'text-white/30'}`}>
+                      Your rendered fashion image appears here. Select quality and click Generate.
+                    </p>
+                  </div>
                 )}
               </div>
 
               {result && (
                 <div className={`flex flex-wrap gap-2 border-t p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10'}`}>
-                  <a
-                    href={result}
-                    download={`shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${
+                  <button
+                    type="button"
+                    onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${
                       isLight
                         ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                     }`}
                   >
-                    Download {poseMode === '5-pose' ? 'Current Angle' : 'Current Render'}
-                  </a>
+                    ⬇️ Download {poseMode === '5-pose' ? 'Current Angle' : 'Current Render'}
+                  </button>
                   {fivePoseItems.filter(p => p.status === 'completed').length > 1 && (
                     <button
                       type="button"
                       onClick={() => {
                         fivePoseItems.forEach((p, i) => {
                           if (p.url) {
-                            const a = document.createElement('a');
-                            a.href = p.url;
-                            a.download = `shivnaresh-${p.id || `render-${i + 1}`}.png`;
-                            a.target = '_blank';
-                            setTimeout(() => a.click(), i * 350);
+                            setTimeout(() => {
+                              void downloadDirectFile(p.url!, `shivnaresh-${p.id || `render-${i + 1}`}.png`);
+                            }, i * 350);
                           }
                         });
                       }}
-                      className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-500/30"
+                      className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-500/30 cursor-pointer"
                     >
                       ⬇️ Download All {fivePoseItems.length} {poseMode === '5-pose' ? 'Angles' : 'Renders'}
                     </button>

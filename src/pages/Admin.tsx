@@ -286,6 +286,19 @@ export default function Admin() {
     }
   };
 
+  const [storageStatus, setStorageStatus] = useState<{
+    disk: { generatedCount: number; generatedHuman: string; dataHuman: string };
+    database: { connected: boolean; dataSizeHuman: string; storageSizeHuman: string; collections: number };
+    hosted: { totalHostedImages: number };
+  } | null>(null);
+
+  const loadStorageStatus = async () => {
+    try {
+      const res = await api.getAdminStorageStatus();
+      setStorageStatus(res);
+    } catch {}
+  };
+
   const handleSendAdminOtp = async () => {
     setAdmin2FaBusy(true);
     setAdmin2FaError('');
@@ -329,6 +342,7 @@ export default function Admin() {
         void loadUsers();
         void loadSystemLogs();
         void loadFashnCredits();
+        void loadStorageStatus();
         return;
       }
       setAdmin2FaStep('otp');
@@ -406,6 +420,7 @@ export default function Admin() {
       void loadUsers();
       void loadSystemLogs();
       void loadFashnCredits();
+      void loadStorageStatus();
     } catch (err: any) {
       setAdmin2FaError(err.message || 'Invalid or expired 2FA code.');
     } finally {
@@ -1794,6 +1809,57 @@ ${log.stack || 'None'}
             </div>
             <p className="mt-2 text-[11px] opacity-60 truncate">
               {settings?.imgbbMasked || 'Local assets primary'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Storage Quotas Card */}
+      <div className={`${cardClass} border-blue-500/20 bg-blue-500/5`}>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+            💾 Live Storage Quotas & System Capacity
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadStorageStatus()}
+            className="text-xs p-1 rounded hover:bg-white/10 transition"
+            title="Refresh storage quotas"
+          >
+            <RefreshCw className="h-3 w-3 text-blue-400" />
+          </button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Disk Storage (Generated Renders)</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-extrabold">{storageStatus?.disk.generatedHuman || '0 B'}</span>
+              <span className="text-xs opacity-60">({storageStatus?.disk.generatedCount || 0} images)</span>
+            </div>
+            <p className="mt-2 text-[10px] opacity-60">
+              Local Render Outputs · Safe & Persistent
+            </p>
+          </div>
+
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">MongoDB Database Size</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-extrabold text-emerald-400">{storageStatus?.database.dataSizeHuman || '0 B'}</span>
+              <span className="text-xs opacity-60">({storageStatus?.database.collections || 0} collections)</span>
+            </div>
+            <p className="mt-2 text-[10px] opacity-60">
+              {storageStatus?.database.connected ? '🟢 MongoDB Cloud Cluster Connected' : '⚪ Local JSON Storage'}
+            </p>
+          </div>
+
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Hosted CDN Images</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-extrabold text-purple-400">{storageStatus?.hosted.totalHostedImages || 0}</span>
+              <span className="text-xs opacity-60">synced assets</span>
+            </div>
+            <p className="mt-2 text-[10px] opacity-60">
+              Persistent ImgBB / Cloudinary mirrors
             </p>
           </div>
         </div>

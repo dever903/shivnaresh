@@ -1206,6 +1206,109 @@ app.post('/api/admin/system-logs/clear', requireAdmin, async (_req, res) => {
   }
 });
 
+/* ---------------------------------------------------- storage status & client error reporting */
+app.get('/api/admin/storage-status', requireAdmin, async (_req, res) => {
+  try {
+    let genFilesCount = 0;
+    let genBytes = 0;
+    try {
+      const genFiles = await fs.readdir(GENERATED);
+      genFilesCount = genFiles.length;
+      for (const f of genFiles) {
+        try {
+          const st = await fs.stat(path.join(GENERATED, f));
+          genBytes += st.size;
+        } catch {}
+      }
+    } catch {}
+
+    let dataBytes = 0;
+    try {
+      const dataFiles = await fs.readdir(DATA);
+      for (const f of dataFiles) {
+        try {
+          const st = await fs.stat(path.join(DATA, f));
+          dataBytes += st.size;
+        } catch {}
+      }
+    } catch {}
+
+    const formatBytes = (bytes) => {
+      if (!bytes || bytes <= 0) return '0 B';
+      const k = 1024;
+      const dm = 1;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    };
+
+    let dbConnected = false;
+    let dbDataSize = 0;
+    let dbStorageSize = 0;
+    let dbCollections = 0;
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        dbConnected = true;
+        const stats = await db.command({ dbStats: 1 }).catch(() => null);
+        if (stats) {
+          dbDataSize = stats.dataSize || 0;
+          dbStorageSize = stats.storageSize || 0;
+          dbCollections = stats.collections || 0;
+        }
+      }
+    } catch {}
+
+    let totalHosted = 0;
+    try {
+      const hostedMap = await readHosted();
+      const mCount = Object.keys(hostedMap.models || {}).length;
+      const gCount = Object.keys(hostedMap.generated || {}).length;
+      totalHosted = mCount + gCount;
+    } catch {}
+
+    res.json({
+      disk: {
+        generatedCount: genFilesCount,
+        generatedBytes: genBytes,
+        generatedHuman: formatBytes(genBytes),
+        dataBytes,
+        dataHuman: formatBytes(dataBytes),
+      },
+      database: {
+        connected: dbConnected,
+        dataSizeHuman: formatBytes(dbDataSize),
+        storageSizeHuman: formatBytes(dbStorageSize),
+        collections: dbCollections,
+      },
+      hosted: {
+        totalHostedImages: totalHosted,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'storage_status_failed', message: err.message });
+  }
+});
+
+app.post('/api/client-error', auth.requireUser, async (req, res) => {
+  try {
+    const { title, message, details, stack } = req.body || {};
+    await recordSystemProblem({
+      module: 'client-ui',
+      severity: 'error',
+      userEmail: req.user?.email || 'user',
+      userId: req.user?._id || null,
+      title: title || 'Client UI Error',
+      message: message || 'An error occurred on the user interface',
+      details,
+      stack,
+    });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'log_failed' });
+  }
+});
+
 /* ---------------------------------------------------- admin studio models */
 app.post('/api/admin/models', requireAdmin, async (req, res) => {
   try {
@@ -1804,6 +1907,23 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       job.error = { message: err.message };
     }
 
+    try {
+      let userEmail = 'user';
+      if (userId) {
+        const u = await auth.findUserById(userId);
+        if (u?.email) userEmail = u.email;
+      }
+      await recordSystemProblem({
+        module: 'agent-fashn',
+        severity: 'error',
+        userEmail,
+        userId: userId || null,
+        title: 'Fashn Multimodal Agent Render Failed',
+        message: err.message,
+        stack: err.stack,
+      });
+    } catch {}
+
     // Auto-refund user credits on any failure
     if (userId && creditsNeeded > 0) {
       try {
@@ -1838,6 +1958,16 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     /* Strict single concurrency: only 1 generation active at a time per user */
     if (isUserGenerating(req)) {
+      try {
+        await recordSystemProblem({
+          module: 'generation',
+          severity: 'warning',
+          userEmail: req.user?.email || 'user',
+          userId: req.user?._id || null,
+          title: 'Studio Concurrency 409 Conflict',
+          message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
+        });
+      } catch {}
       return res.status(409).json({
         error: 'generation_in_progress',
         message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
@@ -1945,14 +2075,16 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
        ============================================================== */
     const isOutfit = mode === 'outfit' || (mode === 'tryon' && body.topCloth && body.bottomCloth);
     const isSwap = mode === 'swap' && Boolean((body.sourceModel || body.source || body.cloth) && (body.targetModel || body.model));
+    const garmentViews = Array.isArray(body.garmentViews) && body.garmentViews.length > 0 ? body.garmentViews : null;
     const hasSpecialPromptOrProps = Boolean(
       (body.prompt && body.prompt.trim()) ||
       (body.color && body.color.trim()) ||
       body.category === 'bottoms' ||
-      body.preserveProps
+      body.preserveProps ||
+      garmentViews
     );
 
-    if (isOutfit || isSwap || (mode === 'tryon' && hasSpecialPromptOrProps && body.cloth && body.model)) {
+    if (isOutfit || isSwap || (mode === 'tryon' && (hasSpecialPromptOrProps || garmentViews) && (body.cloth || garmentViews) && body.model)) {
       // Deduct credits ONCE before running (1 credit for 1K, 3 for 2K)
       const remainingCredits = Math.max(0, userCredits - creditsNeeded);
       await auth.patchUser(req.user._id, {
@@ -1969,10 +2101,24 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let agentPrompt = 'SHIV-NARESH athletic sportswear. ';
 
       if (isSwap) {
-        const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
+        // Target model is Image 1: preserve exact body shape, gender, posture, face, hair, and pose
+        // Source model is Image 2: the clothing donor whose clothes are put onto the target model
         const targetUri = await toDataUri(body.targetModel || body.model);
-        images = [sourceUri, targetUri];
-        agentPrompt += 'Athletic model swap: Replace the athlete face and persona in the first image with the target model persona in the second image. Crucial: Preserve the exact clothes, sportswear fit, athletic uniform, posture, sports equipment or balls held in hands, and background from the first image completely intact with zero change to the clothing. ';
+        const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
+        images = [targetUri, sourceUri];
+        agentPrompt += 'Target Model Garment Replacement: Dress the target model in Image 1 wearing the athletic sportswear clothing from Image 2. ' +
+          'CRITICAL TARGET MODEL PRESERVATION: Maintain the target model in Image 1 completely intact — preserve their exact pose, athletic posture, body proportions, gender, physique, facial identity, facial expression, skin tone, hair, and background with 100% fidelity. ' +
+          'Only replace the clothing on the target model in Image 1 with the exact sportswear garments, patterns, athletic cut, and logos from Image 2, fitted naturally to the target model’s pose and physique. ';
+      } else if (garmentViews) {
+        const modelUri = await toDataUri(body.model);
+        const viewsToUse = garmentViews.slice(0, 5); // Fashn limit: 1 model + max 5 garment views = max 6 images
+        const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
+        images = [modelUri, ...garmentUris];
+
+        const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
+        agentPrompt += `Multi-Angle Garment Synthesis: Dress the athlete model in Image 1 with the authentic sportswear garment shown across the reference photos (${viewLabels}). ` +
+          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ' +
+          'CRITICAL POSE & IDENTITY PRESERVATION: Keep the model’s exact face, skin tone, hairstyle, athletic physique, posture, hands, and props (balls, gym equipment) completely untouched with zero alteration. ';
       } else if (isOutfit) {
         const modelUri = await toDataUri(body.model);
         const topClothUri = await toDataUri(body.topCloth || body.cloth);
@@ -3408,6 +3554,16 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
   try {
     /* Strict single concurrency: only 1 generation active at a time per user */
     if (isUserGenerating(req)) {
+      try {
+        await recordSystemProblem({
+          module: 'generation',
+          severity: 'warning',
+          userEmail: req.user?.email || 'user',
+          userId: req.user?._id || null,
+          title: 'Studio Concurrency 409 Conflict',
+          message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
+        });
+      } catch {}
       return res.status(409).json({
         error: 'generation_in_progress',
         message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',

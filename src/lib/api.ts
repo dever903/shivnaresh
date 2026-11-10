@@ -609,6 +609,24 @@ export const api = {
     }>('/api/upi-gateway/admin/settings'),
   saveAdminGatewaySettings: (patch: Record<string, unknown>) =>
     request<{ success: boolean; message: string }>('/api/upi-gateway/admin/settings', { ...json(patch), method: 'PUT' }),
+
+  getAdminStorageStatus: () =>
+    request<{
+      disk: {
+        generatedCount: number;
+        generatedHuman: string;
+        dataHuman: string;
+      };
+      database: {
+        connected: boolean;
+        dataSizeHuman: string;
+        storageSizeHuman: string;
+        collections: number;
+      };
+      hosted: {
+        totalHostedImages: number;
+      };
+    }>('/api/admin/storage-status'),
 };
 
 export function fileToDataUrl(file: File): Promise<string> {
@@ -619,3 +637,93 @@ export function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * High-fidelity client standardizer:
+ * Enforces square dimensions between 1000px and 3000px without compromising image quality.
+ * Prevents "Dimensions must be between 1000x1000px and 3000x3000px / Some images too small" errors.
+ */
+export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: string; name: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Invalid image format'));
+      img.onload = () => {
+        const { naturalWidth: w, naturalHeight: h } = img;
+        const isSquare = Math.abs(w - h) < 4;
+        const inDimensionRange = w >= 1000 && w <= 3000 && h >= 1000 && h <= 3000;
+
+        if (isSquare && inDimensionRange) {
+          resolve({ dataUrl: String(reader.result), name: file.name });
+          return;
+        }
+
+        // Target square dimension: clamp between 1200px and 3000px for optimal AI clarity
+        const maxSide = Math.max(w, h);
+        const targetSide = Math.min(3000, Math.max(1200, maxSide));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetSide;
+        canvas.height = targetSide;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ dataUrl: String(reader.result), name: file.name });
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Clean white studio backdrop
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetSide, targetSide);
+
+        // Center proportionally with zero distortion or crop
+        const scale = Math.min(targetSide / w, targetSide / h);
+        const renderW = Math.round(w * scale);
+        const renderH = Math.round(h * scale);
+        const offsetX = Math.round((targetSide - renderW) / 2);
+        const offsetY = Math.round((targetSide - renderH) / 2);
+
+        ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+
+        // Export high-quality PNG for zero degradation
+        const standardizedUrl = canvas.toDataURL('image/png');
+        resolve({ dataUrl: standardizedUrl, name: file.name.replace(/\.[^.]+$/, '') + '.png' });
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Triggers direct browser download via Blob and Object URL,
+ * avoiding browser cross-origin redirects to a new tab.
+ */
+export async function downloadDirectFile(url: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
