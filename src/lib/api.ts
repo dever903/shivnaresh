@@ -372,6 +372,11 @@ export const api = {
   generate: (body: Record<string, unknown>) =>
     request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>('/api/generate', json(body)),
   job: (id: string) => request<Job>(`/api/job/${id}`),
+  cancelJob: (id: string) =>
+    request<{ ok: boolean; cancelled: boolean; refunded: boolean; refundedCredits: number; message: string }>(
+      `/api/job/${id}/cancel`,
+      { method: 'POST' }
+    ),
   deleteUpload: (id: string) => request<{ ok: boolean; deleted: string }>(`/api/uploads/${id}`, { method: 'DELETE' }),
   collections: () => request<{ items: Collection[] }>('/api/collections'),
   createCollection: (name: string) => request<Collection>('/api/collections', json({ name })),

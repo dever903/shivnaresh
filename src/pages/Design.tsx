@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   Clock,
@@ -2751,12 +2751,95 @@ export default function Design() {
   const [garmentColor, setGarmentColor] = useState('');
 
   /* Model Swap inputs (Slot 1: Kis Model ko change karna hai; Slot 2: Kis Model ke sath change karna hai) */
+  interface SwapDraft {
+    id: string;
+    source: Pick | null;
+    target: Pick | null;
+    prompt?: string;
+  }
+  const [swapDrafts, setSwapDrafts] = useState<SwapDraft[]>([
+    { id: 'draft-1', source: null, target: null, prompt: '' },
+  ]);
+  const [activeSwapDraftIndex, setActiveSwapDraftIndex] = useState<number>(0);
   const [swapSource, setSwapSource] = useState<Pick>(null);
   const [swapTarget, setSwapTarget] = useState<Pick>(null);
   const [swapPrompt, setSwapPrompt] = useState('');
   const [swapTab, setSwapTab] = useState<'library' | 'uploads'>('library');
+  const [cancellingJob, setCancellingJob] = useState(false);
   const swapSourceInput = useRef<HTMLInputElement>(null);
   const swapTargetInput = useRef<HTMLInputElement>(null);
+
+  function addSwapDraft() {
+    if (swapDrafts.length >= 5) return;
+    const newIdx = swapDrafts.length;
+    setSwapDrafts((prev) => [...prev, { id: `draft-${newIdx + 1}`, source: null, target: null, prompt: '' }]);
+    setActiveSwapDraftIndex(newIdx);
+    setSwapSource(null);
+    setSwapTarget(null);
+  }
+
+  function removeSwapDraft(idx: number) {
+    setSwapDrafts((prev) => {
+      if (prev.length <= 1) {
+        setSwapSource(null);
+        setSwapTarget(null);
+        return [{ id: 'draft-1', source: null, target: null, prompt: '' }];
+      }
+      const next = prev.filter((_, i) => i !== idx);
+      const newActive = Math.min(activeSwapDraftIndex, next.length - 1);
+      setActiveSwapDraftIndex(newActive);
+      setSwapSource(next[newActive]?.source || null);
+      setSwapTarget(next[newActive]?.target || null);
+      return next;
+    });
+  }
+
+  function selectSwapSource(item: Pick | null) {
+    setSwapSource(item);
+    setSwapDrafts((prev) =>
+      prev.map((d, i) => (i === activeSwapDraftIndex ? { ...d, source: item } : d))
+    );
+  }
+
+  function selectSwapTarget(item: Pick | null) {
+    setSwapTarget(item);
+    setSwapDrafts((prev) =>
+      prev.map((d, i) => (i === activeSwapDraftIndex ? { ...d, target: item } : d))
+    );
+  }
+
+  function switchSwapDraft(idx: number) {
+    setActiveSwapDraftIndex(idx);
+    const d = swapDrafts[idx];
+    if (d) {
+      setSwapSource(d.source);
+      setSwapTarget(d.target);
+      if (typeof d.prompt === 'string') setSwapPrompt(d.prompt);
+    }
+  }
+
+  async function handleCancelGeneration() {
+    if (!job?.id) return;
+    setCancellingJob(true);
+    try {
+      const res = await api.cancelJob(job.id);
+      if (res.refunded && typeof res.refundedCredits === 'number') {
+        setUser((prev) => (prev ? { ...prev, credits: prev.credits + res.refundedCredits } : null));
+      }
+      activePoseIndexRef.current = -1;
+      batchPayloadRef.current = null;
+      setJob(null);
+      setBusy(false);
+      generatingRef.current = false;
+      setProgress(0);
+      setProgressLabel('');
+      setError(res.message || 'Generation cancelled and credits refunded.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not cancel generation');
+    } finally {
+      setCancellingJob(false);
+    }
+  }
 
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -2789,6 +2872,8 @@ export default function Design() {
       icon: string;
       model?: Pick;
       cloth?: Pick;
+      sourceModel?: Pick;
+      targetModel?: Pick;
       promptSuffix?: string;
     }>;
   } | null>(null);
@@ -2863,9 +2948,16 @@ export default function Design() {
   const multiBatchCount = mode === 'tryon' && !isFivePoseBatch && (effectiveModels.length > 1 || effectiveClothes.length > 1)
     ? Math.max(effectiveModels.length, effectiveClothes.length)
     : 1;
-  const totalRequiredCredits = isFivePoseBatch
-    ? (5 * creditCost)
-    : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
+
+  const validSwapDrafts = swapDrafts.filter((d) => Boolean(d.source?.url && d.target?.url));
+  const activePoseList = selectedPoses.filter((p): p is NonNullable<Pick> => Boolean(p && p.url));
+  const activePoseCount = activePoseList.length > 0 ? activePoseList.length : (model ? 1 : 0);
+
+  const totalRequiredCredits = mode === 'swap'
+    ? (validSwapDrafts.length > 1 ? validSwapDrafts.length * creditCost : creditCost)
+    : isFivePoseBatch
+      ? (activePoseCount * creditCost)
+      : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -3036,8 +3128,10 @@ export default function Design() {
                   ...batchCtx.payload,
                   ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
                   ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
+                  ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
+                  ...(nextItem.targetModel?.url ? { targetModel: nextItem.targetModel.url, model: nextItem.targetModel.url } : {}),
                 };
-                if (batchCtx.isFivePose && nextItem.promptSuffix) {
+                if (nextItem.promptSuffix) {
                   nextPayload.prompt = `${batchCtx.basePrompt} · ${nextItem.promptSuffix}`.trim();
                 }
                 const nextRes = await api.generate(nextPayload);
@@ -3271,8 +3365,12 @@ export default function Design() {
         }
       }
 
-      /* Batch Execution (5-pose sequence or multi-model batch) */
-      if ((isFivePoseBatch || multiBatchCount > 1) && !isEditingRender) {
+      /* Batch Execution (multi-pose sequence, multi-model batch, or multi-swap batch) */
+      const isSwapBatch = mode === 'swap' && validSwapDrafts.length > 1;
+      const isPoseBatch = isFivePoseBatch && activePoseCount > 1;
+      const isMultiModelBatch = multiBatchCount > 1 && !isFivePoseBatch && mode === 'tryon';
+
+      if ((isPoseBatch || isMultiModelBatch || isSwapBatch) && !isEditingRender) {
         let batchItems: Array<{
           id: string;
           name: string;
@@ -3280,26 +3378,40 @@ export default function Design() {
           icon: string;
           model?: Pick;
           cloth?: Pick;
+          sourceModel?: Pick;
+          targetModel?: Pick;
           promptSuffix?: string;
         }> = [];
 
-        if (isFivePoseBatch) {
-          batchItems = FIVE_POSES_SPECS.map((spec, i) => {
+        if (isPoseBatch) {
+          const targetSpecs = FIVE_POSES_SPECS.slice(0, activePoseCount);
+          batchItems = targetSpecs.map((spec, i) => {
             // Smart angle matching: back pose gets back garment photo
             const isBackAngle = spec.id === 'back' || spec.angle.toLowerCase().includes('180') || spec.angle.toLowerCase().includes('rear');
             const smartCloth = hasClassifiedGarments
               ? (isBackAngle ? (topBackGarment || topFrontGarment || cloth) : (topFrontGarment || cloth))
               : cloth;
+            const poseModel = activePoseList[i] || selectedPoses[i] || model;
             return {
               id: spec.id,
               name: spec.name,
               angle: spec.angle,
               icon: spec.icon,
               promptSuffix: spec.promptSuffix,
-              model: selectedPoses[i] || selectedPoses[0] || model,
+              model: poseModel,
               cloth: smartCloth,
             };
           });
+        } else if (isSwapBatch) {
+          batchItems = validSwapDrafts.map((d, i) => ({
+            id: `swap-${i + 1}`,
+            name: `Swap ${i + 1}`,
+            angle: `Swap Pair ${i + 1} of ${validSwapDrafts.length}`,
+            icon: `#${i + 1}`,
+            sourceModel: d.source,
+            targetModel: d.target,
+            promptSuffix: d.prompt || '',
+          }));
         } else {
           // Multi-model batch: generate images equal to the number of uploaded/selected models
           batchItems = Array.from({ length: multiBatchCount }, (_, i) => {
@@ -3329,24 +3441,32 @@ export default function Design() {
         setSelectedPoseIndex(0);
         activePoseIndexRef.current = 0;
         batchPayloadRef.current = {
-          isFivePose: isFivePoseBatch,
+          isFivePose: isPoseBatch,
           total: batchItems.length,
           payload,
-          basePrompt: prompt.trim(),
+          basePrompt: mode === 'swap' ? swapPrompt.trim() : prompt.trim(),
           items: batchItems,
         };
 
         const firstItem = batchItems[0];
         setProgress(5);
-        setProgressLabel(`Starting ${isFivePoseBatch ? `Pose 1 of 5 (${FIVE_POSES_SPECS[0].name})` : `Model 1 of ${multiBatchCount} (${firstItem.name})`}…`);
+        setProgressLabel(
+          isPoseBatch
+            ? `Starting Pose 1 of ${activePoseCount} (${FIVE_POSES_SPECS[0].name})…`
+            : isSwapBatch
+            ? `Starting Swap 1 of ${validSwapDrafts.length}…`
+            : `Starting Model 1 of ${multiBatchCount} (${firstItem.name})…`
+        );
 
         const firstPayload: Record<string, unknown> = {
           ...payload,
           ...(firstItem.model?.url ? { model: firstItem.model.url } : {}),
           ...(firstItem.cloth?.url ? { cloth: firstItem.cloth.url, source: firstItem.cloth.url } : {}),
+          ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
+          ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        if (isFivePoseBatch && firstItem.promptSuffix) {
-          firstPayload.prompt = `${prompt.trim()} · ${firstItem.promptSuffix}`.trim();
+        if (firstItem.promptSuffix) {
+          firstPayload.prompt = `${effectivePrompt} · ${firstItem.promptSuffix}`.trim();
         }
 
         const res1 = await api.generate(firstPayload);
@@ -3361,7 +3481,20 @@ export default function Design() {
         setProgress(5);
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
-        const res = await api.generate(payload);
+        const singlePayload: Record<string, unknown> = { ...payload };
+        if (mode === 'swap') {
+          const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
+          if (activeDraft.source?.url) {
+            singlePayload.sourceModel = activeDraft.source.url;
+            singlePayload.source = activeDraft.source.url;
+          }
+          if (activeDraft.target?.url) {
+            singlePayload.targetModel = activeDraft.target.url;
+            singlePayload.model = activeDraft.target.url;
+          }
+        }
+
+        const res = await api.generate(singlePayload);
         if (res.credits !== undefined && user) {
           setUser({ ...user, credits: res.credits });
         }
@@ -3394,15 +3527,20 @@ export default function Design() {
   const isSwapMode = mode === 'swap';
   const swapMissing: string[] = [];
   if (isSwapMode) {
-    if (!swapSource) swapMissing.push('source model (Kis Model ko change karna hai)');
-    if (!swapTarget) swapMissing.push('target model (Kis Model ke sath change karna hai)');
+    const curDraft = swapDrafts[activeSwapDraftIndex] || swapDrafts[0];
+    const hasAnyComplete = validSwapDrafts.length > 0;
+    if (!hasAnyComplete) {
+      if (!curDraft?.source && !swapSource) swapMissing.push('source model (Kis Model ko change karna hai)');
+      if (!curDraft?.target && !swapTarget) swapMissing.push('target model (Kis Model ke sath change karna hai)');
+    }
   }
   const tryonMissing: string[] = [];
   if (mode === 'tryon') {
     const hasGarment = hasClassifiedGarments || !!cloth;
+    const hasModel = (poseMode === '5-pose' && activePoseCount > 0) || effectiveModels.length > 0 || !!model;
     const needsBottom = hasClassifiedGarments && tryOnTarget !== 'upper' && !bottomGarment;
     if (!hasGarment) tryonMissing.push('garment');
-    if (!model) tryonMissing.push('model');
+    if (!hasModel) tryonMissing.push('model');
     if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
   }
   const missing = isSwapMode ? swapMissing : tryonMissing;
@@ -3467,9 +3605,9 @@ export default function Design() {
                 {isEditingRender
                   ? 'Confirm image edit'
                   : isFivePoseBatch
-                    ? 'Confirm 5-pose sequence'
+                    ? `Confirm ${activePoseCount}-pose sequence`
                     : mode === 'swap'
-                      ? 'Confirm model swap'
+                      ? `Confirm model swap (${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} drafts` : '1 draft'})`
                       : 'Confirm virtual try-on'}
               </h3>
               <button
@@ -3489,11 +3627,11 @@ export default function Design() {
                 {isEditingRender
                   ? 'Are you sure you want to apply this AI edit to your generated image?'
                   : isFivePoseBatch
-                    ? 'Are you sure you want to proceed with this 5-pose multi-angle sequence?'
+                    ? `Are you sure you want to proceed with this ${activePoseCount}-pose multi-angle sequence (${totalRequiredCredits} credits)?`
                     : multiBatchCount > 1
                       ? `Are you sure you want to generate ${multiBatchCount} images for all selected models?`
                       : mode === 'swap'
-                        ? 'Are you sure you want to proceed with this Model Swap?'
+                        ? `Are you sure you want to proceed with ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Model Swaps (${totalRequiredCredits} credits)` : 'this Model Swap'}?`
                         : 'Are you sure you want to proceed with this render?'}
               </p>
 
@@ -3517,11 +3655,22 @@ export default function Design() {
                   <>
                     <div className="flex justify-between text-white/60">
                       <span>Batch:</span>
-                      <span className="font-semibold text-white">5-Pose Sequence (Front, 3/4, Profile, Back, Action)</span>
+                      <span className="font-semibold text-white">{activePoseCount}-Pose Sequence</span>
                     </div>
                     <div className="flex justify-between text-white/60">
                       <span>Total Poses:</span>
-                      <span className="font-semibold text-amber-400">5 Distinct Studio Angles</span>
+                      <span className="font-semibold text-amber-400">{activePoseCount} Studio Angle{activePoseCount > 1 ? 's' : ''} ({totalRequiredCredits} Credits Total)</span>
+                    </div>
+                  </>
+                ) : mode === 'swap' && validSwapDrafts.length > 1 ? (
+                  <>
+                    <div className="flex justify-between text-white/60">
+                      <span>Batch:</span>
+                      <span className="font-semibold text-white">Multi-Swap Batch Generation</span>
+                    </div>
+                    <div className="flex justify-between text-white/60">
+                      <span>Total Swaps:</span>
+                      <span className="font-semibold text-amber-400">{validSwapDrafts.length} Configured Drafts ({totalRequiredCredits} Credits Total)</span>
                     </div>
                   </>
                 ) : multiBatchCount > 1 ? (
@@ -3899,24 +4048,98 @@ export default function Design() {
                 </div>
               )}
             </div>
-            {/* MAIN CONTROLS: MODEL SWAP (2 SLOTS) OR TRY-ON */}
+            {/* MAIN CONTROLS: MODEL SWAP (UP TO 5 DRAFTS) OR TRY-ON */}
             {mode === 'swap' ? (
               <>
+                {/* Multi-Swap Drafts Bar (up to 5 simultaneous swaps) */}
+                <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                        Model Swap Drafts (Up to 5 Simultaneous Swaps)
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                        validSwapDrafts.length > 0
+                          ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
+                      }`}>
+                        {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    {swapDrafts.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={addSwapDraft}
+                        className="rounded-full border border-dashed border-[#e5373f] bg-[#e5373f]/10 px-3 py-1 text-[11px] font-bold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition"
+                      >
+                        + Add Draft ({swapDrafts.length + 1}/5)
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Draft Selection Tabs */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {swapDrafts.map((draft, idx) => {
+                      const isActive = activeSwapDraftIndex === idx;
+                      const isComplete = Boolean(draft.source?.url && draft.target?.url);
+                      return (
+                        <div
+                          key={draft.id}
+                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${
+                            isActive
+                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                              : isComplete
+                              ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
+                              : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => switchSwapDraft(idx)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold"
+                          >
+                            <span className={isActive ? 'text-[#e5373f] font-bold' : isLight ? 'text-gray-800' : 'text-white'}>
+                              Draft {idx + 1}
+                            </span>
+                            {isComplete && <span className="text-[10px] text-emerald-500 font-bold">✓</span>}
+                          </button>
+                          {swapDrafts.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSwapDraft(idx);
+                              }}
+                              className="p-1 rounded-full text-red-400 hover:text-red-500 hover:bg-red-500/20"
+                              title="Delete this draft"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className={`mt-2.5 text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                    Configure up to 5 model swaps. When you press Generate, all ready drafts render together (1 credit each for 1K).
+                  </p>
+                </div>
+
                 {/* SLOT 1: Kis Model ko change karna hai (Source Model / Original Outfit) */}
                 <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        1 &middot; Kis Model ko change karna hai
+                        1 &middot; Kis Model ko change karna hai (Draft {activeSwapDraftIndex + 1})
                       </h2>
                       <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
                         Upload the photo/model whose body or outfit you want to keep while replacing the model/face
                       </p>
                     </div>
-                    {swapSource && (
+                    {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) && (
                       <button
                         type="button"
-                        onClick={() => setSwapSource(null)}
+                        onClick={() => selectSwapSource(null)}
                         className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-rose-400 hover:text-rose-300'}`}
                       >
                         Remove
@@ -3932,7 +4155,7 @@ export default function Design() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const dataUrl = await fileToDataUrl(file);
-                      setSwapSource({ url: dataUrl, name: file.name });
+                      selectSwapSource({ url: dataUrl, name: file.name });
                     }}
                   />
                   <button
@@ -3944,14 +4167,20 @@ export default function Design() {
                         : 'border-white/15 hover:border-white/35'
                     }`}
                   >
-                    {swapSource ? (
-                      <img src={swapSource.preview ?? swapSource.url} alt="Source Model" className="h-20 w-16 rounded-lg object-cover border-2 border-[#e5373f]" />
+                    {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
+                      <img
+                        src={(swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.url}
+                        alt="Source Model"
+                        className="h-20 w-16 rounded-lg object-cover border-2 border-[#e5373f]"
+                      />
                     ) : (
                       <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
                     )}
                     <span className="text-sm">
                       <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        {swapSource ? swapSource.name : 'Choose Source Model (Kis Model ko change karna hai)'}
+                        {(swapDrafts[activeSwapDraftIndex]?.source || swapSource)
+                          ? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.name
+                          : `Choose Source Model for Draft ${activeSwapDraftIndex + 1}`}
                       </span>
                       <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
                         PNG, JPEG or WEBP &middot; Click to browse or replace photo
@@ -3965,7 +4194,7 @@ export default function Design() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        2 &middot; Kis Model ke sath change karna hai
+                        2 &middot; Kis Model ke sath change karna hai (Draft {activeSwapDraftIndex + 1})
                       </h2>
                       <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
                         Choose from library or upload the new model / face persona to swap in
@@ -4004,22 +4233,30 @@ export default function Design() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const dataUrl = await fileToDataUrl(file);
-                      setSwapTarget({ url: dataUrl, name: file.name });
+                      selectSwapTarget({ url: dataUrl, name: file.name });
                     }}
                   />
 
-                  {swapTarget && (
+                  {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget) && (
                     <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
                       <div className="flex items-center gap-3">
-                        <img src={swapTarget.preview ?? swapTarget.url} alt="Target Model" className="h-14 w-11 rounded-md object-cover border-2 border-[#e5373f]" />
+                        <img
+                          src={(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.url}
+                          alt="Target Model"
+                          className="h-14 w-11 rounded-md object-cover border-2 border-[#e5373f]"
+                        />
                         <div className="text-xs">
-                          <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Target Model Persona</p>
-                          <p className={isLight ? 'text-gray-500' : 'text-white/40'}>{swapTarget.name}</p>
+                          <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                            Target Model Persona (Draft {activeSwapDraftIndex + 1})
+                          </p>
+                          <p className={isLight ? 'text-gray-500' : 'text-white/40'}>
+                            {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.name}
+                          </p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSwapTarget(null)}
+                        onClick={() => selectSwapTarget(null)}
                         className={`text-xs px-2.5 py-1 rounded-lg ${isLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-400 hover:bg-rose-950/40'}`}
                       >
                         Remove
@@ -4037,9 +4274,11 @@ export default function Design() {
                               <button
                                 key={item.id}
                                 type="button"
-                                onClick={() => setSwapTarget({ url: item.url, name: item.name })}
+                                onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
                                 className={`overflow-hidden rounded-md border transition ${
-                                  swapTarget?.url === item.url ? 'border-[#e5373f] ring-1 ring-[#e5373f]' : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                  (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                    ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                    : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                                 }`}
                               >
                                 <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
@@ -4056,9 +4295,11 @@ export default function Design() {
                             <button
                               key={item.id}
                               type="button"
-                              onClick={() => setSwapTarget({ url: item.url, name: item.name })}
+                              onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
                               className={`overflow-hidden rounded-md border transition ${
-                                swapTarget?.url === item.url ? 'border-[#e5373f]' : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                  ? 'border-[#e5373f]'
+                                  : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                               }`}
                             >
                               <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
@@ -4080,7 +4321,12 @@ export default function Design() {
                   </div>
                   <textarea
                     value={swapPrompt}
-                    onChange={(e) => setSwapPrompt(e.target.value)}
+                    onChange={(e) => {
+                      setSwapPrompt(e.target.value);
+                      setSwapDrafts((prev) =>
+                        prev.map((d, i) => (i === activeSwapDraftIndex ? { ...d, prompt: e.target.value } : d))
+                      );
+                    }}
                     rows={3}
                     placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
                     className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
@@ -4735,7 +4981,11 @@ export default function Design() {
                   ? 'Credits locked by administrator'
                   : isGlobalBusy
                   ? 'Generation in Progress (Please wait)…'
-                  : `Generate ${mode === 'swap' ? 'Swap' : ''} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 && !isFivePoseBatch ? ` for ${multiBatchCount} Models` : ''})`}
+                  : mode === 'swap'
+                  ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                  : isFivePoseBatch
+                  ? `Generate ${activePoseCount > 1 ? `${activePoseCount} Poses` : 'Pose'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                  : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
@@ -4779,17 +5029,33 @@ export default function Design() {
                       }}
                     />
                   </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                      Elapsed: {fmtTime(elapsedSec)} &middot; GPU Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleCancelGeneration()}
+                      disabled={cancellingJob}
+                      className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[10px] font-bold text-red-500 hover:bg-red-500 hover:text-white transition disabled:opacity-50"
+                      title="Cancel generation immediately and refund credits"
+                    >
+                      {cancellingJob ? 'Cancelling & Refunding…' : '✕ Cancel & Refund Credit'}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Batch Renders Strip (5-Pose or Multi-Model) */}
+              {/* Batch Renders Strip (5-Pose, Multi-Model, or Multi-Swap) */}
               {fivePoseItems.length > 0 && (
                 <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      {poseMode === '5-pose'
-                        ? `5 Studio Angles (${fivePoseItems.filter(p => p.status === 'completed').length}/5 Completed)`
-                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter(p => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
+                      {mode === 'swap'
+                        ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
+                        : poseMode === '5-pose'
+                        ? `${fivePoseItems.length} Studio Angles (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
+                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
                     </span>
                     <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
                   </div>
@@ -4900,6 +5166,21 @@ export default function Design() {
                     }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResult(null);
+                      setFivePoseItems([]);
+                    }}
+                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${
+                      isLight
+                        ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
+                        : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
+                    }`}
+                    title="Clear this preview from canvas"
+                  >
+                    Clear Preview
                   </button>
                 </div>
               )}

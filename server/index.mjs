@@ -1561,23 +1561,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       });
     }
 
-    /* Daily Limit Check (Ultra plan: max 10 models/day) */
-    const lastReset = req.user.lastDailyReset ? new Date(req.user.lastDailyReset) : new Date(0);
-    const today = new Date();
-    const isSameDay = lastReset.getFullYear() === today.getFullYear() &&
-      lastReset.getMonth() === today.getMonth() &&
-      lastReset.getDate() === today.getDate();
-
-    let dailyModels = isSameDay ? Number(req.user.dailyModelsUsed || 0) : 0;
-
-    if (req.user.tier === 'ultra') {
-      if (dailyModels >= 10) {
-        return res.status(429).json({
-          error: 'daily_limit_reached',
-          message: 'Ultra plan daily quota reached: Maximum 10 models per day. Your quota will reset tomorrow.',
-        });
-      }
-    }
+    /* Credits are permanent (admin-allocated). No daily quota reset. */
+    const dailyModels = Number(req.user.dailyModelsUsed || 0);
+    const isSameDay = true; // kept for compatibility
 
     /* check user credit balance */
     const userCredits = typeof req.user.credits === 'number' ? req.user.credits : 10;
@@ -1624,10 +1610,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       await auth.patchUser(req.user._id, {
         credits: userCredits - creditsNeeded,
         modelsGenerated: modelsGenerated + 1,
-        ...(req.user.tier === 'ultra' ? {
-          dailyModelsUsed: dailyModels + 1,
-          lastDailyReset: new Date().toISOString(),
-        } : {}),
+        dailyModelsUsed: dailyModels + 1,
       });
       lockUser(req, 'outfit-chain');
 
@@ -1688,6 +1671,16 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
         if (!step2Resp.ok) {
           return res.status(step2Resp.status).json({ error: 'outfit_step2_failed', message: step2Data.message || 'Bottom garment application failed' });
+        }
+
+        if (step2Data.id) {
+          lockUser(req, step2Data.id);
+          jobKeyMap.set(step2Data.id, {
+            requestKey: `outfit-${step2Data.id}`,
+            clearTimer: setTimeout(() => {}, 120000),
+            userId: req.user?._id,
+            creditsUsed: creditsNeeded,
+          });
         }
 
         // Return step 2 job ID — client polls as normal
@@ -1836,7 +1829,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
-      /* deduct credits and increment model usage counters */
+      /* deduct credits and increment model usage counters (credits are permanent — no daily reset) */
       let remainingCredits = userCredits;
       if (req.user && req.user._id) {
         remainingCredits = Math.max(0, userCredits - creditsNeeded);
@@ -1846,7 +1839,6 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           credits: remainingCredits,
           modelsGenerated: nextModelsGenerated,
           dailyModelsUsed: nextDailyModels,
-          lastDailyReset: isSameDay ? (req.user.lastDailyReset || now) : now,
         });
         req.user.credits = remainingCredits;
         req.user.modelsGenerated = nextModelsGenerated;
@@ -1917,6 +1909,7 @@ app.get('/api/job/:id', async (req, res) => {
     if (!response.ok) {
       /* clean up active job on error */
       unlockUser(req.params.id);
+    activeUserGenerations.delete(getUserLockKey(req));
       const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
         activeJobs.delete(mapping.requestKey);
@@ -1929,6 +1922,7 @@ app.get('/api/job/:id', async (req, res) => {
     /* clean up active job on completion or failure */
     if (data.status === 'completed' || data.status === 'failed') {
       unlockUser(req.params.id);
+    activeUserGenerations.delete(getUserLockKey(req));
       const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
         activeJobs.delete(mapping.requestKey);
@@ -2017,6 +2011,54 @@ app.get('/api/job/:id', async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'status_failed', message: String(error.message || error) });
+  }
+});
+
+/* Cancel a running job and refund the credit — prevents credit waste */
+app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
+  try {
+    const state = await readState();
+    if (!state.apiKey) return res.status(400).json({ error: 'not_ready' });
+
+    // Try to cancel at Fashn.ai (best-effort — may already be processing)
+    const cancelResp = await fetch(`${FASHN}/cancel/${req.params.id}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${state.apiKey}` },
+    }).catch(() => null);
+
+    // Refund credits regardless of whether Fashn cancel succeeds
+    const mapping = jobKeyMap.get(req.params.id);
+    let refunded = false;
+    let refundedCredits = 0;
+    if (mapping && mapping.userId && mapping.creditsUsed > 0) {
+      try {
+        const u = await auth.findUserById(mapping.userId);
+        if (u) {
+          refundedCredits = mapping.creditsUsed;
+          const newCredits = (Number(u.credits) || 0) + refundedCredits;
+          await auth.patchUser(mapping.userId, { credits: newCredits });
+          refunded = true;
+          console.log(`[billing] Refunded ${refundedCredits} credits to ${mapping.userId} on user cancel.`);
+        }
+      } catch (refundErr) {
+        console.error('[billing] Cancel refund failed:', refundErr.message);
+      }
+      activeJobs.delete(mapping.requestKey);
+      clearTimeout(mapping.clearTimer);
+      jobKeyMap.delete(req.params.id);
+    }
+    unlockUser(req.params.id);
+    activeUserGenerations.delete(getUserLockKey(req));
+
+    res.json({
+      ok: true,
+      cancelled: cancelResp?.ok ?? false,
+      refunded,
+      refundedCredits,
+      message: refunded ? `Job cancelled and ${refundedCredits} credit${refundedCredits !== 1 ? 's' : ''} refunded.` : 'Job cancelled.',
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'cancel_failed', message: String(err.message || err) });
   }
 });
 
@@ -2924,21 +2966,8 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
       });
     }
 
-    /* Daily Limit Check (Ultra plan: max 1 video/day) */
-    const lastReset = req.user.lastDailyReset ? new Date(req.user.lastDailyReset) : new Date(0);
-    const today = new Date();
-    const isSameDay = lastReset.getFullYear() === today.getFullYear() &&
-      lastReset.getMonth() === today.getMonth() &&
-      lastReset.getDate() === today.getDate();
-
-    let dailyVideos = isSameDay ? Number(req.user.dailyVideosUsed || 0) : 0;
-
-    if (req.user.tier === 'ultra' && dailyVideos >= 1) {
-      return res.status(429).json({
-        error: 'daily_limit_reached',
-        message: 'Ultra plan daily video limit reached: Maximum 1 video per day. Your quota will reset tomorrow.',
-      });
-    }
+    /* Credits are permanent. No daily video reset. */
+    const dailyVideos = Number(req.user.dailyVideosUsed || 0);
 
     const body = req.body || {};
     const image = body.image || body.cloth || body.model;
@@ -3052,7 +3081,6 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
         credits: remainingCredits,
         videosGenerated: newVideosGenerated,
         dailyVideosUsed: nextDailyVideos,
-        lastDailyReset: isSameDay ? (req.user.lastDailyReset || now) : now,
       });
       req.user.credits = remainingCredits;
       req.user.videosGenerated = newVideosGenerated;
