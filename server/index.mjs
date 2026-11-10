@@ -476,8 +476,18 @@ async function toDataUri(src) {
     }
   }
 
-  // If it is an external URL not found on disk, pass to FASHN as URL
-  if (/^https?:\/\//i.test(src)) return src;
+  // If it is an external URL not found on disk, fetch inline so Fashn always has the bytes
+  if (/^https?:\/\//i.test(src)) {
+    try {
+      const resp = await fetch(src);
+      if (resp.ok) {
+        const buf = Buffer.from(await resp.arrayBuffer());
+        const contentType = resp.headers.get('content-type') || 'image/jpeg';
+        return `data:${contentType};base64,${buf.toString('base64')}`;
+      }
+    } catch {}
+    return src;
+  }
 
   throw new Error(`image not found: ${src}`);
 }
@@ -1782,10 +1792,11 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     }
 
     /* ==============================================================
-       Fashn AI Multimodal Agent: 1-Pass Full Outfit & Prompted Try-On
+       Fashn AI Multimodal Agent: 1-Pass Full Outfit, Try-On & Swap
        (1 Credit, 1 Generation, Preserves Props/Basketball & Colors)
        ============================================================== */
     const isOutfit = mode === 'outfit' || (mode === 'tryon' && body.topCloth && body.bottomCloth);
+    const isSwap = mode === 'swap' && Boolean((body.sourceModel || body.source || body.cloth) && (body.targetModel || body.model));
     const hasSpecialPromptOrProps = Boolean(
       (body.prompt && body.prompt.trim()) ||
       (body.color && body.color.trim()) ||
@@ -1793,7 +1804,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       body.preserveProps
     );
 
-    if (isOutfit || (mode === 'tryon' && hasSpecialPromptOrProps && body.cloth && body.model)) {
+    if (isOutfit || isSwap || (mode === 'tryon' && hasSpecialPromptOrProps && body.cloth && body.model)) {
       // Deduct credits ONCE before running (1 credit for 1K, 3 for 2K)
       const remainingCredits = Math.max(0, userCredits - creditsNeeded);
       await auth.patchUser(req.user._id, {
@@ -1806,32 +1817,46 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       const agentJobId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       lockUser(req, agentJobId);
 
-      const modelUri = await toDataUri(body.model);
-      const topClothUri = isOutfit ? await toDataUri(body.topCloth || body.cloth) : null;
-      const bottomClothUri = isOutfit && body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
-      const singleClothUri = !isOutfit ? await toDataUri(body.cloth) : null;
-
-      const images = isOutfit
-        ? (bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri])
-        : [modelUri, singleClothUri];
-
+      let images = [];
       let agentPrompt = 'SHIV-NARESH athletic sportswear. ';
-      if (isOutfit && bottomClothUri) {
-        agentPrompt += 'Dress the athlete in the first image wearing both garments simultaneously: the top garment from the second image and the bottom pants from the third image as a complete matching sportswear outfit. ';
-        agentPrompt += 'Maintain professional athletic studio presentation. Both garments must be worn naturally together. The top garment is worn on the upper torso. The bottom garment is worn on the legs as full-length athletic pants matching the garment image, reaching down to the sneakers (not shorts). ';
-      } else if (body.category === 'bottoms') {
-        agentPrompt += 'Replace the pants/lower garment on the athlete in the first image with the bottom garment from the second image. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and pose intact. ';
-      } else {
-        agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
-      }
 
-      agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+      if (isSwap) {
+        const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
+        const targetUri = await toDataUri(body.targetModel || body.model);
+        images = [sourceUri, targetUri];
+        agentPrompt += 'Athletic model swap: Replace the athlete face and persona in the first image with the target model persona in the second image. Crucial: Preserve the exact clothes, sportswear fit, athletic uniform, posture, sports equipment or balls held in hands, and background from the first image completely intact with zero change to the clothing. ';
+      } else if (isOutfit) {
+        const modelUri = await toDataUri(body.model);
+        const topClothUri = await toDataUri(body.topCloth || body.cloth);
+        const bottomClothUri = body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
+        images = bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri];
+        if (bottomClothUri) {
+          agentPrompt += 'Dress the athlete in the first image wearing both garments simultaneously: the top garment from the second image and the bottom pants from the third image as a complete matching sportswear outfit. ';
+          agentPrompt += 'Maintain professional athletic studio presentation. Both garments must be worn naturally together. The top garment is worn on the upper torso. The bottom garment is worn on the legs as full-length athletic pants matching the garment image, reaching down to the sneakers (not shorts). ';
+        } else {
+          agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
+        }
+        agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+      } else {
+        const modelUri = await toDataUri(body.model);
+        const singleClothUri = await toDataUri(body.cloth);
+        images = [modelUri, singleClothUri];
+        if (body.category === 'bottoms') {
+          agentPrompt += 'Replace the pants/lower garment on the athlete in the first image with the bottom garment from the second image. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and pose intact. ';
+        } else {
+          agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
+        }
+        agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+      }
 
       if (body.color && typeof body.color === 'string' && body.color.trim()) {
         agentPrompt += `Exact fabric color: ${body.color.trim()}. Maintain true garment dye and athlete kit tones with accurate color matching. `;
       }
       if (body.prompt && typeof body.prompt === 'string' && body.prompt.trim()) {
         agentPrompt += `Specific styling instructions: ${body.prompt.trim()}. `;
+      }
+      if (is2k) {
+        agentPrompt += 'Render in 2K Ultra HD studio resolution with razor-sharp fabric weave and realistic texture. ';
       }
 
       localJobMap.set(agentJobId, {
@@ -1852,15 +1877,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           userId: req.user._id,
           userEmail: req.user.email || 'user',
           userName: req.user.name || '',
-          type: 'tryon',
-          mode: isOutfit ? 'outfit' : 'tryon',
+          type: isSwap ? 'model-swap' : 'tryon',
+          mode: isSwap ? 'swap' : (isOutfit ? 'outfit' : 'tryon'),
           resolution: resolution.toUpperCase(),
           creditsUsed: creditsNeeded,
           status: 'processing',
           error: null,
           prompt: agentPrompt,
-          cloth: isOutfit ? 'Full Outfit (Top + Bottom)' : 'Athletic Garment',
-          model: typeof body.model === 'string' ? (body.model.startsWith('data:') ? 'Custom Model' : body.model) : '',
+          cloth: isSwap ? 'Model Swap Persona' : (isOutfit ? 'Full Outfit (Top + Bottom)' : 'Athletic Garment'),
+          model: typeof body.model === 'string' ? (body.model.startsWith('data:') ? 'Custom Model' : body.model) : (body.sourceModel || ''),
           outputUrl: null,
           createdAt: Date.now(),
         });
@@ -1879,7 +1904,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
       return res.json({
         id: agentJobId,
-        mode: isOutfit ? 'outfit' : 'tryon',
+        mode: isSwap ? 'swap' : (isOutfit ? 'outfit' : 'tryon'),
         credits: remainingCredits,
         creditsUsed: creditsNeeded,
       });
