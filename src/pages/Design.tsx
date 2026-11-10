@@ -21,6 +21,7 @@ import {
   downloadDirectFile,
   fileToDataUrl,
   formatCatalogSquare,
+  getProxiedImageUrl,
   prepareAndStandardizeImage,
   setToken,
   type CustomRequest,
@@ -784,7 +785,7 @@ function MySetsPanel({
           if (!rawUrl) continue;
           const isVideo = rawUrl.endsWith('.mp4') || rawUrl.includes('.mp4');
           if (isVideo) {
-            const res = await fetch(rawUrl);
+            const res = await fetch(getProxiedImageUrl(rawUrl));
             const blob = await res.blob();
             folder?.file(`render-${i + 1}-${g.id.slice(0, 6)}.mp4`, blob);
           } else {

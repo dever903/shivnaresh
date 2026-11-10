@@ -357,6 +357,33 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
     }
   }
 
+  async function revokePaidOrder(order) {
+    try {
+      const email = String(order.customer_email || '').trim().toLowerCase();
+      let user = null;
+      if (order.user_id && typeof auth.findUserById === 'function') {
+        user = await auth.findUserById(order.user_id);
+      }
+      if (!user && email && typeof auth.findUserByEmail === 'function') {
+        user = await auth.findUserByEmail(email);
+      }
+      if (!user && typeof auth.getAllUsers === 'function') {
+        const all = await auth.getAllUsers();
+        user = all.find((u) => (email && String(u.email || '').trim().toLowerCase() === email) || (order.user_id && (u._id === order.user_id || u.id === order.user_id)));
+      }
+      if (!user) return false;
+      await auth.patchUser(user._id || user.id, {
+        tier: 'free',
+        planExpiresAt: null,
+      });
+      console.log(`[gateway] Revoked active plan for ${email || user.email} (Order ${order.order_no} status changed)`);
+      return true;
+    } catch (err) {
+      console.error(`[gateway] Exception revoking order ${order.order_no}:`, err);
+      return false;
+    }
+  }
+
   /* ---------------------------------------------------------------- Public Gateway Config */
   router.get('/config', async (_req, res) => {
     const state = await getState();
@@ -748,6 +775,98 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       });
     } catch (err) {
       logGatewayError('Order rejection error', err, { orderNo: req.params.orderNo });
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  /* ---------------------------------------------------------------- Admin Edit Order (Any status, including after approval) */
+  router.put('/orders/:orderNo', auth.requireUser, async (req, res) => {
+    try {
+      const email = String(req.user?.email || '').trim().toLowerCase();
+      if (email !== 'jaatshab11223315@gmail.com') {
+        return res.status(403).json({ success: false, error: 'Unauthorized: Master Admin only.' });
+      }
+
+      const { orderNo } = req.params;
+      const body = req.body || {};
+      const orders = await readOrders();
+      const orderIndex = orders.findIndex((o) => o.order_no === orderNo);
+
+      if (orderIndex === -1) {
+        return res.status(404).json({ success: false, error: 'Order not found.' });
+      }
+
+      const order = orders[orderIndex];
+      const prevStatus = order.status;
+
+      if (body.status && ['pending', 'review', 'paid', 'expired', 'failed'].includes(body.status)) {
+        order.status = body.status;
+      }
+      if (body.plan_id) {
+        order.plan_id = body.plan_id;
+        order.plan_name = PLAN_DEFINITIONS[body.plan_id]?.name || body.plan_id;
+      }
+      if (body.amount !== undefined && !isNaN(Number(body.amount))) {
+        order.amount = Number(body.amount);
+      }
+      if (body.utr !== undefined) {
+        order.utr = normalizeUtr(body.utr);
+        order.customer_utr = order.utr;
+      }
+      if (body.review_note !== undefined) {
+        order.review_note = String(body.review_note);
+      }
+      if (body.customer_email) {
+        order.customer_email = String(body.customer_email).trim().toLowerCase();
+      }
+      if (body.customer_name) {
+        order.customer_name = String(body.customer_name).trim();
+      }
+
+      order.updated_at = new Date().toISOString();
+
+      // If status changed to 'paid' (or plan changed while paid), provision the plan
+      if (order.status === 'paid') {
+        order.paid_at = order.paid_at || new Date().toISOString();
+        await provisionPaidOrder(order);
+      } else if (prevStatus === 'paid' && order.status !== 'paid') {
+        // If status changed from 'paid' to something else, revoke the plan
+        await revokePaidOrder(order);
+      }
+
+      orders[orderIndex] = order;
+      await writeOrders(orders);
+
+      res.json({
+        success: true,
+        message: `Order ${orderNo} updated successfully.`,
+        data: order,
+      });
+    } catch (err) {
+      logGatewayError('Order update error', err, { orderNo: req.params.orderNo });
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  /* ---------------------------------------------------------------- Admin Delete Order */
+  router.delete('/orders/:orderNo', auth.requireUser, async (req, res) => {
+    try {
+      const email = String(req.user?.email || '').trim().toLowerCase();
+      if (email !== 'jaatshab11223315@gmail.com') {
+        return res.status(403).json({ success: false, error: 'Unauthorized: Master Admin only.' });
+      }
+
+      const { orderNo } = req.params;
+      const orders = await readOrders();
+      const filtered = orders.filter((o) => o.order_no !== orderNo);
+
+      if (filtered.length === orders.length) {
+        return res.status(404).json({ success: false, error: 'Order not found.' });
+      }
+
+      await writeOrders(filtered);
+      res.json({ success: true, message: `Order ${orderNo} deleted successfully.` });
+    } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }
   });

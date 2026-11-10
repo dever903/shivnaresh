@@ -283,6 +283,7 @@ export type GatewayOrder = {
   provider_txn_id?: string | null;
   provider_response?: any;
   verified_by?: string | null;
+  review_note?: string | null;
   rejection_reason?: string | null;
   paid_at?: string | null;
   expires_at?: string | null;
@@ -597,6 +598,16 @@ export const api = {
       `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/reject`,
       json({ reason })
     ),
+  adminUpdateGatewayOrder: (orderNo: string, patch: Record<string, any>) =>
+    request<{ success: boolean; message: string; data: GatewayOrder }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}`,
+      { ...json(patch), method: 'PUT' }
+    ),
+  adminDeleteGatewayOrder: (orderNo: string) =>
+    request<{ success: boolean; message: string }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}`,
+      { method: 'DELETE' }
+    ),
   adminGatewaySettings: () =>
     request<{
       success: boolean;
@@ -697,6 +708,26 @@ export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: strin
 }
 
 /**
+ * Automatically proxies cross-origin URLs through the backend image proxy
+ * to prevent CORS restrictions and canvas tainting during export.
+ */
+export function getProxiedImageUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    if (typeof window !== 'undefined' && parsed.origin === window.location.origin) {
+      return url;
+    }
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Ensures any studio render or export is 100% compliant with e-commerce product catalogs:
  * 1. Aspect ratio: Exactly 1:1 Square (width === height).
  * 2. Dimensions: Between 1000px and 3000px (defaults to high-res 2400x2400px square).
@@ -713,7 +744,14 @@ export async function formatCatalogSquare(
   if (imageSource instanceof Blob) {
     blob = imageSource;
   } else {
-    const res = await fetch(imageSource);
+    const fetchUrl = getProxiedImageUrl(imageSource);
+    let res: Response;
+    try {
+      res = await fetch(fetchUrl);
+    } catch {
+      // Direct fetch fallback if local proxy unreachable
+      res = await fetch(imageSource);
+    }
     if (!res.ok) throw new Error(`Failed to fetch image: HTTP ${res.status}`);
     blob = await res.blob();
   }
@@ -721,6 +759,7 @@ export async function formatCatalogSquare(
   const objectUrl = URL.createObjectURL(blob);
   try {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject(new Error('Invalid image format for catalog squaring'));
@@ -730,8 +769,8 @@ export async function formatCatalogSquare(
     const w = img.naturalWidth || 1000;
     const h = img.naturalHeight || 1000;
 
-    // Enforce dimension between 1000px and 3000px as strictly required by the catalog
-    const dim = Math.min(3000, Math.max(1024, Math.max(w, h, targetDim)));
+    // Enforce dimension strictly between 1000px and 3000px as strictly required by the catalog
+    const dim = Math.min(3000, Math.max(1000, Math.max(w, h, targetDim)));
 
     const canvas = document.createElement('canvas');
     canvas.width = dim;
@@ -777,15 +816,16 @@ export async function downloadDirectFile(
   filename: string,
   options?: { catalogSquare?: boolean; targetDim?: number }
 ): Promise<void> {
+  const isVideo = url.endsWith('.mp4') || url.includes('.mp4');
   try {
-    const isVideo = url.endsWith('.mp4') || url.includes('.mp4');
     let blob: Blob;
 
     if (!isVideo && options?.catalogSquare !== false) {
       // Automatically square and standardize to catalog-ready dimensions
       blob = await formatCatalogSquare(url, options?.targetDim || 2400, filename);
     } else {
-      const res = await fetch(url);
+      const fetchUrl = isVideo ? url : getProxiedImageUrl(url);
+      const res = await fetch(fetchUrl);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       blob = await res.blob();
     }
@@ -800,13 +840,23 @@ export async function downloadDirectFile(
     setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   } catch (err) {
     console.warn('[download] Standardizing download fallback:', err);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Use server download proxy endpoint to force file download header rather than opening in new tab
+    if (!isVideo && url.startsWith('http')) {
+      const downloadProxyUrl = `/api/download-proxy?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+      const a = document.createElement('a');
+      a.href = downloadProxyUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   }
 }
 

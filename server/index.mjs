@@ -795,6 +795,77 @@ app.use('/api/v1', upiGateway.router);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+/* ------------------------------------------------------------- image proxy & catalog direct download */
+app.get('/api/proxy-image', async (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return res.status(400).json({ error: 'Missing image url' });
+  }
+
+  try {
+    const parsed = new URL(imageUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
+
+    const upstream = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `Upstream error HTTP ${upstream.status}` });
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+    return res.send(buffer);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to proxy image: ' + err.message });
+  }
+});
+
+app.get('/api/download-proxy', async (req, res) => {
+  const imageUrl = req.query.url;
+  const filename = req.query.filename || 'catalog-render.png';
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return res.status(400).json({ error: 'Missing image url' });
+  }
+
+  try {
+    const parsed = new URL(imageUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
+
+    const upstream = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `Upstream error HTTP ${upstream.status}` });
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'image/png';
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Content-Disposition', `attachment; filename="${String(filename).replace(/["\r\n]/g, '')}"`);
+    res.set('Content-Type', contentType);
+    return res.send(buffer);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to download image: ' + err.message });
+  }
+});
+
 /* what the customer-facing studio is allowed to know */
 app.get('/api/studio', async (_req, res) => {
   const s = await readState();
