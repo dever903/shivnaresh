@@ -706,6 +706,24 @@ app.use('/uploads', async (req, res, next) => {
     if (remoteUrl && typeof remoteUrl === 'string') {
       return res.redirect(302, remoteUrl);
     }
+    // Fallback 2: Retrieve persistent dataUrl buffer from MongoDB user_uploads
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const doc = await db.collection('user_uploads').findOne({
+          $or: [{ id: filename }, { url: `/uploads/${filename}` }]
+        });
+        if (doc && doc.dataUrl) {
+          const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
+          if (m) {
+            const buf = Buffer.from(m[2], 'base64');
+            res.set('Content-Type', m[1]);
+            res.set('Cache-Control', 'public, max-age=86400');
+            return res.send(buf);
+          }
+        }
+      }
+    } catch {}
   } catch {}
   next();
 });

@@ -2815,8 +2815,8 @@ export default function Design() {
     });
   }
 
-  function addClassifiedGarment(garment: { url: string; preview?: string; name: string }) {
-    const role = classifyGarmentByHeuristic(garment.name);
+  function addClassifiedGarment(garment: { url: string; preview?: string; name: string }, explicitRole?: GarmentRole) {
+    const role = explicitRole || classifyGarmentByHeuristic(garment.name);
     setClassifiedGarments((prev) => {
       const exists = prev.some((g) => g.url === garment.url);
       if (exists) return prev;
@@ -3150,11 +3150,23 @@ export default function Design() {
 
   const loadUploads = useCallback(async () => {
     try {
-      setUploads((await api.uploads()).items);
+      const res = await api.uploads();
+      setUploads(res.items);
+      // Auto-preselect most recent garment on initial load if none currently selected
+      if (!cloth && classifiedGarments.length === 0 && res.items?.length > 0) {
+        const firstGarment = res.items.find(
+          (u) => u.kind !== 'model' && !u.id?.startsWith('model-') && !u.url?.includes('model-')
+        );
+        if (firstGarment) {
+          const pick = { url: firstGarment.url, preview: firstGarment.url, name: firstGarment.name || 'Garment' };
+          addClassifiedGarment(pick);
+          setCloth(pick);
+        }
+      }
     } catch {
       /* non-fatal */
     }
-  }, []);
+  }, [cloth, classifiedGarments.length]);
 
   const loadUploadSets = useCallback(async () => {
     setLoadingSets(true);
@@ -3427,7 +3439,11 @@ export default function Design() {
         setUploadProgress({ current: i + 1, total: fileArr.length, kind });
         const standardized = await prepareAndStandardizeImage(file);
         const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
-        const pick = { url: uploaded.url, preview: uploaded.preview || standardized.dataUrl, name: file.name };
+        const pick = {
+          url: uploaded.url,
+          preview: standardized.dataUrl || uploaded.preview || uploaded.url,
+          name: file.name,
+        };
 
         // Prepend immediately to uploads state so newest upload is at the very front
         setUploads((prev) => [
@@ -3436,15 +3452,25 @@ export default function Design() {
         ]);
 
         if (kind === 'cloth') {
+          // Determine smart initial role if multiple files are selected in a batch
+          const heuristicRole = classifyGarmentByHeuristic(file.name);
+          let assignedRole = heuristicRole;
+          if (heuristicRole === 'top-front' && fileArr.length > 1) {
+            const batchAngleRoles: GarmentRole[] = ['top-front', 'top-back', 'logo', 'left-sleeve', 'right-sleeve', 'bottom'];
+            assignedRole = batchAngleRoles[i] || 'top-front';
+          }
+
           // Add to selected clothes list so multiple garments can be chosen
           setSelectedClothes((prev) => {
             const exists = prev.some((p) => p && p.url === pick.url);
             return exists ? prev : [...prev, pick];
           });
-          // Also classify and add to smart garments
-          addClassifiedGarment(pick);
-          // Set as active cloth
-          setCloth(pick);
+          // Also classify and add to smart garments with instant dataUrl preview
+          addClassifiedGarment(pick, assignedRole);
+          // Set as active cloth (first garment in batch)
+          if (i === 0 || !cloth) {
+            setCloth(pick);
+          }
         } else {
           // Add to selected models list so multiple models can be chosen
           setSelectedModels((prev) => {
@@ -4632,11 +4658,11 @@ export default function Design() {
                   />
 
                   {/* Classified Garments Grid */}
-                  {classifiedGarments.length > 0 ? (
+                  {(classifiedGarments.length > 0 || cloth) ? (
                     <div className="mt-3 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                          {classifiedGarments.length} Garment{classifiedGarments.length > 1 ? 's' : ''} Uploaded · Auto-Classified
+                          {Math.max(classifiedGarments.length, cloth ? 1 : 0)} Garment{Math.max(classifiedGarments.length, cloth ? 1 : 0) > 1 ? 's' : ''} Uploaded · Auto-Classified
                         </span>
                         <button
                           type="button"
@@ -4649,7 +4675,7 @@ export default function Design() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {classifiedGarments.map((garment) => {
+                        {(classifiedGarments.length > 0 ? classifiedGarments : (cloth ? [{ url: cloth.url, preview: cloth.preview || cloth.url, name: cloth.name, role: 'top-front' as GarmentRole }] : [])).map((garment) => {
                           return (
                             <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${
                               isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
@@ -4839,26 +4865,33 @@ export default function Design() {
                         </span>
                       </div>
                       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {previousGarmentsList.slice(0, 25).map((item, idx) => (
-                          <button
-                            key={item.url || idx}
-                            type="button"
-                            onClick={() => {
-                              const pick = { url: item.url, preview: item.url, name: item.name };
-                              addClassifiedGarment(pick);
-                              setCloth(pick);
-                            }}
-                            className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
-                              isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                            }`}
-                            title={`Add ${item.name} to garment views`}
-                          >
-                            <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                            <span className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
-                              +
-                            </span>
-                          </button>
-                        ))}
+                        {previousGarmentsList.slice(0, 25).map((item, idx) => {
+                          const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
+                          return (
+                            <button
+                              key={item.url || idx}
+                              type="button"
+                              onClick={() => {
+                                const pick = { url: item.url, preview: item.url, name: item.name };
+                                addClassifiedGarment(pick);
+                                setCloth(pick);
+                              }}
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
+                                isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60'
+                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                              }`}
+                              title={`Add ${item.name} to garment views`}
+                            >
+                              <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${
+                                isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
+                              }`}>
+                                {isSelected ? '✓' : '+'}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
