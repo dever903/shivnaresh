@@ -574,9 +574,8 @@ function UserProfileModal({
         />
       )}
       <div
-        className={`w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-colors ${
-          isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
-        }`}
+        className={`w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-colors ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
+          }`}
       >
         {/* Header */}
         <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
@@ -590,9 +589,8 @@ function UserProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-full p-2 transition-colors ${
-              isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'
-            }`}
+            className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -633,9 +631,8 @@ function UserProfileModal({
             <h3 className="text-sm font-bold truncate">{name || 'Studio Member'}</h3>
             <p className="text-xs opacity-60 truncate">{user.email}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
-                isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
-              }`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
+                }`}>
                 {user.credits} credits
               </span>
               <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
@@ -656,11 +653,10 @@ function UserProfileModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ravi Jaatshab"
-              className={`w-full rounded-xl border p-2.5 focus:outline-none transition-colors ${
-                isLight
+              className={`w-full rounded-xl border p-2.5 focus:outline-none transition-colors ${isLight
                   ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
                   : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-              }`}
+                }`}
             />
           </div>
 
@@ -672,9 +668,8 @@ function UserProfileModal({
               type="email"
               value={user.email}
               disabled
-              className={`w-full rounded-xl border p-2.5 opacity-60 cursor-not-allowed ${
-                isLight ? 'border-gray-200 bg-gray-100 text-gray-600' : 'border-white/5 bg-black/20 text-white/50'
-              }`}
+              className={`w-full rounded-xl border p-2.5 opacity-60 cursor-not-allowed ${isLight ? 'border-gray-200 bg-gray-100 text-gray-600' : 'border-white/5 bg-black/20 text-white/50'
+                }`}
             />
           </div>
 
@@ -690,11 +685,10 @@ function UserProfileModal({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="9876543210"
-                className={`w-full rounded-xl border p-2.5 pl-12 focus:outline-none transition-colors ${
-                  isLight
+                className={`w-full rounded-xl border p-2.5 pl-12 focus:outline-none transition-colors ${isLight
                     ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
                     : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-                }`}
+                  }`}
               />
             </div>
             <p className="mt-1 text-[10px] opacity-40">Enter 10 numeric digits for studio updates and alerts.</p>
@@ -932,9 +926,8 @@ function MySetsPanel({
           <button
             type="button"
             onClick={() => { refreshSets(); refreshGenerations(); }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-white/15 hover:bg-white/10 text-white/70'
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-white/15 hover:bg-white/10 text-white/70'
+              }`}
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh</span>
@@ -964,13 +957,12 @@ function MySetsPanel({
             key={tab.id}
             type="button"
             onClick={() => setFilter(tab.id as typeof filter)}
-            className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
-              filter === tab.id
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${filter === tab.id
                 ? 'bg-[#e5373f] text-white shadow-md'
                 : isLight
                   ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -990,9 +982,8 @@ function MySetsPanel({
               <button
                 type="button"
                 onClick={() => clothRef.current?.click()}
-                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
-                }`}
+                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
+                  }`}
               >
                 {pendingCloth ? (
                   <img src={pendingCloth.preview} alt="Garment" className="h-full w-auto object-contain" />
@@ -1012,9 +1003,8 @@ function MySetsPanel({
               <button
                 type="button"
                 onClick={() => modelRef.current?.click()}
-                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
-                }`}
+                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
+                  }`}
               >
                 {pendingModel ? (
                   <img src={pendingModel.preview} alt="Model" className="h-full w-auto object-contain" />
@@ -1036,9 +1026,8 @@ function MySetsPanel({
               value={setPromptText}
               onChange={(e) => setSetPromptText(e.target.value)}
               placeholder="e.g. Athletic runner pose, high stadium contrast lighting"
-              className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-xs focus:outline-none ${
-                isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white' : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-              }`}
+              className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white' : 'border-white/10 bg-black/50 text-white focus:border-white/40'
+                }`}
             />
           </div>
 
@@ -1080,9 +1069,8 @@ function MySetsPanel({
                 {videoGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div className="relative rounded-xl overflow-hidden bg-black/80 aspect-[9/16] max-h-80 mx-auto">
@@ -1110,9 +1098,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open full video in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1151,9 +1138,8 @@ function MySetsPanel({
                         setSelectedGenIds(imageGenerations.map((g) => g.id));
                       }
                     }}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
-                      isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
-                    }`}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
+                      }`}
                   >
                     {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
                   </button>
@@ -1173,9 +1159,8 @@ function MySetsPanel({
                 {imageGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div
@@ -1229,9 +1214,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open full image in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1263,9 +1247,8 @@ function MySetsPanel({
                 {uploadSets.map((set) => (
                   <div
                     key={set.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -1319,9 +1302,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(set.clothUrl || set.modelUrl, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open images in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1542,9 +1524,8 @@ function CustomRequestsPanel({
           <button
             type="button"
             onClick={onRefresh}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
-            }`}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
+              }`}
           >
             Refresh
           </button>
@@ -1561,9 +1542,8 @@ function CustomRequestsPanel({
 
       {/* Plan Upgrade Lock Banner if Custom Requests Locked by Admin */}
       {customRequestsLocked && (
-        <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${
-          isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
-        }`}>
+        <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
+          }`}>
           <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
           <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
           <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
@@ -1582,9 +1562,8 @@ function CustomRequestsPanel({
 
       {/* Submission Form */}
       {formOpen && (
-        <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${
-          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
-        }`}>
+        <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
+          }`}>
           <div className="flex items-center justify-between">
             <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
             <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-semibold text-emerald-800">
@@ -1608,13 +1587,12 @@ function CustomRequestsPanel({
                   key={t.id}
                   type="button"
                   onClick={() => setRequestType(t.id as 'stills' | 'video' | 'both')}
-                  className={`rounded-2xl border p-3 text-left transition-all ${
-                    requestType === t.id
+                  className={`rounded-2xl border p-3 text-left transition-all ${requestType === t.id
                       ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
                       : isLight
                         ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/10 bg-black/40 hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{t.label}</p>
                   <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{t.sub}</p>
@@ -1650,9 +1628,8 @@ function CustomRequestsPanel({
                 />
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {pendingClothes.map((c, idx) => (
-                    <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
-                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
-                    }`}>
+                    <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
+                      }`}>
                       <img src={c.preview} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
                       <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
                         Garment {idx + 1}
@@ -1670,11 +1647,10 @@ function CustomRequestsPanel({
                   <button
                     type="button"
                     onClick={() => clothRef.current?.click()}
-                    className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                      isLight
+                    className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
                         ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                    }`}
+                      }`}
                   >
                     <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                     <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
@@ -1709,11 +1685,10 @@ function CustomRequestsPanel({
                     value={garmentColor}
                     onChange={(e) => setGarmentColor(e.target.value)}
                     placeholder="e.g. #E5373F or Crimson Red, Deep Navy..."
-                    className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${
-                      isLight
+                    className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${isLight
                         ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
-                    }`}
+                      }`}
                   />
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -1756,9 +1731,8 @@ function CustomRequestsPanel({
 
               <div className="grid grid-cols-3 gap-2">
                 {pendingModels.map((m, idx) => (
-                  <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
-                    isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
-                  }`}>
+                  <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
+                    }`}>
                     <img src={m.preview} alt={`Pose ${idx + 1}`} className="h-full w-full object-cover" />
                     <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
                       Pose {idx + 1}
@@ -1777,11 +1751,10 @@ function CustomRequestsPanel({
                 <button
                   type="button"
                   onClick={() => multiModelRef.current?.click()}
-                  className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                    isLight
+                  className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
                       ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
                       : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                  }`}
+                    }`}
                 >
                   <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                   <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add Pose {pendingModels.length + 1}</span>
@@ -1803,11 +1776,10 @@ function CustomRequestsPanel({
               onChange={(e) => setPromptText(e.target.value)}
               rows={3}
               placeholder="e.g. Ensure the athletic logo sits precisely 2 inches below the collar. We need athletic poses with dynamic running motion. Keep jersey color exact."
-              className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${
-                isLight
+              className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${isLight
                   ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                   : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
-              }`}
+                }`}
             />
           </div>
 
@@ -1837,9 +1809,8 @@ function CustomRequestsPanel({
       {loading ? (
         <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Loading custom orders…</div>
       ) : requests.length === 0 ? (
-        <div className={`mt-12 rounded-3xl border p-12 text-center ${
-          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
-        }`}>
+        <div className={`mt-12 rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+          }`}>
           <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request" above.</p>
         </div>
       ) : (
@@ -1847,23 +1818,20 @@ function CustomRequestsPanel({
           {requests.map((req) => (
             <div
               key={req.id}
-              className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${
-                isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
-              }`}
+              className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+                }`}
             >
               {/* Status Header */}
-              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${
-                isLight ? 'border-[#78a48b]' : 'border-white/5'
-              }`}>
+              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${isLight ? 'border-[#78a48b]' : 'border-white/5'
+                }`}>
                 <div className="flex items-center gap-3">
                   <span
-                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-                      req.status === 'delivered'
+                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
                         ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
                         : req.status === 'in_progress'
                           ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
                           : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
-                    }`}
+                      }`}
                   >
                     {req.status === 'delivered'
                       ? 'Delivered'
@@ -1875,16 +1843,14 @@ function CustomRequestsPanel({
                     Ordered {new Date(req.createdAt).toLocaleDateString()}
                   </span>
                   {req.requestType && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${
-                      isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
-                    }`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                      }`}>
                       {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
                     </span>
                   )}
                   {req.color && (
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${
-                      isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                      }`}>
                       <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: req.color }} />
                       {req.color}
                     </span>
@@ -1894,9 +1860,8 @@ function CustomRequestsPanel({
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
                     <div className="inline-flex items-center gap-1.5">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
-                      }`}>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+                        }`}>
                         1h edit window
                       </span>
                       <button
@@ -1933,9 +1898,8 @@ function CustomRequestsPanel({
                   <div className="flex flex-wrap gap-2.5">
                     {req.clothUrl && (
                       <div
-                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                        }`}
+                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                          }`}
                         onClick={() => setLightboxImg(req.clothUrl || null)}
                       >
                         <img src={req.clothUrl} alt="Cloth" className="aspect-[3/4] w-full object-cover" />
@@ -1947,9 +1911,8 @@ function CustomRequestsPanel({
                       req.modelImages.map((mUrl, mIdx) => (
                         <div
                           key={mIdx}
-                          className={`overflow-hidden rounded-xl border w-20 cursor-pointer transition ${
-                            isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                          }`}
+                          className={`overflow-hidden rounded-xl border w-20 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                            }`}
                           onClick={() => setLightboxImg(mUrl)}
                         >
                           <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
@@ -1958,9 +1921,8 @@ function CustomRequestsPanel({
                       ))
                     ) : req.modelUrl ? (
                       <div
-                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                        }`}
+                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                          }`}
                         onClick={() => setLightboxImg(req.modelUrl || null)}
                       >
                         <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
@@ -1969,18 +1931,16 @@ function CustomRequestsPanel({
                     ) : null}
                   </div>
                   {req.prompt && (
-                    <div className={`mt-3 rounded-2xl border p-3 text-xs italic ${
-                      isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/5 bg-black/40 text-white/70'
-                    }`}>
+                    <div className={`mt-3 rounded-2xl border p-3 text-xs italic ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/5 bg-black/40 text-white/70'
+                      }`}>
                       "{req.prompt}"
                     </div>
                   )}
                 </div>
 
                 {/* Admin Delivery & Reply */}
-                <div className={`rounded-2xl border p-5 ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40'
-                }`}>
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40'
+                  }`}>
                   <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                     Studio Delivery & Admin Response
                   </p>
@@ -1996,9 +1956,8 @@ function CustomRequestsPanel({
                         />
                       </div>
                       {req.adminReply && (
-                        <p className={`text-xs leading-relaxed rounded-xl p-2.5 ${
-                          isLight ? 'bg-white/60 text-slate-900' : 'bg-white/5 text-white/80'
-                        }`}>
+                        <p className={`text-xs leading-relaxed rounded-xl p-2.5 ${isLight ? 'bg-white/60 text-slate-900' : 'bg-white/5 text-white/80'
+                          }`}>
                           <strong className="text-emerald-500 font-bold">Admin Note:</strong> {req.adminReply}
                         </p>
                       )}
@@ -2013,9 +1972,8 @@ function CustomRequestsPanel({
                         <button
                           type="button"
                           onClick={() => safeOpenMediaInNewTab(req.deliveredImageUrl || '', `Bespoke Custom Request #${req.id} Render`)}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                            isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
-                          }`}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
+                            }`}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                           <span>Open in new tab</span>
@@ -2024,9 +1982,8 @@ function CustomRequestsPanel({
                     </div>
                   ) : req.adminReply ? (
                     <div className="space-y-2">
-                      <p className={`text-xs leading-relaxed rounded-xl border p-3 ${
-                        isLight ? 'bg-blue-100 border-blue-300 text-blue-950' : 'bg-blue-950/40 border-blue-900/40 text-blue-200'
-                      }`}>
+                      <p className={`text-xs leading-relaxed rounded-xl border p-3 ${isLight ? 'bg-blue-100 border-blue-300 text-blue-950' : 'bg-blue-950/40 border-blue-900/40 text-blue-200'
+                        }`}>
                         <strong className={isLight ? 'text-blue-800' : 'text-blue-400'}>Master Tailor Update:</strong> {req.adminReply}
                       </p>
                       <p className={`text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Render generation in progress within SLA countdown.</p>
@@ -2173,7 +2130,7 @@ function VideoStudioPanel({
             aspectRatio,
           }).then((res) => {
             onGenerationSaved?.(res);
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
         if (next.status === 'failed') {
@@ -2342,11 +2299,10 @@ function VideoStudioPanel({
       )}
 
       {/* Banner */}
-      <div className={`relative overflow-hidden rounded-3xl border p-8 ${
-        isLight
+      <div className={`relative overflow-hidden rounded-3xl border p-8 ${isLight
           ? 'border-red-200 bg-red-50/50 shadow-sm'
           : 'border-[#e5373f]/30 bg-[#e5373f]/10'
-      }`}>
+        }`}>
         <div className="max-w-2xl">
           <span className="inline-block rounded-full bg-[#e5373f] px-3.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
             Runway motion &middot; 60fps
@@ -2362,21 +2318,19 @@ function VideoStudioPanel({
       </div>
 
       {/* Monthly Video Quota Banner */}
-      <div className={`mt-6 rounded-2xl border p-5 transition-all ${
-        isLimitReached
+      <div className={`mt-6 rounded-2xl border p-5 transition-all ${isLimitReached
           ? isLight ? 'border-red-300 bg-red-50 text-red-950' : 'border-rose-500/40 bg-rose-950/20 text-rose-200'
           : isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'
-      }`}>
+        }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Film className="h-4 w-4 text-current/70" />
               <h3 className="text-sm font-semibold">Monthly Video Quota</h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${
-                isLimitReached
+              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${isLimitReached
                   ? 'bg-rose-500 text-white'
                   : isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/10 text-white/70'
-              }`}>
+                }`}>
                 {videosGenerated} of {maxVideos > 0 ? maxVideos : 'Unlimited'} Videos Used
               </span>
             </div>
@@ -2425,11 +2379,10 @@ function VideoStudioPanel({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${
-                isLight
+              className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${isLight
                   ? 'border-gray-300 bg-gray-50 hover:border-gray-400'
                   : 'border-white/20 bg-black/40 hover:border-white/40'
-              }`}
+                }`}
             >
               {videoImg ? (
                 <img src={videoImg} alt="Source" className="h-full w-auto object-contain" />
@@ -2453,11 +2406,10 @@ function VideoStudioPanel({
               onChange={(e) => setVideoPrompt(e.target.value)}
               rows={3}
               placeholder="e.g. Model walks briskly down an asphalt track, dynamic camera tracking shot, zoom in on jersey logo"
-              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
-                isLight
+              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight
                   ? 'border-gray-300 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-400'
                   : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
-              }`}
+                }`}
             />
           </div>
 
@@ -2474,21 +2426,19 @@ function VideoStudioPanel({
                     key={item.id}
                     type="button"
                     onClick={() => setAspectRatio(item.id as typeof aspectRatio)}
-                    className={`rounded-2xl border p-3 text-left transition-all ${
-                      active
+                    className={`rounded-2xl border p-3 text-left transition-all ${active
                         ? isLight
                           ? 'border-[#e5373f] bg-red-50/60 ring-2 ring-[#e5373f]/20'
                           : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/30'
                         : isLight
                           ? 'border-gray-200 bg-gray-50 hover:border-gray-300'
                           : 'border-white/10 bg-black/40 hover:border-white/25'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-base">{item.icon}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        active ? 'bg-[#e5373f] text-white' : (isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60')
-                      }`}>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${active ? 'bg-[#e5373f] text-white' : (isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60')
+                        }`}>
                         {item.id}
                       </span>
                     </div>
@@ -2509,11 +2459,10 @@ function VideoStudioPanel({
               <button
                 type="button"
                 onClick={() => setDuration(5)}
-                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${
-                  duration === 5
+                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 5
                     ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
                     : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-                }`}
+                  }`}
               >
                 <span className="block text-xs font-bold">5 Seconds</span>
                 <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -2523,11 +2472,10 @@ function VideoStudioPanel({
               <button
                 type="button"
                 onClick={() => setDuration(10)}
-                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${
-                  duration === 10
+                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 10
                     ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
                     : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-                }`}
+                  }`}
               >
                 <span className="block text-xs font-bold">10 Seconds</span>
                 <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -2541,9 +2489,8 @@ function VideoStudioPanel({
           </div>
 
           {/* Credit & Quota Status */}
-          <div className={`rounded-xl border p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs ${
-            isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
-          }`}>
+          <div className={`rounded-xl border p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
+            }`}>
             <div>
               <span>Account balance: <strong className={isLight ? 'text-amber-950 font-semibold' : 'text-amber-500'}>{userCredits} credits</strong></span>
             </div>
@@ -2557,8 +2504,7 @@ function VideoStudioPanel({
             type="button"
             onClick={() => handleInitiateClick(false)}
             disabled={isBusy || isLocked || isLimitReached || !hasEnoughCredits}
-            className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-              isBusy
+            className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isBusy
                 ? isLight ? 'cursor-wait bg-gray-300 text-gray-700' : 'cursor-wait bg-gray-700 text-white opacity-80'
                 : isLocked
                   ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/30 text-rose-300 border border-rose-500/30'
@@ -2567,7 +2513,7 @@ function VideoStudioPanel({
                     : !hasEnoughCredits
                       ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
-            }`}
+              }`}
           >
             {isBusy
               ? 'Generation in progress…'
@@ -2581,18 +2527,16 @@ function VideoStudioPanel({
           </button>
 
           {error && (
-            <p className={`rounded-xl border p-3 text-center text-xs ${
-              isLight ? 'border-red-300 bg-red-50 text-red-700' : 'border-red-500/30 bg-red-500/10 text-red-400'
-            }`}>
+            <p className={`rounded-xl border p-3 text-center text-xs ${isLight ? 'border-red-300 bg-red-50 text-red-700' : 'border-red-500/30 bg-red-500/10 text-red-400'
+              }`}>
               {error}
             </p>
           )}
         </div>
 
         {/* Video Preview Canvas */}
-        <div className={`flex flex-col items-center justify-center rounded-3xl border p-8 text-center ${
-          isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
-        }`}>
+        <div className={`flex flex-col items-center justify-center rounded-3xl border p-8 text-center ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
+          }`}>
           {videoResult ? (
             <div className="space-y-4 w-full max-w-sm">
               <video
@@ -2601,9 +2545,8 @@ function VideoStudioPanel({
                 autoPlay
                 loop
                 playsInline
-                className={`w-full rounded-2xl object-cover shadow-2xl border border-white/20 mx-auto ${
-                  aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
-                }`}
+                className={`w-full rounded-2xl object-cover shadow-2xl border border-white/20 mx-auto ${aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
+                  }`}
               />
               <div className="flex flex-col gap-2">
                 <a
@@ -2616,13 +2559,12 @@ function VideoStudioPanel({
                 <button
                   type="button"
                   onClick={() => setIsVideoEditOpen(!isVideoEditOpen)}
-                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-                    isVideoEditOpen
+                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isVideoEditOpen
                       ? 'bg-[#e5373f] text-white border-[#e5373f]'
                       : isLight
                         ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
                         : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
-                  }`}
+                    }`}
                 >
                   {isVideoEditOpen ? 'Close video edit' : 'Edit this video'}
                 </button>
@@ -2640,9 +2582,8 @@ function VideoStudioPanel({
 
               {/* POST-VIDEO EDIT PANEL */}
               {isVideoEditOpen && (
-                <div className={`mt-4 rounded-2xl border p-4 text-left space-y-3 transition-all ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}>
+                <div className={`mt-4 rounded-2xl border p-4 text-left space-y-3 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}>
                   <div className="flex items-center justify-between border-b pb-2 border-current/10">
                     <div className="flex items-center gap-2">
                       <Film className="h-4 w-4 text-current/70" />
@@ -2671,11 +2612,10 @@ function VideoStudioPanel({
                       onChange={(e) => setVideoEditPrompt(e.target.value)}
                       rows={2}
                       placeholder="e.g. Add subtle camera orbit, enhance stadium lighting on track, highlight brand insignia"
-                      className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${
-                        isLight
+                      className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
                           ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-gray-500'
                           : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
-                      }`}
+                        }`}
                     />
                   </div>
 
@@ -2713,9 +2653,8 @@ function VideoStudioPanel({
                       <button
                         type="button"
                         onClick={() => videoEditFileInput.current?.click()}
-                        className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${
-                          isLight ? 'border-gray-300 bg-white hover:border-gray-400 text-gray-700' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
-                        }`}
+                        className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:border-gray-400 text-gray-700' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                          }`}
                       >
                         + Add Overlay / Reference Image (Optional)
                       </button>
@@ -2746,9 +2685,8 @@ function VideoStudioPanel({
               </div>
             </div>
           ) : (
-            <div className={`relative w-64 overflow-hidden rounded-2xl border border-white/15 bg-black/80 flex items-center justify-center shadow-2xl ${
-              aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
-            }`}>
+            <div className={`relative w-64 overflow-hidden rounded-2xl border border-white/15 bg-black/80 flex items-center justify-center shadow-2xl ${aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
+              }`}>
               {videoImg ? (
                 <img src={videoImg} alt="Preview" className="h-full w-full object-cover opacity-60" />
               ) : (
@@ -2848,9 +2786,10 @@ export default function Design() {
 
   function removeClassifiedGarment(url: string) {
     setClassifiedGarments((prev) => prev.filter((g) => g.url !== url));
-    // Also remove from selectedClothes if present
+    // Also remove from selectedClothes and active cloth
     const idx = selectedClothes.findIndex((c) => c.url === url);
     if (idx !== -1) removeSelectedCloth(idx);
+    setCloth((c) => (c?.url === url ? null : c));
   }
   const [model, setModel] = useState<Pick>(null);
   const [selectedModels, setSelectedModels] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
@@ -2969,7 +2908,7 @@ export default function Design() {
       if (res.refunded && typeof res.refundedCredits === 'number') {
         setUser((prev) => (prev ? { ...prev, credits: prev.credits + res.refundedCredits } : null));
       }
-      void api.unlockUser().catch(() => {});
+      void api.unlockUser().catch(() => { });
       activePoseIndexRef.current = -1;
       batchPayloadRef.current = null;
       setJob(null);
@@ -3148,12 +3087,14 @@ export default function Design() {
     }
   }, []);
 
+  const autoSelectedGarmentRef = useRef(false);
   const loadUploads = useCallback(async () => {
     try {
       const res = await api.uploads();
       setUploads(res.items);
-      // Auto-preselect most recent garment on initial load if none currently selected
-      if (!cloth && classifiedGarments.length === 0 && res.items?.length > 0) {
+      // Auto-preselect most recent garment once on initial load if none currently selected
+      if (!autoSelectedGarmentRef.current && res.items?.length > 0) {
+        autoSelectedGarmentRef.current = true;
         const firstGarment = res.items.find(
           (u) => u.kind !== 'model' && !u.id?.startsWith('model-') && !u.url?.includes('model-')
         );
@@ -3166,7 +3107,7 @@ export default function Design() {
     } catch {
       /* non-fatal */
     }
-  }, [cloth, classifiedGarments.length]);
+  }, []);
 
   const loadUploadSets = useCallback(async () => {
     setLoadingSets(true);
@@ -3230,7 +3171,7 @@ export default function Design() {
       }
 
       setUser(me);
-      void api.unlockUser().catch(() => {});
+      void api.unlockUser().catch(() => { });
 
       try {
         const [s, m] = await Promise.all([api.studio(), api.models()]);
@@ -3298,7 +3239,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
-            }).catch(() => {});
+            }).catch(() => { });
 
             if (nextIdx < batchCtx.total) {
               // Advance to next item in sequence
@@ -3379,7 +3320,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
 
@@ -3697,8 +3638,8 @@ export default function Design() {
           isPoseBatch
             ? `Starting Pose 1 of ${activePoseCount} (${FIVE_POSES_SPECS[0].name})…`
             : isSwapBatch
-            ? `Starting Swap 1 of ${validSwapDrafts.length}…`
-            : `Starting Model 1 of ${multiBatchCount} (${firstItem.name})…`
+              ? `Starting Swap 1 of ${validSwapDrafts.length}…`
+              : `Starting Model 1 of ${multiBatchCount} (${firstItem.name})…`
         );
 
         const firstPayload: Record<string, unknown> = {
@@ -3803,9 +3744,8 @@ export default function Design() {
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${
-      isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
-    }`}>
+    <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
+      }`}>
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
@@ -3989,18 +3929,16 @@ export default function Design() {
       )}
 
       {/* Main Studio Header */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
-      }`}>
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
+        }`}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
           <div className="flex items-center gap-3">
             <a href="/" className={`flex items-center gap-2 text-xs font-semibold tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
               <img src="/brand-mark-white.png" alt="Shiv-Naresh" className={`h-4 w-auto ${isLight ? 'invert' : ''}`} />
               SHIV-NARESH
             </a>
-            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
-              isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
-            }`}>
+            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
+              }`}>
               STUDIO
             </span>
           </div>
@@ -4017,13 +3955,12 @@ export default function Design() {
             >
               <span>{user ? user.credits : 10} credits</span>
               {user?.tier && (
-                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
-                  user.tier === 'ultra' || user.tier === 'enterprise'
+                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
                     ? 'bg-purple-500/30 text-purple-400'
                     : user.tier === 'pro'
                       ? 'bg-blue-500/30 text-blue-400'
                       : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
-                }`}>
+                  }`}>
                   {user.tier}
                 </span>
               )}
@@ -4039,11 +3976,10 @@ export default function Design() {
               <button
                 type="button"
                 onClick={() => setShowProfileModal(true)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                  isLight
+                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${isLight
                     ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
-                }`}
+                  }`}
                 title="View & Edit Profile"
               >
                 {user.avatar ? (
@@ -4069,11 +4005,10 @@ export default function Design() {
                 setToken('');
                 window.location.replace('/login');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
-                isLight
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
                   ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
                   : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
-              }`}
+                }`}
               title="Sign out of your account"
             >
               <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4102,14 +4037,13 @@ export default function Design() {
                   setPageView(v.id as typeof pageView);
                   if (v.id === 'custom-requests') {
                     void loadCustomRequests();
-                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
                   }
                 }}
-                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap ${
-                  pageView === v.id
+                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap ${pageView === v.id
                     ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
                     : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
-                }`}
+                  }`}
               >
                 {v.label}
               </button>
@@ -4162,7 +4096,7 @@ export default function Design() {
           loading={loadingRequests}
           onRefresh={() => {
             void loadCustomRequests();
-            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
           }}
           creditsLocked={isLocked}
           customRequestsLocked={
@@ -4205,15 +4139,14 @@ export default function Design() {
                     key={m.id}
                     type="button"
                     onClick={() => setMode(m.id)}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${
-                      active
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${active
                         ? isLight
                           ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
                           : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
                         : isLight
                           ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
                           : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {m.label}
                   </button>
@@ -4222,9 +4155,8 @@ export default function Design() {
             </div>
 
             {/* Resolution / Quality & 5-Pose Mode Pickers */}
-            <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${
-              isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
-            }`}>
+            <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+              }`}>
               <div>
                 <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                   Render Quality
@@ -4233,11 +4165,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => setQuality('1k')}
-                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${
-                      quality === '1k'
+                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${quality === '1k'
                         ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                         : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                    }`}
+                      }`}
                   >
                     1K Standard
                   </button>
@@ -4250,21 +4181,19 @@ export default function Design() {
                         setQuality('2k');
                       }
                     }}
-                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                      quality === '2k'
+                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
                         ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                         : isFreeUser
                           ? isLight ? 'text-slate-600 hover:text-slate-800' : 'text-white/40 hover:text-white/60'
                           : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                    }`}
+                      }`}
                     title={isFreeUser ? '2K Ultra HD is locked for Free/Starter accounts. Upgrade to Pro/Enterprise.' : 'Switch to 2K Ultra HD'}
                   >
                     {isFreeUser && <Lock className="h-3 w-3" />}
                     <span>2K Ultra HD</span>
                     {isFreeUser && (
-                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${
-                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
-                      }`}>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                        }`}>
                         Pro
                       </span>
                     )}
@@ -4281,20 +4210,18 @@ export default function Design() {
                     <button
                       type="button"
                       onClick={() => setPoseMode('single')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        poseMode === 'single'
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${poseMode === 'single'
                           ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                           : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
+                        }`}
                     >
                       Single Pose
                     </button>
                     <button
                       type="button"
                       onClick={() => setPoseMode('5-pose')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        poseMode === '5-pose' ? 'bg-[#e5373f] text-white shadow-sm' : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${poseMode === '5-pose' ? 'bg-[#e5373f] text-white shadow-sm' : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                        }`}
                     >
                       5-Pose Sequence
                     </button>
@@ -4312,11 +4239,10 @@ export default function Design() {
                       <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
                         Model Swap Drafts (Up to 5 Simultaneous Swaps)
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
-                        validSwapDrafts.length > 0
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${validSwapDrafts.length > 0
                           ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                           : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
-                      }`}>
+                        }`}>
                         {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
                       </span>
                     </div>
@@ -4339,13 +4265,12 @@ export default function Design() {
                       return (
                         <div
                           key={draft.id}
-                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${
-                            isActive
+                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${isActive
                               ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
                               : isComplete
-                              ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
-                              : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
-                          }`}
+                                ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
+                                : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                            }`}
                         >
                           <button
                             type="button"
@@ -4415,11 +4340,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => swapSourceInput.current?.click()}
-                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${
-                      isLight
+                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${isLight
                         ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/15 hover:border-white/35'
-                    }`}
+                      }`}
                   >
                     {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
                       <img
@@ -4529,11 +4453,10 @@ export default function Design() {
                                 key={item.id}
                                 type="button"
                                 onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                                className={`overflow-hidden rounded-md border transition ${
-                                  (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
                                     ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
                                     : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                                }`}
+                                  }`}
                               >
                                 <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
                               </button>
@@ -4550,11 +4473,10 @@ export default function Design() {
                               key={item.url || idx}
                               type="button"
                               onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                              className={`overflow-hidden rounded-md border transition ${
-                                (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                              className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                   : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                              }`}
+                                }`}
                             >
                               <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
                             </button>
@@ -4583,11 +4505,10 @@ export default function Design() {
                     }}
                     rows={3}
                     placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
-                      isLight
+                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
                         ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                    }`}
+                      }`}
                   />
                 </div>
               </>
@@ -4630,11 +4551,10 @@ export default function Design() {
                           type="button"
                           onClick={() => setTryOnTarget(opt.id)}
                           title={opt.hint}
-                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${
-                            tryOnTarget === opt.id
+                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${tryOnTarget === opt.id
                               ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
                               : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
-                          }`}
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -4677,9 +4597,8 @@ export default function Design() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {(classifiedGarments.length > 0 ? classifiedGarments : (cloth ? [{ url: cloth.url, preview: cloth.preview || cloth.url, name: cloth.name, role: 'top-front' as GarmentRole }] : [])).map((garment) => {
                           return (
-                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${
-                              isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
-                            }`}>
+                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
+                              }`}>
                               <div className="aspect-[3/4] relative">
                                 <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-cover" />
                                 <button
@@ -4697,9 +4616,8 @@ export default function Design() {
                                 <select
                                   value={garment.role}
                                   onChange={(e) => updateGarmentRole(garment.url, e.target.value as GarmentRole)}
-                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${
-                                    isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
-                                  }`}
+                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
+                                    }`}
                                   title="Specify garment view angle"
                                 >
                                   <option value="top-front">👕 Top Front</option>
@@ -4718,9 +4636,8 @@ export default function Design() {
                                     value={garment.customLabel || ''}
                                     onChange={(e) => updateGarmentCustomLabel(garment.url, e.target.value)}
                                     placeholder="e.g. Collar, Pocket"
-                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${
-                                      isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
-                                    }`}
+                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                                      }`}
                                   />
                                 )}
                               </div>
@@ -4732,9 +4649,8 @@ export default function Design() {
                           type="button"
                           onClick={() => clothInput.current?.click()}
                           disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                            isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                          }`}
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                            }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                           <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add More</span>
@@ -4744,9 +4660,8 @@ export default function Design() {
 
                       {/* Full Outfit Visual Pairing & Quick Swap */}
                       {tryOnTarget === 'both' && (
-                        <div className={`rounded-2xl border p-3.5 space-y-3 ${
-                          isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
-                        }`}>
+                        <div className={`rounded-2xl border p-3.5 space-y-3 ${isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
+                          }`}>
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
                               ✨ Full Outfit Pair (1 Credit per Finished Model)
@@ -4820,9 +4735,8 @@ export default function Design() {
                         type="button"
                         onClick={() => clothInput.current?.click()}
                         disabled={uploading}
-                        className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
-                          isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
-                        }`}
+                        className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
+                          }`}
                       >
                         {uploading && uploadProgress?.kind === 'cloth' ? (
                           <div className="flex items-center gap-3 w-full py-1">
@@ -4876,17 +4790,15 @@ export default function Design() {
                                 addClassifiedGarment(pick);
                                 setCloth(pick);
                               }}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
-                                isSelected
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60'
                                   : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                              }`}
+                                }`}
                               title={`Add ${item.name} to garment views`}
                             >
                               <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${
-                                isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
-                              }`}>
+                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
+                                }`}>
                                 {isSelected ? '✓' : '+'}
                               </span>
                             </button>
@@ -4929,11 +4841,10 @@ export default function Design() {
                       value={garmentColor}
                       onChange={(e) => setGarmentColor(e.target.value)}
                       placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
-                        isLight
+                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight
                           ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                           : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
-                      }`}
+                        }`}
                     />
                   </div>
                   {/* Athletic Quick Swatches */}
@@ -4952,13 +4863,12 @@ export default function Design() {
                         key={sw.name}
                         type="button"
                         onClick={() => setGarmentColor(`${sw.name} (${sw.hex})`)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${
-                          garmentColor.includes(sw.hex)
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${garmentColor.includes(sw.hex)
                             ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
                             : isLight
                               ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                               : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
-                        }`}
+                          }`}
                       >
                         <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: sw.hex }} />
                         <span>{sw.name}</span>
@@ -5062,18 +4972,16 @@ export default function Design() {
                             <div
                               key={idx}
                               onClick={() => setModel(item)}
-                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${
-                                isCurrent
+                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${isCurrent
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
                                   : isLight
                                     ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
                                     : 'border-white/15 bg-black/40 hover:border-white/30'
-                              }`}
+                                }`}
                             >
                               <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
-                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
-                              }`}>
+                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
+                                }`}>
                                 {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
                               </span>
                               <button
@@ -5098,11 +5006,10 @@ export default function Design() {
                           type="button"
                           onClick={() => modelInput.current?.click()}
                           disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                            isLight
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
                               ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                               : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                          }`}
+                            }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                           <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
@@ -5154,11 +5061,10 @@ export default function Design() {
                               key={item.url || idx}
                               type="button"
                               onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
-                                isSelected
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                   : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                              }`}
+                                }`}
                               title={`Select ${item.name}`}
                             >
                               <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
@@ -5176,9 +5082,8 @@ export default function Design() {
 
                   {/* Athlete Sports Equipment & Prop Preservation Notice */}
                   {effectiveModels.length > 0 && (
-                    <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${
-                      isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
-                    }`}>
+                    <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+                      }`}>
                       <span className="text-sm shrink-0">🏀</span>
                       <div>
                         <span className="font-bold">Athletic Prop & Pose Guide:</span>
@@ -5197,9 +5102,8 @@ export default function Design() {
                           <span className={`text-xs font-semibold ${isLight ? 'text-amber-950' : 'text-amber-400'}`}>
                             1 Photoshoot = 5 Poses (Multi-Angle Sequence)
                           </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] border ${
-                            isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
-                          }`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] border ${isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
+                            }`}>
                             {selectedPoses.filter(Boolean).length}/5 Poses Active
                           </span>
                         </div>
@@ -5214,13 +5118,12 @@ export default function Design() {
                             <div
                               key={spec.id}
                               onClick={() => setActiveSlotIndex(idx)}
-                              className={`relative rounded-xl border p-2 flex flex-col items-center text-center cursor-pointer transition ${
-                                isActiveSlot
+                              className={`relative rounded-xl border p-2 flex flex-col items-center text-center cursor-pointer transition ${isActiveSlot
                                   ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f] shadow-lg'
                                   : poseItem
                                     ? isLight ? 'border-amber-400 bg-black/75 shadow-sm' : 'border-amber-500/50 bg-black/60 shadow-sm'
                                     : isLight ? 'border-amber-300/60 bg-black/60 hover:border-amber-400' : 'border-white/10 bg-black/30 hover:border-white/30'
-                              }`}
+                                }`}
                             >
                               <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
                                 {poseItem ? (
@@ -5277,13 +5180,12 @@ export default function Design() {
                                   key={item.id}
                                   type="button"
                                   onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                  className={`group relative overflow-hidden rounded-md border transition ${
-                                    isSelected
+                                  className={`group relative overflow-hidden rounded-md border transition ${isSelected
                                       ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                       : isLight
                                         ? 'border-gray-200 hover:border-gray-400'
                                         : 'border-transparent hover:border-white/30'
-                                  }`}
+                                    }`}
                                 >
                                   <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
                                   {isSelected && (
@@ -5311,13 +5213,12 @@ export default function Design() {
                                 key={item.url || idx}
                                 type="button"
                                 onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                className={`group relative overflow-hidden rounded-md border transition ${
-                                  isSelected
+                                className={`group relative overflow-hidden rounded-md border transition ${isSelected
                                     ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                     : isLight
                                       ? 'border-gray-200 hover:border-gray-400'
                                       : 'border-transparent hover:border-white/30'
-                                }`}
+                                  }`}
                               >
                                 <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
                                 {isSelected && (
@@ -5354,11 +5255,10 @@ export default function Design() {
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={3}
                     placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
-                      isLight
+                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
                         ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                    }`}
+                      }`}
                   />
                 </div>
               </>
@@ -5380,29 +5280,28 @@ export default function Design() {
                   if (canRun) setShowConfirmModal(true);
                 }}
                 disabled={!canRun || isGlobalBusy}
-                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${
-                  isLocked
+                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
                     ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
                     : isGlobalBusy
-                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : canRun
-                    ? isLight
-                      ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
-                      : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
-                    : isLight
-                    ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                    : 'cursor-not-allowed bg-white/20 text-white/40'
-                }`}
+                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : canRun
+                        ? isLight
+                          ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                          : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
+                        : isLight
+                          ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                          : 'cursor-not-allowed bg-white/20 text-white/40'
+                  }`}
               >
                 {isLocked
                   ? 'Credits locked by administrator'
                   : isGlobalBusy
-                  ? 'Generation in Progress (Please wait)…'
-                  : mode === 'swap'
-                  ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                  : isFivePoseBatch
-                  ? `Generate ${activePoseCount > 1 ? `${activePoseCount} Poses` : 'Pose'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                  : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+                    ? 'Generation in Progress (Please wait)…'
+                    : mode === 'swap'
+                      ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                      : isFivePoseBatch
+                        ? `Generate ${activePoseCount > 1 ? `${activePoseCount} Poses` : 'Pose'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                        : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
@@ -5477,8 +5376,8 @@ export default function Design() {
                       {mode === 'swap'
                         ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
                         : poseMode === '5-pose'
-                        ? `${fivePoseItems.length} Studio Angles (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
-                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
+                          ? `${fivePoseItems.length} Studio Angles (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
+                          : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
                     </span>
                     <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
                   </div>
@@ -5493,13 +5392,12 @@ export default function Design() {
                               setSelectedPoseIndex(idx);
                               if (pose.url) setResult(pose.url);
                             }}
-                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${
-                              isSelected
+                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
                                 ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
                                 : isLight
                                   ? 'border-gray-300 bg-white hover:bg-gray-50'
                                   : 'border-white/10 bg-black/40 hover:border-white/20'
-                            }`}
+                              }`}
                           >
                             {pose.url ? (
                               <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
@@ -5590,11 +5488,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${
-                      isLight
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${isLight
                         ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                    }`}
+                      }`}
                   >
                     ⬇️ Download {poseMode === '5-pose' ? 'Current Angle' : 'Current Render'}
                   </button>
@@ -5619,24 +5516,22 @@ export default function Design() {
                     href={result}
                     target="_blank"
                     rel="noreferrer"
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${
-                      isLight
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${isLight
                         ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                    }`}
+                      }`}
                   >
                     Open New Tab
                   </a>
                   <button
                     type="button"
                     onClick={() => setIsEditOpen((prev) => !prev)}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
-                      isEditOpen
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${isEditOpen
                         ? 'bg-[#e5373f] text-white border-[#e5373f]'
                         : isLight
                           ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
                           : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
-                    }`}
+                      }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
                   </button>
@@ -5646,11 +5541,10 @@ export default function Design() {
                       setResult(null);
                       setFivePoseItems([]);
                     }}
-                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${
-                      isLight
+                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${isLight
                         ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
                         : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
-                    }`}
+                      }`}
                     title="Clear this preview from canvas"
                   >
                     Clear Preview
@@ -5660,9 +5554,8 @@ export default function Design() {
 
               {/* EDIT PANEL (Placed underneath generated image in Result Canvas) */}
               {result && isEditOpen && (
-                <div className={`border-t p-4 transition-all ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
-                }`}>
+                <div className={`border-t p-4 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
+                  }`}>
                   <div className="flex items-center justify-between border-b pb-2 mb-3 border-current/10">
                     <div className="flex items-center gap-2">
                       <Sliders className="h-4 w-4 text-current/70" />
@@ -5727,9 +5620,8 @@ export default function Design() {
                         <button
                           type="button"
                           onClick={() => editRefInput.current?.click()}
-                          className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${
-                            isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
-                          }`}
+                          className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                            }`}
                         >
                           + Add Reference Image (Optional)
                         </button>
@@ -5746,11 +5638,10 @@ export default function Design() {
                         onChange={(e) => setEditPrompt(e.target.value)}
                         rows={2}
                         placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
-                        className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${
-                          isLight
+                        className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
                             ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                             : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
-                        }`}
+                          }`}
                       />
                     </div>
 

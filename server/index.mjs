@@ -826,6 +826,19 @@ app.get('/api/proxy-image', async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL protocol' });
     }
 
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      host.startsWith('172.16.') ||
+      host.startsWith('169.254.')
+    ) {
+      return res.status(403).json({ error: 'Private network addresses are forbidden' });
+    }
+
     const upstream = await fetch(imageUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -860,6 +873,19 @@ app.get('/api/download-proxy', async (req, res) => {
     const parsed = new URL(imageUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      host.startsWith('172.16.') ||
+      host.startsWith('169.254.')
+    ) {
+      return res.status(403).json({ error: 'Private network addresses are forbidden' });
     }
 
     const upstream = await fetch(imageUrl, {
