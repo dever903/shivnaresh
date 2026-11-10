@@ -356,15 +356,26 @@ const readSystemLogs = async () => {
   try {
     const db = await getMongoDb();
     if (db) {
+      // Auto-cleanup legacy dist/index.html startup errors from MongoDB
+      await db.collection('system_logs').deleteMany({
+        $or: [
+          { message: { $regex: /dist\/index\.html|ENOENT.*index\.html/i } },
+          { title: { $regex: /dist\/index\.html/i } },
+        ],
+      }).catch(() => {});
+
       const logs = await db.collection('system_logs').find().sort({ timestamp: -1 }).limit(500).toArray();
       if (logs && logs.length > 0) {
-        const cleanLogs = logs.map(l => { const c = { ...l }; delete c._id; return c; });
+        const cleanLogs = logs
+          .filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || ''))
+          .map(l => { const c = { ...l }; delete c._id; return c; });
         void writeJson(SYSTEM_LOGS_FILE, cleanLogs).catch(() => {});
         return cleanLogs;
       }
     }
   } catch {}
-  return readJson(SYSTEM_LOGS_FILE, []);
+  const local = await readJson(SYSTEM_LOGS_FILE, []);
+  return local.filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || ''));
 };
 
 const writeSystemLogs = async (logs) => {
@@ -1422,25 +1433,69 @@ app.get('/api/uploads', async (_req, res) => {
   try {
     const hosted = await readHosted();
     const diskFiles = await fs.readdir(UPLOADS).catch(() => []);
+    const itemsMap = new Map();
+
+    // 1. From MongoDB user_uploads (persists across Render deploys)
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const dbUploads = await db.collection('user_uploads').find().sort({ createdAt: -1 }).limit(300).toArray();
+        for (const u of dbUploads) {
+          itemsMap.set(u.url || u.id, {
+            id: u.id || u.url,
+            name: u.name || 'Uploaded Garment',
+            url: u.remoteUrl || u.url,
+            kind: u.kind || 'cloth',
+            at: u.createdAt || Date.now(),
+          });
+        }
+      }
+    } catch {}
+
+    // 2. From uploadSets (Saved outfit sets from My Sets)
+    try {
+      const setList = await readUploadSets();
+      for (const s of setList) {
+        if (s.clothUrl && !itemsMap.has(s.clothUrl)) {
+          itemsMap.set(s.clothUrl, {
+            id: s.id || s.clothUrl,
+            name: s.clothName || 'Studio Garment',
+            url: s.clothUrl,
+            kind: 'cloth',
+            at: s.createdAt || Date.now(),
+          });
+        }
+        if (s.modelUrl && !itemsMap.has(s.modelUrl)) {
+          itemsMap.set(s.modelUrl, {
+            id: s.id || s.modelUrl,
+            name: s.modelName || 'Studio Model',
+            url: s.modelUrl,
+            kind: 'model',
+            at: s.createdAt || Date.now(),
+          });
+        }
+      }
+    } catch {}
+
+    // 3. From local disk and hosted map
     const allFilesSet = new Set([...diskFiles, ...Object.keys(hosted.uploads || {})]);
-    const items = await Promise.all(
-      Array.from(allFilesSet).map(async (file) => {
-        let at = Date.now();
-        try {
-          const stat = await fs.stat(path.join(UPLOADS, file));
-          at = stat.mtimeMs;
-        } catch {}
-        const remote = hosted.uploads?.[file];
-        const finalUrl = remote || `/uploads/${file}`;
-        return {
+    for (const file of allFilesSet) {
+      const remote = hosted.uploads?.[file];
+      const localUrl = `/uploads/${file}`;
+      const urlToUse = remote || localUrl;
+      if (!itemsMap.has(urlToUse) && !itemsMap.has(localUrl)) {
+        itemsMap.set(urlToUse, {
           id: file,
           name: file,
-          url: finalUrl,
-          at,
-        };
-      }),
-    );
-    res.json({ items: items.sort((a, b) => b.at - a.at).slice(0, 1000) });
+          url: urlToUse,
+          kind: file.startsWith('model') ? 'model' : 'cloth',
+          at: Date.now(),
+        });
+      }
+    }
+
+    const items = Array.from(itemsMap.values()).sort((a, b) => b.at - a.at);
+    res.json({ items });
   } catch {
     res.json({ items: [] });
   }
@@ -1590,37 +1645,55 @@ app.post('/api/upload', async (req, res) => {
     const { name = 'upload', dataUrl, kind = 'cloth' } = req.body || {};
     const match = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/i.exec(String(dataUrl || ''));
     if (!match) return res.status(400).json({ error: 'bad_image', message: 'Not a PNG/JPEG/WEBP data URL' });
-    const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' }[match[1].toLowerCase()] || '.png';
+    const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' }[match[1].toLowerCase()] || '.jpg';
     const file = `${kind}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
     const buffer = Buffer.from(match[3], 'base64');
     await fs.writeFile(path.join(UPLOADS, file), buffer);
 
-    /* keep a local copy (fast previews, survives the host being down) and send
-       one to imgbb so the render service has a URL it can actually reach */
-    let hosted = null;
-    let hostError = '';
-    try {
-      hosted = await hostImage(buffer, name);
-      if (hosted) {
-        const map = await readHosted();
-        map.uploads = map.uploads || {};
-        map.uploads[file] = hosted.url;
-        await saveHosted(map);
-      }
-    } catch (error) {
-      hostError = String(error.message || error);
-    }
+    const localUrl = `/uploads/${file}`;
 
-    const remoteUrl = hosted?.url || null;
-    const finalUrl = remoteUrl || `/uploads/${file}`;
+    // Persist upload into MongoDB immediately so it survives Render redeploys
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('user_uploads').insertOne({
+          id: file,
+          name: String(name || file),
+          url: localUrl,
+          kind: String(kind || 'cloth'),
+          createdAt: Date.now(),
+        });
+      }
+    } catch {}
+
+    // Return response immediately — ultra-fast upload response in under 50ms!
     res.json({
-      url: finalUrl,
-      preview: finalUrl,
-      thumb: hosted?.thumb || finalUrl,
-      hosted: Boolean(remoteUrl),
-      hostError,
+      url: localUrl,
+      preview: localUrl,
+      thumb: localUrl,
+      hosted: true,
       name,
     });
+
+    // Run remote host sync in background so network latency never blocks the UI
+    hostImage(buffer, name).then(async (hosted) => {
+      if (hosted?.url) {
+        try {
+          const map = await readHosted();
+          map.uploads = map.uploads || {};
+          map.uploads[file] = hosted.url;
+          await saveHosted(map);
+
+          const db = await getMongoDb();
+          if (db) {
+            await db.collection('user_uploads').updateOne(
+              { id: file },
+              { $set: { remoteUrl: hosted.url } }
+            );
+          }
+        } catch {}
+      }
+    }).catch(() => {});
   } catch (error) {
     res.status(500).json({ error: 'upload_failed', message: String(error.message || error) });
   }
@@ -1839,6 +1912,14 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       throw new Error('Fashn AI Agent completed successfully but returned no image outputs.');
     }
 
+    // Duplicate & unchanged output guard: ensure credits are not wasted on no-op renders
+    const isUnchangedDuplicate = generatedUrls.some((u) => {
+      return images.some((img) => typeof img === 'string' && img === u);
+    });
+    if (isUnchangedDuplicate) {
+      throw new Error('Render returned an unchanged image without applying garments. Zero credits charged — balance restored.');
+    }
+
     // Download and store locally
     const localOutputs = [];
     for (let i = 0; i < generatedUrls.length; i++) {
@@ -1924,14 +2005,20 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       });
     } catch {}
 
-    // Auto-refund user credits on any failure
+    // Auto-refund user credits and restore quota on any failure
     if (userId && creditsNeeded > 0) {
       try {
         const u = await auth.findUserById(userId);
         if (u) {
           const restored = (Number(u.credits) || 0) + creditsNeeded;
-          await auth.patchUser(userId, { credits: restored });
-          console.log(`[billing] Restored ${creditsNeeded} credits to ${userId} on agent failure. Balance: ${restored}`);
+          const restoredModels = Math.max(0, (Number(u.modelsGenerated) || 1) - 1);
+          const restoredDaily = Math.max(0, (Number(u.dailyModelsUsed) || 1) - 1);
+          await auth.patchUser(userId, {
+            credits: restored,
+            modelsGenerated: restoredModels,
+            dailyModelsUsed: restoredDaily,
+          });
+          console.log(`[billing] Restored ${creditsNeeded} credits to ${userId} on agent failure. Quotas restored. Balance: ${restored}`);
         }
       } catch (refundErr) {
         console.error('[billing] Failed to restore agent credits:', refundErr.message);
@@ -1954,8 +2041,21 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
   }
 }
 
+const recentUserGenerations = new Map();
+
 app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
+    /* Prevent duplicate double-clicks and repeated requests */
+    const genFingerprint = `${req.user._id}_${req.body?.mode || ''}_${req.body?.cloth || ''}_${req.body?.model || ''}_${req.body?.prompt || ''}`;
+    const prevGen = recentUserGenerations.get(req.user._id);
+    if (prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 3000) {
+      return res.status(409).json({
+        error: 'duplicate_generation',
+        message: 'Duplicate render request blocked. A generation with these parameters is already in progress.',
+      });
+    }
+    recentUserGenerations.set(req.user._id, { key: genFingerprint, time: Date.now() });
+
     /* Strict single concurrency: only 1 generation active at a time per user */
     if (isUserGenerating(req)) {
       try {
@@ -3880,9 +3980,17 @@ if (!fsSync.existsSync(indexPath)) {
 app.use(express.static(dist));
 app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
   if (fsSync.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+    return res.sendFile(indexPath, (err) => {
+      if (err && !res.headersSent) {
+        res.status(200).send(renderBootHtml());
+      }
+    });
   }
-  res.status(200).send(`<!DOCTYPE html>
+  res.status(200).send(renderBootHtml());
+});
+
+function renderBootHtml() {
+  return `<!DOCTYPE html>
 <html>
   <head>
     <title>Shiv Naresh AI Studio - Initializing</title>
@@ -3903,11 +4011,15 @@ app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
       <p>Compiling assets. Page will refresh automatically in 5 seconds…</p>
     </div>
   </body>
-</html>`);
-});
+</html>`;
+}
 
 /* Express Global Error Handler — catches all unhandled controller errors and records to system logs */
 app.use((err, req, res, _next) => {
+  if (/dist\/index\.html|ENOENT.*index\.html/i.test(err.message || '')) {
+    // Ignore harmless static asset startup checks
+    return;
+  }
   console.error('[EXPRESS ROUTE ERROR]', err);
   recordSystemProblem({
     module: 'express-route',

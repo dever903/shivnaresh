@@ -20,6 +20,7 @@ import {
   ApiError,
   downloadDirectFile,
   fileToDataUrl,
+  formatCatalogSquare,
   prepareAndStandardizeImage,
   setToken,
   type Collection,
@@ -775,21 +776,33 @@ function MySetsPanel({
     try {
       const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
-      const folder = zip.folder('shivnaresh-studio');
+      const folder = zip.folder('shivnaresh-catalog-ready');
       const selectedGens = generations.filter((g) => selectedGenIds.includes(g.id));
       for (let i = 0; i < selectedGens.length; i++) {
         const g = selectedGens[i];
         try {
-          const res = await fetch(g.highResUrl || g.url);
-          const blob = await res.blob();
-          folder?.file(`render-${i + 1}-${g.id.slice(0, 6)}.png`, blob);
-        } catch {}
+          const rawUrl = g.highResUrl || g.url;
+          if (!rawUrl) continue;
+          const isVideo = rawUrl.endsWith('.mp4') || rawUrl.includes('.mp4');
+          if (isVideo) {
+            const res = await fetch(rawUrl);
+            const blob = await res.blob();
+            folder?.file(`render-${i + 1}-${g.id.slice(0, 6)}.mp4`, blob);
+          } else {
+            // Standardize each image to 2400x2400 square catalog standard
+            // Resolves "Dimensions must be between 1000x1000 and 3000x3000 / Only square images allowed"
+            const blob = await formatCatalogSquare(rawUrl, 2400, `catalog-${i + 1}-${g.id.slice(0, 6)}.png`);
+            folder?.file(`catalog-${i + 1}-${g.id.slice(0, 6)}.png`, blob);
+          }
+        } catch (itemErr) {
+          console.warn(`[zip] Skipping render ${g.id}:`, itemErr);
+        }
       }
       const content = await zip.generateAsync({ type: 'blob' });
       const objectUrl = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = `shivnaresh-batch-${Date.now()}.zip`;
+      a.download = `shivnaresh-catalog-ready-${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -3098,6 +3111,36 @@ export default function Design() {
       ? (activePoseCount * creditCost)
       : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
 
+  const previousGarmentsList = (() => {
+    const map = new Map<string, { url: string; name: string }>();
+    uploads.forEach((u) => {
+      if (!u.id?.startsWith('model-')) {
+        map.set(u.url, { url: u.url, name: u.name || 'Garment' });
+      }
+    });
+    uploadSets.forEach((s) => {
+      if (s.clothUrl) {
+        map.set(s.clothUrl, { url: s.clothUrl, name: s.clothName || 'Saved Garment' });
+      }
+    });
+    return Array.from(map.values());
+  })();
+
+  const previousModelsList = (() => {
+    const map = new Map<string, { url: string; name: string }>();
+    uploads.forEach((u) => {
+      if (u.id?.startsWith('model-')) {
+        map.set(u.url, { url: u.url, name: u.name || 'Custom Model' });
+      }
+    });
+    uploadSets.forEach((s) => {
+      if (s.modelUrl) {
+        map.set(s.modelUrl, { url: s.modelUrl, name: s.modelName || 'Studio Model' });
+      }
+    });
+    return Array.from(map.values());
+  })();
+
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -4785,20 +4828,20 @@ export default function Design() {
                   )}
 
                   {/* Quick Pick from Previous Clothes */}
-                  {uploads.length > 0 && (
+                  {previousGarmentsList.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-white/10">
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                          ⚡ Previous Garments Library
+                          ⚡ Previous Garments Library ({previousGarmentsList.length})
                         </span>
                         <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
                           Click to add view
                         </span>
                       </div>
                       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {uploads.slice(0, 15).map((item) => (
+                        {previousGarmentsList.slice(0, 25).map((item, idx) => (
                           <button
-                            key={item.id || item.url}
+                            key={item.url || idx}
                             type="button"
                             onClick={() => {
                               const pick = { url: item.url, preview: item.url, name: item.name };
@@ -5057,6 +5100,47 @@ export default function Design() {
                     </div>
                   ) : null}
 
+                  {/* Quick Pick from Previous Models */}
+                  {previousModelsList.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                          ⚡ Previous Models Library ({previousModelsList.length})
+                        </span>
+                        <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                          Click to select model
+                        </span>
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        {previousModelsList.slice(0, 25).map((item, idx) => {
+                          const isSelected = (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                            selectedModels.some((p) => p && p.url === item.url) ||
+                            model?.url === item.url;
+                          return (
+                            <button
+                              key={item.url || idx}
+                              type="button"
+                              onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
+                                isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                              }`}
+                              title={`Select ${item.name}`}
+                            >
+                              <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                              {isSelected && (
+                                <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[9px] font-bold shadow">
+                                  ✓
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Athlete Sports Equipment & Prop Preservation Notice */}
                   {effectiveModels.length > 0 && (
                     <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${
@@ -5182,16 +5266,16 @@ export default function Design() {
                       ))}
 
                     {tab === 'uploads' &&
-                      (uploads.length ? (
+                      ((previousModelsList.length > 0 || uploads.length > 0) ? (
                         <div className="grid grid-cols-6 gap-2">
-                          {uploads.map((item) => {
+                          {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => {
                             const isSelected =
                               (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
                               selectedModels.some((p) => p && p.url === item.url) ||
                               model?.url === item.url;
                             return (
                               <button
-                                key={item.id}
+                                key={item.url || idx}
                                 type="button"
                                 onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
                                 className={`group relative overflow-hidden rounded-md border transition ${
