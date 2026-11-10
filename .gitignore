@@ -16,12 +16,11 @@ build/
 .env.production.local
 
 # Server Databases & Dynamic Content
-server/data/*.json
 server/data/uploads/
 server/data/generated/
 server/data/cloudinary-sets/
-server/data/custom-requests/
 server/data/system-logs/
+server/data/state.json
 
 # Local developer & browser debugging logs
 .cdp*

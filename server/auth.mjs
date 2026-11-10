@@ -112,7 +112,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     try {
       const data = JSON.parse(await fs.readFile(usersFile, 'utf8'));
       if (Array.isArray(data) && data.length > 0) {
-        // Merge with DEFAULT_USERS if any default user is missing
+        // Merge with DEFAULT_USERS if any default user is missing (never overwrite existing user credits)
         const map = new Map(data.map(u => [normalise(u.email), u]));
         let changed = false;
         for (const def of DEFAULT_USERS) {
@@ -127,9 +127,27 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         }
         return data;
       }
+      // If local users.json is empty, attempt to restore from MongoDB first
+      const db = await getDb().catch(() => null);
+      if (db) {
+        const remoteUsers = await db.collection('users').find({}).toArray().catch(() => []);
+        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+          await writeLocal(remoteUsers).catch(() => { });
+          return remoteUsers;
+        }
+      }
       await writeLocal(DEFAULT_USERS).catch(() => { });
       return [...DEFAULT_USERS];
     } catch {
+      // If users.json read fails, attempt to restore from MongoDB first
+      const db = await getDb().catch(() => null);
+      if (db) {
+        const remoteUsers = await db.collection('users').find({}).toArray().catch(() => []);
+        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+          await writeLocal(remoteUsers).catch(() => { });
+          return remoteUsers;
+        }
+      }
       await writeLocal(DEFAULT_USERS).catch(() => { });
       return [...DEFAULT_USERS];
     }
@@ -154,35 +172,39 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     const key = normalise(email);
     if (!key) return null;
 
-    const local = (await readLocal()).find((u) => u.email === key);
-    if (local) return local;
-
+    // Check durable MongoDB first if available to get the freshest admin-allotted credits
     const db = await getDb();
-    if (!db) return null;
-    try {
-      const user = await db.collection('users').findOne({ email: key });
-      if (user) await cacheUser(user);
-      return user;
-    } catch {
-      return null;
+    if (db) {
+      try {
+        const user = await db.collection('users').findOne({ email: key });
+        if (user) {
+          await cacheUser(user);
+          return user;
+        }
+      } catch {}
     }
+
+    const local = (await readLocal()).find((u) => u.email === key);
+    return local || null;
   }
 
   async function findUserById(id) {
     if (!id) return null;
 
-    const local = (await readLocal()).find((u) => u._id === id);
-    if (local) return local;
-
+    // Check durable MongoDB first if available to get the freshest admin-allotted credits
     const db = await getDb();
-    if (!db) return null;
-    try {
-      const user = await db.collection('users').findOne({ _id: id });
-      if (user) await cacheUser(user);
-      return user;
-    } catch {
-      return null;
+    if (db) {
+      try {
+        const user = await db.collection('users').findOne({ _id: id });
+        if (user) {
+          await cacheUser(user);
+          return user;
+        }
+      } catch {}
     }
+
+    const local = (await readLocal()).find((u) => u._id === id);
+    return local || null;
   }
 
   async function insertUser(user) {

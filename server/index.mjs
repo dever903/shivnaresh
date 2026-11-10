@@ -712,24 +712,38 @@ app.get('/api/admin/access', async (req, res) => {
   });
 });
 
+let cachedFashnCredits = null;
+let cachedFashnTime = 0;
+
 app.get('/api/admin/fashn-credits', requireAdmin, async (_req, res) => {
   try {
     const state = await readState();
     if (!state.apiKey) {
       return res.json({ configured: false, total: 0, subscription: 0, onDemand: 0 });
     }
+    // Return cached balance if within 5 seconds, otherwise fetch live from Fashn.ai
+    const now = Date.now();
+    if (cachedFashnCredits && now - cachedFashnTime < 5000) {
+      return res.json(cachedFashnCredits);
+    }
     const response = await fetch('https://api.fashn.ai/v1/credits', {
       headers: { Authorization: `Bearer ${state.apiKey}` },
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok && data.credits) {
-      return res.json({
+      const result = {
         configured: true,
         total: Number(data.credits.total ?? 0),
         subscription: Number(data.credits.subscription ?? 0),
         onDemand: Number(data.credits.on_demand ?? 0),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      cachedFashnCredits = result;
+      cachedFashnTime = now;
+      return res.json(result);
+    }
+    if (cachedFashnCredits) {
+      return res.json(cachedFashnCredits);
     }
     return res.json({
       configured: true,
@@ -740,6 +754,7 @@ app.get('/api/admin/fashn-credits', requireAdmin, async (_req, res) => {
       updatedAt: new Date().toISOString(),
     });
   } catch (err) {
+    if (cachedFashnCredits) return res.json(cachedFashnCredits);
     res.status(500).json({ error: 'credits_fetch_failed', message: err.message });
   }
 });
@@ -2260,11 +2275,18 @@ app.get('/api/job/:id', async (req, res) => {
   }
 });
 
-/* Cancel a running job and refund the credit — prevents credit waste */
+/* Cancel a running job and refund the credit — strictly available during first 8 seconds */
 app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
   try {
     const local = localJobMap.get(req.params.id);
     if (local) {
+      const elapsedSec = (Date.now() - (local.startedAt || Date.now())) / 1000;
+      if (elapsedSec > 10) {
+        return res.status(400).json({
+          error: 'cancellation_window_expired',
+          message: 'The 8-second cancellation window has expired. GPU render is already locked in processing.',
+        });
+      }
       local.status = 'cancelled';
       if (local.abortController) {
         try { local.abortController.abort(); } catch {}
@@ -2281,13 +2303,24 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
             const newCredits = (Number(u.credits) || 0) + refundedCredits;
             await auth.patchUser(local.userId, { credits: newCredits });
             refunded = true;
-            console.log(`[billing] Refunded ${refundedCredits} credits to ${local.userId} on agent cancel.`);
+            console.log(`[billing] Refunded ${refundedCredits} credits to ${local.userId} on agent cancel within 8s window.`);
           }
         } catch (refundErr) {
           console.error('[billing] Failed to refund agent credits on cancel:', refundErr.message);
         }
       }
-      return res.json({ ok: true, cancelled: true, refunded, refundedCredits, message: 'Generation cancelled and credit refunded.' });
+      return res.json({ ok: true, cancelled: true, refunded, refundedCredits, message: 'Generation cancelled within 8s window. Credits refunded.' });
+    }
+
+    const mapping = jobKeyMap.get(req.params.id);
+    if (mapping?.startedAt) {
+      const elapsedSec = (Date.now() - mapping.startedAt) / 1000;
+      if (elapsedSec > 10) {
+        return res.status(400).json({
+          error: 'cancellation_window_expired',
+          message: 'The 8-second cancellation window has expired. GPU render is already locked in processing.',
+        });
+      }
     }
 
     const state = await readState();
@@ -2300,7 +2333,6 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
     }).catch(() => null);
 
     // Refund credits regardless of whether Fashn cancel succeeds
-    const mapping = jobKeyMap.get(req.params.id);
     let refunded = false;
     let refundedCredits = 0;
     if (mapping && mapping.userId && mapping.creditsUsed > 0) {

@@ -271,15 +271,18 @@ export default function Admin() {
     return () => clearInterval(interval);
   }, [admin2FaStep, adminOtpTimer]);
 
-  const loadFashnCredits = async () => {
-    setFashnCreditsLoading(true);
+  const loadFashnCredits = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (!isSilent) setFashnCreditsLoading(true);
     try {
       const res = await api.adminFashnCredits();
-      setFashnCredits(res);
+      if (res && typeof res.total === 'number') {
+        setFashnCredits(res);
+      }
     } catch {
       // ignore
     } finally {
-      setFashnCreditsLoading(false);
+      if (!isSilent) setFashnCreditsLoading(false);
     }
   };
 
@@ -465,14 +468,15 @@ export default function Admin() {
     }
   }
 
-  async function loadUsers() {
-    setUsersLoading(true);
+  async function loadUsers(silent: boolean | unknown = false) {
+    const isSilent = silent === true;
+    if (!isSilent) setUsersLoading(true);
     try {
       setUsersList((await api.adminUsers()).items);
     } catch {
       /* non-fatal */
     } finally {
-      setUsersLoading(false);
+      if (!isSilent) setUsersLoading(false);
     }
   }
 
@@ -489,8 +493,9 @@ export default function Admin() {
     }
   }
 
-  async function loadGenerations() {
-    setGenerationsLoading(true);
+  async function loadGenerations(silent: boolean | unknown = false) {
+    const isSilent = silent === true;
+    if (!isSilent) setGenerationsLoading(true);
     try {
       const res = await api.adminGenerations();
       setGenerationsList(res.items || []);
@@ -502,7 +507,7 @@ export default function Admin() {
     } catch {
       /* non-fatal */
     } finally {
-      setGenerationsLoading(false);
+      if (!isSilent) setGenerationsLoading(false);
     }
   }
 
@@ -584,6 +589,19 @@ export default function Admin() {
       }
     })();
   }, []);
+
+  // 5-second silent auto-refresh for live Fashn credits, users, and generations
+  useEffect(() => {
+    if (!access?.admin) return;
+    const interval = setInterval(() => {
+      void Promise.allSettled([
+        loadFashnCredits(true),
+        loadUsers(true),
+        loadGenerations(true),
+      ]);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [access?.admin]);
 
   async function loadGatewayData() {
     setGatewayLoading(true);
@@ -1156,6 +1174,31 @@ ${log.stack || 'None'}
               </div>
             )}
 
+            {/* Global Manual Refresh Button */}
+            {access?.admin && (
+              <button
+                type="button"
+                onClick={() => {
+                  void Promise.allSettled([
+                    loadFashnCredits(false),
+                    loadUsers(false),
+                    loadGenerations(false),
+                    loadSystemLogs(),
+                  ]);
+                }}
+                disabled={fashnCreditsLoading || usersLoading || generationsLoading}
+                title="Refresh Live Admin Data & Fashn Credits"
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
+                  isLight
+                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                    : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                }`}
+              >
+                <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
+                <span>↻ Refresh Live</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -1344,6 +1387,31 @@ ${log.stack || 'None'}
                   <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
+            )}
+
+            {/* Global Manual Refresh Button */}
+            {access?.admin && (
+              <button
+                type="button"
+                onClick={() => {
+                  void Promise.allSettled([
+                    loadFashnCredits(false),
+                    loadUsers(false),
+                    loadGenerations(false),
+                    loadSystemLogs(),
+                  ]);
+                }}
+                disabled={fashnCreditsLoading || usersLoading || generationsLoading}
+                title="Refresh Live Admin Data & Fashn Credits"
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
+                  isLight
+                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                    : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                }`}
+              >
+                <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
+                <span>↻ Refresh Live</span>
+              </button>
             )}
 
             <button

@@ -2856,34 +2856,6 @@ export default function Design() {
     }
   }
 
-  const [discarding, setDiscarding] = useState(false);
-
-  async function handleDiscardCurrentRender() {
-    if (!result) return;
-    if (!confirm('Are you sure you want to discard this render? Your credit will be refunded.')) return;
-    setDiscarding(true);
-    try {
-      const curPose = fivePoseItems[selectedPoseIndex];
-      const genItem = userGenerations.find(g => g.url === result) || (curPose?.jobId ? userGenerations.find(g => g.id === curPose.jobId) : null);
-      const targetId = genItem?.id || curPose?.jobId;
-      if (targetId) {
-        const res = await api.deleteUserGeneration(targetId, true);
-        const refundAmt = (res.refunded && typeof res.refundedCredits === 'number') ? res.refundedCredits : creditCost;
-        setUser(prev => prev ? { ...prev, credits: prev.credits + refundAmt } : null);
-        setUserGenerations(prev => prev.filter(g => g.id !== targetId));
-      } else if (user) {
-        setUser({ ...user, credits: user.credits + creditCost });
-      }
-      setFivePoseItems(prev => prev.filter((_, i) => i !== selectedPoseIndex));
-      setResult(null);
-      setError('Render discarded and credit restored to your account.');
-    } catch (err) {
-      setError('Failed to discard render: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setDiscarding(false);
-    }
-  }
-
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
@@ -5175,15 +5147,21 @@ export default function Design() {
                     <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
                       Elapsed: {fmtTime(elapsedSec)} &middot; GPU Active
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleCancelGeneration()}
-                      disabled={cancellingJob}
-                      className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[10px] font-bold text-red-500 hover:bg-red-500 hover:text-white transition disabled:opacity-50"
-                      title="Cancel generation immediately and refund credits"
-                    >
-                      {cancellingJob ? 'Cancelling & Refunding…' : '✕ Cancel & Refund Credit'}
-                    </button>
+                    {elapsedSec <= 8 ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleCancelGeneration()}
+                        disabled={cancellingJob}
+                        className="rounded-full border border-red-500/70 bg-red-500/20 px-3 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition animate-pulse disabled:opacity-50"
+                        title="Cancel generation under the first 8s window and refund credits"
+                      >
+                        {cancellingJob ? 'Cancelling & Refunding…' : `✕ Cancel Generation (${Math.max(1, 8 - elapsedSec)}s)`}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-white/40 italic">
+                        🔒 Rendering Locked
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -5312,15 +5290,6 @@ export default function Design() {
                     }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDiscardCurrentRender()}
-                    disabled={discarding}
-                    className="rounded-full border border-rose-500/40 bg-rose-500/10 px-3.5 py-1.5 text-xs font-semibold text-rose-500 hover:bg-rose-500 hover:text-white transition-colors disabled:opacity-50"
-                    title="Discard this render and refund credits to your balance"
-                  >
-                    {discarding ? 'Refunding…' : `🗑️ Discard & Refund (${creditCost} Credit)`}
                   </button>
                   <button
                     type="button"
