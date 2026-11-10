@@ -1424,6 +1424,8 @@ function buildRequest(mode, state, src, is2k = false) {
             garment_image: src.topCloth || cloth,
             model_image: model,
             category: 'tops',
+            mode: 'quality',
+            garment_photo_type: 'auto',
           },
         };
       }
@@ -1432,22 +1434,22 @@ function buildRequest(mode, state, src, is2k = false) {
         fields: {
           product_image: src.topCloth || cloth,
           model_image: model,
-          category: 'tops',
         },
       };
     }
     case 'tryon':
     default: {
-      // For 1K image: use tryon-v1.6 (strictly 1 credit on Fashn API)
-      // For 2K Ultra HD: use tryon-max (Ultra HD resolution)
-      // Fashn try-on models only accept garment_image/product_image and model_image. "prompt" is strictly not allowed.
+      // For 1K image: use tryon-v1.6 with quality mode for highest pose, hands & prop (e.g. sports ball) fidelity
+      // For 2K Ultra HD: use tryon-max (strictly product_image & model_image only)
       if (!is2k) {
         return {
           model_name: 'tryon-v1.6',
           fields: {
             garment_image: cloth,
             model_image: model,
-            ...(src.category ? { category: src.category } : {}),
+            category: src.category || 'tops',
+            mode: 'quality',
+            garment_photo_type: 'auto',
           },
         };
       }
@@ -1456,7 +1458,6 @@ function buildRequest(mode, state, src, is2k = false) {
         fields: {
           product_image: cloth,
           model_image: model,
-          ...(src.category ? { category: src.category } : {}),
         },
       };
     }
@@ -1617,8 +1618,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       try {
         // Step 1: Apply top garment onto model
         const step1Fields = is2k
-          ? { product_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops' }
-          : { garment_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops' };
+          ? { product_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model) }
+          : { garment_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops', mode: 'quality', garment_photo_type: 'auto' };
         delete step1Fields.prompt;
 
         const step1Resp = await fetch(`${FASHN}/run`, {
@@ -1657,8 +1658,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
         // Step 2: Apply bottom garment onto the step 1 intermediate result
         const step2Fields = is2k
-          ? { product_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms' }
-          : { garment_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms' };
+          ? { product_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result) }
+          : { garment_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms', mode: 'quality', garment_photo_type: 'auto' };
         delete step2Fields.prompt;
 
         const step2Resp = await fetch(`${FASHN}/run`, {
@@ -1722,20 +1723,24 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     }
 
     /* sanitize inputs strictly for Fashn API: Fashn only allows model-specific image/prompt fields */
-    delete inputs.mode;
     delete inputs.generation_mode;
     delete inputs.resolution;
     delete inputs.target_image;
     delete inputs.face_image;
-    if (model_name.startsWith('tryon') || mode === 'tryon') {
+    if (model_name === 'tryon-max') {
+      delete inputs.category;
+      delete inputs.mode;
+      delete inputs.garment_photo_type;
       delete inputs.prompt;
+    } else if (model_name.startsWith('tryon') || mode === 'tryon') {
+      delete inputs.prompt;
+      // keep mode='quality', category, and garment_photo_type for tryon-v1.6
+    } else {
+      delete inputs.mode;
     }
 
-    /* prevent duplicate requests — a request ID based on the images */
-    const requestKey = `${mode}-${JSON.stringify(Object.keys(inputs).sort())}`;
-    if (activeJobs.has(requestKey)) {
-      return res.status(429).json({ error: 'duplicate', message: 'A generation with these images is already running. Please wait.' });
-    }
+    /* unique request ID to track job without colliding on field names */
+    const requestKey = `job-${req.user?._id || 'guest'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     activeJobs.add(requestKey);
 
     /* auto-clear after 120s regardless */
@@ -1799,7 +1804,13 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       /* store the job id → key mapping so we can clean up when it completes */
       if (data.id) {
         lockUser(req, data.id);
-        jobKeyMap.set(data.id, { requestKey, clearTimer, userId: req.user?._id, creditsUsed: creditsNeeded });
+        jobKeyMap.set(data.id, {
+          requestKey,
+          clearTimer,
+          userId: req.user?._id,
+          userLockKey: getUserLockKey(req),
+          creditsUsed: creditsNeeded,
+        });
 
         /* Record active generation in generations.json so it is tracked immediately in Admin Panel */
         try {
@@ -1909,22 +1920,25 @@ app.get('/api/job/:id', async (req, res) => {
     if (!response.ok) {
       /* clean up active job on error */
       unlockUser(req.params.id);
-    activeUserGenerations.delete(getUserLockKey(req));
       const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
+        if (mapping.userLockKey) activeUserGenerations.delete(mapping.userLockKey);
+        if (mapping.userId) activeUserGenerations.delete(`usr_${mapping.userId}`);
         activeJobs.delete(mapping.requestKey);
         clearTimeout(mapping.clearTimer);
         jobKeyMap.delete(req.params.id);
       }
+      activeUserGenerations.delete(getUserLockKey(req));
       return res.status(response.status).json({ error: data.error || 'render_error', message: data.message || data.detail || 'The render could not be checked.' });
     }
 
     /* clean up active job on completion or failure */
     if (data.status === 'completed' || data.status === 'failed') {
       unlockUser(req.params.id);
-    activeUserGenerations.delete(getUserLockKey(req));
       const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
+        if (mapping.userLockKey) activeUserGenerations.delete(mapping.userLockKey);
+        if (mapping.userId) activeUserGenerations.delete(`usr_${mapping.userId}`);
         activeJobs.delete(mapping.requestKey);
         clearTimeout(mapping.clearTimer);
         if (data.status === 'failed' && mapping.userId && mapping.creditsUsed > 0) {
@@ -2043,9 +2057,13 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
       } catch (refundErr) {
         console.error('[billing] Cancel refund failed:', refundErr.message);
       }
-      activeJobs.delete(mapping.requestKey);
-      clearTimeout(mapping.clearTimer);
-      jobKeyMap.delete(req.params.id);
+      if (mapping) {
+        if (mapping.userLockKey) activeUserGenerations.delete(mapping.userLockKey);
+        if (mapping.userId) activeUserGenerations.delete(`usr_${mapping.userId}`);
+        activeJobs.delete(mapping.requestKey);
+        clearTimeout(mapping.clearTimer);
+        jobKeyMap.delete(req.params.id);
+      }
     }
     unlockUser(req.params.id);
     activeUserGenerations.delete(getUserLockKey(req));
@@ -2060,6 +2078,13 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'cancel_failed', message: String(err.message || err) });
   }
+});
+
+/* Self-healing unlock endpoint to clear any lingering generation locks */
+app.post('/api/user/unlock', auth.requireUser, (req, res) => {
+  activeUserGenerations.delete(getUserLockKey(req));
+  if (req.user?._id) activeUserGenerations.delete(`usr_${req.user._id}`);
+  res.json({ ok: true });
 });
 
 /* --------------------------------------------------- user generations (library) */

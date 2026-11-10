@@ -377,6 +377,7 @@ export const api = {
       `/api/job/${id}/cancel`,
       { method: 'POST' }
     ),
+  unlockUser: () => request<{ ok: boolean }>('/api/user/unlock', { method: 'POST' }),
   deleteUpload: (id: string) => request<{ ok: boolean; deleted: string }>(`/api/uploads/${id}`, { method: 'DELETE' }),
   collections: () => request<{ items: Collection[] }>('/api/collections'),
   createCollection: (name: string) => request<Collection>('/api/collections', json({ name })),
