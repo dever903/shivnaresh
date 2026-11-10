@@ -757,14 +757,67 @@ app.use('/generated', async (req, res, next) => {
             { outputUrl: { $regex: filename, $options: 'i' } }
           ]
         });
-        if (gen) {
-          const remoteUrl = gen.remoteUrl || gen.highResUrl || gen.rawOutputUrl;
-          if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
-            const upstream = await fetch(remoteUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-            });
+        let remoteUrl = (gen?.remoteUrl && gen.remoteUrl.startsWith('http')) ? gen.remoteUrl : null;
+        if (!remoteUrl && gen?.highResUrl && gen.highResUrl.startsWith('http')) {
+          remoteUrl = gen.highResUrl;
+        }
+
+        // Live upstream recovery if remoteUrl was omitted before disk wiped
+        if (!remoteUrl) {
+          try {
+            const state = await readState();
+            const apiKey = state.apiKey || process.env.FASHN_API_KEY;
+            const lookupId = gen?.id || jobId;
+            if (apiKey && lookupId && lookupId.length > 5) {
+              const fashnRes = await fetch(`${FASHN}/status/${lookupId}`, {
+                headers: { Authorization: `Bearer ${apiKey}` },
+              });
+              if (fashnRes.ok) {
+                const fashnData = await fashnRes.json().catch(() => ({}));
+                if (fashnData.status === 'completed' && Array.isArray(fashnData.output) && fashnData.output[0]) {
+                  remoteUrl = fashnData.output[0];
+                  if (gen?.id) {
+                    await db.collection('generations').updateOne(
+                      { id: gen.id },
+                      { $set: { remoteUrl, highResUrl: remoteUrl } }
+                    ).catch(() => {});
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+
+        if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
+          const upstream = await fetch(remoteUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          });
+          if (upstream.ok) {
+            const contentType = upstream.headers.get('content-type') || 'image/png';
+            const buf = Buffer.from(await upstream.arrayBuffer());
+            try { await fs.writeFile(candidate1, buf); } catch {}
+            res.set('Content-Type', contentType);
+            res.set('Cache-Control', 'public, max-age=86400');
+            return res.send(buf);
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback 2: Direct Fashn status check by jobId if missing from DB
+    try {
+      const state = await readState();
+      const apiKey = state.apiKey || process.env.FASHN_API_KEY;
+      if (apiKey && jobId && jobId.length > 8) {
+        const fashnRes = await fetch(`${FASHN}/status/${jobId}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (fashnRes.ok) {
+          const fashnData = await fashnRes.json().catch(() => ({}));
+          if (fashnData.status === 'completed' && Array.isArray(fashnData.output) && fashnData.output[0]) {
+            const upstream = await fetch(fashnData.output[0]);
             if (upstream.ok) {
               const contentType = upstream.headers.get('content-type') || 'image/png';
               const buf = Buffer.from(await upstream.arrayBuffer());
@@ -778,7 +831,7 @@ app.use('/generated', async (req, res, next) => {
       }
     } catch {}
 
-    // Fallback 2: Check hosted.json
+    // Fallback 3: Check hosted.json
     try {
       const hosted = await readHosted();
       const remoteUrl = hosted.generated?.[filename];
@@ -968,7 +1021,34 @@ app.get('/api/download-proxy', async (req, res) => {
               { outputUrl: { $regex: filename, $options: 'i' } }
             ]
           });
-          const targetUrl = gen?.remoteUrl || gen?.highResUrl || gen?.rawOutputUrl;
+          let targetUrl = (gen?.remoteUrl && gen.remoteUrl.startsWith('http')) ? gen.remoteUrl : null;
+          if (!targetUrl && gen?.highResUrl && gen.highResUrl.startsWith('http')) {
+            targetUrl = gen.highResUrl;
+          }
+          if (!targetUrl) {
+            try {
+              const state = await readState();
+              const apiKey = state.apiKey || process.env.FASHN_API_KEY;
+              const lookupId = gen?.id || id;
+              if (apiKey && lookupId && lookupId.length > 5) {
+                const fashnRes = await fetch(`${FASHN}/status/${lookupId}`, {
+                  headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (fashnRes.ok) {
+                  const fashnData = await fashnRes.json().catch(() => ({}));
+                  if (fashnData.status === 'completed' && Array.isArray(fashnData.output) && fashnData.output[0]) {
+                    targetUrl = fashnData.output[0];
+                    if (gen?.id) {
+                      await db.collection('generations').updateOne(
+                        { id: gen.id },
+                        { $set: { remoteUrl: targetUrl, highResUrl: targetUrl } }
+                      ).catch(() => {});
+                    }
+                  }
+                }
+              }
+            } catch {}
+          }
           if (targetUrl && typeof targetUrl === 'string' && targetUrl.startsWith('http')) {
             const upstream = await fetch(targetUrl);
             if (upstream.ok) {
@@ -976,6 +1056,27 @@ app.get('/api/download-proxy', async (req, res) => {
               contentType = upstream.headers.get('content-type') || 'image/png';
             }
           }
+        }
+        if (!buffer) {
+          try {
+            const state = await readState();
+            const apiKey = state.apiKey || process.env.FASHN_API_KEY;
+            if (apiKey && id && id.length > 8) {
+              const fashnRes = await fetch(`${FASHN}/status/${id}`, {
+                headers: { Authorization: `Bearer ${apiKey}` },
+              });
+              if (fashnRes.ok) {
+                const fashnData = await fashnRes.json().catch(() => ({}));
+                if (fashnData.status === 'completed' && Array.isArray(fashnData.output) && fashnData.output[0]) {
+                  const upstream = await fetch(fashnData.output[0]);
+                  if (upstream.ok) {
+                    buffer = Buffer.from(await upstream.arrayBuffer());
+                    contentType = upstream.headers.get('content-type') || 'image/png';
+                  }
+                }
+              }
+            }
+          } catch {}
         }
         if (!buffer) {
           try {

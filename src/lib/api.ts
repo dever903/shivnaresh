@@ -780,7 +780,7 @@ export async function formatCatalogSquare(
   const objectUrl = URL.createObjectURL(blob);
   try {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Note: Do not set img.crossOrigin on local blob URLs (causes browser CORS failure)
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject(new Error('Invalid image format for catalog squaring'));
@@ -833,10 +833,20 @@ export async function formatCatalogSquare(
   }
 }
 
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 3000);
+}
+
 /**
  * Triggers direct browser download via Blob and Object URL,
  * avoiding browser cross-origin redirects to a new tab.
- * Automatically ensures images are formatted to square 2400x2400 catalog standard.
  * Validates file integrity to prevent downloading corrupt HTML 404 pages as images.
  */
 export async function downloadDirectFile(
@@ -850,64 +860,69 @@ export async function downloadDirectFile(
   }
 
   const isVideo = url.endsWith('.mp4') || url.includes('.mp4');
-  let blob: Blob | null = null;
 
-  // Step 1: Format as catalog square if applicable
-  if (!isVideo && options?.catalogSquare !== false) {
+  // If catalog square is explicitly requested
+  if (!isVideo && options?.catalogSquare === true) {
     try {
-      blob = await formatCatalogSquare(url, options?.targetDim || 2400, filename);
-    } catch (err) {
-      console.warn('[download] formatCatalogSquare failed, falling back to direct fetch:', err);
-    }
-  }
-
-  // Step 2: Fetch and validate blob if not squared or if squaring failed
-  if (!blob) {
-    const candidateUrls = [
-      isVideo ? url : getProxiedImageUrl(url),
-      url,
-      `/api/download-proxy?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
-    ];
-
-    for (const testUrl of candidateUrls) {
-      try {
-        const res = await fetch(testUrl);
-        if (!res.ok) continue;
-        const cType = (res.headers.get('content-type') || '').toLowerCase();
-        if (cType.includes('html') || cType.includes('json') || cType.includes('text')) {
-          continue;
-        }
-        const candidateBlob = await res.blob();
-        if (candidateBlob.size < 200) continue;
-        if (candidateBlob.type.includes('html') || candidateBlob.type.includes('json')) continue;
-
-        // Magic byte check (avoid saving 404 HTML / 500 JSON error as .png)
-        const header = new Uint8Array(await candidateBlob.slice(0, 4).arrayBuffer());
-        if (header[0] === 0x3c || header[0] === 0x7b) continue; // '<' or '{'
-
-        blob = candidateBlob;
-        break;
-      } catch (e) {
-        console.warn(`[download] Candidate fetch failed for ${testUrl}:`, e);
+      const squaredBlob = await formatCatalogSquare(url, options?.targetDim || 2400, filename);
+      if (squaredBlob && squaredBlob.size >= 200) {
+        triggerBlobDownload(squaredBlob, filename);
+        return;
       }
+    } catch (err) {
+      console.warn('[download] formatCatalogSquare failed, falling back to direct download:', err);
     }
   }
 
-  // Step 3: Trigger safe file download
-  if (blob && blob.size >= 200) {
-    const objectUrl = URL.createObjectURL(blob);
+  // Handle data: and blob: URLs directly
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
     const a = document.createElement('a');
-    a.href = objectUrl;
+    a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     return;
   }
 
-  // Step 4: If all attempts failed, alert the user rather than saving a corrupt 404 text file
-  console.error('[download] All download attempts failed for:', url);
-  alert('Unable to download: The image file is currently unavailable on the server. Please try regenerating the render or check back shortly.');
+  // Multi-tier candidate fetch for remote and server images
+  const candidates = [
+    url,
+    `/api/download-proxy?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`,
+    isVideo ? url : getProxiedImageUrl(url)
+  ];
+
+  for (const testUrl of candidates) {
+    try {
+      const res = await fetch(testUrl);
+      if (!res.ok) continue;
+
+      const cType = (res.headers.get('content-type') || '').toLowerCase();
+      if (cType.includes('html') || cType.includes('json') || cType.includes('text')) {
+        continue;
+      }
+
+      const candidateBlob = await res.blob();
+      if (candidateBlob.size < 200) continue;
+      if (candidateBlob.type.includes('html') || candidateBlob.type.includes('json')) continue;
+
+      // Magic byte check (avoid saving 404 HTML / 500 JSON error as .png)
+      const header = new Uint8Array(await candidateBlob.slice(0, 4).arrayBuffer());
+      if (header[0] === 0x3c || header[0] === 0x7b) continue; // '<' or '{'
+
+      triggerBlobDownload(candidateBlob, filename);
+      return;
+    } catch (e) {
+      console.warn(`[download] Candidate fetch failed for ${testUrl}:`, e);
+    }
+  }
+
+  // External URL fallback: open in new tab so user can save directly
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    window.open(url, '_blank');
+    return;
+  }
+
+  alert('Unable to download: The image file is currently unavailable on the server. Please try regenerating the render.');
 }
 
