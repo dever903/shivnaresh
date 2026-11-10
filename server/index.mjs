@@ -1500,6 +1500,19 @@ function unlockUser(jobId) {
   }
 }
 
+async function refundOutfitCredits(userId, amount) {
+  try {
+    const u = await auth.findUserById(userId);
+    if (u) {
+      const restored = (Number(u.credits) || 0) + amount;
+      await auth.patchUser(userId, { credits: restored });
+      console.log(`[billing] Restored ${amount} credits to ${userId} on outfit failure. Balance: ${restored}`);
+    }
+  } catch (err) {
+    console.error('[billing] Failed to restore outfit credits:', err.message);
+  }
+}
+
 app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     /* Strict single concurrency: only 1 generation active at a time per user */
@@ -1630,6 +1643,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         const step1Data = await step1Resp.json().catch(() => ({}));
         if (!step1Resp.ok) {
           unlockUser('outfit-chain');
+          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
           return res.status(step1Resp.status).json({ error: 'outfit_step1_failed', message: step1Data.message || 'Top garment application failed' });
         }
         const step1JobId = step1Data.id;
@@ -1648,11 +1662,13 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           }
           if (pollData.status === 'failed') {
             unlockUser('outfit-chain');
+            if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
             return res.status(500).json({ error: 'outfit_step1_failed', message: pollData.error?.message || 'Top garment step failed' });
           }
         }
         if (!step1Result) {
           unlockUser('outfit-chain');
+          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
           return res.status(500).json({ error: 'outfit_timeout', message: 'Full outfit generation timed out at step 1.' });
         }
 
@@ -1671,6 +1687,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         unlockUser('outfit-chain');
 
         if (!step2Resp.ok) {
+          if (req.user?._id) await refundOutfitCredits(req.user._id, creditsNeeded);
           return res.status(step2Resp.status).json({ error: 'outfit_step2_failed', message: step2Data.message || 'Bottom garment application failed' });
         }
 
@@ -1680,6 +1697,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
             requestKey: `outfit-${step2Data.id}`,
             clearTimer: setTimeout(() => {}, 120000),
             userId: req.user?._id,
+            userLockKey: getUserLockKey(req),
             creditsUsed: creditsNeeded,
           });
         }
