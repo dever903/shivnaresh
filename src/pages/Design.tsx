@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   Clock,
@@ -31,6 +31,16 @@ import {
 } from '../lib/api';
 
 type Pick = { url: string; name: string; preview?: string } | null;
+
+type GarmentRole = 'tops-front' | 'tops-back' | 'bottoms' | 'unknown';
+type TryOnTarget = 'upper' | 'lower' | 'both';
+
+interface ClassifiedGarment {
+  url: string;
+  preview?: string;
+  name: string;
+  role: GarmentRole;
+}
 
 const MODES = [
   { id: 'tryon', label: 'Try-On', needs: ['cloth', 'model'], hint: 'Fit your garment onto a studio model, preserving pose and athletic posture.' },
@@ -165,6 +175,18 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
     }
   }
   window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+}
+
+function classifyGarmentByHeuristic(name: string): GarmentRole {
+  const n = name.toLowerCase();
+  // Check for bottoms keywords
+  if (/pant|trouser|short|bottom|lower|leg|waist|cargo|jean|denim|jogger/.test(n)) return 'bottoms';
+  // Check for back keywords
+  if (/back|rear|behind|dorsal/.test(n)) return 'tops-back';
+  // Check for front/top keywords
+  if (/front|chest|jacket|hoodie|shirt|tee|top|upper|sleeve|jersey|coat|sweater/.test(n)) return 'tops-front';
+  // Default to tops-front (most common upload)
+  return 'tops-front';
 }
 
 /* ----------------------------------------------------------------
@@ -2654,6 +2676,9 @@ export default function Design() {
   /* Try-on inputs */
   const [cloth, setCloth] = useState<Pick>(null);
   const [selectedClothes, setSelectedClothes] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
+  /* Smart garment classification */
+  const [classifiedGarments, setClassifiedGarments] = useState<ClassifiedGarment[]>([]);
+  const [tryOnTarget, setTryOnTarget] = useState<TryOnTarget>('upper');
 
   function removeSelectedCloth(index: number) {
     setSelectedClothes((prev) => {
@@ -2663,6 +2688,26 @@ export default function Design() {
       }
       return next;
     });
+  }
+
+  function addClassifiedGarment(garment: { url: string; preview?: string; name: string }) {
+    const role = classifyGarmentByHeuristic(garment.name);
+    setClassifiedGarments((prev) => {
+      const exists = prev.some((g) => g.url === garment.url);
+      if (exists) return prev;
+      return [...prev, { ...garment, role }];
+    });
+  }
+
+  function updateGarmentRole(url: string, newRole: GarmentRole) {
+    setClassifiedGarments((prev) => prev.map((g) => g.url === url ? { ...g, role: newRole } : g));
+  }
+
+  function removeClassifiedGarment(url: string) {
+    setClassifiedGarments((prev) => prev.filter((g) => g.url !== url));
+    // Also remove from selectedClothes if present
+    const idx = selectedClothes.findIndex((c) => c.url === url);
+    if (idx !== -1) removeSelectedCloth(idx);
   }
   const [model, setModel] = useState<Pick>(null);
   const [selectedModels, setSelectedModels] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
@@ -2801,6 +2846,20 @@ export default function Design() {
   const isFivePoseBatch = poseMode === '5-pose' && mode === 'tryon';
   const effectiveModels = selectedModels.length > 0 ? selectedModels : (model ? [model] : []);
   const effectiveClothes = selectedClothes.length > 0 ? selectedClothes : (cloth ? [cloth] : []);
+  // Smart garment role selectors — computed from classifiedGarments
+  const topFrontGarment: Pick | null = (() => {
+    const g = classifiedGarments.find((g) => g.role === 'tops-front') ?? classifiedGarments.find((g) => g.role === 'unknown');
+    return g ? { url: g.url, preview: g.preview, name: g.name } : null;
+  })();
+  const topBackGarment: Pick | null = (() => {
+    const g = classifiedGarments.find((g) => g.role === 'tops-back') ?? classifiedGarments.find((g) => g.role === 'tops-front') ?? classifiedGarments.find((g) => g.role === 'unknown');
+    return g ? { url: g.url, preview: g.preview, name: g.name } : null;
+  })();
+  const bottomGarment: Pick | null = (() => {
+    const g = classifiedGarments.find((g) => g.role === 'bottoms');
+    return g ? { url: g.url, preview: g.preview, name: g.name } : null;
+  })();
+  const hasClassifiedGarments = classifiedGarments.length > 0;
   const multiBatchCount = mode === 'tryon' && !isFivePoseBatch && (effectiveModels.length > 1 || effectiveClothes.length > 1)
     ? Math.max(effectiveModels.length, effectiveClothes.length)
     : 1;
@@ -3096,6 +3155,8 @@ export default function Design() {
             const exists = prev.some((p) => p && p.url === pick.url);
             return exists ? prev : [...prev, pick];
           });
+          // Also classify and add to smart garments
+          addClassifiedGarment(pick);
           // Set as active cloth
           setCloth(pick);
         } else {
@@ -3182,10 +3243,32 @@ export default function Design() {
         payload.source = swapSource?.url;
         payload.model = swapTarget?.url;
       } else {
-        payload.mode = 'tryon';
-        if (cloth?.url) payload.cloth = cloth.url;
-        if (model?.url) payload.model = model.url;
-        payload.source = cloth?.url;
+        // Smart garment routing based on tryOnTarget and classifiedGarments
+        if (hasClassifiedGarments) {
+          if (tryOnTarget === 'upper') {
+            payload.mode = 'tryon';
+            payload.cloth = topFrontGarment?.url || cloth?.url;
+            if (model?.url) payload.model = model.url;
+            payload.source = payload.cloth;
+          } else if (tryOnTarget === 'lower') {
+            payload.mode = 'tryon';
+            payload.cloth = bottomGarment?.url || cloth?.url;
+            if (model?.url) payload.model = model.url;
+            payload.source = payload.cloth;
+            payload.category = 'bottoms';
+          } else {
+            // Both = full outfit chaining — backend handles 2 sequential calls
+            payload.mode = 'outfit';
+            payload.topCloth = topFrontGarment?.url || cloth?.url;
+            payload.bottomCloth = bottomGarment?.url;
+            if (model?.url) payload.model = model.url;
+          }
+        } else {
+          payload.mode = 'tryon';
+          if (cloth?.url) payload.cloth = cloth.url;
+          if (model?.url) payload.model = model.url;
+          payload.source = cloth?.url;
+        }
       }
 
       /* Batch Execution (5-pose sequence or multi-model batch) */
@@ -3201,15 +3284,22 @@ export default function Design() {
         }> = [];
 
         if (isFivePoseBatch) {
-          batchItems = FIVE_POSES_SPECS.map((spec, i) => ({
-            id: spec.id,
-            name: spec.name,
-            angle: spec.angle,
-            icon: spec.icon,
-            promptSuffix: spec.promptSuffix,
-            model: selectedPoses[i] || selectedPoses[0] || model,
-            cloth: cloth,
-          }));
+          batchItems = FIVE_POSES_SPECS.map((spec, i) => {
+            // Smart angle matching: back pose gets back garment photo
+            const isBackAngle = spec.id === 'back' || spec.angle.toLowerCase().includes('180') || spec.angle.toLowerCase().includes('rear');
+            const smartCloth = hasClassifiedGarments
+              ? (isBackAngle ? (topBackGarment || topFrontGarment || cloth) : (topFrontGarment || cloth))
+              : cloth;
+            return {
+              id: spec.id,
+              name: spec.name,
+              angle: spec.angle,
+              icon: spec.icon,
+              promptSuffix: spec.promptSuffix,
+              model: selectedPoses[i] || selectedPoses[0] || model,
+              cloth: smartCloth,
+            };
+          });
         } else {
           // Multi-model batch: generate images equal to the number of uploaded/selected models
           batchItems = Array.from({ length: multiBatchCount }, (_, i) => {
@@ -3309,8 +3399,11 @@ export default function Design() {
   }
   const tryonMissing: string[] = [];
   if (mode === 'tryon') {
-    if (!cloth) tryonMissing.push('garment');
+    const hasGarment = hasClassifiedGarments || !!cloth;
+    const needsBottom = hasClassifiedGarments && tryOnTarget !== 'upper' && !bottomGarment;
+    if (!hasGarment) tryonMissing.push('garment');
     if (!model) tryonMissing.push('model');
+    if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
   }
   const missing = isSwapMode ? swapMissing : tryonMissing;
   const isFreeUser = !user?.tier || user?.tier === 'free';
@@ -4000,16 +4093,19 @@ export default function Design() {
               </>
             ) : (
               <>
-                {/* Garment Upload Block */}
+                {/* Smart Garment Upload Block */}
                 <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>1 &middot; Garment</h2>
-                    {(cloth || selectedClothes.length > 0) && (
+                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                      1 · Garments
+                    </h2>
+                    {(classifiedGarments.length > 0 || cloth) && (
                       <button
                         type="button"
                         onClick={() => {
                           setCloth(null);
                           setSelectedClothes([]);
+                          setClassifiedGarments([]);
                         }}
                         className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
                       >
@@ -4017,6 +4113,40 @@ export default function Design() {
                       </button>
                     )}
                   </div>
+
+                  {/* Try-On Target Selector */}
+                  <div className="mt-4 mb-3">
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                      What to Change?
+                    </p>
+                    <div className={`inline-flex rounded-xl border p-1 w-full ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/40'}`}>
+                      {([
+                        { id: 'upper', label: '👕 Upper Only', hint: 'Jacket, shirt, hoodie' },
+                        { id: 'lower', label: '👖 Lower Only', hint: 'Pants, shorts' },
+                        { id: 'both', label: '✨ Full Outfit', hint: 'Top + Bottom together' },
+                      ] as { id: TryOnTarget; label: string; hint: string }[]).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTryOnTarget(opt.id)}
+                          title={opt.hint}
+                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${
+                            tryOnTarget === opt.id
+                              ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
+                              : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {tryOnTarget === 'both' && (
+                      <p className={`mt-1.5 text-[10px] leading-relaxed ${isLight ? 'text-blue-700' : 'text-blue-300'}`}>
+                        ✨ Full outfit: upload top + bottom garments. 1 credit per final image (backend chains 2 API calls automatically).
+                      </p>
+                    )}
+                  </div>
+
                   <input
                     ref={clothInput}
                     type="file"
@@ -4027,12 +4157,12 @@ export default function Design() {
                     onChange={(e) => void handleMultipleFiles(e.target.files, 'cloth')}
                   />
 
-                  {/* Multi-Garment Selector Grid (when multiple garments uploaded or selected) */}
-                  {selectedClothes.length > 1 ? (
-                    <div className="mt-4 space-y-2.5">
+                  {/* Classified Garments Grid */}
+                  {classifiedGarments.length > 0 ? (
+                    <div className="mt-3 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
-                          {selectedClothes.length} Cloths Selected &middot; Click to set Active Try-On
+                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                          {classifiedGarments.length} Garment{classifiedGarments.length > 1 ? 's' : ''} Uploaded · Auto-Classified
                         </span>
                         <button
                           type="button"
@@ -4040,45 +4170,44 @@ export default function Design() {
                           disabled={uploading}
                           className="text-[11px] font-bold text-[#e5373f] hover:underline"
                         >
-                          + Add More Cloths
+                          + Add More
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                        {selectedClothes.map((item, idx) => {
-                          const isCurrent = cloth?.url === item.url;
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {classifiedGarments.map((garment) => {
                           return (
-                            <div
-                              key={idx}
-                              onClick={() => setCloth(item)}
-                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${
-                                isCurrent
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
-                                  : isLight
-                                    ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
-                                    : 'border-white/15 bg-black/40 hover:border-white/30'
-                              }`}
-                            >
-                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
-                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
-                              }`}>
-                                {isCurrent ? 'Active Try-On' : `Cloth ${idx + 1}`}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeSelectedCloth(idx);
-                                }}
-                                className="absolute top-1.5 right-1.5 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Remove cloth"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                              <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
-                                {item.name}
-                              </p>
+                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${
+                              isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
+                            }`}>
+                              <div className="aspect-[3/4] relative">
+                                <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => removeClassifiedGarment(garment.url)}
+                                  className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Remove"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                              {/* Role badge + dropdown */}
+                              <div className="p-1.5">
+                                <p className="text-[9px] text-center truncate text-white/70 mb-1">{garment.name}</p>
+                                <select
+                                  value={garment.role}
+                                  onChange={(e) => updateGarmentRole(garment.url, e.target.value as GarmentRole)}
+                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${
+                                    isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
+                                  }`}
+                                  title="Auto-detected category — click to change if wrong"
+                                >
+                                  <option value="tops-front">👕 Top Front</option>
+                                  <option value="tops-back">🔄 Top Back</option>
+                                  <option value="bottoms">👖 Bottom</option>
+                                  <option value="unknown">❓ Unknown</option>
+                                </select>
+                              </div>
                             </div>
                           );
                         })}
@@ -4088,16 +4217,32 @@ export default function Design() {
                           onClick={() => clothInput.current?.click()}
                           disabled={uploading}
                           className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                            isLight
-                              ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                              : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                            isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
                           }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
-                          <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Cloths</span>
+                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add More</span>
+                          <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/30'}`}>Any order/angle</span>
                         </button>
                       </div>
+
+                      {/* Smart role info */}
+                      {tryOnTarget === 'both' && (
+                        <div className={`rounded-xl border p-2.5 text-[10px] leading-relaxed ${
+                          isLight ? 'border-blue-200 bg-blue-50 text-blue-900' : 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                        }`}>
+                          <strong>Full Outfit Smart Routing:</strong>
+                          <br />
+                          • <strong>Top</strong>: {topFrontGarment ? topFrontGarment.name : '⚠ No top garment detected'}
+                          <br />
+                          • <strong>Bottom</strong>: {bottomGarment ? bottomGarment.name : '⚠ No bottom/pants detected — upload pants image'}
+                        </div>
+                      )}
+                      {tryOnTarget === 'upper' && topBackGarment && topBackGarment.url !== topFrontGarment?.url && (
+                        <p className={`text-[10px] ${isLight ? 'text-indigo-700' : 'text-indigo-300'}`}>
+                          🔄 Back photo detected — will auto-use for back-angle poses in 5-Pose Sequence mode.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div
@@ -4112,9 +4257,7 @@ export default function Design() {
                         onClick={() => clothInput.current?.click()}
                         disabled={uploading}
                         className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
-                          isLight
-                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                            : 'border-white/15 hover:border-white/35'
+                          isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
                         }`}
                       >
                         {uploading && uploadProgress?.kind === 'cloth' ? (
@@ -4125,81 +4268,24 @@ export default function Design() {
                                 Uploading {uploadProgress.current} of {uploadProgress.total} garments...
                               </span>
                               <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                                Adding to your try-on studio library
+                                Auto-classifying each garment
                               </span>
                             </div>
                           </div>
                         ) : (
                           <>
-                            {cloth ? (
-                              <img src={cloth.preview ?? cloth.url} alt="" className="h-20 w-16 rounded-lg object-cover" />
-                            ) : (
-                              <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
-                            )}
+                            <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
                             <span className="text-sm">
                               <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                {cloth ? cloth.name : 'Drop or choose garment images (select 3-4 or any number)'}
+                                Upload garment photos (any number, any order)
                               </span>
                               <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                                PNG, JPEG or WEBP &middot; select multiple simultaneously &middot; flat lay works best
+                                Front, back, top, bottom — upload all photos, system auto-classifies · PNG, JPEG, WEBP
                               </span>
                             </span>
                           </>
                         )}
                       </button>
-                    </div>
-                  )}
-
-                  {/* Uploaded Garments Quick Tray */}
-                  {uploads.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-white/5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                          Your Uploads Library ({uploads.length})
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => clothInput.current?.click()}
-                          disabled={uploading}
-                          className="text-[11px] text-[#e5373f] hover:underline font-semibold"
-                        >
-                          + Upload More
-                        </button>
-                      </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                        {uploads.map((item) => {
-                          const isCurrent = cloth?.url === item.url;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => {
-                                const pickItem = { url: item.url, preview: item.url, name: item.name };
-                                setSelectedClothes((prev) => {
-                                  const exists = prev.some((p) => p && p.url === item.url);
-                                  return exists ? prev : [...prev, pickItem];
-                                });
-                                setCloth(pickItem);
-                              }}
-                              className={`relative shrink-0 rounded-lg overflow-hidden border transition ${
-                                isCurrent
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 scale-105'
-                                  : isLight
-                                    ? 'border-gray-200 hover:border-gray-400 opacity-80 hover:opacity-100'
-                                    : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
-                              }`}
-                              title={item.name}
-                            >
-                              <img src={item.url} alt={item.name} className="h-14 w-11 object-cover" />
-                              {isCurrent && (
-                                <span className="absolute bottom-0 inset-x-0 bg-[#e5373f] text-white text-[8px] font-bold text-center py-0.5 leading-none">
-                                  Selected
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
                   )}
                 </div>

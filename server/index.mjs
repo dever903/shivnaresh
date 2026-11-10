@@ -1414,6 +1414,28 @@ function buildRequest(mode, state, src, is2k = false) {
           prompt: text || 'clean e-commerce packshot: product centred on a seamless light grey studio background, soft contact shadow, no model',
         },
       };
+    case 'outfit': {
+      // Full outfit = top garment application (bottom will be chained separately after)
+      // This case is used for the first step of two-step chaining
+      if (!is2k) {
+        return {
+          model_name: 'tryon-v1.6',
+          fields: {
+            garment_image: src.topCloth || cloth,
+            model_image: model,
+            category: 'tops',
+          },
+        };
+      }
+      return {
+        model_name: 'tryon-max',
+        fields: {
+          product_image: src.topCloth || cloth,
+          model_image: model,
+          category: 'tops',
+        },
+      };
+    }
     case 'tryon':
     default: {
       // For 1K image: use tryon-v1.6 (strictly 1 credit on Fashn API)
@@ -1425,6 +1447,7 @@ function buildRequest(mode, state, src, is2k = false) {
           fields: {
             garment_image: cloth,
             model_image: model,
+            ...(src.category ? { category: src.category } : {}),
           },
         };
       }
@@ -1433,6 +1456,7 @@ function buildRequest(mode, state, src, is2k = false) {
         fields: {
           product_image: cloth,
           model_image: model,
+          ...(src.category ? { category: src.category } : {}),
         },
       };
     }
@@ -1575,7 +1599,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         });
       }
     } else {
-      const needs = { tryon: ['cloth', 'model'], product: ['cloth'], edit: [], packshot: ['cloth'] };
+      const needs = { tryon: ['cloth', 'model'], outfit: ['model'], product: ['cloth'], edit: [], packshot: ['cloth'] };
       const required = needs[mode] || ['cloth', 'model'];
       const missing = required.filter((key) => !body[key]);
       if (missing.length) {
@@ -1592,6 +1616,89 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         error: 'missing_images',
         message: 'Edit mode needs at least one image — upload a garment or select a model.',
       });
+    }
+
+    /* Full Outfit Chaining: 2-step sequential calls for upper + lower */
+    if (mode === 'outfit' && body.topCloth && body.bottomCloth && body.model) {
+      // Deduct credits ONCE before any API call (1 credit for 1K, 3 for 2K)
+      await auth.patchUser(req.user._id, {
+        credits: userCredits - creditsNeeded,
+        modelsGenerated: modelsGenerated + 1,
+        ...(req.user.tier === 'ultra' ? {
+          dailyModelsUsed: dailyModels + 1,
+          lastDailyReset: new Date().toISOString(),
+        } : {}),
+      });
+      lockUser(req, 'outfit-chain');
+
+      try {
+        // Step 1: Apply top garment onto model
+        const step1Fields = is2k
+          ? { product_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops' }
+          : { garment_image: await toDataUri(body.topCloth), model_image: await toDataUri(body.model), category: 'tops' };
+        delete step1Fields.prompt;
+
+        const step1Resp = await fetch(`${FASHN}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.apiKey}` },
+          body: JSON.stringify({ model_name: is2k ? 'tryon-max' : 'tryon-v1.6', inputs: step1Fields }),
+        });
+        const step1Data = await step1Resp.json().catch(() => ({}));
+        if (!step1Resp.ok) {
+          unlockUser('outfit-chain');
+          return res.status(step1Resp.status).json({ error: 'outfit_step1_failed', message: step1Data.message || 'Top garment application failed' });
+        }
+        const step1JobId = step1Data.id;
+
+        // Poll step 1 until complete
+        let step1Result = null;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const pollResp = await fetch(`${FASHN}/status/${step1JobId}`, {
+            headers: { Authorization: `Bearer ${state.apiKey}` }
+          });
+          const pollData = await pollResp.json().catch(() => ({}));
+          if (pollData.status === 'completed' && pollData.output?.[0]) {
+            step1Result = pollData.output[0];
+            break;
+          }
+          if (pollData.status === 'failed') {
+            unlockUser('outfit-chain');
+            return res.status(500).json({ error: 'outfit_step1_failed', message: pollData.error?.message || 'Top garment step failed' });
+          }
+        }
+        if (!step1Result) {
+          unlockUser('outfit-chain');
+          return res.status(500).json({ error: 'outfit_timeout', message: 'Full outfit generation timed out at step 1.' });
+        }
+
+        // Step 2: Apply bottom garment onto the step 1 intermediate result
+        const step2Fields = is2k
+          ? { product_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms' }
+          : { garment_image: await toDataUri(body.bottomCloth), model_image: await toDataUri(step1Result), category: 'bottoms' };
+        delete step2Fields.prompt;
+
+        const step2Resp = await fetch(`${FASHN}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.apiKey}` },
+          body: JSON.stringify({ model_name: is2k ? 'tryon-max' : 'tryon-v1.6', inputs: step2Fields }),
+        });
+        const step2Data = await step2Resp.json().catch(() => ({}));
+        unlockUser('outfit-chain');
+
+        if (!step2Resp.ok) {
+          return res.status(step2Resp.status).json({ error: 'outfit_step2_failed', message: step2Data.message || 'Bottom garment application failed' });
+        }
+
+        // Return step 2 job ID — client polls as normal
+        return res.json({
+          id: step2Data.id,
+          credits: userCredits - creditsNeeded,
+        });
+      } catch (err) {
+        unlockUser('outfit-chain');
+        return res.status(500).json({ error: 'outfit_chain_failed', message: err.message || 'Full outfit generation failed' });
+      }
     }
 
     /* validate that image URLs/paths actually exist before calling Fashn */
