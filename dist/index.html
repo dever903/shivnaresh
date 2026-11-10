@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" class="light" style="background-color: #97c1a9; color-scheme: light;">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#97c1a9" />
+    <style>
+      html, body {
+        background-color: #97c1a9 !important;
+        color-scheme: light;
+        margin: 0;
+        padding: 0;
+      }
+      html.dark, html.dark body {
+        background-color: #070709 !important;
+        color-scheme: dark;
+      }
+      html.light, html.light body {
+        background-color: #97c1a9 !important;
+        color-scheme: light;
+      }
+    </style>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('shivnaresh_theme');
+          var root = document.documentElement;
+          if (saved === 'dark') {
+            root.classList.add('dark');
+            root.classList.remove('light');
+            root.style.backgroundColor = '#070709';
+            root.style.colorScheme = 'dark';
+          } else {
+            root.classList.add('light');
+            root.classList.remove('dark');
+            root.style.backgroundColor = '#97c1a9';
+            root.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <title>Shiv-Naresh — A Quality Sports Wear</title>
+    <meta
+      name="description"
+      content="Clothes customization for clubs and teams: sublimation, embroidery, crests, names and numbers. Sampled before a single garment is cut."
+    />
+    <link rel="icon" type="image/png" href="/brand-mark.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="image" href="/hero-base.webp" />
+    <script type="module" crossorigin src="/assets/index-ZdjaGn5r.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-4186zhZT.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

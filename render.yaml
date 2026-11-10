@@ -3,7 +3,7 @@ services:
   - type: web
     name: shivnaresh
     runtime: node
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node server/index.mjs
     envVars:
       - key: NODE_ENV
@@ -13,7 +13,7 @@ services:
   - type: web
     name: shivnaresh-studio
     runtime: static
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     staticPublishPath: ./dist
     routes:
       - type: rewrite

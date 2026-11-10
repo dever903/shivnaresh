@@ -9,6 +9,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
@@ -3703,13 +3704,50 @@ setTimeout(runDailyAndExpiryMaintenance, 5000);
 
 /* production build, if present */
 const dist = path.join(ROOT, 'dist');
+const indexPath = path.join(dist, 'index.html');
+
+// If dist/index.html is missing on cold boot, attempt to build synchronously
+if (!fsSync.existsSync(indexPath)) {
+  console.log('[build] dist/index.html not found, automatically compiling Vite bundle...');
+  try {
+    execSync('npm run build', {
+      cwd: ROOT,
+      stdio: 'inherit',
+      env: { ...process.env, NODE_ENV: 'development' },
+    });
+    console.log('[build] Vite frontend build completed successfully.');
+  } catch (buildErr) {
+    console.error('[build] Vite build failed on boot:', buildErr.message);
+  }
+}
+
 app.use(express.static(dist));
 app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
-  try {
-    res.sendFile(path.join(dist, 'index.html'));
-  } catch {
-    res.status(404).send('Run `npm run build` first.');
+  if (fsSync.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
   }
+  res.status(200).send(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>Shiv Naresh AI Studio - Initializing</title>
+    <meta http-equiv="refresh" content="5">
+    <style>
+      body { font-family: system-ui, sans-serif; background: #0b0f17; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+      .card { background: #151d2c; padding: 2.5rem; border-radius: 1rem; border: 1px solid #233149; max-width: 480px; }
+      .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #ef4444; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      h2 { margin: 0 0 0.5rem; color: #fff; font-size: 1.25rem; }
+      p { margin: 0; color: #94a3b8; font-size: 0.9rem; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="spinner"></div>
+      <h2>Shiv Naresh AI Studio Initializing</h2>
+      <p>Compiling assets. Page will refresh automatically in 5 seconds…</p>
+    </div>
+  </body>
+</html>`);
 });
 
 /* Express Global Error Handler — catches all unhandled controller errors and records to system logs */
