@@ -20,9 +20,9 @@ import {
   ApiError,
   downloadDirectFile,
   fileToDataUrl,
-  formatCatalogSquare,
   getProxiedImageUrl,
   prepareAndStandardizeImage,
+  scaleToEcommerceCatalog,
   setToken,
   type CustomRequest,
   type Job,
@@ -774,6 +774,8 @@ function MySetsPanel({
       const zip = new JSZip();
       const folder = zip.folder('shivnaresh-catalog-ready');
       const selectedGens = generations.filter((g) => selectedGenIds.includes(g.id));
+      let addedFilesCount = 0;
+
       for (let i = 0; i < selectedGens.length; i++) {
         const g = selectedGens[i];
         try {
@@ -783,22 +785,32 @@ function MySetsPanel({
           if (isVideo) {
             const res = await fetch(getProxiedImageUrl(rawUrl));
             const blob = await res.blob();
-            folder?.file(`render-${i + 1}-${g.id.slice(0, 6)}.mp4`, blob);
+            const fileName = `render-${i + 1}-${g.id.slice(0, 6)}.mp4`;
+            zip.file(fileName, blob);
+            folder?.file(fileName, blob);
+            addedFilesCount++;
           } else {
-            // Standardize each image to 2400x2400 square catalog standard
-            // Resolves "Dimensions must be between 1000x1000 and 3000x3000 / Only square images allowed"
-            const blob = await formatCatalogSquare(rawUrl, 2400, `catalog-${i + 1}-${g.id.slice(0, 6)}.png`);
-            folder?.file(`catalog-${i + 1}-${g.id.slice(0, 6)}.png`, blob);
+            // Standardize every catalog image to exact Width 1807px, Height 3000px
+            const fileName = `catalog-1807x3000-${i + 1}-${g.id.slice(0, 6)}.png`;
+            const blob = await scaleToEcommerceCatalog(rawUrl, 1807, 3000, fileName);
+            zip.file(fileName, blob);
+            folder?.file(fileName, blob);
+            addedFilesCount++;
           }
         } catch (itemErr) {
           console.warn(`[zip] Skipping render ${g.id}:`, itemErr);
         }
       }
+
+      if (addedFilesCount === 0) {
+        throw new Error('No images could be packed into the ZIP archive. Please verify that the selected images are still accessible.');
+      }
+
       const content = await zip.generateAsync({ type: 'blob' });
       const objectUrl = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = `shivnaresh-catalog-ready-${Date.now()}.zip`;
+      a.download = `shivnaresh-catalog-1807x3000-${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

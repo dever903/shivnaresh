@@ -188,6 +188,8 @@ export type AdminUser = {
   tier?: string;
   maxVideos?: number;
   maxModels?: number;
+  photoshoots?: number;
+  maxGenerations?: number;
   videosGenerated?: number;
   modelsGenerated?: number;
   features?: {
@@ -833,6 +835,113 @@ export async function formatCatalogSquare(
   }
 }
 
+/**
+ * Scales any fashion image to catalog resolution of exactly Width: 1807 px and Height: 3000 px.
+ */
+export async function scaleToEcommerceCatalog(
+  imageSource: string | Blob,
+  targetW = 1807,
+  targetH = 3000,
+  filename = 'render.png'
+): Promise<Blob> {
+  let blob: Blob;
+  if (imageSource instanceof Blob) {
+    blob = imageSource;
+  } else {
+    const candidates = [
+      getProxiedImageUrl(imageSource),
+      `/api/download-proxy?url=${encodeURIComponent(imageSource)}&filename=${encodeURIComponent(filename)}`,
+      imageSource
+    ];
+    let loadedBlob: Blob | null = null;
+    for (const cand of candidates) {
+      try {
+        const res = await fetch(cand);
+        if (!res.ok) continue;
+        const cType = (res.headers.get('content-type') || '').toLowerCase();
+        if (cType.includes('html') || cType.includes('json') || cType.includes('text')) continue;
+        const b = await res.blob();
+        if (b.size >= 200) {
+          const header = new Uint8Array(await b.slice(0, 4).arrayBuffer());
+          if (header[0] !== 0x3c && header[0] !== 0x7b) {
+            loadedBlob = b;
+            break;
+          }
+        }
+      } catch {}
+    }
+    if (!loadedBlob) {
+      throw new Error('Could not fetch valid image data for catalog scaling');
+    }
+    blob = loadedBlob;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Invalid image format for catalog scaling'));
+      img.src = objectUrl;
+    });
+
+    const w = img.naturalWidth || 616;
+    const h = img.naturalHeight || 1024;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return blob;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Sample corner pixel from original image to fill any fractional letterboxing seamlessly
+    try {
+      const sampleCanvas = document.createElement('canvas');
+      sampleCanvas.width = 1;
+      sampleCanvas.height = 1;
+      const sCtx = sampleCanvas.getContext('2d');
+      if (sCtx) {
+        sCtx.drawImage(img, 0, 0, 1, 1, 0, 0, 1, 1);
+        const p = sCtx.getImageData(0, 0, 1, 1).data;
+        ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+      } else {
+        ctx.fillStyle = '#6e6e73';
+      }
+    } catch {
+      ctx.fillStyle = '#6e6e73';
+    }
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    // Center and scale proportionally to fit 1807x3000
+    const scale = Math.max(targetW / w, targetH / h);
+    const renderW = Math.round(w * scale);
+    const renderH = Math.round(h * scale);
+    const offsetX = Math.round((targetW - renderW) / 2);
+    const offsetY = Math.round((targetH - renderH) / 2);
+
+    ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+
+    const isJpg = /\.jpe?g$/i.test(filename);
+    const mime = isJpg ? 'image/jpeg' : 'image/png';
+    const quality = isJpg ? 0.95 : undefined;
+
+    return await new Promise<Blob>((resolve) => {
+      canvas.toBlob((b) => {
+        if (b && b.size > 200) {
+          resolve(b);
+        } else {
+          resolve(blob);
+        }
+      }, mime, quality);
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -852,7 +961,7 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
 export async function downloadDirectFile(
   url: string,
   filename: string,
-  options?: { catalogSquare?: boolean; targetDim?: number }
+  _options?: { catalogSquare?: boolean; targetDim?: number }
 ): Promise<void> {
   if (!url || typeof url !== 'string') {
     alert('Download failed: Invalid or missing file URL.');
@@ -861,16 +970,16 @@ export async function downloadDirectFile(
 
   const isVideo = url.endsWith('.mp4') || url.includes('.mp4');
 
-  // If catalog square is explicitly requested
-  if (!isVideo && options?.catalogSquare === true) {
+  // Scale every non-video downloaded image to exact Width 1807 x Height 3000 pixels
+  if (!isVideo) {
     try {
-      const squaredBlob = await formatCatalogSquare(url, options?.targetDim || 2400, filename);
-      if (squaredBlob && squaredBlob.size >= 200) {
-        triggerBlobDownload(squaredBlob, filename);
+      const catalogBlob = await scaleToEcommerceCatalog(url, 1807, 3000, filename);
+      if (catalogBlob && catalogBlob.size >= 200) {
+        triggerBlobDownload(catalogBlob, filename);
         return;
       }
     } catch (err) {
-      console.warn('[download] formatCatalogSquare failed, falling back to direct download:', err);
+      console.warn('[download] scaleToEcommerceCatalog failed, falling back to direct download:', err);
     }
   }
 

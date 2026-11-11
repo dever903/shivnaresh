@@ -2472,13 +2472,16 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
     }
 
-    /* Model generation limits (Total quota) */
-    const maxModels = typeof req.user.maxModels === 'number' ? req.user.maxModels : 0;
+    /* Model generation limits (Total quota: 1 photoshoot = 5 generations) */
+    const rawPhotoshoots = typeof req.user.photoshoots === 'number' && req.user.photoshoots > 0
+      ? req.user.photoshoots
+      : (typeof req.user.maxModels === 'number' && req.user.maxModels > 0 ? req.user.maxModels : 0);
+    const maxAllowedGenerations = rawPhotoshoots > 0 ? rawPhotoshoots * 5 : 0;
     const modelsGenerated = typeof req.user.modelsGenerated === 'number' ? req.user.modelsGenerated : 0;
-    if (maxModels > 0 && modelsGenerated >= maxModels) {
+    if (maxAllowedGenerations > 0 && modelsGenerated >= maxAllowedGenerations) {
       return res.status(403).json({
-        error: 'model_limit_reached',
-        message: `You have reached your allocated model limit (${modelsGenerated}/${maxModels} models generated). Contact administrator to increase your model quota.`,
+        error: 'photoshoot_limit_reached',
+        message: `You have reached your allocated photoshoot limit (${Math.floor(modelsGenerated / 5)}/${rawPhotoshoots} photoshoots · ${modelsGenerated}/${maxAllowedGenerations} images generated). Contact administrator to increase your photoshoot quota.`,
       });
     }
 
@@ -2631,7 +2634,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the athlete model in Image 1 with the authentic sportswear garment shown across the reference photos (${viewLabels}). ` +
-          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ';
+          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ' +
+          'SLEEVE LENGTH & SILHOUETTE INTEGRITY: Accurately reproduce the exact sleeve length of the reference garment — if the garment is a long-sleeve hoodie, jacket, or sweatshirt, it MUST be rendered with full-length long sleeves covering arms down to the wrists; never render half sleeves or short sleeves on a long-sleeve garment even if the base model pose had bare arms or wore a polo shirt. ' +
+          'TEXT & LOGO FIDELITY: Maintain clean typographic lines on brand logos and graphics (such as "SHIV NARESH" on sleeves and chest artwork) with straight sharp edges matching reference garments. ';
 
         if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
           agentPrompt += 'TARGET LOWER BODY / PANTS: Dress the lower body (legs) of the athlete in Image 1 with the bottom garment from the reference views. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and athletic posture intact. ';
@@ -3868,7 +3873,9 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
       tier: u.tier || 'free',
       maxVideos: typeof u.maxVideos === 'number' ? u.maxVideos : 15,
       videosGenerated: typeof u.videosGenerated === 'number' ? u.videosGenerated : 0,
-      maxModels: typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10),
+      photoshoots: typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10)),
+      maxModels: typeof u.maxModels === 'number' ? u.maxModels : (typeof u.photoshoots === 'number' ? u.photoshoots : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10)),
+      maxGenerations: (typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10))) * 5,
       modelsGenerated: typeof u.modelsGenerated === 'number' ? u.modelsGenerated : 0,
       dailyModelsUsed: typeof u.dailyModelsUsed === 'number' ? u.dailyModelsUsed : 0,
       dailyVideosUsed: typeof u.dailyVideosUsed === 'number' ? u.dailyVideosUsed : 0,
@@ -3985,7 +3992,16 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.credits === 'number') patch.credits = Math.max(0, Math.floor(body.credits));
     if (typeof body.maxVideos === 'number') patch.maxVideos = Math.max(0, Math.floor(body.maxVideos));
     if (typeof body.videosGenerated === 'number') patch.videosGenerated = Math.max(0, Math.floor(body.videosGenerated));
-    if (typeof body.maxModels === 'number') patch.maxModels = Math.max(0, Math.floor(body.maxModels));
+    if (typeof body.maxModels === 'number') {
+      const val = Math.max(0, Math.floor(body.maxModels));
+      patch.maxModels = val;
+      patch.photoshoots = val;
+    }
+    if (typeof body.photoshoots === 'number') {
+      const val = Math.max(0, Math.floor(body.photoshoots));
+      patch.photoshoots = val;
+      patch.maxModels = val;
+    }
     if (typeof body.modelsGenerated === 'number') patch.modelsGenerated = Math.max(0, Math.floor(body.modelsGenerated));
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
