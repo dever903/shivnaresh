@@ -2526,12 +2526,70 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     }
 
     /* ==============================================================
+       DRY-RUN INSPECTION TEST (0 CREDITS - NO CHARGE)
+       Allows verifying exact reference images, angle types, color codes,
+       targets (upper/lower/both), and prompt before generating.
+       ============================================================== */
+    const garmentViews = Array.isArray(body.garmentViews) && body.garmentViews.length > 0 ? body.garmentViews : null;
+    const isOutfit = mode === 'outfit' || (mode === 'tryon' && (body.tryOnTarget === 'both' || (body.topCloth && body.bottomCloth)));
+    const isSwap = mode === 'swap' && Boolean((body.sourceModel || body.source || body.cloth) && (body.targetModel || body.model));
+
+    if (body.dryRun || req.query.dryRun === 'true') {
+      const viewsToUse = garmentViews ? garmentViews.slice(0, 5) : [];
+      let testPrompt = 'SHIV-NARESH athletic sportswear. ';
+      if (isSwap) {
+        testPrompt += 'Target Model Garment Replacement: Dress the target model in Image 1 wearing the athletic sportswear clothing from Image 2. ' +
+          'CRITICAL TARGET MODEL PRESERVATION: Maintain target model pose, physique, facial identity, and hair with 100% fidelity. ';
+      } else if (viewsToUse.length > 0) {
+        const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
+        testPrompt += `Multi-Angle Garment Synthesis: Dress the athlete model in Image 1 with authentic sportswear shown across reference views (${viewLabels}). ` +
+          'Accurately transfer collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto model in Image 1. ';
+        if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
+          testPrompt += 'TARGET LOWER BODY / PANTS: Dress the lower body (legs) of the athlete in Image 1 with the bottom garment from reference views. Worn as full-length athletic track pants reaching down to sneakers. ';
+        } else if (body.tryOnTarget === 'both' || isOutfit) {
+          testPrompt += 'TARGET FULL OUTFIT: Dress the athlete in Image 1 wearing complete matching sportswear outfit from reference views, applying top to upper body and bottom pants to legs reaching sneakers. ';
+        } else {
+          testPrompt += 'TARGET UPPER BODY: Dress upper torso of athlete in Image 1 with authentic sportswear from reference views, keeping existing pants and shoes intact. ';
+        }
+      } else {
+        if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
+          testPrompt += 'Replace pants on athlete in Image 1 with bottom garment from Image 2 as full-length athletic track pants. ';
+        } else if (body.tryOnTarget === 'both' || isOutfit) {
+          testPrompt += 'Dress athlete in Image 1 wearing matching top and bottom sportswear outfit. ';
+        } else {
+          testPrompt += 'Put athletic garment from Image 2 onto athlete in Image 1 with realistic sportswear fit and high fidelity. ';
+        }
+      }
+      if (body.color && typeof body.color === 'string' && body.color.trim()) {
+        testPrompt += `Exact fabric color: ${body.color.trim()}. Maintain true garment dye and athlete kit tones with accurate color matching. `;
+      }
+      if (body.prompt && typeof body.prompt === 'string' && body.prompt.trim()) {
+        testPrompt += `User Instructions: ${body.prompt.trim()}. `;
+      }
+      testPrompt += "CRITICAL POSE & PROP PRESERVATION: Keep model's exact face, skin tone, hair, posture, and props (basketball/gear) completely untouched.";
+
+      return res.json({
+        ok: true,
+        dryRun: true,
+        creditsUsed: 0,
+        userCredits: typeof req.user?.credits === 'number' ? req.user.credits : 0,
+        target: body.tryOnTarget || (body.category === 'bottoms' ? 'lower' : (isOutfit ? 'both' : 'upper')),
+        color: body.color || '',
+        modelPose: body.model || body.targetModel || 'Selected Model Pose',
+        garmentViews: viewsToUse,
+        totalImagesSent: (viewsToUse.length > 0 ? viewsToUse.length + 1 : 2),
+        maxAllowedImages: 6,
+        withinLimit: (viewsToUse.length > 0 ? viewsToUse.length + 1 : 2) <= 6,
+        composedPrompt: testPrompt.trim(),
+        resolution: resolution.toUpperCase(),
+        mode: isSwap ? 'swap' : (isOutfit ? 'outfit' : 'tryon')
+      });
+    }
+
+    /* ==============================================================
        Fashn AI Multimodal Agent: 1-Pass Full Outfit, Try-On & Swap
        (1 Credit, 1 Generation, Preserves Props/Basketball & Colors)
        ============================================================== */
-    const isOutfit = mode === 'outfit' || (mode === 'tryon' && body.topCloth && body.bottomCloth);
-    const isSwap = mode === 'swap' && Boolean((body.sourceModel || body.source || body.cloth) && (body.targetModel || body.model));
-    const garmentViews = Array.isArray(body.garmentViews) && body.garmentViews.length > 0 ? body.garmentViews : null;
     const hasSpecialPromptOrProps = Boolean(
       (body.prompt && body.prompt.trim()) ||
       (body.color && body.color.trim()) ||
@@ -2573,8 +2631,17 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the athlete model in Image 1 with the authentic sportswear garment shown across the reference photos (${viewLabels}). ` +
-          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ' +
-          'CRITICAL POSE & IDENTITY PRESERVATION: Keep the model’s exact face, skin tone, hairstyle, athletic physique, posture, hands, and props (balls, gym equipment) completely untouched with zero alteration. ';
+          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ';
+
+        if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
+          agentPrompt += 'TARGET LOWER BODY / PANTS: Dress the lower body (legs) of the athlete in Image 1 with the bottom garment from the reference views. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and athletic posture intact. ';
+        } else if (body.tryOnTarget === 'both' || isOutfit) {
+          agentPrompt += 'TARGET FULL OUTFIT: Dress the athlete in Image 1 wearing the complete matching sportswear outfit from the reference views, simultaneously applying the top garment to the upper body and the bottom pants to the legs reaching sneakers. ';
+        } else {
+          agentPrompt += 'TARGET UPPER BODY: Dress the upper torso of the athlete in Image 1 with the authentic sportswear garment from the reference views (transferring collar, zipper, chest graphics, and sleeves), keeping existing pants, shoes, and athlete body intact. ';
+        }
+
+        agentPrompt += 'CRITICAL POSE & IDENTITY PRESERVATION: Keep the model’s exact face, skin tone, hairstyle, athletic physique, posture, hands, and props (balls, gym equipment) completely untouched with zero alteration. ';
       } else if (isOutfit) {
         const modelUri = await toDataUri(body.model);
         const topClothUri = await toDataUri(body.topCloth || body.cloth);

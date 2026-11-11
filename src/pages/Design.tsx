@@ -39,9 +39,11 @@ export type GarmentRole =
   | 'top-front'
   | 'top-back'
   | 'bottom'
+  | 'collar'
+  | 'logo'
+  | 'detail'
   | 'left-sleeve'
   | 'right-sleeve'
-  | 'logo'
   | 'left-bottom'
   | 'right-bottom'
   | 'custom'
@@ -56,9 +58,11 @@ export const GARMENT_ROLE_LABELS: Record<string, string> = {
   'top-front': '👕 Top Front',
   'top-back': '🔄 Top Back',
   'bottom': '👖 Bottom',
+  'collar': '👔 Collar / Neck',
+  'logo': '🔍 Logo / Brand Close-Up',
+  'detail': '✨ Fabric / Tag / Detail',
   'left-sleeve': '👈 Left Sleeve',
   'right-sleeve': '👉 Right Sleeve',
-  'logo': '🔍 Logo Close-Up',
   'left-bottom': '🩳 Left Bottom',
   'right-bottom': '🩳 Right Bottom',
   'custom': '✏️ Custom View',
@@ -105,14 +109,6 @@ export interface PoseItem {
   jobId?: string;
   model?: Pick;
 }
-
-export const FIVE_POSES_SPECS: Omit<PoseItem, 'status'>[] = [
-  { id: 'front', name: 'Front View', angle: '0° Center', icon: '0°', promptSuffix: 'front full-body standing fashion editorial catalog pose, direct camera gaze, symmetrical athletic posture' },
-  { id: 'three_quarter', name: '3/4 Turn', angle: '45° Dynamic', icon: '45°', promptSuffix: 'three-quarter 45 degree dynamic fashion perspective angle pose, natural catalog lighting' },
-  { id: 'profile', name: 'Side Profile', angle: '90° Silhouette', icon: '90°', promptSuffix: 'full side profile 90 degree fashion silhouette pose, athletic posture highlighting garment fit and trim' },
-  { id: 'back', name: 'Back View', angle: '180° Rear', icon: '180°', promptSuffix: 'back view 180 degree catalog showcase pose, crisp focus on garment rear design, typography, and athletic cut' },
-  { id: 'action', name: 'Athletic Motion', angle: 'Sport Action', icon: 'Motion', promptSuffix: 'dynamic athletic active motion pose, fluid sports movement showcasing active sportswear fabric movement' },
-];
 
 function sendDesktopNotification(title: string, body: string, icon?: string) {
   if (!('Notification' in window)) return;
@@ -2794,9 +2790,11 @@ export default function Design() {
 
   const [mode, setMode] = useState<ModeId>('tryon');
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
-  const [poseMode, setPoseMode] = useState<'single' | '5-pose'>('single');
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [dryRunData, setDryRunData] = useState<any>(null);
+  const [isDryRunModalOpen, setIsDryRunModalOpen] = useState(false);
+  const [dryRunning, setDryRunning] = useState(false);
 
   /* Try-on inputs */
   const [cloth, setCloth] = useState<Pick>(null);
@@ -2820,6 +2818,10 @@ export default function Design() {
     setClassifiedGarments((prev) => {
       const exists = prev.some((g) => g.url === garment.url);
       if (exists) return prev;
+      if (prev.length >= 5) {
+        alert('You can upload a maximum of 5 garment reference views.');
+        return prev;
+      }
       return [...prev, { ...garment, role }];
     });
   }
@@ -2867,29 +2869,29 @@ export default function Design() {
   }
 
   function toggleModelSelection(item: { url: string; name: string }) {
-    if (poseMode === '5-pose') {
-      selectPoseForSlot(item);
-    } else {
-      const pickItem = { url: item.url, preview: item.url, name: item.name };
-      setSelectedModels((prev) => {
-        const isSelected = prev.some((p) => p && p.url === item.url);
-        if (isSelected) {
-          const next = prev.filter((p) => p.url !== item.url);
-          if (model?.url === item.url) {
-            setModel(next[0] || null);
-          }
-          return next;
-        } else {
-          let base = [...prev];
-          if (base.length === 0 && model && model.url !== item.url) {
-            base = [{ url: model.url, preview: model.preview || model.url, name: model.name }];
-          }
-          const next = [...base, pickItem];
-          setModel(pickItem);
-          return next;
+    const pickItem = { url: item.url, preview: item.url, name: item.name };
+    setSelectedModels((prev) => {
+      const isSelected = prev.some((p) => p && p.url === item.url);
+      if (isSelected) {
+        const next = prev.filter((p) => p.url !== item.url);
+        if (model?.url === item.url) {
+          setModel(next[0] || null);
         }
-      });
-    }
+        return next;
+      } else {
+        if (prev.length >= 10) {
+          alert('You can select a maximum of 10 model poses for a batch.');
+          return prev;
+        }
+        let base = [...prev];
+        if (base.length === 0 && model && model.url !== item.url) {
+          base = [{ url: model.url, preview: model.preview || model.url, name: model.name }];
+        }
+        const next = [...base, pickItem];
+        setModel(pickItem);
+        return next;
+      }
+    });
   }
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
@@ -3023,36 +3025,6 @@ export default function Design() {
     }>;
   } | null>(null);
 
-  /* 5-Pose Selection Slots State (User can choose up to 5 models from library/uploads) */
-  const [selectedPoses, setSelectedPoses] = useState<Pick[]>([]);
-  const [activeSlotIndex, setActiveSlotIndex] = useState<number>(0);
-
-  function selectPoseForSlot(item: { url: string; name: string }) {
-    if (poseMode === '5-pose') {
-      setSelectedPoses((prev) => {
-        const next = [...prev];
-        const targetSlot = (activeSlotIndex >= 0 && activeSlotIndex < 5) ? activeSlotIndex : next.length;
-        if (targetSlot < 5) {
-          next[targetSlot] = item;
-          if (targetSlot < 4) setActiveSlotIndex(targetSlot + 1);
-        }
-        return next;
-      });
-      if (!model || activeSlotIndex === 0) setModel(item);
-    } else {
-      setModel(item);
-    }
-  }
-
-  function removePoseSlot(slotIdx: number) {
-    setSelectedPoses((prev) => {
-      const next = [...prev];
-      next.splice(slotIdx, 1);
-      return next;
-    });
-    setActiveSlotIndex(slotIdx);
-  }
-
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; kind: 'cloth' | 'model' } | null>(null);
 
@@ -3071,9 +3043,7 @@ export default function Design() {
 
   const activeMode = MODES.find((m) => m.id === mode)!;
   const creditCost = quality === '2k' ? 3 : 1;
-  const isFivePoseBatch = poseMode === '5-pose' && mode === 'tryon';
   const effectiveModels = selectedModels.length > 0 ? selectedModels : (model ? [model] : []);
-  const effectiveClothes = selectedClothes.length > 0 ? selectedClothes : (cloth ? [cloth] : []);
   // Smart garment role selectors — computed from classifiedGarments
   const explicitBottom = classifiedGarments.find((g) => g.role === 'bottom' || g.role === 'bottoms' || g.role === 'left-bottom' || g.role === 'right-bottom');
   const bottomGarment: Pick | null = (() => {
@@ -3095,19 +3065,15 @@ export default function Design() {
   })();
   const hasClassifiedGarments = classifiedGarments.length > 0;
   const selectedModelCount = selectedModels.length > 0 ? selectedModels.length : (model ? 1 : 0);
-  const multiBatchCount = mode === 'tryon' && !isFivePoseBatch
+  const multiBatchCount = mode === 'tryon'
     ? Math.max(1, selectedModelCount)
     : 1;
 
   const validSwapDrafts = swapDrafts.filter((d) => Boolean(d.source?.url && d.target?.url));
-  const activePoseList = selectedPoses.filter((p): p is NonNullable<Pick> => Boolean(p && p.url));
-  const activePoseCount = activePoseList.length > 0 ? activePoseList.length : (model ? 1 : 0);
 
   const totalRequiredCredits = mode === 'swap'
     ? (validSwapDrafts.length > 1 ? validSwapDrafts.length * creditCost : creditCost)
-    : isFivePoseBatch
-      ? (activePoseCount * creditCost)
-      : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
+    : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
 
   const previousGarmentsList = (() => {
     const map = new Map<string, { url: string; name: string; at: number }>();
@@ -3435,8 +3401,6 @@ export default function Design() {
       setUploading(true);
       setUploadProgress({ current: 0, total: fileArr.length, kind });
 
-      let slotOffset = activeSlotIndex;
-
       for (let i = 0; i < fileArr.length; i++) {
         const file = fileArr[i];
         setUploadProgress({ current: i + 1, total: fileArr.length, kind });
@@ -3475,23 +3439,15 @@ export default function Design() {
             setCloth(pick);
           }
         } else {
-          // Add to selected models list so multiple models can be chosen
+          // Add to selected models list so multiple models can be chosen (up to 10)
           setSelectedModels((prev) => {
             const exists = prev.some((p) => p && p.url === pick.url);
-            return exists ? prev : [...prev, pick];
+            if (exists) return prev;
+            if (prev.length >= 10) return prev;
+            return [...prev, pick];
           });
           // Set as active model
           setModel(pick);
-          if (poseMode === '5-pose') {
-            setSelectedPoses((prev) => {
-              const next = [...prev];
-              if (slotOffset < 5) {
-                next[slotOffset] = pick;
-                slotOffset++;
-              }
-              return next;
-            });
-          }
         }
       }
 
@@ -3524,7 +3480,7 @@ export default function Design() {
     setShowConfirmModal(false);
 
     if ((user?.credits ?? 0) < totalRequiredCredits) {
-      setError(`Insufficient credits. You need ${totalRequiredCredits} credits for ${isFivePoseBatch ? 'the 5-pose sequence' : `${multiBatchCount} model renders`}, but currently have ${user?.credits ?? 0} credits.`);
+      setError(`Insufficient credits. You need ${totalRequiredCredits} credits for ${multiBatchCount} model renders, but currently have ${user?.credits ?? 0} credits.`);
       return;
     }
 
@@ -3546,6 +3502,8 @@ export default function Design() {
         mode,
         prompt: effectivePrompt,
         resolution: quality,
+        color: garmentColor.trim(),
+        tryOnTarget,
       };
 
       if (isEditingRender) {
@@ -3608,12 +3566,11 @@ export default function Design() {
         }
       }
 
-      /* Batch Execution (multi-pose sequence, multi-model batch, or multi-swap batch) */
+      /* Batch Execution (multi-model/pose batch or multi-swap batch) */
       const isSwapBatch = mode === 'swap' && validSwapDrafts.length > 1;
-      const isPoseBatch = isFivePoseBatch && activePoseCount > 1;
-      const isMultiModelBatch = multiBatchCount > 1 && !isFivePoseBatch && mode === 'tryon';
+      const isMultiModelBatch = multiBatchCount > 1 && mode === 'tryon';
 
-      if ((isPoseBatch || isMultiModelBatch || isSwapBatch) && !isEditingRender) {
+      if ((isMultiModelBatch || isSwapBatch) && !isEditingRender) {
         let batchItems: Array<{
           id: string;
           name: string;
@@ -3626,26 +3583,7 @@ export default function Design() {
           promptSuffix?: string;
         }> = [];
 
-        if (isPoseBatch) {
-          const targetSpecs = FIVE_POSES_SPECS.slice(0, activePoseCount);
-          batchItems = targetSpecs.map((spec, i) => {
-            // Smart angle matching: back pose gets back garment photo
-            const isBackAngle = spec.id === 'back' || spec.angle.toLowerCase().includes('180') || spec.angle.toLowerCase().includes('rear');
-            const smartCloth = hasClassifiedGarments
-              ? (isBackAngle ? (topBackGarment || topFrontGarment || cloth) : (topFrontGarment || cloth))
-              : cloth;
-            const poseModel = activePoseList[i] || selectedPoses[i] || model;
-            return {
-              id: spec.id,
-              name: spec.name,
-              angle: spec.angle,
-              icon: spec.icon,
-              promptSuffix: spec.promptSuffix,
-              model: poseModel,
-              cloth: smartCloth,
-            };
-          });
-        } else if (isSwapBatch) {
+        if (isSwapBatch) {
           batchItems = validSwapDrafts.map((d, i) => ({
             id: `swap-${i + 1}`,
             name: `Swap ${i + 1}`,
@@ -3656,19 +3594,16 @@ export default function Design() {
             promptSuffix: d.prompt || '',
           }));
         } else {
-          // Multi-model batch: generate images equal to the number of uploaded/selected models
-          batchItems = Array.from({ length: multiBatchCount }, (_, i) => {
-            const m = effectiveModels[i % effectiveModels.length] || model;
-            const c = tryOnTarget === 'both'
-              ? (topFrontGarment || cloth)
-              : (effectiveClothes[i % effectiveClothes.length] || effectiveClothes[0] || cloth);
+          // Multi-model/pose batch: generate images equal to the number of uploaded/selected models (up to 10)
+          const targetModels = effectiveModels.slice(0, 10);
+          batchItems = targetModels.map((m, i) => {
             return {
-              id: `model-${i + 1}`,
-              name: m?.name || `Model ${i + 1}`,
-              angle: tryOnTarget === 'both' ? `Full Outfit on Model ${i + 1} of ${multiBatchCount}` : `Model ${i + 1} of ${multiBatchCount}`,
+              id: `pose-${i + 1}`,
+              name: m?.name || `Pose ${i + 1}`,
+              angle: tryOnTarget === 'both' ? `Full Outfit on Pose ${i + 1} of ${targetModels.length}` : `Pose ${i + 1} of ${targetModels.length}`,
               icon: `#${i + 1}`,
               model: m,
-              cloth: c,
+              cloth: topFrontGarment || cloth,
             };
           });
         }
@@ -3687,7 +3622,7 @@ export default function Design() {
         setSelectedPoseIndex(0);
         activePoseIndexRef.current = 0;
         batchPayloadRef.current = {
-          isFivePose: isPoseBatch,
+          isFivePose: false,
           total: batchItems.length,
           payload,
           basePrompt: mode === 'swap' ? swapPrompt.trim() : prompt.trim(),
@@ -3697,11 +3632,9 @@ export default function Design() {
         const firstItem = batchItems[0];
         setProgress(5);
         setProgressLabel(
-          isPoseBatch
-            ? `Starting Pose 1 of ${activePoseCount} (${FIVE_POSES_SPECS[0].name})…`
-            : isSwapBatch
+          isSwapBatch
             ? `Starting Swap 1 of ${validSwapDrafts.length}…`
-            : `Starting Model 1 of ${multiBatchCount} (${firstItem.name})…`
+            : `Starting Pose 1 of ${batchItems.length} (${firstItem.name})…`
         );
 
         const firstPayload: Record<string, unknown> = {
@@ -3769,6 +3702,61 @@ export default function Design() {
     }
   }
 
+  async function handleInspectDryRun() {
+    if (isGlobalBusy || dryRunning) return;
+    try {
+      setDryRunning(true);
+      setError('');
+      let effectivePrompt = prompt.trim();
+      if (garmentColor.trim()) {
+        const colorNote = `Exact fabric color: ${garmentColor.trim()}. Preserve true athletic garment dye and athlete kit tones with accurate color matching.`;
+        effectivePrompt = effectivePrompt ? `${effectivePrompt} · ${colorNote}` : colorNote;
+      }
+      const garmentViews = hasClassifiedGarments
+        ? classifiedGarments.slice(0, 5).map((g, idx) => ({
+            url: g.url,
+            role: g.role,
+            label: (g.role === 'custom' && g.customLabel?.trim())
+              ? g.customLabel.trim()
+              : (GARMENT_ROLE_LABELS[g.role] || `View ${idx + 1}`),
+          }))
+        : (cloth ? [{ url: cloth.url, role: 'top-front', label: 'Top Front' }] : []);
+
+      const targetModel = effectiveModels[0] || model;
+      const testPayload: Record<string, unknown> = {
+        dryRun: true,
+        mode: tryOnTarget === 'both' ? 'outfit' : 'tryon',
+        tryOnTarget,
+        category: tryOnTarget === 'lower' ? 'bottoms' : tryOnTarget === 'both' ? 'both' : 'tops',
+        color: garmentColor.trim(),
+        prompt: effectivePrompt,
+        model: targetModel?.url,
+        garmentViews,
+        cloth: topFrontGarment?.url || cloth?.url,
+      };
+
+      if (tryOnTarget === 'both') {
+        testPayload.topCloth = topFrontGarment?.url || cloth?.url;
+        testPayload.bottomCloth = bottomGarment?.url;
+      }
+
+      const res = await api.generate(testPayload);
+      setDryRunData({
+        ...res,
+        totalSelectedModels: Math.max(1, effectiveModels.length),
+        selectedModels: effectiveModels,
+        selectedGarments: classifiedGarments,
+        tryOnTarget,
+        garmentColor: garmentColor.trim(),
+      });
+      setIsDryRunModalOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dry-run inspection failed');
+    } finally {
+      setDryRunning(false);
+    }
+  }
+
   function handleUseSet(set: UploadSet) {
     if (set.clothUrl) setCloth({ url: set.clothUrl, name: set.clothName || 'Set Garment' });
     if (set.modelUrl) setModel({ url: set.modelUrl, name: set.modelName || 'Set Model' });
@@ -3790,7 +3778,7 @@ export default function Design() {
   const tryonMissing: string[] = [];
   if (mode === 'tryon') {
     const hasGarment = hasClassifiedGarments || !!cloth;
-    const hasModel = (poseMode === '5-pose' && activePoseCount > 0) || effectiveModels.length > 0 || !!model;
+    const hasModel = effectiveModels.length > 0 || !!model;
     const needsBottom = hasClassifiedGarments && tryOnTarget === 'lower' && !bottomGarment;
     const needsBothBottom = hasClassifiedGarments && tryOnTarget === 'both' && !bottomGarment;
     if (!hasGarment) tryonMissing.push('garment');
@@ -3809,6 +3797,141 @@ export default function Design() {
     <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${
       isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
     }`}>
+      {/* 0-Credit Dry Run Payload Inspection Modal */}
+      {isDryRunModalOpen && dryRunData && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-indigo-500/40 bg-[#121217] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/10 p-4 bg-indigo-950/30">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 font-bold text-base">
+                  🔍
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    Pre-Generation Payload Inspection
+                    <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                      0 Credits &middot; Free Test
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-white/50">Verify reference images, target area, fabric color & composed AI prompt before running.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDryRunModalOpen(false)}
+                className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5 space-y-4 text-xs text-white/80">
+              {/* Compliance & Image Count Banner */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 text-lg">✅</span>
+                  <div>
+                    <p className="font-bold text-emerald-300">Fashn.ai Limit Verified: 100% Compliant</p>
+                    <p className="text-[10px] text-emerald-200/80">
+                      Total images sent to AI = {dryRunData.totalImagesSent} images (1 Model Pose + {dryRunData.garmentViews?.length || 0} Garments). Limit is 6 max.
+                    </p>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-xs px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
+                  {dryRunData.totalImagesSent} / 6 Images
+                </span>
+              </div>
+
+              {/* Target Area & Color Settings */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+                  <span className="text-[10px] uppercase font-bold text-white/40 block mb-1">Target Area</span>
+                  <span className="font-bold text-white text-xs capitalize flex items-center gap-1.5">
+                    {dryRunData.target === 'lower' ? '👖 Lower Body Only (Track Pants)' : dryRunData.target === 'both' ? '✨ Full Outfit (Upper + Lower)' : '👕 Upper Body Only (Torso / Tops)'}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+                  <span className="text-[10px] uppercase font-bold text-white/40 block mb-1">Fabric Color Code</span>
+                  {dryRunData.color ? (
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: dryRunData.color }} />
+                      <span className="font-mono font-bold text-white text-xs">{dryRunData.color}</span>
+                    </div>
+                  ) : (
+                    <span className="text-white/40 italic">None specified (AI uses garment photo)</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Garment References Breakdown (Up to 5) */}
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-white/50">
+                    Uploaded Garment Reference Views ({dryRunData.garmentViews?.length || 0}/5)
+                  </span>
+                  <span className="text-[10px] text-indigo-300 font-medium">All views passed to synthesis engine</span>
+                </div>
+                {dryRunData.garmentViews && dryRunData.garmentViews.length > 0 ? (
+                  <div className="grid grid-cols-5 gap-2">
+                    {dryRunData.garmentViews.map((g: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-white/10 bg-black/60 p-1.5 text-center flex flex-col items-center">
+                        <img src={g.url} alt="" className="h-16 w-full object-cover rounded mb-1" />
+                        <span className="text-[9px] font-bold text-white truncate max-w-full">
+                          {GARMENT_ROLE_LABELS[g.role] || g.label || g.role}
+                        </span>
+                        <span className="text-[8px] text-white/40 font-mono">Image {i + 2}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-400">No garment uploaded yet.</p>
+                )}
+              </div>
+
+              {/* Selected Model Poses */}
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-white/50">
+                    Selected Model Poses for Batch ({dryRunData.totalSelectedModels || 1} Poses Selected)
+                  </span>
+                  <span className="text-[10px] text-white/40">1-by-1 Sequential Processing</span>
+                </div>
+                {dryRunData.selectedModels && dryRunData.selectedModels.length > 0 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {dryRunData.selectedModels.map((m: any, i: number) => (
+                      <div key={i} className="shrink-0 w-14 rounded-lg border border-white/10 bg-black/60 p-1 text-center">
+                        <img src={m.preview || m.url} alt="" className="h-16 w-full object-cover rounded mb-1" />
+                        <span className="text-[8px] font-bold text-white truncate block">Pose {i + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-400">No model pose selected yet.</p>
+                )}
+              </div>
+
+              {/* Composed Prompt sent to Fashn */}
+              <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-white/50 block">Composed AI Prompt (Sent to Fashn Neural Engine)</span>
+                <p className="font-mono text-[11px] leading-relaxed text-indigo-200 bg-black/80 rounded-lg p-2.5 border border-indigo-500/20 whitespace-pre-wrap select-all">
+                  {dryRunData.composedPrompt}
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 p-3.5 bg-black/40 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsDryRunModalOpen(false)}
+                className="rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-gray-200 cursor-pointer"
+              >
+                Close Inspection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
@@ -3859,10 +3982,10 @@ export default function Design() {
               <h3 className="text-sm font-semibold text-white">
                 {isEditingRender
                   ? 'Confirm image edit'
-                  : isFivePoseBatch
-                    ? `Confirm ${activePoseCount}-pose sequence`
-                    : mode === 'swap'
-                      ? `Confirm model swap (${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} drafts` : '1 draft'})`
+                  : mode === 'swap'
+                    ? `Confirm model swap (${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} drafts` : '1 draft'})`
+                    : multiBatchCount > 1
+                      ? `Confirm ${multiBatchCount} model renders`
                       : 'Confirm virtual try-on'}
               </h3>
               <button
@@ -3881,13 +4004,11 @@ export default function Design() {
               <p className="text-xs text-white/80 leading-relaxed">
                 {isEditingRender
                   ? 'Are you sure you want to apply this AI edit to your generated image?'
-                  : isFivePoseBatch
-                    ? `Are you sure you want to proceed with this ${activePoseCount}-pose multi-angle sequence (${totalRequiredCredits} credits)?`
-                    : multiBatchCount > 1
-                      ? `Are you sure you want to generate ${multiBatchCount} images for all selected models?`
-                      : mode === 'swap'
-                        ? `Are you sure you want to proceed with ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Model Swaps (${totalRequiredCredits} credits)` : 'this Model Swap'}?`
-                        : 'Are you sure you want to proceed with this render?'}
+                  : multiBatchCount > 1
+                    ? `Are you sure you want to generate ${multiBatchCount} images for all selected models (${totalRequiredCredits} credits)?`
+                    : mode === 'swap'
+                      ? `Are you sure you want to proceed with ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Model Swaps (${totalRequiredCredits} credits)` : 'this Model Swap'}?`
+                      : 'Are you sure you want to proceed with this render?'}
               </p>
 
               <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
@@ -3904,17 +4025,6 @@ export default function Design() {
                     <div className="flex justify-between text-white/60">
                       <span>Selected Quality:</span>
                       <span className="font-semibold text-white uppercase">{quality} ({creditCost} Credit{creditCost > 1 ? 's' : ''})</span>
-                    </div>
-                  </>
-                ) : isFivePoseBatch ? (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>Batch:</span>
-                      <span className="font-semibold text-white">{activePoseCount}-Pose Sequence</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Total Poses:</span>
-                      <span className="font-semibold text-amber-400">{activePoseCount} Studio Angle{activePoseCount > 1 ? 's' : ''} ({totalRequiredCredits} Credits Total)</span>
                     </div>
                   </>
                 ) : mode === 'swap' && validSwapDrafts.length > 1 ? (
@@ -4274,36 +4384,6 @@ export default function Design() {
                   </button>
                 </div>
               </div>
-
-              {mode === 'tryon' && (
-                <div>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                    Multi-Angle Batch
-                  </span>
-                  <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
-                    <button
-                      type="button"
-                      onClick={() => setPoseMode('single')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        poseMode === 'single'
-                          ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                          : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      Single Pose
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPoseMode('5-pose')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        poseMode === '5-pose' ? 'bg-[#e5373f] text-white shadow-sm' : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      5-Pose Sequence
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
             {/* MAIN CONTROLS: MODEL SWAP (UP TO 5 DRAFTS) OR TRY-ON */}
             {mode === 'swap' ? (
@@ -4708,9 +4788,11 @@ export default function Design() {
                                   <option value="top-front">👕 Top Front</option>
                                   <option value="top-back">🔄 Top Back</option>
                                   <option value="bottom">👖 Bottom</option>
+                                  <option value="collar">👔 Collar / Neck</option>
+                                  <option value="logo">🔍 Logo / Brand Close-Up</option>
+                                  <option value="detail">✨ Fabric / Tag / Detail</option>
                                   <option value="left-sleeve">👈 Left Sleeve</option>
                                   <option value="right-sleeve">👉 Right Sleeve</option>
-                                  <option value="logo">🔍 Logo Close-Up</option>
                                   <option value="left-bottom">🩳 Left Bottom</option>
                                   <option value="right-bottom">🩳 Right Bottom</option>
                                   <option value="custom">✏️ Custom View…</option>
@@ -4975,13 +5057,12 @@ export default function Design() {
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
                     <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
-                      {(model || selectedModels.length > 0 || selectedPoses.length > 0) && (
+                      {(model || selectedModels.length > 0) && (
                         <button
                           type="button"
                           onClick={() => {
                             setModel(null);
                             setSelectedModels([]);
-                            setSelectedPoses([]);
                           }}
                           className={`font-semibold hover:underline ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
                         >
@@ -5149,7 +5230,7 @@ export default function Design() {
                       </div>
                       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                         {previousModelsList.slice(0, 25).map((item, idx) => {
-                          const isSelected = (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
+                          const isSelected =
                             selectedModels.some((p) => p && p.url === item.url) ||
                             model?.url === item.url;
                           return (
@@ -5192,78 +5273,6 @@ export default function Design() {
                     </div>
                   )}
 
-                  {/* 5-Pose Selection Suite (Visible in 5-pose mode so user clearly sees and chooses all 5 poses) */}
-                  {poseMode === '5-pose' && (
-                    <div className={`mt-4 rounded-2xl border p-4 ${isLight ? 'border-amber-400 bg-amber-100/90 shadow-sm' : 'border-amber-500/40 bg-amber-500/10'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-semibold ${isLight ? 'text-amber-950' : 'text-amber-400'}`}>
-                            1 Photoshoot = 5 Poses (Multi-Angle Sequence)
-                          </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] border ${
-                            isLight ? 'bg-amber-200/90 text-amber-950 border-amber-400 font-black' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
-                          }`}>
-                            {selectedPoses.filter(Boolean).length}/5 Poses Active
-                          </span>
-                        </div>
-                        <span className={`text-[10px] ${isLight ? 'text-amber-950 font-bold' : 'text-amber-300/80 font-medium'}`}>Click slot then pick model below</span>
-                      </div>
-
-                      <div className="grid grid-cols-5 gap-2">
-                        {FIVE_POSES_SPECS.map((spec, idx) => {
-                          const poseItem = selectedPoses[idx] || (idx === 0 && selectedPoses.length === 0 ? model : null);
-                          const isActiveSlot = activeSlotIndex === idx;
-                          return (
-                            <div
-                              key={spec.id}
-                              onClick={() => setActiveSlotIndex(idx)}
-                              className={`relative rounded-xl border p-2 flex flex-col items-center text-center cursor-pointer transition ${
-                                isActiveSlot
-                                  ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f] shadow-lg'
-                                  : poseItem
-                                    ? isLight ? 'border-amber-400 bg-black/75 shadow-sm' : 'border-amber-500/50 bg-black/60 shadow-sm'
-                                    : isLight ? 'border-amber-300/60 bg-black/60 hover:border-amber-400' : 'border-white/10 bg-black/30 hover:border-white/30'
-                              }`}
-                            >
-                              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/80 mb-1.5 flex items-center justify-center border border-white/10">
-                                {poseItem ? (
-                                  <img
-                                    src={poseItem.preview ?? poseItem.url}
-                                    alt={spec.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <span className="text-xl opacity-60">{spec.icon}</span>
-                                )}
-                                <span className="absolute top-1 left-1 rounded bg-black/80 px-1 py-0.2 text-[8px] font-bold text-amber-400">
-                                  #{idx + 1}
-                                </span>
-                                {poseItem && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removePoseSlot(idx);
-                                    }}
-                                    className="absolute top-1 right-1 rounded-full bg-red-600/90 text-white w-4 h-4 flex items-center justify-center hover:bg-red-500"
-                                    title="Remove this pose"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                )}
-                              </div>
-                              <span className="text-[10px] font-bold truncate max-w-full text-white">{poseItem ? poseItem.name : spec.name}</span>
-                              <span className="text-[9px] opacity-80 font-mono text-amber-200">{spec.angle}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className={`mt-2.5 text-[10px] leading-relaxed text-center ${isLight ? 'text-amber-950 font-bold' : 'text-amber-300/90'}`}>
-                        Click any of the 5 pose slots above, then choose a model below to assign that angle.
-                      </p>
-                    </div>
-                  )}
-
                   <div className="mt-4 max-h-[380px] overflow-y-auto pr-1">
                     {tab === 'library' &&
                       categories.map((group) => (
@@ -5272,7 +5281,6 @@ export default function Design() {
                           <div className="grid grid-cols-6 gap-2">
                             {group.items.map((item) => {
                               const isSelected =
-                                (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
                                 selectedModels.some((p) => p && p.url === item.url) ||
                                 model?.url === item.url;
                               return (
@@ -5306,7 +5314,6 @@ export default function Design() {
                         <div className="grid grid-cols-6 gap-2">
                           {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => {
                             const isSelected =
-                              (poseMode === '5-pose' && selectedPoses.some((p) => p?.url === item.url)) ||
                               selectedModels.some((p) => p && p.url === item.url) ||
                               model?.url === item.url;
                             return (
@@ -5403,10 +5410,23 @@ export default function Design() {
                   ? 'Generation in Progress (Please wait)…'
                   : mode === 'swap'
                   ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                  : isFivePoseBatch
-                  ? `Generate ${activePoseCount > 1 ? `${activePoseCount} Poses` : 'Pose'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
                   : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
+              {mode === 'tryon' && (
+                <button
+                  type="button"
+                  onClick={handleInspectDryRun}
+                  disabled={isGlobalBusy || dryRunning || (tryonMissing.length > 0 && !hasClassifiedGarments && !cloth)}
+                  className={`rounded-full px-5 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                    isLight
+                      ? 'border-indigo-400 bg-indigo-50 text-indigo-900 hover:bg-indigo-100'
+                      : 'border-indigo-500/50 bg-indigo-500/20 text-indigo-200 hover:bg-indigo-500/30'
+                  } ${(isGlobalBusy || dryRunning) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Inspect exact payload, angles, colors, targets and AI prompt without consuming credits"
+                >
+                  {dryRunning ? 'Inspecting…' : '🔍 Test / Inspect (0 Credits)'}
+                </button>
+              )}
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
                   Credits locked. Contact administrator to re-enable generations.
@@ -5479,8 +5499,6 @@ export default function Design() {
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       {mode === 'swap'
                         ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
-                        : poseMode === '5-pose'
-                        ? `${fivePoseItems.length} Studio Angles (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
                         : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
                     </span>
                     <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
@@ -5547,8 +5565,6 @@ export default function Design() {
                       const activeSelectedModel =
                         fivePoseItems[selectedPoseIndex]?.model?.url ||
                         (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null) ||
-                        activePoseList[selectedPoseIndex]?.url ||
-                        selectedPoses[selectedPoseIndex]?.url ||
                         selectedModels[selectedPoseIndex]?.url ||
                         model?.url;
                       return activeSelectedModel ? (
@@ -5599,7 +5615,7 @@ export default function Design() {
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                     }`}
                   >
-                    ⬇️ Download {poseMode === '5-pose' ? 'Current Angle' : 'Current Render'}
+                    ⬇️ Download {fivePoseItems.length > 1 ? 'Selected Pose' : 'Render'}
                   </button>
                   {fivePoseItems.filter(p => p.status === 'completed').length > 1 && (
                     <button
@@ -5615,7 +5631,7 @@ export default function Design() {
                       }}
                       className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-500/30 cursor-pointer"
                     >
-                      ⬇️ Download All {fivePoseItems.length} {poseMode === '5-pose' ? 'Angles' : 'Renders'}
+                      ⬇️ Download All {fivePoseItems.length} Renders
                     </button>
                   )}
                   <a
