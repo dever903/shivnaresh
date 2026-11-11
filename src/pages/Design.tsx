@@ -2792,9 +2792,6 @@ export default function Design() {
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [dryRunData, setDryRunData] = useState<any>(null);
-  const [isDryRunModalOpen, setIsDryRunModalOpen] = useState(false);
-  const [dryRunning, setDryRunning] = useState(false);
 
   /* Try-on inputs */
   const [cloth, setCloth] = useState<Pick>(null);
@@ -3702,61 +3699,6 @@ export default function Design() {
     }
   }
 
-  async function handleInspectDryRun() {
-    if (isGlobalBusy || dryRunning) return;
-    try {
-      setDryRunning(true);
-      setError('');
-      let effectivePrompt = prompt.trim();
-      if (garmentColor.trim()) {
-        const colorNote = `Exact fabric color: ${garmentColor.trim()}. Preserve true athletic garment dye and athlete kit tones with accurate color matching.`;
-        effectivePrompt = effectivePrompt ? `${effectivePrompt} · ${colorNote}` : colorNote;
-      }
-      const garmentViews = hasClassifiedGarments
-        ? classifiedGarments.slice(0, 5).map((g, idx) => ({
-            url: g.url,
-            role: g.role,
-            label: (g.role === 'custom' && g.customLabel?.trim())
-              ? g.customLabel.trim()
-              : (GARMENT_ROLE_LABELS[g.role] || `View ${idx + 1}`),
-          }))
-        : (cloth ? [{ url: cloth.url, role: 'top-front', label: 'Top Front' }] : []);
-
-      const targetModel = effectiveModels[0] || model;
-      const testPayload: Record<string, unknown> = {
-        dryRun: true,
-        mode: tryOnTarget === 'both' ? 'outfit' : 'tryon',
-        tryOnTarget,
-        category: tryOnTarget === 'lower' ? 'bottoms' : tryOnTarget === 'both' ? 'both' : 'tops',
-        color: garmentColor.trim(),
-        prompt: effectivePrompt,
-        model: targetModel?.url,
-        garmentViews,
-        cloth: topFrontGarment?.url || cloth?.url,
-      };
-
-      if (tryOnTarget === 'both') {
-        testPayload.topCloth = topFrontGarment?.url || cloth?.url;
-        testPayload.bottomCloth = bottomGarment?.url;
-      }
-
-      const res = await api.generate(testPayload);
-      setDryRunData({
-        ...res,
-        totalSelectedModels: Math.max(1, effectiveModels.length),
-        selectedModels: effectiveModels,
-        selectedGarments: classifiedGarments,
-        tryOnTarget,
-        garmentColor: garmentColor.trim(),
-      });
-      setIsDryRunModalOpen(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dry-run inspection failed');
-    } finally {
-      setDryRunning(false);
-    }
-  }
-
   function handleUseSet(set: UploadSet) {
     if (set.clothUrl) setCloth({ url: set.clothUrl, name: set.clothName || 'Set Garment' });
     if (set.modelUrl) setModel({ url: set.modelUrl, name: set.modelName || 'Set Model' });
@@ -3797,141 +3739,6 @@ export default function Design() {
     <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${
       isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
     }`}>
-      {/* 0-Credit Dry Run Payload Inspection Modal */}
-      {isDryRunModalOpen && dryRunData && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-indigo-500/40 bg-[#121217] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-white/10 p-4 bg-indigo-950/30">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 font-bold text-base">
-                  🔍
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    Pre-Generation Payload Inspection
-                    <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                      0 Credits &middot; Free Test
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-white/50">Verify reference images, target area, fabric color & composed AI prompt before running.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDryRunModalOpen(false)}
-                className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-5 space-y-4 text-xs text-white/80">
-              {/* Compliance & Image Count Banner */}
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 text-lg">✅</span>
-                  <div>
-                    <p className="font-bold text-emerald-300">Fashn.ai Limit Verified: 100% Compliant</p>
-                    <p className="text-[10px] text-emerald-200/80">
-                      Total images sent to AI = {dryRunData.totalImagesSent} images (1 Model Pose + {dryRunData.garmentViews?.length || 0} Garments). Limit is 6 max.
-                    </p>
-                  </div>
-                </div>
-                <span className="font-mono font-bold text-xs px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
-                  {dryRunData.totalImagesSent} / 6 Images
-                </span>
-              </div>
-
-              {/* Target Area & Color Settings */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-                  <span className="text-[10px] uppercase font-bold text-white/40 block mb-1">Target Area</span>
-                  <span className="font-bold text-white text-xs capitalize flex items-center gap-1.5">
-                    {dryRunData.target === 'lower' ? '👖 Lower Body Only (Track Pants)' : dryRunData.target === 'both' ? '✨ Full Outfit (Upper + Lower)' : '👕 Upper Body Only (Torso / Tops)'}
-                  </span>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-                  <span className="text-[10px] uppercase font-bold text-white/40 block mb-1">Fabric Color Code</span>
-                  {dryRunData.color ? (
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: dryRunData.color }} />
-                      <span className="font-mono font-bold text-white text-xs">{dryRunData.color}</span>
-                    </div>
-                  ) : (
-                    <span className="text-white/40 italic">None specified (AI uses garment photo)</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Garment References Breakdown (Up to 5) */}
-              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-white/50">
-                    Uploaded Garment Reference Views ({dryRunData.garmentViews?.length || 0}/5)
-                  </span>
-                  <span className="text-[10px] text-indigo-300 font-medium">All views passed to synthesis engine</span>
-                </div>
-                {dryRunData.garmentViews && dryRunData.garmentViews.length > 0 ? (
-                  <div className="grid grid-cols-5 gap-2">
-                    {dryRunData.garmentViews.map((g: any, i: number) => (
-                      <div key={i} className="rounded-lg border border-white/10 bg-black/60 p-1.5 text-center flex flex-col items-center">
-                        <img src={g.url} alt="" className="h-16 w-full object-cover rounded mb-1" />
-                        <span className="text-[9px] font-bold text-white truncate max-w-full">
-                          {GARMENT_ROLE_LABELS[g.role] || g.label || g.role}
-                        </span>
-                        <span className="text-[8px] text-white/40 font-mono">Image {i + 2}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-amber-400">No garment uploaded yet.</p>
-                )}
-              </div>
-
-              {/* Selected Model Poses */}
-              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-white/50">
-                    Selected Model Poses for Batch ({dryRunData.totalSelectedModels || 1} Poses Selected)
-                  </span>
-                  <span className="text-[10px] text-white/40">1-by-1 Sequential Processing</span>
-                </div>
-                {dryRunData.selectedModels && dryRunData.selectedModels.length > 0 ? (
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {dryRunData.selectedModels.map((m: any, i: number) => (
-                      <div key={i} className="shrink-0 w-14 rounded-lg border border-white/10 bg-black/60 p-1 text-center">
-                        <img src={m.preview || m.url} alt="" className="h-16 w-full object-cover rounded mb-1" />
-                        <span className="text-[8px] font-bold text-white truncate block">Pose {i + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-amber-400">No model pose selected yet.</p>
-                )}
-              </div>
-
-              {/* Composed Prompt sent to Fashn */}
-              <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-white/50 block">Composed AI Prompt (Sent to Fashn Neural Engine)</span>
-                <p className="font-mono text-[11px] leading-relaxed text-indigo-200 bg-black/80 rounded-lg p-2.5 border border-indigo-500/20 whitespace-pre-wrap select-all">
-                  {dryRunData.composedPrompt}
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-white/10 p-3.5 bg-black/40 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsDryRunModalOpen(false)}
-                className="rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-gray-200 cursor-pointer"
-              >
-                Close Inspection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
@@ -5412,21 +5219,6 @@ export default function Design() {
                   ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
                   : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
-              {mode === 'tryon' && (
-                <button
-                  type="button"
-                  onClick={handleInspectDryRun}
-                  disabled={isGlobalBusy || dryRunning || (tryonMissing.length > 0 && !hasClassifiedGarments && !cloth)}
-                  className={`rounded-full px-5 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer shadow-sm ${
-                    isLight
-                      ? 'border-indigo-400 bg-indigo-50 text-indigo-900 hover:bg-indigo-100'
-                      : 'border-indigo-500/50 bg-indigo-500/20 text-indigo-200 hover:bg-indigo-500/30'
-                  } ${(isGlobalBusy || dryRunning) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title="Inspect exact payload, angles, colors, targets and AI prompt without consuming credits"
-                >
-                  {dryRunning ? 'Inspecting…' : '🔍 Test / Inspect (0 Credits)'}
-                </button>
-              )}
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
                   Credits locked. Contact administrator to re-enable generations.
