@@ -393,9 +393,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         tier: user.tier || 'free',
         maxVideos: typeof user.maxVideos === 'number' ? user.maxVideos : 15,
         videosGenerated: typeof user.videosGenerated === 'number' ? user.videosGenerated : 0,
+        photoshoots: typeof user.photoshoots === 'number' ? user.photoshoots : (typeof user.maxModels === 'number' ? user.maxModels : (user.tier === 'ultra' ? 100 : user.tier === 'pro' ? 60 : user.tier === 'ondemand' ? 20 : 3)),
+        maxModels: typeof user.maxModels === 'number' ? user.maxModels : (typeof user.photoshoots === 'number' ? user.photoshoots : (user.tier === 'ultra' ? 100 : user.tier === 'pro' ? 60 : user.tier === 'ondemand' ? 20 : 3)),
+        modelsGenerated: typeof user.modelsGenerated === 'number' ? user.modelsGenerated : 0,
         admin2fa: Boolean(user.admin2fa),
         features: {
-          hd2k: Boolean(user.features?.hd2k || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
+          hd2k: Boolean(user.features?.hd2k || user.tier === 'ultra'),
           fivePose: Boolean(user.features?.fivePose || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
           video: Boolean(user.features?.video || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
           customRequests: Boolean(user.features?.customRequests || ['pro', 'ultra'].includes(user.tier)),

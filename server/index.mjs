@@ -144,7 +144,7 @@ export const DEFAULT_PLANS = {
     maxVideos: 1,
     maxModels: 3,
     photoshoots: 3,
-    photoshootRule: '1 photoshoot = 5 poses',
+    photoshootRule: '1 photoshoot = 6 poses',
     active: true,
     deleted: false,
   },
@@ -153,12 +153,12 @@ export const DEFAULT_PLANS = {
     name: 'On-Demand Growth',
     priceUSD: 49,
     priceINR: 0,
-    credits: 300,
+    credits: 200,
     tier: 'ondemand',
-    maxVideos: 4,
-    maxModels: 15,
-    photoshoots: 15,
-    photoshootRule: '1 photoshoot = 5 poses',
+    maxVideos: 2,
+    maxModels: 20,
+    photoshoots: 20,
+    photoshootRule: '1 photoshoot = 6 poses',
     active: true,
     deleted: false,
   },
@@ -167,12 +167,12 @@ export const DEFAULT_PLANS = {
     name: 'Pro Atelier',
     priceUSD: 149,
     priceINR: 0,
-    credits: 1000,
+    credits: 500, // 400 credits + 100 bonus credits
     tier: 'pro',
-    maxVideos: 12,
-    maxModels: 50,
-    photoshoots: 50,
-    photoshootRule: '1 photoshoot = 5 poses',
+    maxVideos: 4,
+    maxModels: 60,
+    photoshoots: 60,
+    photoshootRule: '1 photoshoot = 6 poses',
     active: true,
     deleted: false,
   },
@@ -181,12 +181,12 @@ export const DEFAULT_PLANS = {
     name: 'Ultra Haute-Couture',
     priceUSD: 249,
     priceINR: 0,
-    credits: 200,
+    credits: 100, // 100 credits for rapid experimentation
     tier: 'ultra',
     maxVideos: 20,
     maxModels: 100,
     photoshoots: 100,
-    photoshootRule: '1 photoshoot = 5 poses',
+    photoshootRule: '1 photoshoot = 6 poses',
     active: true,
     deleted: false,
   },
@@ -2802,27 +2802,27 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     const is2k = resolution === '2k' || resolution === '4k';
     const creditsNeeded = is2k ? 3 : 1; // Strictly 3 credits for 2K Ultra HD, 1 credit for 1K Standard
 
-    /* 2K resolution permission check */
+    /* 2K resolution permission check - Ultra tier only */
     if (is2k) {
-      const allowed2k = req.user.features?.hd2k ?? (req.user.tier !== 'free');
+      const allowed2k = Boolean(req.user.features?.hd2k || req.user.tier === 'ultra');
       if (!allowed2k) {
         return res.status(403).json({
           error: 'tier_restricted',
-          message: '2K Ultra HD resolution is locked for your account. Please upgrade to Pro/Ultra plan or ask admin to unlock 2K generation.',
+          message: '2K Ultra HD resolution is reserved exclusively for Ultra tier accounts.',
         });
       }
     }
 
-    /* Model generation limits (Total quota: 1 photoshoot = 5 generations) */
+    /* Model generation limits (Total quota: 1 photoshoot = 6 generations/poses) */
     const rawPhotoshoots = typeof req.user.photoshoots === 'number' && req.user.photoshoots > 0
       ? req.user.photoshoots
       : (typeof req.user.maxModels === 'number' && req.user.maxModels > 0 ? req.user.maxModels : 0);
-    const maxAllowedGenerations = rawPhotoshoots > 0 ? rawPhotoshoots * 5 : 0;
+    const maxAllowedGenerations = rawPhotoshoots > 0 ? rawPhotoshoots * 6 : 0;
     const modelsGenerated = typeof req.user.modelsGenerated === 'number' ? req.user.modelsGenerated : 0;
     if (maxAllowedGenerations > 0 && modelsGenerated >= maxAllowedGenerations) {
       return res.status(403).json({
         error: 'photoshoot_limit_reached',
-        message: `You have reached your allocated photoshoot limit (${Math.floor(modelsGenerated / 5)}/${rawPhotoshoots} photoshoots · ${modelsGenerated}/${maxAllowedGenerations} images generated). Contact administrator to increase your photoshoot quota.`,
+        message: `You have reached your allocated photoshoot limit (${Math.floor(modelsGenerated / 6)}/${rawPhotoshoots} photoshoots · ${modelsGenerated}/${maxAllowedGenerations} poses generated). Wrong or imperfect attempts are also counted in the photoshoot limit. Contact administrator to increase your photoshoot quota.`,
       });
     }
 
@@ -4215,14 +4215,14 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
       tier: u.tier || 'free',
       maxVideos: typeof u.maxVideos === 'number' ? u.maxVideos : 15,
       videosGenerated: typeof u.videosGenerated === 'number' ? u.videosGenerated : 0,
-      photoshoots: typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10)),
-      maxModels: typeof u.maxModels === 'number' ? u.maxModels : (typeof u.photoshoots === 'number' ? u.photoshoots : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10)),
-      maxGenerations: (typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 50 : 10))) * 5,
+      photoshoots: typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3)),
+      maxModels: typeof u.maxModels === 'number' ? u.maxModels : (typeof u.photoshoots === 'number' ? u.photoshoots : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3)),
+      maxGenerations: (typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3))) * 6,
       modelsGenerated: typeof u.modelsGenerated === 'number' ? u.modelsGenerated : 0,
       dailyModelsUsed: typeof u.dailyModelsUsed === 'number' ? u.dailyModelsUsed : 0,
       dailyVideosUsed: typeof u.dailyVideosUsed === 'number' ? u.dailyVideosUsed : 0,
       features: {
-        hd2k: Boolean(u.features?.hd2k || u.tier !== 'free'),
+        hd2k: Boolean(u.features?.hd2k || u.tier === 'ultra'),
         fivePose: Boolean(u.features?.fivePose || u.tier !== 'free'),
         video: Boolean(u.features?.video || u.tier !== 'free'),
         customRequests: Boolean(u.features?.customRequests || ['pro', 'ultra'].includes(u.tier)),
@@ -4306,14 +4306,14 @@ app.post('/api/admin/users/:id/tier', requireAdmin, async (req, res) => {
       },
     };
     if (tier === 'ultra') {
-      if ((user.maxVideos || 0) < 30) patch.maxVideos = 30;
+      if ((user.maxVideos || 0) < 20) patch.maxVideos = 20;
       if ((user.maxModels || 0) < 100) patch.maxModels = 100;
     } else if (tier === 'pro') {
-      if ((user.maxVideos || 0) < 15) patch.maxVideos = 15;
-      if ((user.maxModels || 0) < 50) patch.maxModels = 50;
+      if ((user.maxVideos || 0) < 4) patch.maxVideos = 4;
+      if ((user.maxModels || 0) < 60) patch.maxModels = 60;
     } else if (tier === 'ondemand') {
-      if ((user.maxVideos || 0) < 10) patch.maxVideos = 10;
-      if ((user.maxModels || 0) < 25) patch.maxModels = 25;
+      if ((user.maxVideos || 0) < 2) patch.maxVideos = 2;
+      if ((user.maxModels || 0) < 20) patch.maxModels = 20;
     }
 
     await auth.patchUser(id, patch);
@@ -4355,14 +4355,14 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
     if (body.features && typeof body.features === 'object') {
       patch.features = {
-        hd2k: Boolean(body.features.hd2k || isPaid),
+        hd2k: Boolean(body.features.hd2k || targetTier === 'ultra'),
         fivePose: Boolean(body.features.fivePose || isPaid),
         video: Boolean(body.features.video || isPaid),
         customRequests: Boolean(body.features.customRequests || isProOrUltra),
       };
     } else if (patch.tier || !user.features) {
       patch.features = {
-        hd2k: isPaid,
+        hd2k: targetTier === 'ultra',
         fivePose: isPaid,
         video: isPaid,
         customRequests: isProOrUltra,
@@ -4370,14 +4370,14 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     }
 
     if (targetTier === 'ultra') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 30) patch.maxVideos = 30;
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 20) patch.maxVideos = 20;
       if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 100) patch.maxModels = 100;
     } else if (targetTier === 'pro') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 15) patch.maxVideos = 15;
-      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 50) patch.maxModels = 50;
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 4) patch.maxVideos = 4;
+      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 60) patch.maxModels = 60;
     } else if (targetTier === 'ondemand') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 10) patch.maxVideos = 10;
-      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 25) patch.maxModels = 25;
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 2) patch.maxVideos = 2;
+      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 20) patch.maxModels = 20;
     }
 
     await auth.patchUser(id, patch);

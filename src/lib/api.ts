@@ -94,6 +94,9 @@ export type User = {
   tier?: string;
   maxVideos?: number;
   videosGenerated?: number;
+  photoshoots?: number;
+  maxModels?: number;
+  modelsGenerated?: number;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;

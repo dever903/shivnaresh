@@ -1399,7 +1399,7 @@ function UserProfileModal({
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold truncate">{name || 'Studio Member'}</h3>
             <p className="text-xs opacity-60 truncate">{user.email}</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
               <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
                 isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
               }`}>
@@ -1408,7 +1408,15 @@ function UserProfileModal({
               <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
                 {user.tier || 'Free'} Tier
               </span>
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
+                isLight ? 'bg-cyan-100 text-cyan-950 border-cyan-300' : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
+              }`}>
+                {Math.floor((user.modelsGenerated || 0) / 6)} / {user.photoshoots || user.maxModels || 20} Photoshoots
+              </span>
             </div>
+            <p className="mt-1 text-[9px] opacity-60">
+              1 photoshoot = 6 poses. All generated poses (including test/imperfect) count toward quota ({user.modelsGenerated || 0}/{(user.photoshoots || user.maxModels || 20) * 6} poses).
+            </p>
           </div>
         </div>
 
@@ -4662,7 +4670,7 @@ export default function Design() {
     if (needsBothBottom) tryonMissing.push('bottom garment (upload pants or select Upper Only)');
   }
   const missing = isSwapMode ? swapMissing : tryonMissing;
-  const isFreeUser = !user?.tier || user?.tier === 'free';
+  const isUltraUser = Boolean(user?.tier === 'ultra' || user?.features?.hd2k);
   const isLocked = Boolean(user?.creditsLocked);
   const canRun = ready && !isGlobalBusy && missing.length === 0 && !uploading && !isLocked;
 
@@ -5120,34 +5128,25 @@ export default function Design() {
                   >
                     1K Standard
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isFreeUser) {
-                        setShowTierLockModal(true);
-                      } else {
-                        setQuality('2k');
-                      }
-                    }}
-                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                      quality === '2k'
-                        ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                        : isFreeUser
-                          ? isLight ? 'text-slate-600 hover:text-slate-800' : 'text-white/40 hover:text-white/60'
+                  {isUltraUser && (
+                    <button
+                      type="button"
+                      onClick={() => setQuality('2k')}
+                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                        quality === '2k'
+                          ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                           : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                    }`}
-                    title={isFreeUser ? '2K Ultra HD is locked for Free/Starter accounts. Upgrade to Pro/Enterprise.' : 'Switch to 2K Ultra HD'}
-                  >
-                    {isFreeUser && <Lock className="h-3 w-3" />}
-                    <span>2K Ultra HD</span>
-                    {isFreeUser && (
+                      }`}
+                      title="Switch to 2K Ultra HD (Exclusive Ultra Plan Feature)"
+                    >
+                      <span>2K Ultra HD</span>
                       <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${
-                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                        isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
                       }`}>
-                        Pro
+                        Ultra
                       </span>
-                    )}
-                  </button>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

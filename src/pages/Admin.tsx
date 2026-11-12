@@ -134,9 +134,9 @@ export default function Admin() {
     } catch {}
     return {
       starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3, photoshoots: 3 },
-      ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 300, maxVideos: 4, maxModels: 15, photoshoots: 15 },
-      pro: { name: 'Pro Atelier', priceUSD: 149, priceINR: 0, credits: 1000, maxVideos: 12, maxModels: 50, photoshoots: 50 },
-      ultra: { name: 'Ultra Haute-Couture', priceUSD: 249, priceINR: 0, credits: 200, maxVideos: 20, maxModels: 100, photoshoots: 100 },
+      ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 200, maxVideos: 2, maxModels: 20, photoshoots: 20 },
+      pro: { name: 'Pro Atelier', priceUSD: 149, priceINR: 0, credits: 500, maxVideos: 4, maxModels: 60, photoshoots: 60 },
+      ultra: { name: 'Ultra Haute-Couture', priceUSD: 249, priceINR: 0, credits: 100, maxVideos: 20, maxModels: 100, photoshoots: 100 },
     };
   });
   const [savingPlans, setSavingPlans] = useState(false);
@@ -2571,14 +2571,15 @@ ${log.stack || 'None'}
                         onChange={(e) => {
                           const newTier = e.target.value;
                           const isPaid = ['ondemand', 'pro', 'ultra'].includes(newTier);
+                          const isTierUltra = newTier === 'ultra';
                           const autoFeatures = {
-                            hd2k: isPaid,
+                            hd2k: isTierUltra,
                             fivePose: isPaid,
                             video: isPaid,
-                            customRequests: newTier === 'ultra',
+                            customRequests: isTierUltra,
                           };
-                          const autoVideos = newTier === 'ultra' ? 30 : newTier === 'pro' ? 15 : newTier === 'ondemand' ? 10 : 3;
-                          const autoModels = newTier === 'ultra' ? 100 : newTier === 'pro' ? 50 : newTier === 'ondemand' ? 25 : 5;
+                          const autoVideos = newTier === 'ultra' ? 20 : newTier === 'pro' ? 4 : newTier === 'ondemand' ? 2 : 1;
+                          const autoModels = newTier === 'ultra' ? 100 : newTier === 'pro' ? 60 : newTier === 'ondemand' ? 20 : 3;
                           setUserRowEdits((prev) => ({
                             ...prev,
                             [user.id]: {
@@ -2640,7 +2641,7 @@ ${log.stack || 'None'}
                       </div>
                     </td>
 
-                    {/* Photoshoot Quota (1 photoshoot = 5 poses) */}
+                    {/* Photoshoot Quota (1 photoshoot = 6 poses) */}
                     <td className="py-4 px-3">
                       <div className="flex items-center gap-1">
                         <input
@@ -2657,7 +2658,7 @@ ${log.stack || 'None'}
                             isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
                           }`}
                         />
-                        <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 5} poses)</span>
+                        <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 6} poses)</span>
                       </div>
                     </td>
 
@@ -2665,9 +2666,9 @@ ${log.stack || 'None'}
                     <td className="py-4 px-3">
                       {(() => {
                         const isTierPaid = ['ondemand', 'pro', 'ultra'].includes(currentTier);
-                          const isTierUltra = currentTier === 'ultra';
+                        const isTierUltra = currentTier === 'ultra';
                         const currentFeatures = edits.features || {
-                          hd2k: Boolean(user.features?.hd2k || isTierPaid),
+                          hd2k: Boolean(user.features?.hd2k || isTierUltra),
                           fivePose: Boolean(user.features?.fivePose || isTierPaid),
                           video: Boolean(user.features?.video || isTierPaid),
                           customRequests: Boolean(user.features?.customRequests || isTierUltra),
@@ -4445,15 +4446,15 @@ ${log.stack || 'None'}
                   />
                 </div>
 
-                {/* Photoshoots Quota (1 photoshoot = 5 poses) */}
+                {/* Photoshoots Quota (1 photoshoot = 6 poses) */}
                 <div className="mt-3">
                   <label className="text-[10px] font-semibold opacity-70 block uppercase tracking-wider">
-                    Photoshoots (1 = 5 poses)
+                    Photoshoots (1 = 6 poses)
                   </label>
                   <input
                     type="number"
                     min="0"
-                    value={p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 50 : pm.id === 'ondemand' ? 15 : 3))}
+                    value={p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 60 : pm.id === 'ondemand' ? 20 : 3))}
                     onChange={(e) => {
                       isEditingPlansRef.current = true;
                       const val = Math.max(0, Number(e.target.value));
@@ -4465,7 +4466,7 @@ ${log.stack || 'None'}
                     className={`${inputClass} mt-1`}
                   />
                   <span className="text-[9px] text-[#e5373f] opacity-80 mt-1 block font-semibold">
-                    1 photoshoot = 5 poses (Total {(p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 50 : pm.id === 'ondemand' ? 15 : 3))) * 5} poses)
+                    1 photoshoot = 6 poses (Total {(p.photoshoots !== undefined ? p.photoshoots : (p.maxModels ?? (pm.id === 'ultra' ? 100 : pm.id === 'pro' ? 60 : pm.id === 'ondemand' ? 20 : 3))) * 6} poses)
                   </span>
                 </div>
 

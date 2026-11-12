@@ -47,11 +47,12 @@ const PLANS: Plan[] = [
     },
     features: [
       '5 free trial credits upon verified signup',
-      'Balanced 2K photorealistic image generation',
+      'Photorealistic studio neural generation',
       'Standard 5s neural motion video preview',
       'Full access to curated studio photoshoot library',
       'SHIV-NARESH verified branding in prompts',
-      'Instant AI pipeline access'
+      'Instant AI pipeline access',
+      '1 photoshoot = 6 poses (wrong attempts count)'
     ]
   },
   {
@@ -60,18 +61,19 @@ const PLANS: Plan[] = [
     tagline: 'Ideal for seasonal sportswear drops and catalogue shoots',
     priceUSD: 49,
     specs: {
-      photoshoots: '15 Curated Photoshoots (1 Photoshoot = 5 Poses · 75 High-Res Images)',
-      models: '15 Curated Photoshoots (1 Photoshoot = 5 Poses · 75 High-Res Images)',
-      videos: '4 High-Def Neural Videos (5-10s)',
-      credits: '300 Monthly Credits',
+      photoshoots: '20 Photoshoots (approx) · 1 Photoshoot = 6 Poses (120 Images)',
+      models: '20 Photoshoots (approx) · 1 Photoshoot = 6 Poses (120 Images)',
+      videos: '2 High-Def Neural Videos (5-10s)',
+      credits: '200 Monthly Credits in Account',
       delivery: 'Instant Neural Engine',
       support: 'Priority Email & Chat',
-      resolution: 'Balanced 2K Master Quality'
+      resolution: 'Studio HD Master Quality'
     },
     features: [
-      '15 Curated Photoshoots (1 photoshoot = 5 multi-angle poses = 75 photos)',
-      '4 High-Def 5-10 second vertical/horizontal sportswear videos',
-      '300 active monthly credits (rollover for 30 billing days)',
+      '20 Curated Photoshoots (approx) · 1 photoshoot = 6 poses = 120 images total',
+      '2 High-Def 5-10 second vertical/horizontal sportswear videos',
+      '200 active credits in your account (rollover for 30 billing days)',
+      'Wrong/test generations are counted in image generation count (6 poses = 1 photoshoot)',
       'Dual photoshoot swap & fabric color accuracy conditioning',
       '1-hour grace window to edit/delete uploaded assets',
       'Priority email & WhatsApp customer support'
@@ -85,18 +87,19 @@ const PLANS: Plan[] = [
     featured: true,
     badge: 'MOST POPULAR',
     specs: {
-      photoshoots: '50 Photoshoots (1 Photoshoot = 5 Poses · 250 High-Res Images) · 1 Month Expiry',
-      models: '50 Photoshoots (1 Photoshoot = 5 Poses · 250 High-Res Images) · 1 Month Expiry',
-      videos: '12 Cinematic 1080p Videos · 1 Month Expiry',
-      credits: '800 Credits + 200 Bonus = 1,000 Total',
+      photoshoots: '60 Photoshoots (approx) · 1 Photoshoot = 6 Poses (360 Images) · 1 Month Expiry',
+      models: '60 Photoshoots (approx) · 1 Photoshoot = 6 Poses (360 Images) · 1 Month Expiry',
+      videos: '4 Cinematic 1080p Videos · 1 Month Expiry',
+      credits: '400 Credits + 100 Bonus = 500 Total',
       delivery: 'High-Priority Neural Queue',
       support: 'Direct WhatsApp Account Mgr',
-      resolution: 'Ultra 2K Photoreal + 1080p Motion'
+      resolution: 'Studio Photoreal + 1080p Motion'
     },
     features: [
-      '50 Curated Photoshoots (1 photoshoot = 5 multi-angle poses = 250 photos)',
-      '12 Cinematic 1080p Videos (9:16 Reels & 16:9 Sportswear cuts)',
-      '800 Monthly Credits + 200 FREE Bonus Credits (1,000 credits total)',
+      '60 Curated Photoshoots (approx) · 1 photoshoot = 6 poses = 360 images total',
+      '4 Cinematic 1080p Videos (9:16 Reels & 16:9 Sportswear cuts)',
+      '400 Monthly Credits + 100 FREE Bonus Credits (500 credits total)',
+      'Wrong/test generations are counted in image generation count (6 poses = 1 photoshoot)',
       'All photoshoots & videos valid for 1 month subscription cycle',
       'Priority rendering queue for instant zero-wait generation',
       'Dedicated WhatsApp account executive',
@@ -111,19 +114,20 @@ const PLANS: Plan[] = [
     priceUSD: 249,
     badge: 'ENTERPRISE ATELIER',
     specs: {
-      photoshoots: '100 Custom Photoshoots (Max 10 Photoshoots/Day · 1 Photoshoot = 5 Poses) · 1 Month Expiry',
-      models: '100 Custom Photoshoots (Max 10 Photoshoots/Day · 1 Photoshoot = 5 Poses) · 1 Month Expiry',
+      photoshoots: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
+      models: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
       videos: '20 Studio Videos (Max 1 Video/Day) · 1 Month Expiry',
-      credits: '200 Account Credits (Custom shoots free)',
+      credits: '100 Account Credits (Custom shoots free)',
       delivery: 'Guaranteed 24-48h Delivery',
       support: '24/7 Dedicated Human Art Team',
-      resolution: 'Highest 2K Master & 1080p Studio Motion'
+      resolution: 'Master Photoreal & 1080p Studio Motion'
     },
     features: [
       'Custom Atelier Service: upload cloths & garments in Custom Requests',
-      'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 5 poses) and 1 video per day',
-      'Total 100 Photoshoots (500 Poses) + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
-      '200 extra credits in your account for rapid neural experimentation',
+      'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 6 poses) and 1 video per day',
+      'Total 100 Photoshoots (600 Poses) + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
+      '100 active credits in your account for rapid neural experimentation',
+      'Wrong/test generations are counted in image generation count (6 poses = 1 photoshoot)',
       'Photoshoots & studio videos in custom requests do NOT consume your account credits',
       'Post-generation touch-ups, prompt refinements, and multi-pose changes',
       '100% human studio team fulfillment guarantee if neural API undergoes downtime',
@@ -460,8 +464,23 @@ _Please verify payment and activate my plan within 30 minutes._`;
           <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed opacity-75 ${
             isLight ? 'text-gray-700' : 'text-slate-300'
           }`}>
-            High-resolution 2K photoshoot poses (1 photoshoot = 5 poses) and cinematic motion videos with commercial licensing.
+            High-resolution photorealistic photoshoot poses (1 photoshoot = 6 poses) and cinematic motion videos with commercial licensing.
           </p>
+        </div>
+
+        {/* Studio Policy Banner */}
+        <div className={`max-w-4xl mx-auto mb-10 p-4 rounded-2xl border text-xs leading-relaxed flex items-center gap-3.5 ${
+          isLight ? 'bg-amber-50 border-amber-200 text-amber-950' : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+        }`}>
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 shrink-0 flex items-center justify-center font-bold text-amber-500">
+            !
+          </div>
+          <div>
+            <span className="font-bold uppercase tracking-wider text-[11px] block">Generation & Photoshoot Quota Policy</span>
+            <p className="mt-0.5 opacity-90">
+              <strong>1 Photoshoot = 6 poses / images.</strong> Every generated pose or image (including wrong or test generations) is strictly counted in your quota. Users will strictly utilize what the studio administrator has allocated for their account. Please review garment photo guidelines before generating.
+            </p>
+          </div>
         </div>
 
         {/* Pricing Cards Grid */}
@@ -541,7 +560,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     <div className="flex justify-between items-center">
                       <div>
                         <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Photoshoots:</span>
-                        <span className="block text-[9px] text-[#e5373f] font-bold tracking-tight">1 photoshoot = 5 poses</span>
+                        <span className="block text-[9px] text-[#e5373f] font-bold tracking-tight">1 photoshoot = 6 poses</span>
                       </div>
                       <span className={`font-semibold text-right text-xs max-w-[55%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
                         {plan.specs.photoshoots || plan.specs.models}
@@ -679,7 +698,7 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 Do unused credits expire?
               </h4>
               <p className={`text-xs leading-relaxed pl-6 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                Yes, monthly plan credits (300 on On-Demand, 900 on Pro, 500 on Ultra) expire at the end of each 30-day billing cycle to maintain high-throughput cluster availability for all active atelier members.
+                Yes, monthly plan credits (200 on On-Demand, 500 on Pro, 100 on Ultra) expire at the end of each 30-day billing cycle to maintain high-throughput cluster availability for all active atelier members.
               </p>
             </div>
           </div>
@@ -713,6 +732,10 @@ _Please verify payment and activate my plan within 30 minutes._`;
               <div className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                 <span><strong>Strict No-Refund Policy:</strong> All subscription purchases are final upon provisioning.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <span><strong>Photoshoot & Generation Rule:</strong> 1 photoshoot = 6 poses/images. All generated poses (including test or imperfect generations) count toward your quota. Admin-set photoshoot allocations apply.</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
