@@ -222,6 +222,327 @@ function classifyGarmentByHeuristic(name: string): GarmentRole {
 }
 
 /* ----------------------------------------------------------------
+   Garment Photography Tour & Guidelines
+   ---------------------------------------------------------------- */
+interface PhotoGuideStep {
+  step: number;
+  badge: string;
+  title: string;
+  tagline: string;
+  doText: string;
+  dontText: string;
+  icon: string;
+  details: string;
+  illustration: 'white-bg' | 'sleeves-open' | 'sleeve-detail' | 'logo-zoom' | 'bottoms-open';
+}
+
+const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
+  {
+    step: 1,
+    badge: 'Step 1 of 5',
+    title: 'Plain White or Neutral Surface',
+    tagline: 'Shoot on a seamless flat surface without any textures or reflections',
+    doText: 'Plain white poster board, clean white sheet, white tile, or light grey studio hanger.',
+    dontText: 'Never shoot on artificial green grass/turf, colorful printed bedsheets, or floor tiles with harsh grout lines.',
+    icon: '⚪',
+    details: 'Ensure high overhead lighting so there are zero harsh cast shadows across the fabric.',
+    illustration: 'white-bg',
+  },
+  {
+    step: 2,
+    badge: 'Step 2 of 5',
+    title: 'Spread Both Sleeves Fully Open (Front & Back)',
+    tagline: 'Lay garment completely flat with arms spread wide at 45° angles',
+    doText: 'Both sleeves fully extended outwards, cuffs flat, collar straight and centered.',
+    dontText: 'Never fold sleeves across the chest, roll up cuffs, or tuck arms behind the back.',
+    icon: '👕',
+    details: 'Take 1 Front View photo and 1 Back View photo with sleeves spread symmetrically.',
+    illustration: 'sleeves-open',
+  },
+  {
+    step: 3,
+    badge: 'Step 3 of 5',
+    title: 'Left & Right Sleeve Details',
+    tagline: 'Capture close-up photos of contrasting sleeve stripes and typography',
+    doText: 'Straight flat close-up of left and right sleeves showing brand text ("SHIV NARESH") and stripes.',
+    dontText: 'Do not allow sleeves to twist or wrinkle, as AI needs straight reference lines.',
+    icon: '📐',
+    details: 'Ensures sleeve stripes and logos wrap naturally down the model’s arms without breaking or twisting.',
+    illustration: 'sleeve-detail',
+  },
+  {
+    step: 4,
+    badge: 'Step 4 of 5',
+    title: 'Chest Artwork & Typography Macro Zoom',
+    tagline: 'High-resolution zoom of central graphics, logos, and printed text',
+    doText: 'Clear macro photo centered directly on the chest print ("CHEAT CODE // ACTIVATED").',
+    dontText: 'Remove all plastic tags, red brand labels, price stickers, and paper hangtags before shooting.',
+    icon: '🔍',
+    details: 'High-contrast close-ups prevent the AI from scrambling words into gibberish or drifting to the armpits.',
+    illustration: 'logo-zoom',
+  },
+  {
+    step: 5,
+    badge: 'Step 5 of 5',
+    title: 'Track Pants / Bottoms (Both Legs Separated)',
+    tagline: 'Full-length pants laid flat with both legs straight and separated',
+    doText: 'Both legs spread open down to ankle cuffs, waistband and side stripes fully visible.',
+    dontText: 'Never bunch up knees or overlap one leg over another.',
+    icon: '👖',
+    details: 'Showing both legs down to the ankles guarantees full-length trousers instead of shorts.',
+    illustration: 'bottoms-open',
+  },
+];
+
+function GarmentPhotoTourModal({
+  isOpen,
+  onClose,
+  onStartUpload,
+  step,
+  setStep,
+  alwaysShow,
+  setAlwaysShow,
+  isLight,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onStartUpload: () => void;
+  step: number;
+  setStep: (s: number | ((prev: number) => number)) => void;
+  alwaysShow: boolean;
+  setAlwaysShow: (val: boolean) => void;
+  isLight: boolean;
+}) {
+  if (!isOpen) return null;
+  const current = PHOTO_GUIDE_STEPS[step] || PHOTO_GUIDE_STEPS[0];
+  const isLast = step === PHOTO_GUIDE_STEPS.length - 1;
+
+  return (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+          isLight ? 'bg-white border-gray-200 text-slate-900' : 'bg-[#121217] border-white/15 text-white'
+        }`}
+      >
+        {/* Header */}
+        <div className={`p-5 border-b flex items-center justify-between ${isLight ? 'border-gray-200 bg-gray-50/70' : 'border-white/10 bg-white/[0.02]'}`}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-xl text-amber-500 border border-amber-500/20 shadow-inner">
+              📸
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold tracking-tight">Photo Guidelines Tour</h3>
+                <span className="rounded-full bg-[#e5373f]/10 border border-[#e5373f]/30 px-2 py-0.5 text-[10px] font-bold text-[#e5373f]">
+                  {current.badge}
+                </span>
+              </div>
+              <p className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                Follow these 5 rules for 100% accurate AI garment synthesis
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`h-8 w-8 rounded-full flex items-center justify-center transition text-sm cursor-pointer ${
+              isLight ? 'hover:bg-gray-200 text-slate-600' : 'hover:bg-white/10 text-white/50 hover:text-white'
+            }`}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* 5-Step Segmented Bar */}
+        <div className="grid grid-cols-5 gap-1.5 px-6 pt-3.5 pb-1">
+          {PHOTO_GUIDE_STEPS.map((s, idx) => (
+            <button
+              key={s.step}
+              type="button"
+              onClick={() => setStep(idx)}
+              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                idx === step
+                  ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/40'
+                  : idx < step
+                  ? 'bg-emerald-500'
+                  : isLight ? 'bg-gray-200' : 'bg-white/15'
+              }`}
+              title={`Step ${s.step}: ${s.title}`}
+            />
+          ))}
+        </div>
+
+        {/* Main Content Area */}
+        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+          {/* Step Headline */}
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{current.icon}</span>
+              <h4 className="text-base font-bold tracking-tight">{current.title}</h4>
+            </div>
+            <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-600' : 'text-white/60'}`}>{current.tagline}</p>
+          </div>
+
+          {/* Visual Graphic Representation */}
+          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+            {current.illustration === 'white-bg' && (
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 flex flex-col items-center justify-center">
+                  <div className="h-16 w-full rounded-lg bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                    <span className="text-2xl">👕</span>
+                  </div>
+                  <span className="mt-2 text-[10px] font-bold text-emerald-500">✓ Pure White Surface</span>
+                  <span className="text-[9px] opacity-70">No shadows, crisp background</span>
+                </div>
+                <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 flex flex-col items-center justify-center">
+                  <div className="h-16 w-full rounded-lg bg-emerald-950/80 border border-emerald-700/60 flex items-center justify-center relative overflow-hidden">
+                    <span className="text-2xl opacity-60">👕</span>
+                    <span className="absolute inset-0 flex items-center justify-center text-red-500 font-black text-2xl">✕</span>
+                  </div>
+                  <span className="mt-2 text-[10px] font-bold text-rose-500">✕ Avoid Turf & Sheets</span>
+                  <span className="text-[9px] opacity-70">Grass, turf, or floor creases</span>
+                </div>
+              </div>
+            )}
+
+            {current.illustration === 'sleeves-open' && (
+              <div className="rounded-xl border border-emerald-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center justify-center gap-2 font-mono text-xs font-bold text-emerald-400">
+                  <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded">← Left Sleeve Open</span>
+                  <span className="border border-white/20 bg-black/50 px-3 py-1 rounded">Chest Flat</span>
+                  <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded">Right Sleeve Open →</span>
+                </div>
+                <p className="mt-2 text-[11px] opacity-70">Sleeves laid flat at 45° angle · 1 photo Front · 1 photo Back</p>
+              </div>
+            )}
+
+            {current.illustration === 'sleeve-detail' && (
+              <div className="rounded-xl border border-blue-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-3">
+                  <span className="border border-white/20 bg-black/70 px-4 py-2 rounded-xl font-mono text-xs font-black tracking-widest text-cyan-400">
+                    ■ SHIV NARESH ■
+                  </span>
+                  <span className="text-xs font-bold text-emerald-400">✓ Straight Seam Alignment</span>
+                </div>
+                <p className="mt-2 text-[11px] opacity-70">Capture each sleeve with straight alignment to keep typography crisp</p>
+              </div>
+            )}
+
+            {current.illustration === 'logo-zoom' && (
+              <div className="rounded-xl border border-amber-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
+                <div className="relative border-2 border-dashed border-amber-500/60 rounded-xl p-3 bg-black/60">
+                  <div className="font-mono text-xs font-black text-amber-400">
+                    🦖 🌵 ılılı CHEAT CODE // ACTIVATED
+                  </div>
+                  <span className="text-[9px] text-white/50 block mt-1">Macro close-up without fold wrinkles</span>
+                </div>
+                <p className="mt-2 text-[11px] opacity-70">Zoom directly on chest text to eliminate scrambled AI letters</p>
+              </div>
+            )}
+
+            {current.illustration === 'bottoms-open' && (
+              <div className="rounded-xl border border-indigo-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-4 font-mono text-xs font-bold text-indigo-400">
+                  <span className="border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 rounded-lg">👖 Left Leg Straight</span>
+                  <span className="opacity-40">|</span>
+                  <span className="border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 rounded-lg">👖 Right Leg Straight</span>
+                </div>
+                <p className="mt-2 text-[11px] opacity-70">Both legs separated down to ankle cuffs guarantees full-length trousers</p>
+              </div>
+            )}
+          </div>
+
+          {/* DO and DON'T Callout Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className={`rounded-xl border p-3 ${isLight ? 'border-emerald-200 bg-emerald-50/60' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-emerald-500 font-bold text-xs">✓ DO (Best Results)</span>
+              </div>
+              <p className={`text-[11px] leading-relaxed ${isLight ? 'text-emerald-950 font-medium' : 'text-emerald-200'}`}>
+                {current.doText}
+              </p>
+            </div>
+            <div className={`rounded-xl border p-3 ${isLight ? 'border-rose-200 bg-rose-50/60' : 'border-rose-500/30 bg-rose-500/10'}`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-rose-500 font-bold text-xs">✕ AVOID (Common Mistakes)</span>
+              </div>
+              <p className={`text-[11px] leading-relaxed ${isLight ? 'text-rose-950 font-medium' : 'text-rose-200'}`}>
+                {current.dontText}
+              </p>
+            </div>
+          </div>
+
+          <p className={`text-[11px] leading-relaxed italic ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+            💡 <strong>Pro Tip:</strong> {current.details}
+          </p>
+        </div>
+
+        {/* Footer Controls */}
+        <div className={`p-4 border-t flex items-center justify-between gap-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={alwaysShow}
+              onChange={(e) => {
+                setAlwaysShow(e.target.checked);
+                localStorage.setItem('shivnaresh_always_photo_tour', e.target.checked ? 'true' : 'false');
+              }}
+              className="rounded accent-[#e5373f] h-3.5 w-3.5 cursor-pointer"
+            />
+            <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
+              Always show before upload
+            </span>
+          </label>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/50 hover:text-white'
+              }`}
+            >
+              Skip
+            </button>
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={() => setStep((prev) => Math.max(0, prev - 1))}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-white text-slate-800 hover:bg-gray-100' : 'border-white/20 bg-white/5 text-white hover:bg-white/10'
+                }`}
+              >
+                &larr; Back
+              </button>
+            )}
+            {!isLast ? (
+              <button
+                type="button"
+                onClick={() => setStep((prev) => Math.min(PHOTO_GUIDE_STEPS.length - 1, prev + 1))}
+                className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1"
+              >
+                Next Step &rarr;
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onStartUpload();
+                }}
+                className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1.5"
+              >
+                <span>📸 Start Uploading Now</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
    SLA 24-48h Confirmation Popup for Custom Requests
    ---------------------------------------------------------------- */
 function RequestSubmittedPopup({ onClose }: { onClose: () => void }) {
@@ -2997,6 +3318,64 @@ export default function Design() {
     }
   }
 
+  async function handleDeleteOrCancelPose(idx: number, poseId: string) {
+    const targetPose = fivePoseItems[idx];
+    if (!targetPose) return;
+
+    // 1. If currently generating on GPU: cancel immediately & refund
+    if (targetPose.status === 'generating') {
+      if (job?.id) {
+        await handleCancelGeneration();
+      }
+      return;
+    }
+
+    // 2. If queued / pending: mark cancelled in ref so backend NEVER receives it
+    if (targetPose.status === 'pending') {
+      if (batchPayloadRef.current) {
+        batchPayloadRef.current.items = batchPayloadRef.current.items.map((item) =>
+          item.id === poseId ? { ...item, cancelled: true } : item
+        );
+      }
+    }
+
+    // 3. Remove visually from sequence
+    setFivePoseItems((prev) => prev.filter((_, pIdx) => pIdx !== idx));
+    if (selectedPoseIndex === idx) {
+      setSelectedPoseIndex(Math.max(0, idx - 1));
+    }
+  }
+
+  function handleCancelRemainingQueue() {
+    if (batchPayloadRef.current) {
+      batchPayloadRef.current.items = batchPayloadRef.current.items.map((item) => {
+        const match = fivePoseItems.find((p) => p.id === item.id);
+        if (match && match.status === 'pending') {
+          return { ...item, cancelled: true };
+        }
+        return item;
+      });
+    }
+    setFivePoseItems((prev) => prev.filter((p) => p.status !== 'pending'));
+    setProgressLabel('Pending queue cancelled. Remaining poses skipped.');
+  }
+
+  /* Photo guidelines interactive tour state */
+  const [showPhotoTour, setShowPhotoTour] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [alwaysShowTour, setAlwaysShowTour] = useState(() => {
+    return localStorage.getItem('shivnaresh_always_photo_tour') !== 'false';
+  });
+
+  function handleInitiateGarmentUpload() {
+    if (alwaysShowTour) {
+      setShowPhotoTour(true);
+      setTourStep(0);
+    } else {
+      clothInput.current?.click();
+    }
+  }
+
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
@@ -3031,6 +3410,7 @@ export default function Design() {
       sourceModel?: Pick;
       targetModel?: Pick;
       promptSuffix?: string;
+      cancelled?: boolean;
     }>;
   } | null>(null);
 
@@ -3259,7 +3639,6 @@ export default function Design() {
 
           if (activePoseIndexRef.current >= 0 && batchPayloadRef.current) {
             const currentIdx = activePoseIndexRef.current;
-            const nextIdx = currentIdx + 1;
             const batchCtx = batchPayloadRef.current;
             const currentItem = batchCtx.items[currentIdx];
 
@@ -3278,18 +3657,37 @@ export default function Design() {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
             }).catch(() => {});
 
-            if (nextIdx < batchCtx.total) {
-              // Advance to next item in sequence
-              activePoseIndexRef.current = nextIdx;
-              const nextItem = batchCtx.items[nextIdx];
+            // Find next uncancelled pending item in batch sequence
+            let nextItemIdx = -1;
+            for (let i = currentIdx + 1; i < batchCtx.items.length; i++) {
+              const candidate = batchCtx.items[i];
+              if (!candidate.cancelled) {
+                nextItemIdx = i;
+                break;
+              }
+            }
+
+            if (nextItemIdx !== -1) {
+              // Advance to next uncancelled item in sequence
+              activePoseIndexRef.current = nextItemIdx;
+              const nextItem = batchCtx.items[nextItemIdx];
               setFivePoseItems((prev) =>
-                prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'generating' } : p))
+                prev.map((p, idx) => (idx === nextItemIdx ? { ...p, status: 'generating' } : p))
               );
               setProgress(Math.round(((currentIdx + 1) / batchCtx.total) * 100));
               setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Cooling down 1.5s before ${nextItem.name}…`);
 
               // Explicit 1500ms delay between consecutive batch requests to eliminate 409 concurrency lock collision
               await new Promise((resolve) => setTimeout(resolve, 1500));
+
+              // Check if cancelled during the 1.5s delay
+              if (!batchPayloadRef.current || batchPayloadRef.current.items[nextItemIdx]?.cancelled) {
+                activePoseIndexRef.current = -1;
+                batchPayloadRef.current = null;
+                setBusy(false);
+                generatingRef.current = false;
+                return;
+              }
 
               try {
                 const nextPayload: Record<string, unknown> = {
@@ -3318,7 +3716,7 @@ export default function Design() {
                 setError(errMsg);
                 void api.reportClientError({ title: 'Batch Render Sequence Error', message: errMsg, details: err });
                 setFivePoseItems((prev) =>
-                  prev.map((p, idx) => (idx === nextIdx ? { ...p, status: 'failed' } : p))
+                  prev.map((p, idx) => (idx === nextItemIdx ? { ...p, status: 'failed' } : p))
                 );
                 setBusy(false);
                 generatingRef.current = false;
@@ -3326,18 +3724,17 @@ export default function Design() {
                 batchPayloadRef.current = null;
               }
             } else {
-              // All items finished
-              const totalDone = batchCtx.total;
-              const is5 = batchCtx.isFivePose;
+              // All active/uncancelled items finished
+              const totalDone = batchCtx.items.filter((it) => !it.cancelled).length;
               activePoseIndexRef.current = -1;
               batchPayloadRef.current = null;
               setProgress(100);
-              setProgressLabel(`All ${totalDone} ${is5 ? 'Poses' : 'Models'} Completed Successfully!`);
+              setProgressLabel(`Batch Finished! Generated ${totalDone} active poses (cancelled poses skipped).`);
               setBusy(false);
               generatingRef.current = false;
               sendDesktopNotification(
-                `${is5 ? '5-Pose Suite' : `${totalDone} Models`} Ready`,
-                `All ${totalDone} fashion renders are ready in your studio.`,
+                `Batch Finished`,
+                `All active fashion renders are ready in your studio.`,
                 imgUrl
               );
             }
@@ -3792,6 +4189,18 @@ export default function Design() {
           </div>
         </div>
       )}
+
+      {/* Garment Photography Guidelines Tour Modal */}
+      <GarmentPhotoTourModal
+        isOpen={showPhotoTour}
+        onClose={() => setShowPhotoTour(false)}
+        onStartUpload={() => clothInput.current?.click()}
+        step={tourStep}
+        setStep={setTourStep}
+        alwaysShow={alwaysShowTour}
+        setAlwaysShow={setAlwaysShowTour}
+        isLight={isLight}
+      />
 
       {/* "Are You Sure?" Generation Confirmation Modal */}
       {showConfirmModal && (
@@ -4566,14 +4975,27 @@ export default function Design() {
                         <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
                           {Math.max(classifiedGarments.length, cloth ? 1 : 0)} Garment{Math.max(classifiedGarments.length, cloth ? 1 : 0) > 1 ? 's' : ''} Uploaded · Auto-Classified
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => clothInput.current?.click()}
-                          disabled={uploading}
-                          className="text-[11px] font-bold text-[#e5373f] hover:underline"
-                        >
-                          + Add More
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPhotoTour(true);
+                              setTourStep(0);
+                            }}
+                            className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
+                            title="Review garment photography guidelines"
+                          >
+                            📸 Photo Guidelines Tour
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleInitiateGarmentUpload}
+                            disabled={uploading}
+                            className="text-[11px] font-bold text-[#e5373f] hover:underline cursor-pointer"
+                          >
+                            + Add More
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -4720,11 +5142,27 @@ export default function Design() {
                         void handleMultipleFiles(e.dataTransfer.files, 'cloth');
                       }}
                     >
+                      <div className="flex items-center justify-between mt-3 mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                          Garment Photos
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPhotoTour(true);
+                            setTourStep(0);
+                          }}
+                          className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
+                          title="Review garment photography guidelines"
+                        >
+                          📸 Photo Guidelines Tour
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => clothInput.current?.click()}
+                        onClick={handleInitiateGarmentUpload}
                         disabled={uploading}
-                        className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 ${
+                        className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${
                           isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
                         }`}
                       >
@@ -5305,7 +5743,19 @@ export default function Design() {
                         ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
                         : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
                     </span>
-                    <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
+                    <div className="flex items-center gap-2">
+                      {fivePoseItems.some((p) => p.status === 'pending') && (
+                        <button
+                          type="button"
+                          onClick={handleCancelRemainingQueue}
+                          className="rounded-full border border-red-500/70 bg-red-500/20 px-2.5 py-0.5 text-[9px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition cursor-pointer"
+                          title="Cancel all upcoming pending poses in queue"
+                        >
+                          ⏹ Stop Remaining Queue
+                        </button>
+                      )}
+                      <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
+                    </div>
                   </div>
                   <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
                     {fivePoseItems.map((pose, idx) => {
@@ -5344,13 +5794,10 @@ export default function Design() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setFivePoseItems((prev) => prev.filter((_, pIdx) => pIdx !== idx));
-                              if (selectedPoseIndex === idx) {
-                                setSelectedPoseIndex(Math.max(0, idx - 1));
-                              }
+                              void handleDeleteOrCancelPose(idx, pose.id);
                             }}
-                            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Delete this pose"
+                            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Cancel or delete this pose"
                           >
                             ✕
                           </button>
