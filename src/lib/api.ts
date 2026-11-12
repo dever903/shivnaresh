@@ -524,7 +524,10 @@ export const api = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
-    }),
+    }).catch(() =>
+      // Graceful fallback to POST endpoint if client/proxy strips DELETE
+      request<{ ok: boolean; deleted: string }>('/api/admin/models/delete', json({ id }))
+    ),
   moveAdminModel: (body: { id: string; targetCategory: string }) =>
     request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
 

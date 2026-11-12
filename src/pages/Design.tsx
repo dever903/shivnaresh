@@ -4049,69 +4049,83 @@ export default function Design() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      try {
-        // Fast parallel fetch for instant panel display
-        const [meRes, s, m] = await Promise.all([
-          api.me(),
-          api.studio().catch(() => null),
-          api.models().catch(() => ({ categories: [] })),
-        ]);
-
-        const me = meRes?.user;
-        if (!me) {
-          window.location.replace('/login?next=%2Fdesign');
-          return;
-        }
-
-        setUser(me);
-        void api.unlockUser().catch(() => {});
-
+      // 1. Immediately fetch models & studio settings in parallel
+      void Promise.allSettled([
+        api.studio().catch(() => null),
+        api.models().catch(() => ({ categories: [] })),
+      ]).then(([sRes, mRes]) => {
+        if (cancelled) return;
+        const s = sRes.status === 'fulfilled' ? sRes.value : null;
+        const m = mRes.status === 'fulfilled' ? mRes.value : null;
         if (s) {
           setSettings(s);
-          setPrompt(s.defaultPrompt || '');
-          if (s.resolution === '2k' && me.tier && me.tier !== 'free') {
-            setQuality('2k');
-          } else {
-            setQuality('1k');
-          }
+          setPrompt((prev) => prev || s.defaultPrompt || '');
           if (s.defaultMode) setMode(s.defaultMode as ModeId);
           if (s.defaultModel && m?.categories) {
             const found = m.categories.flatMap((c) => c.items).find((i) => i.id === s.defaultModel);
             if (found) setModel({ url: found.url, name: found.name });
           }
         }
-        if (m?.categories) {
+        if (m?.categories && m.categories.length > 0) {
           setCategories(m.categories);
         }
+      });
 
-        // Secondary panels loaded concurrently
-        void Promise.allSettled([
-          loadUploads(),
-          loadUploadSets(),
-          loadCustomRequests(),
-          loadUserGenerations(),
-        ]);
-      } catch (err: any) {
-        if (err instanceof ApiError && err.status === 401) {
-          window.location.replace('/login?next=%2Fdesign');
-          return;
-        }
-        // Fallback retry once if backend was waking up
+      // 2. Resilient session check with automatic retry for server waking up
+      let me: User | null = null;
+      let backendReached = false;
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        if (cancelled) return;
         try {
-          const retryRes = await api.me();
-          if (retryRes?.user) {
-            setUser(retryRes.user);
-            const [s, m] = await Promise.all([api.studio(), api.models()]);
-            if (s) setSettings(s);
-            if (m?.categories) setCategories(m.categories);
-            void loadUploads();
+          const res = await api.me();
+          backendReached = true;
+          me = res.user;
+          break;
+        } catch (e: any) {
+          if (e instanceof ApiError && e.status === 401) {
+            window.location.replace('/login?next=%2Fdesign');
             return;
           }
-        } catch {}
-        setError('Studio unreachable. Please refresh or check connection.');
+          await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1200));
+        }
       }
+
+      if (cancelled) return;
+
+      if (!backendReached) {
+        setError('Studio connecting… Please refresh if it does not load automatically.');
+        return;
+      }
+      if (!me) {
+        window.location.replace('/login?next=%2Fdesign');
+        return;
+      }
+
+      setError('');
+      setUser(me);
+      void api.unlockUser().catch(() => {});
+
+      if (me.tier && me.tier !== 'free') {
+        setQuality('2k');
+      } else {
+        setQuality('1k');
+      }
+
+      // Secondary panels loaded concurrently
+      void Promise.allSettled([
+        loadUploads(),
+        loadUploadSets(),
+        loadCustomRequests(),
+        loadUserGenerations(),
+      ]);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadUploadSets, loadCustomRequests, loadUserGenerations, loadUploads]);
 
   /* Poll job */

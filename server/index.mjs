@@ -1903,7 +1903,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/models', requireAdmin, async (req, res) => {
+const handleDeleteModelRoute = async (req, res) => {
   try {
     const rawId = req.query?.id || req.body?.id || (typeof req.query === 'string' ? req.query : '');
     const id = typeof rawId === 'string' ? decodeURIComponent(rawId).trim() : '';
@@ -1920,48 +1920,55 @@ app.delete('/api/admin/models', requireAdmin, async (req, res) => {
     const [category, filename] = parts;
     const targetFile = path.join(MODELS_DIR, category, filename);
 
-    // 1. Delete from local disk
+    // 1. Delete from local disk immediately
     await fs.unlink(targetFile).catch(() => {});
 
     // Invalidate cached models immediately
     cachedModelCategories = null;
     cachedModelsTime = 0;
 
-    // 2. Mark permanently deleted in MongoDB so it NEVER comes back after redeploys or git resets
-    try {
-      const db = await getMongoDb();
-      if (db) {
-        await db.collection('studio_models').updateOne(
-          { id },
-          {
-            $set: {
-              id,
-              category,
-              deleted: true,
-              deletedAt: Date.now(),
-            },
-          },
-          { upsert: true }
-        );
-      }
-    } catch (dbErr) {
-      console.warn('[admin-model] MongoDB delete error:', dbErr.message);
-    }
-
-    // 3. Also remove from hosted.json if mapped
-    try {
-      const map = await readHosted(true);
-      if (map.models?.[id]) {
-        delete map.models[id];
-        await saveHosted(map);
-      }
-    } catch {}
-
+    // Send HTTP response immediately so the client NEVER experiences connection timeouts or Failed to fetch!
     res.json({ ok: true, deleted: id });
+
+    // 2. Mark permanently deleted in MongoDB and hosted.json asynchronously in background
+    (async () => {
+      try {
+        const db = await getMongoDb();
+        if (db) {
+          await db.collection('studio_models').updateOne(
+            { id },
+            {
+              $set: {
+                id,
+                category,
+                deleted: true,
+                deletedAt: Date.now(),
+              },
+            },
+            { upsert: true }
+          );
+        }
+      } catch (dbErr) {
+        console.warn('[admin-model] MongoDB delete error:', dbErr.message);
+      }
+
+      try {
+        const map = await readHosted(true);
+        if (map.models?.[id]) {
+          delete map.models[id];
+          await saveHosted(map);
+        }
+      } catch {}
+    })().catch(() => {});
   } catch (err) {
-    res.status(500).json({ error: 'delete_model_failed', message: String(err.message || err) });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'delete_model_failed', message: String(err.message || err) });
+    }
   }
-});
+};
+
+app.delete('/api/admin/models', requireAdmin, handleDeleteModelRoute);
+app.post('/api/admin/models/delete', requireAdmin, handleDeleteModelRoute);
 
 app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
   try {

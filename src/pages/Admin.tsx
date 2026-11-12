@@ -983,7 +983,7 @@ export default function Admin() {
       }
     } catch (err: any) {
       const msg = String(err?.message || err);
-      if (msg.includes('Failed to fetch')) {
+      if (/fetch|network|load failed|abort/i.test(msg)) {
         console.warn('[admin] Model delete network blip (model was deleted):', modelId);
         // Silently re-sync with server
         api.models().then((fresh) => {
