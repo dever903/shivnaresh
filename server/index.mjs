@@ -1677,54 +1677,75 @@ app.post('/api/client-error', auth.requireUser, async (req, res) => {
 /* ---------------------------------------------------- admin studio models */
 app.post('/api/admin/models', requireAdmin, async (req, res) => {
   try {
-    const { category, name, imageData } = req.body || {};
-    if (!category || !name || !imageData) {
-      return res.status(400).json({ error: 'missing_fields', message: 'Category name, model title, and image data are required.' });
+    const { category, name, imageData, models } = req.body || {};
+    if (!category) {
+      return res.status(400).json({ error: 'missing_category', message: 'Category name is required.' });
     }
 
     const safeCat = String(category).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    const safeName = String(name).replace(/[^a-zA-Z0-9 _-]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
-    if (!safeCat || !safeName) {
-      return res.status(400).json({ error: 'invalid_names', message: 'Category or model name contains invalid characters.' });
+    if (!safeCat) {
+      return res.status(400).json({ error: 'invalid_category', message: 'Category name contains invalid characters.' });
     }
-
-    const match = /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/.exec(imageData);
-    if (!match) {
-      return res.status(400).json({ error: 'bad_image', message: 'Image must be a valid base64 data URL (PNG/JPEG/WEBP).' });
-    }
-    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-    const rawBuffer = Buffer.from(match[2], 'base64');
 
     const targetDir = path.join(MODELS_DIR, safeCat);
     await fs.mkdir(targetDir, { recursive: true });
 
-    const fileName = `${safeName}.${ext}`;
-    const filePath = path.join(targetDir, fileName);
-    await fs.writeFile(filePath, rawBuffer);
+    // Handle batch upload if models array is provided, otherwise single model
+    const itemsToProcess = Array.isArray(models) && models.length > 0 
+      ? models 
+      : (name && imageData ? [{ name, imageData }] : []);
 
-    // Host to imgbb if available
-    let publicUrl = `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(fileName)}`;
-    try {
-      const hosted = await hostImage(rawBuffer, `${safeCat}-${fileName}`);
-      if (hosted?.url) {
-        publicUrl = hosted.url;
-        const map = await readHosted();
-        map.models = map.models || {};
-        map.models[`${safeCat}/${fileName}`] = hosted.url;
-        await saveHosted(map);
-      }
-    } catch (hostErr) {
-      console.warn('[admin-model] Image hosting fallback to local:', hostErr.message);
+    if (itemsToProcess.length === 0) {
+      return res.status(400).json({ error: 'missing_fields', message: 'At least one model with name and image data is required.' });
     }
 
-    res.json({
-      ok: true,
-      category: safeCat,
-      model: {
+    const map = await readHosted();
+    map.models = map.models || {};
+    let mapChanged = false;
+
+    const results = [];
+    for (let i = 0; i < itemsToProcess.length; i++) {
+      const item = itemsToProcess[i];
+      const rawName = String(item.name || `model-${i + 1}`).replace(/[^a-zA-Z0-9 _-]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
+      const safeName = rawName || `model-${Date.now().toString(36)}-${i + 1}`;
+      const match = /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/.exec(item.imageData || '');
+      if (!match) continue;
+
+      const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+      const rawBuffer = Buffer.from(match[2], 'base64');
+      const fileName = `${safeName}.${ext}`;
+      const filePath = path.join(targetDir, fileName);
+      await fs.writeFile(filePath, rawBuffer);
+
+      let publicUrl = `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(fileName)}`;
+      try {
+        const hosted = await hostImage(rawBuffer, `${safeCat}-${fileName}`);
+        if (hosted?.url) {
+          publicUrl = hosted.url;
+          map.models[`${safeCat}/${fileName}`] = hosted.url;
+          mapChanged = true;
+        }
+      } catch (hostErr) {
+        console.warn('[admin-model] Image hosting fallback to local:', hostErr.message);
+      }
+
+      results.push({
         id: `${safeCat}/${fileName}`,
         name: safeName,
         url: publicUrl,
-      },
+      });
+    }
+
+    if (mapChanged) {
+      await saveHosted(map);
+    }
+
+    return res.json({
+      ok: true,
+      category: safeCat,
+      count: results.length,
+      model: results[0] || null,
+      models: results,
     });
   } catch (err) {
     await recordSystemProblem({

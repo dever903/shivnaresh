@@ -514,8 +514,8 @@ export const api = {
   adminUploadSets: () => request<{ items: UploadSet[]; total: number }>('/api/admin/upload-sets'),
 
   /* admin studio models */
-  uploadAdminModel: (body: { category: string; name: string; imageData: string }) =>
-    request<{ ok: boolean; category: string; model: { id: string; name: string; url: string } }>(
+  uploadAdminModel: (body: { category: string; name?: string; imageData?: string; models?: { name: string; imageData: string }[] }) =>
+    request<{ ok: boolean; category: string; count?: number; model?: { id: string; name: string; url: string }; models?: { id: string; name: string; url: string }[] }>(
       '/api/admin/models',
       json(body),
     ),

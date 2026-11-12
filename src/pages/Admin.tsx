@@ -146,13 +146,15 @@ export default function Admin() {
   const [admin2faEnabled, setAdmin2faEnabled] = useState(false);
   const [developerImageUrl, setDeveloperImageUrl] = useState('');
 
-  /* Model Upload & Management State */
+  /* Model Upload & Management State (Single or Multiple) */
   const [uploadModelCat, setUploadModelCat] = useState('');
   const [isNewCat, setIsNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [uploadModelName, setUploadModelName] = useState('');
   const [uploadModelDataUrl, setUploadModelDataUrl] = useState('');
+  const [selectedBatchModels, setSelectedBatchModels] = useState<Array<{ name: string; dataUrl: string; size: number }>>([]);
   const [uploadModelBusy, setUploadModelBusy] = useState(false);
+  const [uploadModelProgress, setUploadModelProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [modelMessage, setModelMessage] = useState('');
   const modelFileInput = useRef<HTMLInputElement>(null);
@@ -903,7 +905,7 @@ export default function Admin() {
     }
   };
 
-  /* Model Upload Handlers */
+  /* Model Upload Handlers (Single or Batch Multi-Select) */
   async function handleUploadModel(e: React.FormEvent) {
     e.preventDefault();
     const finalCat = isNewCat ? newCatName.trim() : uploadModelCat.trim();
@@ -911,35 +913,45 @@ export default function Admin() {
       setModelMessage('Please select or specify a category name.');
       return;
     }
-    if (!uploadModelName.trim()) {
-      setModelMessage('Please enter a model name.');
-      return;
-    }
-    if (!uploadModelDataUrl) {
-      setModelMessage('Please choose or drop an image file.');
+
+    const hasBatch = selectedBatchModels.length > 0;
+    if (!hasBatch && (!uploadModelName.trim() || !uploadModelDataUrl)) {
+      setModelMessage('Please choose or drop image file(s) and specify a model name.');
       return;
     }
 
     setUploadModelBusy(true);
     setModelMessage('');
     try {
-      await api.uploadAdminModel({
-        category: finalCat,
-        name: uploadModelName.trim(),
-        imageData: uploadModelDataUrl,
-      });
-      setModelMessage(`✓ Successfully added model "${uploadModelName}" into category "${finalCat}".`);
+      if (hasBatch && selectedBatchModels.length > 1) {
+        setUploadModelProgress({ current: 0, total: selectedBatchModels.length });
+        await api.uploadAdminModel({
+          category: finalCat,
+          models: selectedBatchModels.map((m) => ({ name: m.name, imageData: m.dataUrl })),
+        });
+        setModelMessage(`✓ Successfully added all ${selectedBatchModels.length} models into category "${finalCat}".`);
+      } else {
+        const item = selectedBatchModels[0] || { name: uploadModelName.trim(), dataUrl: uploadModelDataUrl };
+        await api.uploadAdminModel({
+          category: finalCat,
+          name: item.name || uploadModelName.trim(),
+          imageData: item.dataUrl || uploadModelDataUrl,
+        });
+        setModelMessage(`✓ Successfully added model "${item.name || uploadModelName}" into category "${finalCat}".`);
+      }
       setUploadModelName('');
       setUploadModelDataUrl('');
+      setSelectedBatchModels([]);
       setIsNewCat(false);
       setNewCatName('');
       const freshModels = await api.models();
       setCategories(freshModels.categories);
-      setTimeout(() => setModelMessage(''), 5000);
+      setTimeout(() => setModelMessage(''), 6000);
     } catch (err: any) {
-      setModelMessage(err.message || 'Could not upload model.');
+      setModelMessage(err.message || 'Could not upload model(s).');
     } finally {
       setUploadModelBusy(false);
+      setUploadModelProgress(null);
     }
   }
 
@@ -3321,54 +3333,92 @@ ${log.stack || 'None'}
             </div>
 
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Model Name</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
+                {selectedBatchModels.length > 1 ? 'Batch Name Prefix' : 'Model Name'}
+              </label>
               <input
                 type="text"
-                required
+                required={selectedBatchModels.length <= 1}
                 value={uploadModelName}
                 onChange={(e) => setUploadModelName(e.target.value)}
-                placeholder="e.g. Male Tracksuit Front Pose"
+                placeholder={selectedBatchModels.length > 1 ? 'e.g. Autumn Collection 2026' : 'e.g. Male Tracksuit Front Pose'}
                 className={inputClass}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Model Image File</label>
-            <div className="mt-2 flex items-center gap-4">
-              <input
-                ref={modelFileInput}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    try {
-                      const data = await fileToDataUrl(file);
-                      setUploadModelDataUrl(data);
-                      if (!uploadModelName) {
-                        setUploadModelName(file.name.replace(/\.[^.]+$/, ''));
-                      }
-                    } catch (err: any) {
-                      alert('Could not read image: ' + err.message);
-                    }
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
+                Model Image File(s) — Select Single or Multi-Select
+              </label>
+              {selectedBatchModels.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBatchModels([]);
+                    setUploadModelDataUrl('');
+                    setUploadModelName('');
+                  }}
+                  className="text-[10px] font-semibold text-rose-400 hover:underline cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              )}
+            </div>
+
+            <input
+              ref={modelFileInput}
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp,image/*"
+              className="hidden"
+              onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+              onChange={async (e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                if (files.length === 0) return;
+                try {
+                  const items: Array<{ name: string; dataUrl: string; size: number }> = [];
+                  for (const f of files) {
+                    const d = await fileToDataUrl(f);
+                    items.push({
+                      name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
+                      dataUrl: d,
+                      size: f.size,
+                    });
                   }
-                }}
-              />
+                  setSelectedBatchModels(items);
+                  setUploadModelDataUrl(items[0].dataUrl);
+                  if (items.length === 1) {
+                    setUploadModelName(items[0].name);
+                  } else {
+                    setUploadModelName(`${items.length} Poses Batch`);
+                  }
+                } catch (err: any) {
+                  alert('Could not read image(s): ' + err.message);
+                }
+              }}
+            />
+
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => modelFileInput.current?.click()}
-                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${
+                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
                   isLight
                     ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
                 }`}
               >
-                {uploadModelDataUrl ? 'Change Image File…' : 'Select Image (PNG, JPG, WEBP)…'}
+                <UploadCloud size={15} />
+                <span>
+                  {selectedBatchModels.length > 0
+                    ? `Change Selection (${selectedBatchModels.length} selected)…`
+                    : 'Select Model Images (Any number at once)…'}
+                </span>
               </button>
 
-              {uploadModelDataUrl && (
+              {selectedBatchModels.length === 1 && uploadModelDataUrl && (
                 <div className="flex items-center gap-3">
                   <img
                     src={uploadModelDataUrl}
@@ -3376,11 +3426,76 @@ ${log.stack || 'None'}
                     className="h-12 w-9 rounded-lg object-cover border border-white/20"
                   />
                   <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Image ready
+                    <Check className="w-3.5 h-3.5" /> 1 model image ready
                   </span>
                 </div>
               )}
+
+              {selectedBatchModels.length > 1 && (
+                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                  <Check className="w-3.5 h-3.5" />
+                  <strong>{selectedBatchModels.length} models</strong> ready for batch upload
+                </span>
+              )}
             </div>
+
+            {/* Multi-Model Preview Grid */}
+            {selectedBatchModels.length > 1 && (
+              <div className="mt-3.5 space-y-2">
+                <p className={`text-[11px] font-semibold ${isLight ? 'text-gray-700' : 'text-white/60'}`}>
+                  Selected Models ({selectedBatchModels.length}):
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-60 overflow-y-auto p-2 rounded-xl border border-white/10 bg-black/20">
+                  {selectedBatchModels.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`relative rounded-lg border p-1.5 flex flex-col group ${
+                        isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.03]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = selectedBatchModels.filter((_, i) => i !== idx);
+                          setSelectedBatchModels(updated);
+                          if (updated.length > 0) {
+                            setUploadModelDataUrl(updated[0].dataUrl);
+                            setUploadModelName(`${updated.length} Poses Batch`);
+                          } else {
+                            setUploadModelDataUrl('');
+                            setUploadModelName('');
+                          }
+                        }}
+                        className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-red-600/80 hover:bg-red-600 text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                        title="Remove model"
+                      >
+                        ✕
+                      </button>
+                      <img
+                        src={item.dataUrl}
+                        alt={item.name}
+                        className="h-24 w-full object-cover rounded-md mb-1.5"
+                      />
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedBatchModels((prev) =>
+                            prev.map((p, i) => (i === idx ? { ...p, name: val } : p))
+                          );
+                        }}
+                        placeholder="Model pose title"
+                        className={`w-full rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                          isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                        }`}
+                        title="Edit pose name"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {modelMessage && (
@@ -3395,10 +3510,25 @@ ${log.stack || 'None'}
 
           <button
             type="submit"
-            disabled={uploadModelBusy || !uploadModelDataUrl}
-            className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shadow-md"
+            disabled={uploadModelBusy || (!uploadModelDataUrl && selectedBatchModels.length === 0)}
+            className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shadow-md cursor-pointer flex items-center gap-2"
           >
-            {uploadModelBusy ? 'Uploading & Processing Model…' : 'Save & Publish Model to Library'}
+            {uploadModelBusy ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>
+                  {uploadModelProgress
+                    ? `Uploading ${uploadModelProgress.total} Models to Library…`
+                    : 'Uploading & Processing Model(s)…'}
+                </span>
+              </>
+            ) : (
+              <span>
+                {selectedBatchModels.length > 1
+                  ? `Save & Publish ${selectedBatchModels.length} Models to Library`
+                  : 'Save & Publish Model to Library'}
+              </span>
+            )}
           </button>
         </form>
       </section>

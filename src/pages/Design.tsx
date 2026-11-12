@@ -546,12 +546,15 @@ function GarmentPhotoTourModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                onStartUpload();
+              }}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Skip
+              Skip to Upload
             </button>
             {step > 0 && (
               <button
@@ -3419,15 +3422,6 @@ export default function Design() {
     return localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
   });
 
-  function handleInitiateGarmentUpload() {
-    if (alwaysShowTour) {
-      setShowPhotoTour(true);
-      setTourStep(0);
-    } else {
-      clothInput.current?.click();
-    }
-  }
-
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
@@ -5041,7 +5035,7 @@ export default function Design() {
                           </button>
                           <button
                             type="button"
-                            onClick={handleInitiateGarmentUpload}
+                            onClick={() => clothInput.current?.click()}
                             disabled={uploading}
                             className="text-[11px] font-bold text-[#e5373f] hover:underline cursor-pointer"
                           >
@@ -5212,7 +5206,7 @@ export default function Design() {
                       </div>
                       <button
                         type="button"
-                        onClick={handleInitiateGarmentUpload}
+                        onClick={() => clothInput.current?.click()}
                         disabled={uploading}
                         className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${
                           isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
