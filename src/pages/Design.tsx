@@ -269,14 +269,14 @@ const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
     step: 2,
     badge: 'Step 2 of 4',
     title: 'Sleeve Placement: Spread Wide at 45° (Front & Back Photos)',
-    tagline: 'Lay garment completely flat with arms spread wide and cuffs straight',
-    doBadge: 'DO · Both Sleeves Extended Symmetrically',
-    doImage: '/guidelines/white-shirt-clean-bg.jpg',
-    doHeadline: 'White shirt with both sleeves spread and cuffs flat',
+    tagline: 'Lay garment completely flat with arms spread wide at 45° angles and cuffs flat',
+    doBadge: 'DO · Sleeves Spread Wide at 45°',
+    doImage: '/guidelines/white-shirt-45deg.jpg',
+    doHeadline: 'White shirt with both sleeves spread wide at 45° angles',
     doBullets: [
-      'Both sleeves laid out flat and extended symmetrically.',
-      'Wrist cuffs, armpit seams, and collar fully visible.',
-      'Allows AI to accurately project sleeve length and maintain arm symmetry.',
+      'Both sleeves extended wide at natural 45° angles.',
+      'Wrist cuffs flat, armpit seams open, and collar centered.',
+      'Allows AI to accurately map arm trajectory and sleeve length.',
     ],
     dontBadge: 'AVOID · Bunched Sleeves & Red Collar Tags',
     dontImage: '/guidelines/hoodie-wide-turf.jpg',
@@ -287,7 +287,7 @@ const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
       'Bunched fabric curves distort sleeve striping and proportions.',
     ],
     whyItMatters:
-      'Notice the clean sleeve alignment of the white shirt: clear arm trajectories give the AI accurate spatial reference. Bunched sleeves or collar tags trick the AI into inventing unwanted zippers or twisting sleeve graphics.',
+      'Notice the 45° sleeve spread of the white shirt: wide, straight arm angles give the AI accurate spatial geometry. Bunched sleeves or collar tags trick the AI into inventing unwanted zippers or twisting sleeve graphics.',
   },
   {
     step: 3,
@@ -3416,7 +3416,7 @@ export default function Design() {
   const [showPhotoTour, setShowPhotoTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [alwaysShowTour, setAlwaysShowTour] = useState(() => {
-    return localStorage.getItem('shivnaresh_always_photo_tour') !== 'false';
+    return localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
   });
 
   function handleInitiateGarmentUpload() {
