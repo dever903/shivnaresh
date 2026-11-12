@@ -1514,6 +1514,7 @@ function MySetsPanel({
   refreshSets,
   refreshGenerations,
   onDeleteGeneration,
+  onZoomCrop,
   isLight,
 }: {
   uploadSets: UploadSet[];
@@ -1525,6 +1526,7 @@ function MySetsPanel({
   refreshSets: () => void;
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
+  onZoomCrop?: (url: string, title: string) => void;
   isLight: boolean;
 }) {
   const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'sets'>('all');
@@ -2005,6 +2007,20 @@ function MySetsPanel({
                       >
                         Download
                       </button>
+                      {onZoomCrop && (
+                        <button
+                          type="button"
+                          onClick={() => onZoomCrop(gen.remoteUrl || gen.highResUrl || gen.url, `studio-${gen.id.slice(0, 6)}`)}
+                          className={`rounded-full border p-2 text-xs transition cursor-pointer ${
+                            isLight
+                              ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
+                              : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+                          }`}
+                          title="Zoom & Macro Crop Download (1807×3000 px)"
+                        >
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => window.open(gen.remoteUrl || gen.highResUrl || gen.url, '_blank')}
@@ -4034,58 +4050,67 @@ export default function Design() {
 
   useEffect(() => {
     (async () => {
-      let me: User | null = null;
-      let backendReached = false;
-      for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        // Fast parallel fetch for instant panel display
+        const [meRes, s, m] = await Promise.all([
+          api.me(),
+          api.studio().catch(() => null),
+          api.models().catch(() => ({ categories: [] })),
+        ]);
+
+        const me = meRes?.user;
+        if (!me) {
+          window.location.replace('/login?next=%2Fdesign');
+          return;
+        }
+
+        setUser(me);
+        void api.unlockUser().catch(() => {});
+
+        if (s) {
+          setSettings(s);
+          setPrompt(s.defaultPrompt || '');
+          if (s.resolution === '2k' && me.tier && me.tier !== 'free') {
+            setQuality('2k');
+          } else {
+            setQuality('1k');
+          }
+          if (s.defaultMode) setMode(s.defaultMode as ModeId);
+          if (s.defaultModel && m?.categories) {
+            const found = m.categories.flatMap((c) => c.items).find((i) => i.id === s.defaultModel);
+            if (found) setModel({ url: found.url, name: found.name });
+          }
+        }
+        if (m?.categories) {
+          setCategories(m.categories);
+        }
+
+        // Secondary panels loaded concurrently
+        void Promise.allSettled([
+          loadUploads(),
+          loadUploadSets(),
+          loadCustomRequests(),
+          loadUserGenerations(),
+        ]);
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 401) {
+          window.location.replace('/login?next=%2Fdesign');
+          return;
+        }
+        // Fallback retry once if backend was waking up
         try {
-          const res = await api.me();
-          backendReached = true;
-          me = res.user;
-          break;
-        } catch (e) {
-          if (e instanceof ApiError && e.status === 401) {
-            window.location.replace('/login?next=%2Fdesign');
+          const retryRes = await api.me();
+          if (retryRes?.user) {
+            setUser(retryRes.user);
+            const [s, m] = await Promise.all([api.studio(), api.models()]);
+            if (s) setSettings(s);
+            if (m?.categories) setCategories(m.categories);
+            void loadUploads();
             return;
           }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
+        } catch {}
+        setError('Studio unreachable. Please refresh or check connection.');
       }
-
-      if (!backendReached) {
-        setError('Studio unreachable. Please run `npm run api`, then refresh.');
-        return;
-      }
-      if (!me) {
-        window.location.replace('/login?next=%2Fdesign');
-        return;
-      }
-
-      setUser(me);
-      void api.unlockUser().catch(() => {});
-
-      try {
-        const [s, m] = await Promise.all([api.studio(), api.models()]);
-        setSettings(s);
-        setCategories(m.categories);
-        setPrompt(s.defaultPrompt || '');
-        if (s.resolution === '2k' && me.tier && me.tier !== 'free') {
-          setQuality('2k');
-        } else {
-          setQuality('1k');
-        }
-        if (s.defaultMode) setMode(s.defaultMode as ModeId);
-        if (s.defaultModel) {
-          const found = m.categories.flatMap((c) => c.items).find((i) => i.id === s.defaultModel);
-          if (found) setModel({ url: found.url, name: found.name });
-        }
-      } catch {
-        /* non-fatal */
-      }
-
-      void loadUploads();
-      void loadUploadSets();
-      void loadCustomRequests();
-      void loadUserGenerations();
     })();
   }, [loadUploadSets, loadCustomRequests, loadUserGenerations, loadUploads]);
 
@@ -4974,6 +4999,11 @@ export default function Design() {
           refreshSets={loadUploadSets}
           refreshGenerations={loadUserGenerations}
           onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
+          onZoomCrop={(url, title) => {
+            setZoomCropImage(url);
+            setZoomCropTitle(title);
+            setShowZoomCropModal(true);
+          }}
           isLight={isLight}
         />
       )}

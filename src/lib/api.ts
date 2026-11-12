@@ -520,7 +520,11 @@ export const api = {
       json(body),
     ),
   deleteAdminModel: (id: string) =>
-    request<{ ok: boolean; deleted: string }>('/api/admin/models', { ...json({ id }), method: 'DELETE' }),
+    request<{ ok: boolean; deleted: string }>(`/api/admin/models?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }),
   moveAdminModel: (body: { id: string; targetCategory: string }) =>
     request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
 

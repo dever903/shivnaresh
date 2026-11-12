@@ -234,7 +234,14 @@ const readJson = async (file, fallback) => {
 };
 const writeJson = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2));
 
-const readState = async () => {
+let cachedAppState = null;
+let cachedStateTime = 0;
+
+const readState = async (forceFresh = false) => {
+  const now = Date.now();
+  if (!forceFresh && cachedAppState && now - cachedStateTime < 10_000) {
+    return cachedAppState;
+  }
   let dbState = null;
   try {
     const db = await getMongoDb();
@@ -261,6 +268,8 @@ const readState = async () => {
     };
   }
   delete merged._id;
+  cachedAppState = merged;
+  cachedStateTime = now;
   return merged;
 };
 
@@ -485,7 +494,14 @@ async function recordSystemProblem({
   }
 }
 /* hosted.json maps a local file (or its relative path) to its imgbb URL */
-const readHosted = async () => {
+let cachedHostedMap = null;
+let cachedHostedTime = 0;
+
+const readHosted = async (forceFresh = false) => {
+  const now = Date.now();
+  if (!forceFresh && cachedHostedMap && now - cachedHostedTime < 30_000) {
+    return cachedHostedMap;
+  }
   let dbHosted = null;
   try {
     const db = await getMongoDb();
@@ -494,16 +510,21 @@ const readHosted = async () => {
     }
   } catch {}
   const local = await readJson(HOSTED_FILE, {});
-  return {
+  const result = {
     models: {},
     generated: {},
     uploads: {},
     ...local,
     ...(dbHosted?.map || {}),
   };
+  cachedHostedMap = result;
+  cachedHostedTime = now;
+  return result;
 };
 
 const saveHosted = async (value) => {
+  cachedHostedMap = value;
+  cachedHostedTime = Date.now();
   await writeJson(HOSTED_FILE, value);
   try {
     const db = await getMongoDb();
@@ -656,7 +677,14 @@ async function toDataUri(src) {
   throw new Error(`image not found: ${src}`);
 }
 
-async function listModels() {
+let cachedModelCategories = null;
+let cachedModelsTime = 0;
+
+async function listModels(forceFresh = false) {
+  const now = Date.now();
+  if (!forceFresh && cachedModelCategories && now - cachedModelsTime < 30_000) {
+    return cachedModelCategories;
+  }
   const categoriesMap = new Map();
   const deletedSet = new Set();
 
@@ -952,6 +980,8 @@ const patchState = async (patch) => {
   const current = await readState();
   const next = { ...current, ...patch };
   delete next._id;
+  cachedAppState = next;
+  cachedStateTime = Date.now();
   await writeJson(STATE_FILE, next);
   try {
     const db = await getMongoDb();
@@ -1851,6 +1881,8 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
     if (mapChanged) {
       await saveHosted(map);
     }
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
 
     return res.json({
       ok: true,
@@ -1873,8 +1905,9 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/models', requireAdmin, async (req, res) => {
   try {
-    const { id } = req.body || req.query || {};
-    if (!id || typeof id !== 'string') {
+    const rawId = req.query?.id || req.body?.id || (typeof req.query === 'string' ? req.query : '');
+    const id = typeof rawId === 'string' ? decodeURIComponent(rawId).trim() : '';
+    if (!id) {
       return res.status(400).json({ error: 'missing_id', message: 'Model id (Category/filename) is required.' });
     }
 
@@ -1889,6 +1922,10 @@ app.delete('/api/admin/models', requireAdmin, async (req, res) => {
 
     // 1. Delete from local disk
     await fs.unlink(targetFile).catch(() => {});
+
+    // Invalidate cached models immediately
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
 
     // 2. Mark permanently deleted in MongoDB so it NEVER comes back after redeploys or git resets
     try {
@@ -1913,7 +1950,7 @@ app.delete('/api/admin/models', requireAdmin, async (req, res) => {
 
     // 3. Also remove from hosted.json if mapped
     try {
-      const map = await readHosted();
+      const map = await readHosted(true);
       if (map.models?.[id]) {
         delete map.models[id];
         await saveHosted(map);
@@ -2030,6 +2067,10 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
         await saveHosted(map);
       }
     } catch {}
+
+    // Invalidate cached models
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
 
     res.json({ ok: true, oldId: id, newId, targetCategory: safeTargetCat });
   } catch (err) {

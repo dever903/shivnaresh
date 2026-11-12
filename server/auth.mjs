@@ -154,6 +154,10 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   };
   const writeLocal = (list) => fs.writeFile(usersFile, JSON.stringify(list, null, 2));
 
+  /* In-memory user cache to deliver sub-millisecond authentication and prevent concurrent file races */
+  const userMemoryCache = new Map(); // id -> { user, time }
+  const emailToIdMap = new Map(); // email -> id
+
   /* Atlas occasionally refuses the TLS handshake. Accounts therefore live in
      two places: the local users.json mirror is always written and always read
      first, so a cloud outage can never lock anyone out; Mongo is the durable
@@ -161,60 +165,90 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   const normalise = (email) => String(email || '').trim().toLowerCase();
 
   async function cacheUser(user) {
-    const list = await readLocal();
-    const index = list.findIndex((u) => u._id === user._id);
-    if (index === -1) list.push(user);
-    else list[index] = { ...list[index], ...user };
-    await writeLocal(list);
+    if (!user || !user._id) return;
+    userMemoryCache.set(user._id, { user, time: Date.now() });
+    if (user.email) emailToIdMap.set(normalise(user.email), user._id);
   }
 
   async function findUserByEmail(email) {
     const key = normalise(email);
     if (!key) return null;
 
+    // Check high-speed in-memory cache first (valid for 5s)
+    const cachedId = emailToIdMap.get(key);
+    if (cachedId) {
+      const mem = userMemoryCache.get(cachedId);
+      if (mem && Date.now() - mem.time < 5000) {
+        return mem.user;
+      }
+    }
+
     // Check durable MongoDB first if available to get the freshest admin-allotted credits
-    const db = await getDb();
+    const db = await getDb().catch(() => null);
     if (db) {
       try {
         const user = await db.collection('users').findOne({ email: key });
         if (user) {
-          await cacheUser(user);
+          userMemoryCache.set(user._id, { user, time: Date.now() });
+          emailToIdMap.set(key, user._id);
           return user;
         }
       } catch {}
     }
 
-    const local = (await readLocal()).find((u) => u.email === key);
+    const local = (await readLocal()).find((u) => normalise(u.email) === key);
+    if (local) {
+      userMemoryCache.set(local._id, { user: local, time: Date.now() });
+      emailToIdMap.set(key, local._id);
+    }
     return local || null;
   }
 
   async function findUserById(id) {
     if (!id) return null;
 
+    // Check high-speed in-memory cache first (valid for 5s)
+    const mem = userMemoryCache.get(id);
+    if (mem && Date.now() - mem.time < 5000) {
+      return mem.user;
+    }
+
     // Check durable MongoDB first if available to get the freshest admin-allotted credits
-    const db = await getDb();
+    const db = await getDb().catch(() => null);
     if (db) {
       try {
         const user = await db.collection('users').findOne({ _id: id });
         if (user) {
-          await cacheUser(user);
+          userMemoryCache.set(id, { user, time: Date.now() });
+          if (user.email) emailToIdMap.set(normalise(user.email), id);
           return user;
         }
       } catch {}
     }
 
+    // Return in-memory object if MongoDB timed out rather than reading disk synchronously
+    if (mem?.user) return mem.user;
+
     const local = (await readLocal()).find((u) => u._id === id);
+    if (local) {
+      userMemoryCache.set(id, { user: local, time: Date.now() });
+      if (local.email) emailToIdMap.set(normalise(local.email), id);
+    }
     return local || null;
   }
 
   async function insertUser(user) {
     const record = { ...user, email: normalise(user.email) };
 
+    // Update memory cache immediately
+    userMemoryCache.set(record._id, { user: record, time: Date.now() });
+    emailToIdMap.set(record.email, record._id);
+
     const list = await readLocal();
     list.push(record);
-    await writeLocal(list);
+    await writeLocal(list).catch(() => {});
 
-    const db = await getDb();
+    const db = await getDb().catch(() => null);
     if (db) {
       try {
         await db.collection('users').insertOne(record);
@@ -226,14 +260,16 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   }
 
   async function patchUser(id, patch) {
-    const list = await readLocal();
-    const index = list.findIndex((u) => u._id === id);
-    if (index !== -1) {
-      list[index] = { ...list[index], ...patch };
-      await writeLocal(list);
+    // 1. Instantly update memory cache so user/admin see updated credits with 0ms delay
+    const mem = userMemoryCache.get(id);
+    if (mem?.user) {
+      mem.user = { ...mem.user, ...patch };
+      mem.time = Date.now();
+      if (mem.user.email) emailToIdMap.set(normalise(mem.user.email), id);
     }
 
-    const db = await getDb();
+    // 2. Persist to MongoDB as durable source of truth
+    const db = await getDb().catch(() => null);
     if (db) {
       try {
         await db.collection('users').updateOne({ _id: id }, { $set: patch });
@@ -241,14 +277,25 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         /* retried on the next successful write */
       }
     }
+
+    // 3. Persist to local disk file
+    try {
+      const list = await readLocal();
+      const index = list.findIndex((u) => u._id === id);
+      if (index !== -1) {
+        list[index] = { ...list[index], ...patch };
+        await writeLocal(list);
+      }
+    } catch {}
   }
 
   async function deleteUser(id) {
+    userMemoryCache.delete(id);
     const list = await readLocal();
     const filtered = list.filter((u) => u._id !== id);
-    await writeLocal(filtered);
+    await writeLocal(filtered).catch(() => {});
 
-    const db = await getDb();
+    const db = await getDb().catch(() => null);
     if (db) {
       try {
         await db.collection('users').deleteOne({ _id: id });
@@ -259,20 +306,32 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   }
 
   async function getAllUsers() {
-    const local = await readLocal();
-    const db = await getDb();
-    if (!db) return local;
-    try {
-      const remote = await db.collection('users').find({}).toArray();
-      const map = new Map();
-      for (const u of local) map.set(u._id, u);
-      for (const u of remote) {
-        if (!map.has(u._id)) map.set(u._id, u);
-      }
-      return [...map.values()];
-    } catch {
-      return local;
+    // MongoDB is durable source of truth: remote accounts ALWAYS take precedence over local seed
+    const db = await getDb().catch(() => null);
+    if (db) {
+      try {
+        const remote = await db.collection('users').find({}).toArray();
+        if (Array.isArray(remote) && remote.length > 0) {
+          const map = new Map();
+          for (const u of remote) {
+            map.set(u._id, u);
+            userMemoryCache.set(u._id, { user: u, time: Date.now() });
+            if (u.email) emailToIdMap.set(normalise(u.email), u._id);
+          }
+          // Only add local user if not present in remote MongoDB
+          const local = await readLocal();
+          for (const u of local) {
+            if (!map.has(u._id)) {
+              map.set(u._id, u);
+              userMemoryCache.set(u._id, { user: u, time: Date.now() });
+              if (u.email) emailToIdMap.set(normalise(u.email), u._id);
+            }
+          }
+          return [...map.values()];
+        }
+      } catch {}
     }
+    return await readLocal();
   }
 
   /* -------------------------------------------------------- passwords */

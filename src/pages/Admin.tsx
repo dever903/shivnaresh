@@ -964,12 +964,34 @@ export default function Admin() {
       return;
     }
     setDeletingModelId(modelId);
+
+    // Optimistically update categories immediately for instantaneous UI response
+    setCategories((prev) =>
+      prev
+        .map((cat) => ({
+          ...cat,
+          items: cat.items.filter((item) => item.id !== modelId),
+        }))
+        .filter((cat) => cat.items.length > 0)
+    );
+
     try {
       await api.deleteAdminModel(modelId);
-      const freshModels = await api.models();
-      setCategories(freshModels.categories);
+      const freshModels = await api.models().catch(() => null);
+      if (freshModels?.categories) {
+        setCategories(freshModels.categories);
+      }
     } catch (err: any) {
-      alert(`Could not delete model: ${err.message || err}`);
+      const msg = String(err?.message || err);
+      if (msg.includes('Failed to fetch')) {
+        console.warn('[admin] Model delete network blip (model was deleted):', modelId);
+        // Silently re-sync with server
+        api.models().then((fresh) => {
+          if (fresh?.categories) setCategories(fresh.categories);
+        }).catch(() => {});
+      } else {
+        alert(`Could not delete model: ${msg}`);
+      }
     } finally {
       setDeletingModelId(null);
     }
