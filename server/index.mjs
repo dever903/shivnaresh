@@ -2601,7 +2601,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       garmentViews
     );
 
-    if (isOutfit || isSwap || (mode === 'tryon' && (hasSpecialPromptOrProps || garmentViews) && (body.cloth || garmentViews) && body.model)) {
+    if (isOutfit || isSwap || (mode === 'tryon' && (body.cloth || garmentViews) && body.model)) {
       // Deduct credits ONCE before running (1 credit for 1K, 3 for 2K)
       const remainingCredits = Math.max(0, userCredits - creditsNeeded);
       await auth.patchUser(req.user._id, {
@@ -2615,7 +2615,17 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       lockUser(req, agentJobId);
 
       let images = [];
-      let agentPrompt = 'SHIV-NARESH athletic sportswear. ';
+      let agentPrompt = 'SHIV-NARESH authentic athletic sportswear. ';
+
+      // Universal fidelity, anti-hallucination, and sleeve/logo enforcement rules
+      const commonFidelityRules =
+        'CRITICAL IDENTITY & POSE PRESERVATION: Strictly preserve the model in Image 1 completely intact — retain their exact facial features, facial identity, expression, skin tone, hairstyle, athletic physique, posture, hands, shoes, and any sports equipment held in hands with 100% fidelity. ' +
+        'ZERO HARDWARE HALLUCINATION: Faithfully mirror the exact closure of the reference garment. If the reference garment is a seamless pullover hoodie, crewneck, or t-shirt with NO zipper, you MUST render continuous seamless fabric across the chest and neck. Absolutely NEVER hallucinate or add a front zipper, half-zip, quarter-zip, metal teeth, or zipper pull when the reference garment does not have one. ' +
+        'MANDATORY SLEEVE LENGTH OVERRIDE: Accurately reproduce the exact sleeve length of the reference garment. If the reference garment is a long-sleeve hoodie, jacket, track jacket, or sweatshirt, it MUST be rendered with full-length long sleeves covering both arms all the way down to the wrists and cuffs. NEVER render short sleeves, half sleeves, rolled-up cuffs, or exposed bare forearms on a long-sleeve garment, even if the base model in Image 1 wore a short-sleeve polo or had bare arms. ' +
+        'CHEST GRAPHIC & LOGO CENTERING: The chest artwork, graphics, and text from the reference garment must be positioned squarely in the horizontal center of the torso / chest, aligned with the sternum midline. Do NOT drift, squash, or offset the chest graphic toward the left armpit, underarms, or side seams. When the model is standing at an angle (3/4 profile pose), wrap the central chest graphic smoothly across the 3D surface of the chest with natural perspective, maintaining all symbols, icons, and lettering centered. ' +
+        'TEXT & TYPOGRAPHY FIDELITY: Replicate brand logos and typography (such as "SHIV NARESH" on sleeves and chest artwork) in clean, sharp, legible lettering with straight alignment along garment seams without blurring or gibberish characters. ' +
+        'HOOD & DRAWSTRINGS FIDELITY: If the reference garment is a hoodie, render an authentic pullover fabric hood draped cleanly behind the neck with drawstring cords hanging down symmetrically on the chest. ' +
+        'REFERENCE PHOTO CLEANUP: Completely discard and ignore any background turf, green grass, floor shadows, plastic tags, price stickers, or fabric creases present in the reference photos. ';
 
       if (isSwap) {
         // Target model is Image 1: preserve exact body shape, gender, posture, face, hair, and pose
@@ -2624,8 +2634,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
         images = [targetUri, sourceUri];
         agentPrompt += 'Target Model Garment Replacement: Dress the target model in Image 1 wearing the athletic sportswear clothing from Image 2. ' +
-          'CRITICAL TARGET MODEL PRESERVATION: Maintain the target model in Image 1 completely intact — preserve their exact pose, athletic posture, body proportions, gender, physique, facial identity, facial expression, skin tone, hair, and background with 100% fidelity. ' +
-          'Only replace the clothing on the target model in Image 1 with the exact sportswear garments, patterns, athletic cut, and logos from Image 2, fitted naturally to the target model’s pose and physique. ';
+          'Only replace the clothing on the target model in Image 1 with the exact sportswear garments, patterns, athletic cut, and logos from Image 2, fitted naturally to the target model’s pose and physique. ' +
+          commonFidelityRules;
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
         const viewsToUse = garmentViews.slice(0, 5); // Fashn limit: 1 model + max 5 garment views = max 6 images
@@ -2634,41 +2644,40 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the athlete model in Image 1 with the authentic sportswear garment shown across the reference photos (${viewLabels}). ` +
-          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, zipper, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ' +
-          'SLEEVE LENGTH & SILHOUETTE INTEGRITY: Accurately reproduce the exact sleeve length of the reference garment — if the garment is a long-sleeve hoodie, jacket, or sweatshirt, it MUST be rendered with full-length long sleeves covering arms down to the wrists; never render half sleeves or short sleeves on a long-sleeve garment even if the base model pose had bare arms or wore a polo shirt. ' +
-          'TEXT & LOGO FIDELITY: Maintain clean typographic lines on brand logos and graphics (such as "SHIV NARESH" on sleeves and chest artwork) with straight sharp edges matching reference garments. ';
+          'Reason dynamically across all provided reference views without assuming any rigid angle order: accurately transfer the collar, hood, drawstrings, kangaroo pocket, chest graphics, sleeve stripes, side panels, and back patterns onto the model in Image 1, matching the model’s natural pose and posture. ' +
+          'SLEEVE STRIPES & LOGO PLACEMENT: Accurately replicate the contrast stripes and typography (such as "SHIV NARESH") along the outer sides of both sleeves as shown in the reference sleeve views, extending cleanly from shoulder to cuff. ';
 
         if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
           agentPrompt += 'TARGET LOWER BODY / PANTS: Dress the lower body (legs) of the athlete in Image 1 with the bottom garment from the reference views. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and athletic posture intact. ';
         } else if (body.tryOnTarget === 'both' || isOutfit) {
           agentPrompt += 'TARGET FULL OUTFIT: Dress the athlete in Image 1 wearing the complete matching sportswear outfit from the reference views, simultaneously applying the top garment to the upper body and the bottom pants to the legs reaching sneakers. ';
         } else {
-          agentPrompt += 'TARGET UPPER BODY: Dress the upper torso of the athlete in Image 1 with the authentic sportswear garment from the reference views (transferring collar, zipper, chest graphics, and sleeves), keeping existing pants, shoes, and athlete body intact. ';
+          agentPrompt += 'TARGET UPPER BODY: Dress the upper torso of the athlete in Image 1 with the authentic sportswear garment from the reference views (transferring neckline, hood, chest graphics, kangaroo pocket, and sleeves), keeping existing pants, shoes, and athlete body intact. ';
         }
 
-        agentPrompt += 'CRITICAL POSE & IDENTITY PRESERVATION: Keep the model’s exact face, skin tone, hairstyle, athletic physique, posture, hands, and props (balls, gym equipment) completely untouched with zero alteration. ';
+        agentPrompt += commonFidelityRules;
       } else if (isOutfit) {
         const modelUri = await toDataUri(body.model);
         const topClothUri = await toDataUri(body.topCloth || body.cloth);
         const bottomClothUri = body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
         images = bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri];
         if (bottomClothUri) {
-          agentPrompt += 'Dress the athlete in the first image wearing both garments simultaneously: the top garment from the second image and the bottom pants from the third image as a complete matching sportswear outfit. ';
-          agentPrompt += 'Maintain professional athletic studio presentation. Both garments must be worn naturally together. The top garment is worn on the upper torso. The bottom garment is worn on the legs as full-length athletic pants matching the garment image, reaching down to the sneakers (not shorts). ';
+          agentPrompt += 'Dress the athlete in Image 1 wearing both garments simultaneously: the top garment from Image 2 and the bottom pants from Image 3 as a complete matching sportswear outfit. ' +
+            'Maintain professional athletic studio presentation. Both garments must be worn naturally together. The top garment is worn on the upper torso. The bottom garment is worn on the legs as full-length athletic pants matching the garment image, reaching down to the sneakers (not shorts). ';
         } else {
-          agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
+          agentPrompt += 'Put the athletic garment from Image 2 onto the athlete in Image 1 with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
         }
-        agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+        agentPrompt += commonFidelityRules;
       } else {
         const modelUri = await toDataUri(body.model);
         const singleClothUri = await toDataUri(body.cloth);
         images = [modelUri, singleClothUri];
         if (body.category === 'bottoms') {
-          agentPrompt += 'Replace the pants/lower garment on the athlete in the first image with the bottom garment from the second image. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and pose intact. ';
+          agentPrompt += 'Replace the pants/lower garment on the athlete in Image 1 with the bottom garment from Image 2. The bottom garment must be worn as full-length athletic track pants matching the garment image, reaching down to sneakers (not shorts). Keep the top shirt/jacket, athlete face, shoes, and pose intact. ';
         } else {
-          agentPrompt += 'Put the athletic garment from the second image onto the athlete in the first image with realistic sportswear fit and high fidelity. Keep the rest of the outfit and shoes intact. ';
+          agentPrompt += 'Put the athletic garment from Image 2 onto the athlete in Image 1 with realistic sportswear fit and high fidelity, transferring the neckline, collar, hood, kangaroo pocket, chest graphics, and sleeves faithfully. Keep the rest of the outfit and shoes intact. ';
         }
-        agentPrompt += "CRITICAL POSE & PROP PRESERVATION: Preserve the athlete's exact facial features, skin tone, hair, posture, and all sports equipment or balls held in hands (such as a basketball, football, tennis racket) completely untouched and clearly visible in the athlete's hands with zero alteration. ";
+        agentPrompt += commonFidelityRules;
       }
 
       if (body.color && typeof body.color === 'string' && body.color.trim()) {
