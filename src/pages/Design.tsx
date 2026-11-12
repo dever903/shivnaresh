@@ -358,20 +358,29 @@ function GarmentPhotoTourModal({
   setAlwaysShow: (val: boolean) => void;
   isLight: boolean;
 }) {
+  // Preload all guideline reference photos synchronously so step transitions have 0 latency/flicker
+  useEffect(() => {
+    PHOTO_GUIDE_STEPS.forEach((s) => {
+      const img1 = new Image();
+      img1.src = s.doImage;
+      const img2 = new Image();
+      img2.src = s.dontImage;
+    });
+  }, []);
+
   if (!isOpen) return null;
-  const current = PHOTO_GUIDE_STEPS[step] || PHOTO_GUIDE_STEPS[0];
   const isLast = step === PHOTO_GUIDE_STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-3xl max-h-[92vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+        className={`w-full max-w-3xl h-[88vh] max-h-[700px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${
           isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
         }`}
       >
         {/* Header */}
         <div
-          className={`px-5 py-4 border-b flex items-center justify-between ${
+          className={`shrink-0 px-5 py-4 border-b flex items-center justify-between ${
             isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
           }`}
         >
@@ -383,7 +392,7 @@ function GarmentPhotoTourModal({
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold tracking-tight">Garment Photography Guidelines</h3>
                 <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
-                  {current.badge}
+                  Step {step + 1} of {PHOTO_GUIDE_STEPS.length}
                 </span>
               </div>
               <p className={`text-[11px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
@@ -405,7 +414,7 @@ function GarmentPhotoTourModal({
 
         {/* Segmented Bar (Dynamic per step count) */}
         <div
-          className="grid gap-1.5 px-5 pt-3 pb-1"
+          className="shrink-0 grid gap-1.5 px-5 pt-3 pb-1"
           style={{ gridTemplateColumns: `repeat(${PHOTO_GUIDE_STEPS.length}, minmax(0, 1fr))` }}
         >
           {PHOTO_GUIDE_STEPS.map((s, idx) => (
@@ -413,7 +422,7 @@ function GarmentPhotoTourModal({
               key={s.step}
               type="button"
               onClick={() => setStep(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+              className={`h-1.5 rounded-full transition-colors duration-150 cursor-pointer ${
                 idx === step
                   ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/30'
                   : idx < step
@@ -425,106 +434,119 @@ function GarmentPhotoTourModal({
           ))}
         </div>
 
-        {/* Main Content Area */}
-        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
-          {/* Step Headline */}
-          <div>
-            <h4 className="text-base font-semibold tracking-tight">{current.title}</h4>
-            <p className={`text-xs mt-0.5 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>{current.tagline}</p>
-          </div>
+        {/* Main Content Area - Pre-renders all steps into DOM so all images remain decoded with 0ms transition lag */}
+        <div className="p-5 flex-1 overflow-y-auto">
+          {PHOTO_GUIDE_STEPS.map((s, idx) => {
+            const isCurrent = idx === step;
+            return (
+              <div
+                key={s.step}
+                className={`space-y-3.5 ${isCurrent ? 'block' : 'hidden'}`}
+                style={{ display: isCurrent ? 'block' : 'none' }}
+              >
+                {/* Step Headline */}
+                <div>
+                  <h4 className="text-base font-semibold tracking-tight">{s.title}</h4>
+                  <p className={`text-xs mt-0.5 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>{s.tagline}</p>
+                </div>
 
-          {/* Real Photos DO vs DON'T Side-by-Side Comparison */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* DO Card */}
-            <div
-              className={`rounded-xl border p-3.5 flex flex-col transition-colors ${
-                isLight
-                  ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
-                  : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
-                  <span className="font-bold">✓</span> {current.doBadge}
-                </span>
-              </div>
-              <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-emerald-500/20 mb-2.5 flex items-center justify-center">
-                <img
-                  src={current.doImage}
-                  alt={current.doBadge}
-                  className="h-full w-full object-contain"
-                  loading="eager"
-                />
-              </div>
-              <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-emerald-900' : 'text-emerald-200'}`}>
-                {current.doHeadline}
-              </p>
-              <ul className="space-y-1 text-[11px]">
-                {current.doBullets.map((bullet, i) => (
-                  <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-emerald-950' : 'text-emerald-200/80'}`}>
-                    <span className="text-emerald-500 font-bold shrink-0">✓</span>
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                {/* Real Photos DO vs DON'T Side-by-Side Comparison */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* DO Card */}
+                  <div
+                    className={`rounded-xl border p-3.5 flex flex-col ${
+                      isLight
+                        ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
+                        : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+                        <span className="font-bold">✓</span> {s.doBadge}
+                      </span>
+                    </div>
+                    <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-emerald-500/20 mb-2.5 flex items-center justify-center">
+                      <img
+                        src={s.doImage}
+                        alt={s.doBadge}
+                        className="h-full w-full object-contain"
+                        loading="eager"
+                        decoding="sync"
+                      />
+                    </div>
+                    <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-emerald-900' : 'text-emerald-200'}`}>
+                      {s.doHeadline}
+                    </p>
+                    <ul className="space-y-1 text-[11px] min-h-[64px]">
+                      {s.doBullets.map((bullet, i) => (
+                        <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-emerald-950' : 'text-emerald-200/80'}`}>
+                          <span className="text-emerald-500 font-bold shrink-0">✓</span>
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-            {/* DON'T Card */}
-            <div
-              className={`rounded-xl border p-3.5 flex flex-col transition-colors ${
-                isLight
-                  ? 'border-rose-300 bg-rose-50/40 text-rose-950'
-                  : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-rose-500/40 bg-rose-500/15 text-rose-400">
-                  <span className="font-bold">✕</span> {current.dontBadge}
-                </span>
-              </div>
-              <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-rose-500/20 mb-2.5 flex items-center justify-center">
-                <img
-                  src={current.dontImage}
-                  alt={current.dontBadge}
-                  className="h-full w-full object-contain"
-                  loading="eager"
-                />
-              </div>
-              <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-rose-900' : 'text-rose-200'}`}>
-                {current.dontHeadline}
-              </p>
-              <ul className="space-y-1 text-[11px]">
-                {current.dontBullets.map((bullet, i) => (
-                  <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-rose-950' : 'text-rose-200/80'}`}>
-                    <span className="text-rose-500 font-bold shrink-0">✕</span>
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+                  {/* DON'T Card */}
+                  <div
+                    className={`rounded-xl border p-3.5 flex flex-col ${
+                      isLight
+                        ? 'border-rose-300 bg-rose-50/40 text-rose-950'
+                        : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-rose-500/40 bg-rose-500/15 text-rose-400">
+                        <span className="font-bold">✕</span> {s.dontBadge}
+                      </span>
+                    </div>
+                    <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-rose-500/20 mb-2.5 flex items-center justify-center">
+                      <img
+                        src={s.dontImage}
+                        alt={s.dontBadge}
+                        className="h-full w-full object-contain"
+                        loading="eager"
+                        decoding="sync"
+                      />
+                    </div>
+                    <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-rose-900' : 'text-rose-200'}`}>
+                      {s.dontHeadline}
+                    </p>
+                    <ul className="space-y-1 text-[11px] min-h-[64px]">
+                      {s.dontBullets.map((bullet, i) => (
+                        <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-rose-950' : 'text-rose-200/80'}`}>
+                          <span className="text-rose-500 font-bold shrink-0">✕</span>
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
 
-          {/* Technical Reason Callout */}
-          <div
-            className={`rounded-xl border p-3 ${
-              isLight
-                ? 'border-amber-200 bg-amber-50/80 text-amber-950'
-                : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5">⚡</span>
-              <div className="text-[11px] leading-relaxed">
-                <strong className={`font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Why this matters: </strong>
-                {current.whyItMatters}
+                {/* Technical Reason Callout */}
+                <div
+                  className={`rounded-xl border p-3 min-h-[52px] ${
+                    isLight
+                      ? 'border-amber-200 bg-amber-50/80 text-amber-950'
+                      : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5">⚡</span>
+                    <div className="text-[11px] leading-relaxed">
+                      <strong className={`font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Why this matters: </strong>
+                      {s.whyItMatters}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Footer Controls */}
         <div
-          className={`px-5 py-3.5 border-t flex items-center justify-between gap-3 ${
+          className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-between gap-3 ${
             isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/60'
           }`}
         >
@@ -3421,6 +3443,34 @@ export default function Design() {
   const [alwaysShowTour, setAlwaysShowTour] = useState(() => {
     return localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
   });
+  const [hasCompletedTour, setHasCompletedTour] = useState(() => {
+    return localStorage.getItem('shivnaresh_photo_tour_completed') === 'true';
+  });
+
+  const handleInitiateClothUpload = useCallback(() => {
+    const isAlways = localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
+    if (!hasCompletedTour || isAlways) {
+      setTourStep(0);
+      setShowPhotoTour(true);
+    } else {
+      clothInput.current?.click();
+    }
+  }, [hasCompletedTour]);
+
+  const handleTourProceedToUpload = useCallback(() => {
+    localStorage.setItem('shivnaresh_photo_tour_completed', 'true');
+    setHasCompletedTour(true);
+    setShowPhotoTour(false);
+    setTimeout(() => {
+      clothInput.current?.click();
+    }, 60);
+  }, []);
+
+  const handleTourDismiss = useCallback(() => {
+    localStorage.setItem('shivnaresh_photo_tour_completed', 'true');
+    setHasCompletedTour(true);
+    setShowPhotoTour(false);
+  }, []);
 
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -3548,25 +3598,19 @@ export default function Design() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
+    // Preload guideline images so first-time upload tour opens instantly with 0 latency
+    PHOTO_GUIDE_STEPS.forEach((s) => {
+      const img1 = new Image();
+      img1.src = s.doImage;
+      const img2 = new Image();
+      img2.src = s.dontImage;
+    });
   }, []);
 
-  const autoSelectedGarmentRef = useRef(false);
   const loadUploads = useCallback(async () => {
     try {
       const res = await api.uploads();
       setUploads(res.items);
-      // Auto-preselect most recent garment once on initial load if none currently selected
-      if (!autoSelectedGarmentRef.current && res.items?.length > 0) {
-        autoSelectedGarmentRef.current = true;
-        const firstGarment = res.items.find(
-          (u) => u.kind !== 'model' && !u.id?.startsWith('model-') && !u.url?.includes('model-')
-        );
-        if (firstGarment) {
-          const pick = { url: firstGarment.url, preview: firstGarment.url, name: firstGarment.name || 'Garment' };
-          addClassifiedGarment(pick);
-          setCloth(pick);
-        }
-      }
     } catch {
       /* non-fatal */
     }
@@ -4239,8 +4283,8 @@ export default function Design() {
       {/* Garment Photography Guidelines Tour Modal */}
       <GarmentPhotoTourModal
         isOpen={showPhotoTour}
-        onClose={() => setShowPhotoTour(false)}
-        onStartUpload={() => clothInput.current?.click()}
+        onClose={handleTourDismiss}
+        onStartUpload={handleTourProceedToUpload}
         step={tourStep}
         setStep={setTourStep}
         alwaysShow={alwaysShowTour}
@@ -5035,7 +5079,7 @@ export default function Design() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => clothInput.current?.click()}
+                            onClick={handleInitiateClothUpload}
                             disabled={uploading}
                             className="text-[11px] font-bold text-[#e5373f] hover:underline cursor-pointer"
                           >
@@ -5102,7 +5146,7 @@ export default function Design() {
 
                         <button
                           type="button"
-                          onClick={() => clothInput.current?.click()}
+                          onClick={handleInitiateClothUpload}
                           disabled={uploading}
                           className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
                             isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
@@ -5206,7 +5250,7 @@ export default function Design() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => clothInput.current?.click()}
+                        onClick={handleInitiateClothUpload}
                         disabled={uploading}
                         className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${
                           isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
