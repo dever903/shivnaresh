@@ -11,6 +11,7 @@ export default defineConfig({
       '/generated': 'http://localhost:8787',
       '/models': 'http://localhost:8787',
       '/hosted': 'http://localhost:8787',
+      '/guidelines': 'http://localhost:8787',
     },
   },
 });

@@ -865,6 +865,8 @@ app.use('/models', (req, res, next) => {
 
 app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
 app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
+app.use('/guidelines', express.static(path.join(PUBLIC_DIR, 'guidelines'), { maxAge: '7d' }));
+app.use('/guidelines', express.static(path.join(ROOT, 'public', 'guidelines'), { maxAge: '7d' }));
 
 const patchState = async (patch) => {
   const current = await readState();
@@ -4448,7 +4450,7 @@ if (!fsSync.existsSync(indexPath)) {
 }
 
 app.use(express.static(dist));
-app.get(/^\/(?!api|uploads|generated|models|hosted).*/, async (_req, res) => {
+app.get(/^\/(?!api|uploads|generated|models|hosted|guidelines).*/, async (_req, res) => {
   if (fsSync.existsSync(indexPath)) {
     return res.sendFile(indexPath, (err) => {
       if (err && !res.headersSent) {

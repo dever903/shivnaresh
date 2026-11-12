@@ -222,75 +222,144 @@ function classifyGarmentByHeuristic(name: string): GarmentRole {
 }
 
 /* ----------------------------------------------------------------
-   Garment Photography Tour & Guidelines
+   Garment Photography Tour & Guidelines (DO vs DON'T Real References)
    ---------------------------------------------------------------- */
 interface PhotoGuideStep {
   step: number;
   badge: string;
   title: string;
   tagline: string;
-  doText: string;
-  dontText: string;
-  icon: string;
-  details: string;
-  illustration: 'white-bg' | 'sleeves-open' | 'sleeve-detail' | 'logo-zoom' | 'bottoms-open';
+  doBadge: string;
+  doImage: string;
+  doHeadline: string;
+  doBullets: string[];
+  dontBadge: string;
+  dontImage: string;
+  dontHeadline: string;
+  dontBullets: string[];
+  whyItMatters: string;
 }
 
 const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
   {
     step: 1,
     badge: 'Step 1 of 5',
-    title: 'Plain White or Neutral Surface',
-    tagline: 'Shoot on a seamless flat surface without any textures or reflections',
-    doText: 'Plain white poster board, clean white sheet, white tile, or light grey studio hanger.',
-    dontText: 'Never shoot on artificial green grass/turf, colorful printed bedsheets, or floor tiles with harsh grout lines.',
-    icon: '⚪',
-    details: 'Ensure high overhead lighting so there are zero harsh cast shadows across the fabric.',
-    illustration: 'white-bg',
+    title: 'Surface & Background: Pure White vs Textured Turf',
+    tagline: 'Clean background segmentation is the foundation of high-fidelity garment synthesis',
+    doBadge: 'DO · Pure White Seamless Surface',
+    doImage: '/guidelines/pants-right.jpg',
+    doHeadline: 'Clean white poster board, sheet, or studio surface',
+    doBullets: [
+      'High overhead lighting with zero dark ground shadows.',
+      'Pure seamless contrast on every outer hem and seam.',
+      'Enables AI to cleanly isolate the garment without background spill.',
+    ],
+    dontBadge: 'AVOID · Artificial Grass, Turf, or Printed Sheets',
+    dontImage: '/guidelines/hoodie-wrong-bg.jpg',
+    dontHeadline: 'Textured turf, rugs, or patterned floor creases',
+    dontBullets: [
+      'Green turf texture bleeds into fabric boundaries.',
+      'Floor wrinkles and harsh shadows distort silhouette edges.',
+      'Forces AI to guess boundaries, causing messy cuts and color tinting.',
+    ],
+    whyItMatters:
+      'Textured backgrounds like green turf confuse the neural boundary segmentation. In actual tests, turf causes messy garment fringes and green color reflections on the model.',
   },
   {
     step: 2,
     badge: 'Step 2 of 5',
-    title: 'Spread Both Sleeves Fully Open (Front & Back)',
-    tagline: 'Lay garment completely flat with arms spread wide at 45° angles',
-    doText: 'Both sleeves fully extended outwards, cuffs flat, collar straight and centered.',
-    dontText: 'Never fold sleeves across the chest, roll up cuffs, or tuck arms behind the back.',
-    icon: '👕',
-    details: 'Take 1 Front View photo and 1 Back View photo with sleeves spread symmetrically.',
-    illustration: 'sleeves-open',
+    title: 'Sleeve Placement: Spread Wide at 45° (Front & Back)',
+    tagline: 'Garments must be flat with both arms extended symmetrically for front and back shots',
+    doBadge: 'DO · Both Sleeves Symmetrically Extended',
+    doImage: '/guidelines/hoodie-back.jpg',
+    doHeadline: 'Arms spread wide at 45° with cuffs flat',
+    doBullets: [
+      'Both sleeves laid out flat at natural 45° angles.',
+      'Wrist cuffs, armpit seams, and shoulders fully visible.',
+      'Provide 1 Front photo AND 1 Back photo with open sleeves.',
+    ],
+    dontBadge: 'AVOID · Folded Sleeves & Neck Tags',
+    dontImage: '/guidelines/hoodie-wrong-bg.jpg',
+    dontHeadline: 'Sleeves bunched up or collar folded over',
+    dontBullets: [
+      'Never fold sleeves across the chest or tuck cuffs under.',
+      'Never leave red price tags or hanging labels at the collar.',
+      'Collar folds and tags trick AI into generating a fake quarter-zip zipper!',
+    ],
+    whyItMatters:
+      'When sleeves are angled inward or folded, AI loses cuff reference and twists the arm pattern. Bunched neck folds also trick the AI into generating an unwanted collar zipper.',
   },
   {
     step: 3,
     badge: 'Step 3 of 5',
-    title: 'Left & Right Sleeve Details',
-    tagline: 'Capture close-up photos of contrasting sleeve stripes and typography',
-    doText: 'Straight flat close-up of left and right sleeves showing brand text ("SHIV NARESH") and stripes.',
-    dontText: 'Do not allow sleeves to twist or wrinkle, as AI needs straight reference lines.',
-    icon: '📐',
-    details: 'Ensures sleeve stripes and logos wrap naturally down the model’s arms without breaking or twisting.',
-    illustration: 'sleeve-detail',
+    title: 'Sleeve Details: Straight Alignment for Typography',
+    tagline: 'Contrasting sleeve stripes and brand text require straight, unwrinkled close-ups',
+    doBadge: 'DO · Flat & Straight Sleeve Stripe',
+    doImage: '/guidelines/sleeve-stripe-crop.jpg',
+    doHeadline: 'Smooth alignment of sleeve stripes & text ("SHIV NARESH")',
+    doBullets: [
+      'Smooth sleeve fabric flat before taking a macro shot.',
+      'Ensure brand text follows a straight line along the seam.',
+      'Allows AI to wrap the stripe cleanly down the model’s arm length.',
+    ],
+    dontBadge: 'AVOID · Twisted Seams & Fabric Bunches',
+    dontImage: '/guidelines/collar-tag-wrong.jpg',
+    dontHeadline: 'Twisted fabric folds and obscuring hangtags',
+    dontBullets: [
+      'Wrinkled sleeve curves break the linear text path.',
+      'Tags or wrinkles crossing over sleeve graphics.',
+      'Causes AI to scramble letters or break stripe continuity.',
+    ],
+    whyItMatters:
+      'AI projects sleeve stripes along 3D arm coordinates. If reference photos have twisted folds, the text vectors warp, resulting in broken typography and misaligned stripes.',
   },
   {
     step: 4,
     badge: 'Step 4 of 5',
-    title: 'Chest Artwork & Typography Macro Zoom',
-    tagline: 'High-resolution zoom of central graphics, logos, and printed text',
-    doText: 'Clear macro photo centered directly on the chest print ("CHEAT CODE // ACTIVATED").',
-    dontText: 'Remove all plastic tags, red brand labels, price stickers, and paper hangtags before shooting.',
-    icon: '🔍',
-    details: 'High-contrast close-ups prevent the AI from scrambling words into gibberish or drifting to the armpits.',
-    illustration: 'logo-zoom',
+    title: 'Chest Artwork & Small Typography Macro Zoom',
+    tagline: 'High-resolution macro crop centered directly on central graphics and slogans',
+    doBadge: 'DO · Dedicated Macro Crop ("CHEAT CODE : revive.exe")',
+    doImage: '/guidelines/logo-zoom-right.jpg',
+    doHeadline: 'Sharp macro shot centered on chest artwork',
+    doBullets: [
+      'Take a close-up photo dedicated purely to the chest graphic.',
+      'Icons (dinosaur, cactus) and text lines must be crisp and legible.',
+      'Keep fabric pulled flat with zero fold creases over the letters.',
+    ],
+    dontBadge: 'AVOID · Distant Shots (AI Scramble & Hallucination)',
+    dontImage: '/guidelines/logo-hallucinated-zoom.jpg',
+    dontHeadline: 'Real AI Hallucination Output (Scrambled Text + Fake Zipper)',
+    dontBullets: [
+      'Relying solely on distant full-body photos without a macro crop.',
+      'Small text gets scrambled into gibberish ("creat code cvovc chc").',
+      'Collar folds cause AI to invent an unwanted zipper on hoodies!',
+    ],
+    whyItMatters:
+      'Look at the real failure example above: without a dedicated macro crop, the AI scrambled the text into gibberish and hallucinated a quarter-zip zipper. A macro zoom guarantees 100% letter sharpness.',
   },
   {
     step: 5,
     badge: 'Step 5 of 5',
-    title: 'Track Pants / Bottoms (Both Legs Separated)',
-    tagline: 'Full-length pants laid flat with both legs straight and separated',
-    doText: 'Both legs spread open down to ankle cuffs, waistband and side stripes fully visible.',
-    dontText: 'Never bunch up knees or overlap one leg over another.',
-    icon: '👖',
-    details: 'Showing both legs down to the ankles guarantees full-length trousers instead of shorts.',
-    illustration: 'bottoms-open',
+    title: 'Track Pants & Lowers: Both Legs Separated',
+    tagline: 'Bottoms must be laid flat showing both legs separated down to the ankle cuffs',
+    doBadge: 'DO · Both Legs Separated to Ankle Cuffs',
+    doImage: '/guidelines/pants-right.jpg',
+    doHeadline: 'Full-length track pants with both legs spread open',
+    doBullets: [
+      'Both legs spread wide and straight down to the ankle cuffs.',
+      'Waistband, pockets, and brand logo ("D Sports") fully visible.',
+      'Seamless white background ensures crisp leg cutouts.',
+    ],
+    dontBadge: 'AVOID · Pants Folded in Half (Single Leg)',
+    dontImage: '/guidelines/pants-wrong.jpg',
+    dontHeadline: 'Pants folded in half on textured grass turf',
+    dontBullets: [
+      'Never fold pants sideways so only one leg is in view.',
+      'Avoid bunching knees or shooting on green artificial grass.',
+      'AI cannot detect bilateral length and may generate shorts or merged legs!',
+    ],
+    whyItMatters:
+      'When pants are folded sideways showing only one leg, the AI model lacks bilateral leg data and often generates knee-length shorts or asymmetric trousers.',
   },
 ];
 
@@ -318,35 +387,40 @@ function GarmentPhotoTourModal({
   const isLast = step === PHOTO_GUIDE_STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
-          isLight ? 'bg-white border-gray-200 text-slate-900' : 'bg-[#121217] border-white/15 text-white'
+        className={`w-full max-w-3xl max-h-[92vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+          isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
         }`}
       >
         {/* Header */}
-        <div className={`p-5 border-b flex items-center justify-between ${isLight ? 'border-gray-200 bg-gray-50/70' : 'border-white/10 bg-white/[0.02]'}`}>
+        <div
+          className={`px-5 py-4 border-b flex items-center justify-between ${
+            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-xl text-amber-500 border border-amber-500/20 shadow-inner">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-base text-zinc-200 border border-zinc-700/60 shadow-inner">
               📸
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold tracking-tight">Photo Guidelines Tour</h3>
-                <span className="rounded-full bg-[#e5373f]/10 border border-[#e5373f]/30 px-2 py-0.5 text-[10px] font-bold text-[#e5373f]">
+                <h3 className="text-sm font-semibold tracking-tight">Garment Photography Guidelines</h3>
+                <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
                   {current.badge}
                 </span>
               </div>
-              <p className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                Follow these 5 rules for 100% accurate AI garment synthesis
+              <p className={`text-[11px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                Side-by-side real camera references for 100% accurate AI photoshoot synthesis
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className={`h-8 w-8 rounded-full flex items-center justify-center transition text-sm cursor-pointer ${
-              isLight ? 'hover:bg-gray-200 text-slate-600' : 'hover:bg-white/10 text-white/50 hover:text-white'
+            aria-label="Close photo tour"
+            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${
+              isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
             }`}
           >
             ✕
@@ -354,7 +428,7 @@ function GarmentPhotoTourModal({
         </div>
 
         {/* 5-Step Segmented Bar */}
-        <div className="grid grid-cols-5 gap-1.5 px-6 pt-3.5 pb-1">
+        <div className="grid grid-cols-5 gap-1.5 px-5 pt-3 pb-1">
           {PHOTO_GUIDE_STEPS.map((s, idx) => (
             <button
               key={s.step}
@@ -362,10 +436,10 @@ function GarmentPhotoTourModal({
               onClick={() => setStep(idx)}
               className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                 idx === step
-                  ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/40'
+                  ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/30'
                   : idx < step
                   ? 'bg-emerald-500'
-                  : isLight ? 'bg-gray-200' : 'bg-white/15'
+                  : isLight ? 'bg-zinc-200' : 'bg-zinc-800'
               }`}
               title={`Step ${s.step}: ${s.title}`}
             />
@@ -373,112 +447,108 @@ function GarmentPhotoTourModal({
         </div>
 
         {/* Main Content Area */}
-        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
           {/* Step Headline */}
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{current.icon}</span>
-              <h4 className="text-base font-bold tracking-tight">{current.title}</h4>
-            </div>
-            <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-600' : 'text-white/60'}`}>{current.tagline}</p>
+            <h4 className="text-base font-semibold tracking-tight">{current.title}</h4>
+            <p className={`text-xs mt-0.5 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>{current.tagline}</p>
           </div>
 
-          {/* Visual Graphic Representation */}
-          <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
-            {current.illustration === 'white-bg' && (
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 flex flex-col items-center justify-center">
-                  <div className="h-16 w-full rounded-lg bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                    <span className="text-2xl">👕</span>
-                  </div>
-                  <span className="mt-2 text-[10px] font-bold text-emerald-500">✓ Pure White Surface</span>
-                  <span className="text-[9px] opacity-70">No shadows, crisp background</span>
-                </div>
-                <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 flex flex-col items-center justify-center">
-                  <div className="h-16 w-full rounded-lg bg-emerald-950/80 border border-emerald-700/60 flex items-center justify-center relative overflow-hidden">
-                    <span className="text-2xl opacity-60">👕</span>
-                    <span className="absolute inset-0 flex items-center justify-center text-red-500 font-black text-2xl">✕</span>
-                  </div>
-                  <span className="mt-2 text-[10px] font-bold text-rose-500">✕ Avoid Turf & Sheets</span>
-                  <span className="text-[9px] opacity-70">Grass, turf, or floor creases</span>
-                </div>
+          {/* Real Photos DO vs DON'T Side-by-Side Comparison */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* DO Card */}
+            <div
+              className={`rounded-xl border p-3.5 flex flex-col transition-colors ${
+                isLight
+                  ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
+                  : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+                  <span className="font-bold">✓</span> {current.doBadge}
+                </span>
               </div>
-            )}
-
-            {current.illustration === 'sleeves-open' && (
-              <div className="rounded-xl border border-emerald-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center justify-center gap-2 font-mono text-xs font-bold text-emerald-400">
-                  <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded">← Left Sleeve Open</span>
-                  <span className="border border-white/20 bg-black/50 px-3 py-1 rounded">Chest Flat</span>
-                  <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded">Right Sleeve Open →</span>
-                </div>
-                <p className="mt-2 text-[11px] opacity-70">Sleeves laid flat at 45° angle · 1 photo Front · 1 photo Back</p>
+              <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-emerald-500/20 mb-2.5 flex items-center justify-center">
+                <img
+                  src={current.doImage}
+                  alt={current.doBadge}
+                  className="h-full w-full object-contain"
+                  loading="eager"
+                />
               </div>
-            )}
-
-            {current.illustration === 'sleeve-detail' && (
-              <div className="rounded-xl border border-blue-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-3">
-                  <span className="border border-white/20 bg-black/70 px-4 py-2 rounded-xl font-mono text-xs font-black tracking-widest text-cyan-400">
-                    ■ SHIV NARESH ■
-                  </span>
-                  <span className="text-xs font-bold text-emerald-400">✓ Straight Seam Alignment</span>
-                </div>
-                <p className="mt-2 text-[11px] opacity-70">Capture each sleeve with straight alignment to keep typography crisp</p>
-              </div>
-            )}
-
-            {current.illustration === 'logo-zoom' && (
-              <div className="rounded-xl border border-amber-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
-                <div className="relative border-2 border-dashed border-amber-500/60 rounded-xl p-3 bg-black/60">
-                  <div className="font-mono text-xs font-black text-amber-400">
-                    🦖 🌵 ılılı CHEAT CODE // ACTIVATED
-                  </div>
-                  <span className="text-[9px] text-white/50 block mt-1">Macro close-up without fold wrinkles</span>
-                </div>
-                <p className="mt-2 text-[11px] opacity-70">Zoom directly on chest text to eliminate scrambled AI letters</p>
-              </div>
-            )}
-
-            {current.illustration === 'bottoms-open' && (
-              <div className="rounded-xl border border-indigo-500/30 bg-white/5 p-4 flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-4 font-mono text-xs font-bold text-indigo-400">
-                  <span className="border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 rounded-lg">👖 Left Leg Straight</span>
-                  <span className="opacity-40">|</span>
-                  <span className="border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 rounded-lg">👖 Right Leg Straight</span>
-                </div>
-                <p className="mt-2 text-[11px] opacity-70">Both legs separated down to ankle cuffs guarantees full-length trousers</p>
-              </div>
-            )}
-          </div>
-
-          {/* DO and DON'T Callout Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className={`rounded-xl border p-3 ${isLight ? 'border-emerald-200 bg-emerald-50/60' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-emerald-500 font-bold text-xs">✓ DO (Best Results)</span>
-              </div>
-              <p className={`text-[11px] leading-relaxed ${isLight ? 'text-emerald-950 font-medium' : 'text-emerald-200'}`}>
-                {current.doText}
+              <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-emerald-900' : 'text-emerald-200'}`}>
+                {current.doHeadline}
               </p>
+              <ul className="space-y-1 text-[11px]">
+                {current.doBullets.map((bullet, i) => (
+                  <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-emerald-950' : 'text-emerald-200/80'}`}>
+                    <span className="text-emerald-500 font-bold shrink-0">✓</span>
+                    <span>{bullet}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className={`rounded-xl border p-3 ${isLight ? 'border-rose-200 bg-rose-50/60' : 'border-rose-500/30 bg-rose-500/10'}`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-rose-500 font-bold text-xs">✕ AVOID (Common Mistakes)</span>
+
+            {/* DON'T Card */}
+            <div
+              className={`rounded-xl border p-3.5 flex flex-col transition-colors ${
+                isLight
+                  ? 'border-rose-300 bg-rose-50/40 text-rose-950'
+                  : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-rose-500/40 bg-rose-500/15 text-rose-400">
+                  <span className="font-bold">✕</span> {current.dontBadge}
+                </span>
               </div>
-              <p className={`text-[11px] leading-relaxed ${isLight ? 'text-rose-950 font-medium' : 'text-rose-200'}`}>
-                {current.dontText}
+              <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black/70 border border-rose-500/20 mb-2.5 flex items-center justify-center">
+                <img
+                  src={current.dontImage}
+                  alt={current.dontBadge}
+                  className="h-full w-full object-contain"
+                  loading="eager"
+                />
+              </div>
+              <p className={`text-xs font-semibold mb-1.5 ${isLight ? 'text-rose-900' : 'text-rose-200'}`}>
+                {current.dontHeadline}
               </p>
+              <ul className="space-y-1 text-[11px]">
+                {current.dontBullets.map((bullet, i) => (
+                  <li key={i} className={`flex items-start gap-1.5 leading-snug ${isLight ? 'text-rose-950' : 'text-rose-200/80'}`}>
+                    <span className="text-rose-500 font-bold shrink-0">✕</span>
+                    <span>{bullet}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
-          <p className={`text-[11px] leading-relaxed italic ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-            💡 <strong>Pro Tip:</strong> {current.details}
-          </p>
+          {/* Technical Reason Callout */}
+          <div
+            className={`rounded-xl border p-3 ${
+              isLight
+                ? 'border-amber-200 bg-amber-50/80 text-amber-950'
+                : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5">⚡</span>
+              <div className="text-[11px] leading-relaxed">
+                <strong className={`font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Why this matters: </strong>
+                {current.whyItMatters}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer Controls */}
-        <div className={`p-4 border-t flex items-center justify-between gap-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+        <div
+          className={`px-5 py-3.5 border-t flex items-center justify-between gap-3 ${
+            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/60'
+          }`}
+        >
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -489,8 +559,8 @@ function GarmentPhotoTourModal({
               }}
               className="rounded accent-[#e5373f] h-3.5 w-3.5 cursor-pointer"
             />
-            <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
-              Always show before upload
+            <span className={`text-[11px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+              Always show guidelines before upload
             </span>
           </label>
 
@@ -498,8 +568,8 @@ function GarmentPhotoTourModal({
             <button
               type="button"
               onClick={onClose}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/50 hover:text-white'
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+                isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Skip
@@ -508,8 +578,10 @@ function GarmentPhotoTourModal({
               <button
                 type="button"
                 onClick={() => setStep((prev) => Math.max(0, prev - 1))}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-white text-slate-800 hover:bg-gray-100' : 'border-white/20 bg-white/5 text-white hover:bg-white/10'
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  isLight
+                    ? 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100'
+                    : 'border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                 }`}
               >
                 &larr; Back
@@ -519,9 +591,10 @@ function GarmentPhotoTourModal({
               <button
                 type="button"
                 onClick={() => setStep((prev) => Math.min(PHOTO_GUIDE_STEPS.length - 1, prev + 1))}
-                className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1"
+                className="rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1.5"
               >
-                Next Step &rarr;
+                <span>Next Guideline</span>
+                <span>&rarr;</span>
               </button>
             ) : (
               <button
@@ -530,7 +603,7 @@ function GarmentPhotoTourModal({
                   onClose();
                   onStartUpload();
                 }}
-                className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1.5"
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1.5"
               >
                 <span>📸 Start Uploading Now</span>
               </button>
