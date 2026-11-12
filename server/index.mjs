@@ -1923,61 +1923,67 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
 
 const handleDeleteModelRoute = async (req, res) => {
   try {
-    const rawId = req.query?.id || req.body?.id || (typeof req.query === 'string' ? req.query : '');
-    const id = typeof rawId === 'string' ? decodeURIComponent(rawId).trim() : '';
+    const rawId = req.body?.id || req.query?.id || (typeof req.query === 'string' ? req.query : '');
+    let id = typeof rawId === 'string' ? rawId.trim() : '';
+    try {
+      id = decodeURIComponent(id).trim();
+    } catch {}
+    id = id.replace(/^\/+/, '').replace(/\/+$/, '');
+
     if (!id) {
-      return res.status(400).json({ error: 'missing_id', message: 'Model id (Category/filename) is required.' });
+      return res.status(400).json({ error: 'missing_id', message: 'Model id is required.' });
     }
 
-    // Safety checks against directory traversal
-    const parts = id.split('/');
-    if (parts.length !== 2 || parts[0].includes('..') || parts[1].includes('..')) {
+    if (id.includes('..')) {
       return res.status(400).json({ error: 'invalid_id', message: 'Invalid model ID format.' });
     }
 
-    const [category, filename] = parts;
-    const targetFile = path.join(MODELS_DIR, category, filename);
+    const firstSlash = id.indexOf('/');
+    const category = firstSlash !== -1 ? id.slice(0, firstSlash) : 'default';
+    const filename = firstSlash !== -1 ? id.slice(firstSlash + 1) : id;
 
-    // 1. Delete from local disk immediately
+    // 1. Delete from local disk
+    const targetFile = path.join(MODELS_DIR, category, filename);
     await fs.unlink(targetFile).catch(() => {});
 
-    // Invalidate cached models immediately
+    // 2. Mark permanently deleted in MongoDB studio_models AND delete existing active doc
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('studio_models').deleteMany({
+          $or: [{ id }, { id: `${category}/${filename}` }, { name: filename }]
+        });
+        await db.collection('studio_models').updateOne(
+          { id },
+          {
+            $set: {
+              id,
+              category,
+              deleted: true,
+              deletedAt: Date.now(),
+            },
+          },
+          { upsert: true }
+        );
+      }
+    } catch (dbErr) {
+      console.warn('[admin-model] MongoDB delete error:', dbErr.message);
+    }
+
+    // 3. Delete from hosted map
+    try {
+      const map = await readHosted(true);
+      if (map.models?.[id]) {
+        delete map.models[id];
+        await saveHosted(map);
+      }
+    } catch {}
+
+    // 4. Invalidate server memory cache immediately
     cachedModelCategories = null;
     cachedModelsTime = 0;
 
-    // Send HTTP response immediately so the client NEVER experiences connection timeouts or Failed to fetch!
-    res.json({ ok: true, deleted: id });
-
-    // 2. Mark permanently deleted in MongoDB and hosted.json asynchronously in background
-    (async () => {
-      try {
-        const db = await getMongoDb();
-        if (db) {
-          await db.collection('studio_models').updateOne(
-            { id },
-            {
-              $set: {
-                id,
-                category,
-                deleted: true,
-                deletedAt: Date.now(),
-              },
-            },
-            { upsert: true }
-          );
-        }
-      } catch (dbErr) {
-        console.warn('[admin-model] MongoDB delete error:', dbErr.message);
-      }
-
-      try {
-        const map = await readHosted(true);
-        if (map.models?.[id]) {
-          delete map.models[id];
-          await saveHosted(map);
-        }
-      } catch {}
-    })().catch(() => {});
+    return res.json({ ok: true, deleted: id });
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: 'delete_model_failed', message: String(err.message || err) });
@@ -2104,7 +2110,9 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/models', async (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const categories = await listModels();
   res.json({ categories });
 });
