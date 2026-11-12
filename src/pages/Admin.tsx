@@ -55,7 +55,23 @@ export default function Admin() {
   const [access, setAccess] = useState<AdminAccess | null>(null);
   const [me, setMe] = useState<User | null>(null);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
-  const [categories, setCategories] = useState<ModelCategory[]>([]);
+  const [categories, setCategories] = useState<ModelCategory[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_studio_models');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const updateCategoriesAndCache = (cats: ModelCategory[]) => {
+    setCategories(cats);
+    try {
+      localStorage.setItem('cached_studio_models', JSON.stringify(cats));
+    } catch {}
+  };
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
@@ -450,7 +466,7 @@ export default function Admin() {
   async function loadSettings() {
     const [s, m] = await Promise.all([api.adminSettings(), api.models()]);
     setSettings(s);
-    setCategories(m.categories);
+    updateCategoriesAndCache(m.categories);
     setDefaultPrompt(s.defaultPrompt);
     setDefaultModel(s.defaultModel);
     setResolution(s.resolution || '1k');
@@ -949,7 +965,7 @@ export default function Admin() {
       setIsNewCat(false);
       setNewCatName('');
       const freshModels = await api.models();
-      setCategories(freshModels.categories);
+      updateCategoriesAndCache(freshModels.categories);
       setTimeout(() => setModelMessage(''), 6000);
     } catch (err: any) {
       setModelMessage(err.message || 'Could not upload model(s).');
@@ -966,20 +982,24 @@ export default function Admin() {
     setDeletingModelId(modelId);
 
     // Optimistically update categories immediately for instantaneous UI response
-    setCategories((prev) =>
-      prev
+    setCategories((prev) => {
+      const next = prev
         .map((cat) => ({
           ...cat,
           items: cat.items.filter((item) => item.id !== modelId),
         }))
-        .filter((cat) => cat.items.length > 0)
-    );
+        .filter((cat) => cat.items.length > 0);
+      try {
+        localStorage.setItem('cached_studio_models', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     try {
       await api.deleteAdminModel(modelId);
       const freshModels = await api.models().catch(() => null);
       if (freshModels?.categories) {
-        setCategories(freshModels.categories);
+        updateCategoriesAndCache(freshModels.categories);
       }
     } catch (err: any) {
       const msg = String(err?.message || err);
@@ -987,7 +1007,7 @@ export default function Admin() {
         console.warn('[admin] Model delete network blip (model was deleted):', modelId);
         // Silently re-sync with server
         api.models().then((fresh) => {
-          if (fresh?.categories) setCategories(fresh.categories);
+          if (fresh?.categories) updateCategoriesAndCache(fresh.categories);
         }).catch(() => {});
       } else {
         alert(`Could not delete model: ${msg}`);
@@ -1003,7 +1023,7 @@ export default function Admin() {
     try {
       await api.moveAdminModel({ id: modelId, targetCategory });
       const freshModels = await api.models();
-      setCategories(freshModels.categories);
+      updateCategoriesAndCache(freshModels.categories);
     } catch (err: any) {
       alert(`Could not move model: ${err.message || err}`);
     } finally {

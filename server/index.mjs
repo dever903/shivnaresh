@@ -688,11 +688,14 @@ async function listModels(forceFresh = false) {
   const categoriesMap = new Map();
   const deletedSet = new Set();
 
-  // 1. Fetch persistent studio models and deleted markers from MongoDB
+  // 1. Fetch persistent studio models and deleted markers from MongoDB (projection excludes multi-MB dataUrl)
   try {
     const db = await getMongoDb();
     if (db) {
-      const dbModels = await db.collection('studio_models').find().toArray();
+      const dbModels = await db
+        .collection('studio_models')
+        .find({}, { projection: { dataUrl: 0 } })
+        .toArray();
       for (const m of dbModels) {
         if (m.deleted) {
           deletedSet.add(m.id);
@@ -704,7 +707,7 @@ async function listModels(forceFresh = false) {
         categoriesMap.get(m.category).set(m.id, {
           id: m.id,
           name: m.name,
-          url: m.remoteUrl || m.dataUrl || m.url,
+          url: m.remoteUrl || m.url || `/models/${encodeURIComponent(m.category)}/${encodeURIComponent(m.name || 'model')}`,
           createdAt: m.createdAt || 0,
         });
       }
@@ -745,7 +748,20 @@ async function listModels(forceFresh = false) {
     }
   }
 
-  // 3. Format into category array with stable sorting
+  // 3. Merge remote hosted CDN URLs
+  try {
+    const hosted = await readHosted();
+    if (hosted?.models) {
+      for (const catItems of categoriesMap.values()) {
+        for (const item of catItems.values()) {
+          const remote = hosted.models[item.id];
+          if (remote) item.url = remote;
+        }
+      }
+    }
+  } catch {}
+
+  // 4. Format into category array with stable sorting
   const out = [];
   for (const [category, itemsMap] of categoriesMap.entries()) {
     const items = Array.from(itemsMap.values())
@@ -755,6 +771,8 @@ async function listModels(forceFresh = false) {
       out.push({ category, items });
     }
   }
+  cachedModelCategories = out;
+  cachedModelsTime = now;
   return out;
 }
 
@@ -2086,14 +2104,8 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/models', async (_req, res) => {
-  const hosted = await readHosted();
+  res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
   const categories = await listModels();
-  for (const group of categories) {
-    for (const item of group.items) {
-      const remote = hosted.models?.[item.id];
-      if (remote) item.url = remote;
-    }
-  }
   res.json({ categories });
 });
 
@@ -2103,13 +2115,18 @@ app.get('/api/uploads', async (_req, res) => {
     const diskFiles = await fs.readdir(UPLOADS).catch(() => []);
     const itemsMap = new Map();
 
-    // 1. From MongoDB user_uploads (persists across Render deploys)
+    // 1. From MongoDB user_uploads (persists across Render deploys, exclude heavy dataUrl)
     try {
       const db = await getMongoDb();
       if (db) {
-        const dbUploads = await db.collection('user_uploads').find().sort({ createdAt: -1 }).limit(300).toArray();
+        const dbUploads = await db
+          .collection('user_uploads')
+          .find({}, { projection: { dataUrl: 0 } })
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .toArray();
         for (const u of dbUploads) {
-          const resolvedUrl = u.remoteUrl || u.dataUrl || u.url;
+          const resolvedUrl = u.remoteUrl || u.url || `/uploads/${encodeURIComponent(u.id || '')}`;
           itemsMap.set(u.id || u.url, {
             id: u.id || u.url,
             name: u.name || (u.kind === 'model' ? 'Uploaded Model' : 'Uploaded Garment'),

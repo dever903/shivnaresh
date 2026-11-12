@@ -3571,7 +3571,16 @@ function VideoStudioPanel({
 export default function Design() {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Studio | null>(null);
-  const [categories, setCategories] = useState<ModelCategory[]>([]);
+  const [categories, setCategories] = useState<ModelCategory[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_studio_models');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
   const [uploadSets, setUploadSets] = useState<UploadSet[]>([]);
   const [loadingSets, setLoadingSets] = useState(false);
@@ -4070,6 +4079,9 @@ export default function Design() {
         }
         if (m?.categories && m.categories.length > 0) {
           setCategories(m.categories);
+          try {
+            localStorage.setItem('cached_studio_models', JSON.stringify(m.categories));
+          } catch {}
         }
       });
 
