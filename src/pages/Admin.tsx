@@ -35,6 +35,7 @@ import {
   Inbox,
   Layers,
   Lock,
+  Move,
   Paperclip,
   QrCode,
   RefreshCw,
@@ -156,6 +157,9 @@ export default function Admin() {
   const [uploadModelBusy, setUploadModelBusy] = useState(false);
   const [uploadModelProgress, setUploadModelProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const [movingModelId, setMovingModelId] = useState<string | null>(null);
+  const [draggedModel, setDraggedModel] = useState<{ id: string; name: string; currentCategory: string } | null>(null);
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
   const [modelMessage, setModelMessage] = useState('');
   const modelFileInput = useRef<HTMLInputElement>(null);
   const devPhotoFileRef = useRef<HTMLInputElement>(null);
@@ -968,6 +972,22 @@ export default function Admin() {
       alert(`Could not delete model: ${err.message || err}`);
     } finally {
       setDeletingModelId(null);
+    }
+  }
+
+  async function handleMoveModel(modelId: string, targetCategory: string) {
+    if (!targetCategory || movingModelId) return;
+    setMovingModelId(modelId);
+    try {
+      await api.moveAdminModel({ id: modelId, targetCategory });
+      const freshModels = await api.models();
+      setCategories(freshModels.categories);
+    } catch (err: any) {
+      alert(`Could not move model: ${err.message || err}`);
+    } finally {
+      setMovingModelId(null);
+      setDraggedModel(null);
+      setDragOverCat(null);
     }
   }
 
@@ -3533,50 +3553,151 @@ ${log.stack || 'None'}
         </form>
       </section>
 
-      {/* Categories & Models Grid */}
+      {/* Categories & Models Grid with Drag-and-Drop and Quick Move */}
       <div className="grid gap-6">
-        {categories.map((cat) => (
-          <div key={cat.category} className={cardClass}>
-            <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-              <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
-              <span className="text-[11px] opacity-50">{cat.items.length} poses</span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-              {cat.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`group relative overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-black/40'}`}
-                >
-                  <img
-                    src={item.url}
-                    alt={item.name}
-                    className="aspect-[3/4] w-full object-cover cursor-pointer"
-                    onClick={() => setLightboxImg(item.url)}
-                  />
-                  
-                  {/* Delete Model Button */}
-                  <button
-                    type="button"
-                    disabled={deletingModelId === item.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteModel(item.id);
-                    }}
-                    title="Remove this model from library"
-                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/75 text-white/70 hover:text-[#ff5252] hover:bg-black transition-all opacity-0 group-hover:opacity-100 shadow-md"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-
-                  <p className="absolute bottom-0 inset-x-0 bg-black/70 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                    {item.name}
-                  </p>
+        {categories.map((cat) => {
+          const isOver = dragOverCat === cat.category;
+          return (
+            <div
+              key={cat.category}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverCat !== cat.category) setDragOverCat(cat.category);
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                if (dragOverCat === cat.category) setDragOverCat(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverCat(null);
+                const raw = e.dataTransfer.getData('text/plain');
+                if (!raw) return;
+                try {
+                  const data = JSON.parse(raw);
+                  if (data.modelId && data.currentCategory !== cat.category) {
+                    void handleMoveModel(data.modelId, cat.category);
+                  }
+                } catch {}
+              }}
+              className={`${cardClass} transition-all duration-200 ${
+                isOver
+                  ? isLight
+                    ? 'border-[#e5373f] bg-rose-50/50 ring-2 ring-[#e5373f]/30'
+                    : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/40'
+                  : ''
+              }`}
+            >
+              <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
+                  {isOver && (
+                    <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full animate-pulse">
+                      Drop here to move into "{cat.category}"
+                    </span>
+                  )}
                 </div>
-              ))}
+                <span className="text-[11px] opacity-50">{cat.items.length} poses</span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 min-h-[90px]">
+                {cat.items.length === 0 ? (
+                  <div className="col-span-full border border-dashed border-white/10 rounded-xl p-4 text-center text-xs opacity-40">
+                    No models in this category yet. Drag and drop any model here to add it.
+                  </div>
+                ) : (
+                  cat.items.map((item) => {
+                    const isDraggingThis = draggedModel?.id === item.id;
+                    const isMovingThis = movingModelId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', JSON.stringify({ modelId: item.id, currentCategory: cat.category }));
+                          setDraggedModel({ id: item.id, name: item.name, currentCategory: cat.category });
+                        }}
+                        onDragEnd={() => {
+                          setDraggedModel(null);
+                          setDragOverCat(null);
+                        }}
+                        className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
+                          isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
+                        } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
+                        title="Drag to another category or select from the move menu"
+                      >
+                        <img
+                          src={item.url}
+                          alt={item.name}
+                          className="aspect-[3/4] w-full object-cover cursor-pointer"
+                          onClick={() => setLightboxImg(item.url)}
+                        />
+
+                        {/* Drag Icon & Move Dropdown */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span
+                            className="p-1 rounded-md bg-black/80 text-white/70 shadow text-[9px] flex items-center gap-0.5 border border-white/10"
+                            title="Drag to another category"
+                          >
+                            <Move size={11} />
+                          </span>
+
+                          <select
+                            value={cat.category}
+                            disabled={isMovingThis}
+                            onChange={(e) => {
+                              const target = e.target.value;
+                              if (target && target !== cat.category) {
+                                void handleMoveModel(item.id, target);
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[9px] font-bold rounded-md bg-black/85 text-white/90 border border-white/20 px-1 py-0.5 cursor-pointer hover:bg-black hover:border-[#e5373f] transition-colors"
+                            title="Quick move to another category"
+                          >
+                            <option value={cat.category} disabled>Move…</option>
+                            {categories.map((c) => (
+                              <option key={c.category} value={c.category} disabled={c.category === cat.category}>
+                                {c.category === cat.category ? `✓ ${c.category}` : `→ ${c.category}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        {/* Delete Model Button */}
+                        <button
+                          type="button"
+                          disabled={deletingModelId === item.id || isMovingThis}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteModel(item.id);
+                          }}
+                          title="Remove this model from library"
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/75 text-white/70 hover:text-[#ff5252] hover:bg-black transition-all opacity-0 group-hover:opacity-100 shadow-md z-10"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+
+                        {/* Moving Spinner */}
+                        {isMovingThis && (
+                          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1.5 z-20">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            <span className="text-[9px] font-bold text-white">Moving…</span>
+                          </div>
+                        )}
+
+                        <p className="absolute bottom-0 inset-x-0 bg-black/70 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                          {item.name}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

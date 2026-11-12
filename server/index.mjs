@@ -1926,6 +1926,117 @@ app.delete('/api/admin/models', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
+  try {
+    const { id, targetCategory } = req.body || {};
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'missing_id', message: 'Model id is required.' });
+    }
+    if (!targetCategory || typeof targetCategory !== 'string') {
+      return res.status(400).json({ error: 'missing_category', message: 'Target category is required.' });
+    }
+
+    const safeTargetCat = String(targetCategory).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    if (!safeTargetCat) {
+      return res.status(400).json({ error: 'invalid_category', message: 'Target category contains invalid characters.' });
+    }
+
+    const parts = id.split('/');
+    if (parts.length !== 2 || parts[0].includes('..') || parts[1].includes('..')) {
+      return res.status(400).json({ error: 'invalid_id', message: 'Invalid model ID format.' });
+    }
+
+    const [oldCat, filename] = parts;
+    if (oldCat === safeTargetCat) {
+      return res.json({ ok: true, oldId: id, newId: id, targetCategory: safeTargetCat });
+    }
+
+    const newId = `${safeTargetCat}/${filename}`;
+    const targetDir = path.join(MODELS_DIR, safeTargetCat);
+    await fs.mkdir(targetDir, { recursive: true });
+
+    const oldFilePath = path.join(MODELS_DIR, oldCat, filename);
+    const newFilePath = path.join(targetDir, filename);
+
+    // 1. Move or copy file on disk if it exists
+    try {
+      if (fsSync.existsSync(oldFilePath)) {
+        await fs.rename(oldFilePath, newFilePath).catch(async () => {
+          await fs.copyFile(oldFilePath, newFilePath).catch(() => {});
+          await fs.unlink(oldFilePath).catch(() => {});
+        });
+      }
+    } catch {}
+
+    // 2. Update MongoDB studio_models
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const existing = await db.collection('studio_models').findOne({ id });
+        if (existing) {
+          await db.collection('studio_models').deleteOne({ id });
+          await db.collection('studio_models').updateOne(
+            { id: newId },
+            {
+              $set: {
+                id: newId,
+                category: safeTargetCat,
+                name: existing.name || filename.replace(/\.[^.]+$/, ''),
+                url: existing.remoteUrl || `/models/${encodeURIComponent(safeTargetCat)}/${encodeURIComponent(filename)}`,
+                remoteUrl: existing.remoteUrl || null,
+                dataUrl: existing.dataUrl || null,
+                deleted: false,
+                createdAt: existing.createdAt || Date.now(),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            { upsert: true }
+          );
+        } else {
+          // Built-in repository model: mark old id deleted so it won't appear under old category
+          await db.collection('studio_models').updateOne(
+            { id },
+            { $set: { id, category: oldCat, deleted: true, deletedAt: Date.now() } },
+            { upsert: true }
+          );
+          // And add into target category!
+          await db.collection('studio_models').updateOne(
+            { id: newId },
+            {
+              $set: {
+                id: newId,
+                category: safeTargetCat,
+                name: filename.replace(/\.[^.]+$/, ''),
+                url: `/models/${encodeURIComponent(safeTargetCat)}/${encodeURIComponent(filename)}`,
+                deleted: false,
+                createdAt: Date.now(),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            { upsert: true }
+          );
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[admin-model] MongoDB move error:', dbErr.message);
+    }
+
+    // 3. Update hosted.json map
+    try {
+      const map = await readHosted();
+      if (map.models?.[id]) {
+        map.models[newId] = map.models[id];
+        delete map.models[id];
+        await saveHosted(map);
+      }
+    } catch {}
+
+    res.json({ ok: true, oldId: id, newId, targetCategory: safeTargetCat });
+  } catch (err) {
+    res.status(500).json({ error: 'move_model_failed', message: String(err.message || err) });
+  }
+});
+
 app.get('/api/models', async (_req, res) => {
   const hosted = await readHosted();
   const categories = await listModels();

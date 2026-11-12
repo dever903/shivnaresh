@@ -521,6 +521,8 @@ export const api = {
     ),
   deleteAdminModel: (id: string) =>
     request<{ ok: boolean; deleted: string }>('/api/admin/models', { ...json({ id }), method: 'DELETE' }),
+  moveAdminModel: (body: { id: string; targetCategory: string }) =>
+    request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
 
   /* admin system problem logs */
   systemLogs: () => request<{ logs: SystemLog[]; unresolvedCount: number; total: number }>('/api/admin/system-logs'),
