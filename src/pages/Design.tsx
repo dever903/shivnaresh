@@ -243,108 +243,84 @@ interface PhotoGuideStep {
 const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
   {
     step: 1,
-    badge: 'Step 1 of 5',
+    badge: 'Step 1 of 4',
     title: 'Surface & Background: Pure White vs Textured Turf',
     tagline: 'Clean background segmentation is the foundation of high-fidelity garment synthesis',
     doBadge: 'DO · Pure White Seamless Surface',
     doImage: '/guidelines/pants-right.jpg',
-    doHeadline: 'Clean white poster board, sheet, or studio surface',
+    doHeadline: 'Clean white surface for crisp silhouette extraction',
     doBullets: [
       'High overhead lighting with zero dark ground shadows.',
-      'Pure seamless contrast on every outer hem and seam.',
+      'Pure seamless white contrast isolates every hem cleanly.',
       'Enables AI to cleanly isolate the garment without background spill.',
     ],
     dontBadge: 'AVOID · Artificial Grass, Turf, or Printed Sheets',
-    dontImage: '/guidelines/hoodie-wrong-bg.jpg',
-    dontHeadline: 'Textured turf, rugs, or patterned floor creases',
+    dontImage: '/guidelines/pants-wrong.jpg',
+    dontHeadline: 'Textured green turf & floor wrinkles',
     dontBullets: [
-      'Green turf texture bleeds into fabric boundaries.',
-      'Floor wrinkles and harsh shadows distort silhouette edges.',
-      'Forces AI to guess boundaries, causing messy cuts and color tinting.',
+      'Green turf texture bleeds directly into fabric edges.',
+      'Floor wrinkles and ground shadows distort silhouette outlines.',
+      'Forces neural network to guess boundaries, causing messy cuts and color tinting.',
     ],
     whyItMatters:
-      'Textured backgrounds like green turf confuse the neural boundary segmentation. In actual tests, turf causes messy garment fringes and green color reflections on the model.',
+      'Comparing the exact same white lower on white background vs green turf: textured backgrounds like artificial grass confuse AI edge segmentation, resulting in messy outlines and greenish reflections on the model.',
   },
   {
     step: 2,
-    badge: 'Step 2 of 5',
-    title: 'Sleeve Placement: Spread Wide at 45° (Front & Back)',
-    tagline: 'Garments must be flat with both arms extended symmetrically for front and back shots',
-    doBadge: 'DO · Both Sleeves Symmetrically Extended',
-    doImage: '/guidelines/hoodie-back.jpg',
-    doHeadline: 'Arms spread wide at 45° with cuffs flat',
+    badge: 'Step 2 of 4',
+    title: 'Sleeve Placement: Spread Wide at 45° (Human Model Reference)',
+    tagline: 'Use a human model photo or natural arm posture instead of bunched flat-lays',
+    doBadge: 'DO · Human Model Pose with Natural Arms',
+    doImage: '/guidelines/model-pose-front.jpg',
+    doHeadline: 'Human model wearing the garment with natural arm hang',
     doBullets: [
-      'Both sleeves laid out flat at natural 45° angles.',
-      'Wrist cuffs, armpit seams, and shoulders fully visible.',
-      'Provide 1 Front photo AND 1 Back photo with open sleeves.',
+      'Both arms relaxed with cuffs and sleeve stripes clearly visible.',
+      'Collar and shoulders sit naturally without artificial bunching.',
+      'Allows AI to accurately place sleeves and maintain arm symmetry.',
     ],
-    dontBadge: 'AVOID · Folded Sleeves & Neck Tags',
-    dontImage: '/guidelines/hoodie-wrong-bg.jpg',
-    dontHeadline: 'Sleeves bunched up or collar folded over',
+    dontBadge: 'AVOID · Bunched Sleeves & Red Collar Tags',
+    dontImage: '/guidelines/hoodie-wide-turf.jpg',
+    dontHeadline: 'Garment flat-lay with bunched folds & hanging price tags',
     dontBullets: [
       'Never fold sleeves across the chest or tuck cuffs under.',
-      'Never leave red price tags or hanging labels at the collar.',
-      'Collar folds and tags trick AI into generating a fake quarter-zip zipper!',
+      'Red price tags near collar trick AI into hallucinating a quarter-zip zipper!',
+      'Bunched fabric curves distort sleeve striping and proportions.',
     ],
     whyItMatters:
-      'When sleeves are angled inward or folded, AI loses cuff reference and twists the arm pattern. Bunched neck folds also trick the AI into generating an unwanted collar zipper.',
+      'Notice the human model pose: clean arm posture gives the AI 3D spatial reference. Flat-lay garments with folded collars and red tags trick the AI into inventing unwanted zippers or twisting sleeve graphics.',
   },
   {
     step: 3,
-    badge: 'Step 3 of 5',
-    title: 'Sleeve Details: Straight Alignment for Typography',
-    tagline: 'Contrasting sleeve stripes and brand text require straight, unwrinkled close-ups',
-    doBadge: 'DO · Flat & Straight Sleeve Stripe',
-    doImage: '/guidelines/sleeve-stripe-crop.jpg',
-    doHeadline: 'Smooth alignment of sleeve stripes & text ("SHIV NARESH")',
+    badge: 'Step 3 of 4',
+    title: 'Chest Artwork & Small Typography Macro Zoom',
+    tagline: 'Dedicated macro zoom crop centered directly on central graphics and slogans',
+    doBadge: 'DO · Dedicated Macro Zoom on Artwork',
+    doImage: '/guidelines/logo-zoom-right.jpg',
+    doHeadline: 'High-resolution macro crop of text & icons',
     doBullets: [
-      'Smooth sleeve fabric flat before taking a macro shot.',
-      'Ensure brand text follows a straight line along the seam.',
-      'Allows AI to wrap the stripe cleanly down the model’s arm length.',
+      'Close-up photo focused directly on chest graphics ("CHEAT CODE // ACTIVATED").',
+      'Pixel icons (dinosaur, cactus) and letterforms are sharp and flat.',
+      'Zero fold creases or wrinkles cutting through typography.',
     ],
-    dontBadge: 'AVOID · Twisted Seams & Fabric Bunches',
-    dontImage: '/guidelines/collar-tag-wrong.jpg',
-    dontHeadline: 'Twisted fabric folds and obscuring hangtags',
+    dontBadge: 'AVOID · Distant Wide Shot (No Macro Crop)',
+    dontImage: '/guidelines/hoodie-wide-turf.jpg',
+    dontHeadline: 'Far-away wide shot where small text is tiny & unreadable',
     dontBullets: [
-      'Wrinkled sleeve curves break the linear text path.',
-      'Tags or wrinkles crossing over sleeve graphics.',
-      'Causes AI to scramble letters or break stripe continuity.',
+      'Relying solely on a distant wide photo where chest text is low-res.',
+      'Low-resolution typography forces AI to scramble text into gibberish.',
+      'Always upload an extra macro zoom photo for any logo or text print.',
     ],
     whyItMatters:
-      'AI projects sleeve stripes along 3D arm coordinates. If reference photos have twisted folds, the text vectors warp, resulting in broken typography and misaligned stripes.',
+      'When AI only receives a distant wide photo of the full garment, small chest letters lack pixel resolution, causing the neural network to hallucinate scrambled letters. A dedicated macro zoom guarantees 100% sharp text.',
   },
   {
     step: 4,
-    badge: 'Step 4 of 5',
-    title: 'Chest Artwork & Small Typography Macro Zoom',
-    tagline: 'High-resolution macro crop centered directly on central graphics and slogans',
-    doBadge: 'DO · Dedicated Macro Crop ("CHEAT CODE : revive.exe")',
-    doImage: '/guidelines/logo-zoom-right.jpg',
-    doHeadline: 'Sharp macro shot centered on chest artwork',
-    doBullets: [
-      'Take a close-up photo dedicated purely to the chest graphic.',
-      'Icons (dinosaur, cactus) and text lines must be crisp and legible.',
-      'Keep fabric pulled flat with zero fold creases over the letters.',
-    ],
-    dontBadge: 'AVOID · Distant Shots (AI Scramble & Hallucination)',
-    dontImage: '/guidelines/logo-hallucinated-zoom.jpg',
-    dontHeadline: 'Real AI Hallucination Output (Scrambled Text + Fake Zipper)',
-    dontBullets: [
-      'Relying solely on distant full-body photos without a macro crop.',
-      'Small text gets scrambled into gibberish ("creat code cvovc chc").',
-      'Collar folds cause AI to invent an unwanted zipper on hoodies!',
-    ],
-    whyItMatters:
-      'Look at the real failure example above: without a dedicated macro crop, the AI scrambled the text into gibberish and hallucinated a quarter-zip zipper. A macro zoom guarantees 100% letter sharpness.',
-  },
-  {
-    step: 5,
-    badge: 'Step 5 of 5',
+    badge: 'Step 4 of 4',
     title: 'Track Pants & Lowers: Both Legs Separated',
     tagline: 'Bottoms must be laid flat showing both legs separated down to the ankle cuffs',
     doBadge: 'DO · Both Legs Separated to Ankle Cuffs',
     doImage: '/guidelines/pants-right.jpg',
-    doHeadline: 'Full-length track pants with both legs spread open',
+    doHeadline: 'Full-length track pants laid flat with both legs open',
     doBullets: [
       'Both legs spread wide and straight down to the ankle cuffs.',
       'Waistband, pockets, and brand logo ("D Sports") fully visible.',
@@ -352,14 +328,14 @@ const PHOTO_GUIDE_STEPS: PhotoGuideStep[] = [
     ],
     dontBadge: 'AVOID · Pants Folded in Half (Single Leg)',
     dontImage: '/guidelines/pants-wrong.jpg',
-    dontHeadline: 'Pants folded in half on textured grass turf',
+    dontHeadline: 'Pants folded sideways with only one leg visible',
     dontBullets: [
-      'Never fold pants sideways so only one leg is in view.',
+      'Never fold pants in half so only one leg is in view.',
       'Avoid bunching knees or shooting on green artificial grass.',
       'AI cannot detect bilateral length and may generate shorts or merged legs!',
     ],
     whyItMatters:
-      'When pants are folded sideways showing only one leg, the AI model lacks bilateral leg data and often generates knee-length shorts or asymmetric trousers.',
+      'When track pants are folded sideways showing only one leg, the AI model lacks bilateral leg data and often generates knee-length shorts or asymmetric trousers.',
   },
 ];
 
@@ -427,8 +403,11 @@ function GarmentPhotoTourModal({
           </button>
         </div>
 
-        {/* 5-Step Segmented Bar */}
-        <div className="grid grid-cols-5 gap-1.5 px-5 pt-3 pb-1">
+        {/* Segmented Bar (Dynamic per step count) */}
+        <div
+          className="grid gap-1.5 px-5 pt-3 pb-1"
+          style={{ gridTemplateColumns: `repeat(${PHOTO_GUIDE_STEPS.length}, minmax(0, 1fr))` }}
+        >
           {PHOTO_GUIDE_STEPS.map((s, idx) => (
             <button
               key={s.step}
