@@ -628,6 +628,18 @@ async function toDataUri(src) {
     }
   }
 
+  // Check MongoDB studio_models if not found on ephemeral disk
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const modelId = cleanPath.replace(/^models\//, '');
+      const doc = await db.collection('studio_models').findOne({
+        $or: [{ id: modelId }, { id: cleanPath }, { url: src }, { remoteUrl: src }],
+      });
+      if (doc?.dataUrl) return doc.dataUrl;
+    }
+  } catch {}
+
   // If it is an external URL not found on disk, fetch inline so Fashn always has the bytes
   if (/^https?:\/\//i.test(src)) {
     try {
@@ -645,24 +657,75 @@ async function toDataUri(src) {
 }
 
 async function listModels() {
-  const out = [];
+  const categoriesMap = new Map();
+  const deletedSet = new Set();
+
+  // 1. Fetch persistent studio models and deleted markers from MongoDB
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const dbModels = await db.collection('studio_models').find().toArray();
+      for (const m of dbModels) {
+        if (m.deleted) {
+          deletedSet.add(m.id);
+          continue;
+        }
+        if (!categoriesMap.has(m.category)) {
+          categoriesMap.set(m.category, new Map());
+        }
+        categoriesMap.get(m.category).set(m.id, {
+          id: m.id,
+          name: m.name,
+          url: m.remoteUrl || m.dataUrl || m.url,
+          createdAt: m.createdAt || 0,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[models] MongoDB studio_models read error:', err.message);
+  }
+
+  // 2. Read local disk models from public/models (built-in repository models)
   let dirs = [];
   try {
     dirs = await fs.readdir(MODELS_DIR, { withFileTypes: true });
   } catch {
-    return out;
+    dirs = [];
   }
   for (const dir of dirs) {
     if (!dir.isDirectory()) continue;
-    const files = (await fs.readdir(path.join(MODELS_DIR, dir.name))).filter((f) => /\.(webp|png|jpe?g)$/i.test(f));
-    out.push({
-      category: dir.name,
-      items: files.sort().map((file) => ({
-        id: `${dir.name}/${file}`,
-        name: file.replace(/\.[^.]+$/, ''),
-        url: `/models/${encodeURIComponent(dir.name)}/${encodeURIComponent(file)}`,
-      })),
-    });
+    const catName = dir.name;
+    const files = (await fs.readdir(path.join(MODELS_DIR, catName)).catch(() => [])).filter((f) => /\.(webp|png|jpe?g)$/i.test(f));
+
+    if (!categoriesMap.has(catName)) {
+      categoriesMap.set(catName, new Map());
+    }
+    const catItems = categoriesMap.get(catName);
+
+    for (const file of files) {
+      const modelId = `${catName}/${file}`;
+      if (deletedSet.has(modelId)) continue;
+
+      if (!catItems.has(modelId)) {
+        catItems.set(modelId, {
+          id: modelId,
+          name: file.replace(/\.[^.]+$/, ''),
+          url: `/models/${encodeURIComponent(catName)}/${encodeURIComponent(file)}`,
+          createdAt: 0,
+        });
+      }
+    }
+  }
+
+  // 3. Format into category array with stable sorting
+  const out = [];
+  for (const [category, itemsMap] of categoriesMap.entries()) {
+    const items = Array.from(itemsMap.values())
+      .filter((it) => !deletedSet.has(it.id))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || a.name.localeCompare(b.name));
+    if (items.length > 0) {
+      out.push({ category, items });
+    }
   }
   return out;
 }
@@ -844,7 +907,7 @@ app.use('/generated', async (req, res, next) => {
 });
 app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
 app.use('/models', express.static(path.join(ROOT, 'dist', 'models'), { maxAge: '7d' }));
-app.use('/models', (req, res, next) => {
+app.use('/models', async (req, res, next) => {
   try {
     const decodedPath = decodeURIComponent(req.path.replace(/^\//, ''));
     const candidate1 = path.join(MODELS_DIR, decodedPath);
@@ -859,6 +922,23 @@ app.use('/models', (req, res, next) => {
     if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
       return res.sendFile(candidate3);
     }
+
+    // Fallback: check MongoDB studio_models if ephemeral disk lost the file
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const doc = await db.collection('studio_models').findOne({ id: decodedPath });
+        if (doc?.dataUrl) {
+          const match = /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/.exec(doc.dataUrl);
+          if (match) {
+            const ext = match[1].toLowerCase() === 'jpg' ? 'jpeg' : match[1].toLowerCase();
+            res.setHeader('Content-Type', `image/${ext}`);
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+            return res.send(Buffer.from(match[2], 'base64'));
+          }
+        }
+      }
+    } catch {}
   } catch {}
   next();
 });
@@ -1704,6 +1784,8 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
     let mapChanged = false;
 
     const results = [];
+    const db = await getMongoDb().catch(() => null);
+
     for (let i = 0; i < itemsToProcess.length; i++) {
       const item = itemsToProcess[i];
       const rawName = String(item.name || `model-${i + 1}`).replace(/[^a-zA-Z0-9 _-]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
@@ -1713,25 +1795,55 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
 
       const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
       const rawBuffer = Buffer.from(match[2], 'base64');
-      const fileName = `${safeName}.${ext}`;
+      // Unique suffix ensures previously uploaded models with similar names are NEVER overwritten
+      const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const fileName = `${safeName}-${uniqueSuffix}.${ext}`;
+      const modelId = `${safeCat}/${fileName}`;
       const filePath = path.join(targetDir, fileName);
       await fs.writeFile(filePath, rawBuffer);
 
       let publicUrl = `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(fileName)}`;
+      let remoteUrl = null;
       try {
         const hosted = await hostImage(rawBuffer, `${safeCat}-${fileName}`);
         if (hosted?.url) {
           publicUrl = hosted.url;
-          map.models[`${safeCat}/${fileName}`] = hosted.url;
+          remoteUrl = hosted.url;
+          map.models[modelId] = hosted.url;
           mapChanged = true;
         }
       } catch (hostErr) {
         console.warn('[admin-model] Image hosting fallback to local:', hostErr.message);
       }
 
+      // Persist in MongoDB studio_models so models survive Render redeploys and container restarts
+      if (db) {
+        try {
+          await db.collection('studio_models').updateOne(
+            { id: modelId },
+            {
+              $set: {
+                id: modelId,
+                category: safeCat,
+                name: item.name || safeName,
+                url: publicUrl,
+                remoteUrl,
+                dataUrl: item.imageData, // preserves base64 bytes permanently if disk resets
+                deleted: false,
+                createdAt: Date.now(),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            { upsert: true }
+          );
+        } catch (dbErr) {
+          console.warn('[admin-model] MongoDB save error:', dbErr.message);
+        }
+      }
+
       results.push({
-        id: `${safeCat}/${fileName}`,
-        name: safeName,
+        id: modelId,
+        name: item.name || safeName,
         url: publicUrl,
       });
     }
@@ -1775,9 +1887,31 @@ app.delete('/api/admin/models', requireAdmin, async (req, res) => {
     const [category, filename] = parts;
     const targetFile = path.join(MODELS_DIR, category, filename);
 
+    // 1. Delete from local disk
     await fs.unlink(targetFile).catch(() => {});
 
-    // Also remove from hosted.json if mapped
+    // 2. Mark permanently deleted in MongoDB so it NEVER comes back after redeploys or git resets
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('studio_models').updateOne(
+          { id },
+          {
+            $set: {
+              id,
+              category,
+              deleted: true,
+              deletedAt: Date.now(),
+            },
+          },
+          { upsert: true }
+        );
+      }
+    } catch (dbErr) {
+      console.warn('[admin-model] MongoDB delete error:', dbErr.message);
+    }
+
+    // 3. Also remove from hosted.json if mapped
     try {
       const map = await readHosted();
       if (map.models?.[id]) {
