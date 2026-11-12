@@ -2,17 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   Clock,
+  Download,
   ExternalLink,
   Film,
   Folder,
   Layers,
   Lock,
+  Maximize2,
+  Move,
   Paperclip,
   RefreshCw,
+  RotateCcw,
   Sliders,
   Trash2,
   User as UserIcon,
   X,
+  ZoomIn,
 } from 'lucide-react';
 import { useTheme, ThemeToggle } from '../lib/theme';
 import {
@@ -612,6 +617,374 @@ function GarmentPhotoTourModal({
                 <span>📸 Start Uploading Now</span>
               </button>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Zoom & Macro Crop Download Modal (Exact 1807 × 3000 px Export)
+   ---------------------------------------------------------------- */
+function ZoomCropDownloadModal({
+  isOpen,
+  onClose,
+  imageUrl,
+  imageTitle,
+  isLight,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string | null;
+  imageTitle?: string;
+  isLight: boolean;
+}) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isExporting, setIsExporting] = useState(false);
+
+  const imgRef = useRef<HTMLImageElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // Reset viewport state when opening with a new image
+  useEffect(() => {
+    if (isOpen) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      setIsExporting(false);
+    }
+  }, [isOpen, imageUrl]);
+
+  if (!isOpen || !imageUrl) return null;
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setPan({ x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy });
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: pan.x, panY: pan.y };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDraggingRef.current || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.x;
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    setPan({ x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy });
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.88;
+    setZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
+  };
+
+  const handleExportCrop = async () => {
+    if (!imageUrl || !imgRef.current || !viewportRef.current) return;
+    setIsExporting(true);
+    try {
+      const img = imgRef.current;
+      const viewport = viewportRef.current;
+      const vRect = viewport.getBoundingClientRect();
+      const V_w = vRect.width;
+      const V_h = vRect.height;
+      const I_w = img.naturalWidth || img.width;
+      const I_h = img.naturalHeight || img.height;
+
+      // Base scale that fits image inside viewport preserving aspect ratio
+      const baseScale = Math.min(V_w / I_w, V_h / I_h);
+
+      // Natural pixel dimensions and top-left of viewport region
+      const cropWidthNat = V_w / (zoom * baseScale);
+      const cropHeightNat = V_h / (zoom * baseScale);
+      const xNatTL = (I_w / 2) - ((V_w / 2) + pan.x) / (zoom * baseScale);
+      const yNatTL = (I_h / 2) - ((V_h / 2) + pan.y) / (zoom * baseScale);
+
+      // Target high-resolution canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 1807;
+      canvas.height = 3000;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context not available');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Clean white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 1807, 3000);
+
+      // Load image with CORS to allow canvas export
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        tempImg.onload = () => resolve();
+        tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+        tempImg.src = imageUrl;
+      });
+
+      // Draw exact visible cropped rectangle onto 1807x3000 canvas
+      ctx.drawImage(
+        tempImg,
+        xNatTL,
+        yNatTL,
+        cropWidthNat,
+        cropHeightNat,
+        0,
+        0,
+        1807,
+        3000
+      );
+
+      canvas.toBlob((blob) => {
+        if (!blob) throw new Error('Failed to create image blob');
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        const cleanTitle = (imageTitle || 'render').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        a.download = `shivnaresh-zoom-crop-1807x3000-${cleanTitle}-${Date.now().toString(36)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        setIsExporting(false);
+      }, 'image/png');
+    } catch (err: any) {
+      console.error('[zoom-crop] Export error:', err);
+      alert(`Could not export 1807×3000 crop: ${err.message || err}`);
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
+      <div
+        className={`w-full max-w-4xl max-h-[94vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${
+          isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
+        }`}
+      >
+        {/* Header */}
+        <div
+          className={`shrink-0 px-5 py-3.5 border-b flex items-center justify-between ${
+            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-base text-zinc-200 border border-zinc-700/60 shadow-inner">
+              <Maximize2 size={16} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold tracking-tight">Zoom & Macro Crop Download</h3>
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                  1807 × 3000 px
+                </span>
+              </div>
+              <p className={`text-[11px] ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                Drag and pan across any detail (logo, sleeves, collar, cuffs) and export a high-resolution 1807×3000 portrait crop.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${
+              isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
+            }`}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col lg:flex-row gap-6 items-center lg:items-start justify-center">
+          {/* Interactive Viewport (1807:3000 Portrait Frame) */}
+          <div className="flex flex-col items-center">
+            <div
+              ref={viewportRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
+              className={`relative w-[270px] sm:w-[330px] aspect-[1807/3000] max-h-[66vh] rounded-xl overflow-hidden border shadow-inner flex items-center justify-center cursor-grab active:cursor-grabbing bg-black select-none ${
+                isLight ? 'border-zinc-300 ring-1 ring-zinc-200' : 'border-zinc-700/70 ring-1 ring-white/10'
+              }`}
+            >
+              {/* Scaled & Panned Image */}
+              <img
+                ref={imgRef}
+                src={imageUrl}
+                alt="Zoom Preview"
+                crossOrigin="anonymous"
+                draggable={false}
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                }}
+                className="max-h-full max-w-full object-contain pointer-events-none select-none"
+              />
+
+              {/* Viewport Framing Guides */}
+              <div className="absolute inset-0 pointer-events-none border border-white/20 rounded-xl" />
+              <div className="absolute top-2 left-2 pointer-events-none rounded bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white/80 border border-white/10">
+                1807 × 3000 Frame
+              </div>
+              <div className="absolute bottom-2 inset-x-2 pointer-events-none flex items-center justify-between text-[9px] text-white/60 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10">
+                <span>Drag to Pan</span>
+                <span>{Math.round(zoom * 100)}%</span>
+                <span>Wheel to Zoom</span>
+              </div>
+            </div>
+            <p className={`text-[10px] mt-2 ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              Click & drag anywhere inside frame to reposition crop
+            </p>
+          </div>
+
+          {/* Controls Side Panel */}
+          <div className="w-full lg:w-72 flex flex-col gap-4">
+            {/* Zoom Slider Control */}
+            <div className={`rounded-xl border p-3.5 space-y-2 ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800 bg-zinc-900/40'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold flex items-center gap-1.5">
+                  <ZoomIn size={14} className="text-emerald-500" />
+                  <span>Zoom Level</span>
+                </span>
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                  {Math.round(zoom * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1.0"
+                max="5.0"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="w-full accent-[#e5373f] cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+              />
+              {/* Quick Presets */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: '1x Fit', val: 1.0 },
+                  { label: '1.8x', val: 1.8 },
+                  { label: '3x Macro', val: 3.0 },
+                  { label: '5x Max', val: 5.0 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setZoom(preset.val)}
+                    className={`py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${
+                      Math.abs(zoom - preset.val) < 0.1
+                        ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
+                        : isLight
+                          ? 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
+                          : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* View Alignment Controls */}
+            <div className={`rounded-xl border p-3 flex items-center justify-between ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800 bg-zinc-900/40'}`}>
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <Move size={13} className="text-zinc-400" />
+                <span>Pan Position</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPan({ x: 0, y: 0 })}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer ${
+                    isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                  title="Center pan position"
+                >
+                  Center
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                    isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                  title="Reset zoom and pan"
+                >
+                  <RotateCcw size={10} />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Export Specifications Box */}
+            <div className={`rounded-xl border p-3 text-[11px] space-y-1.5 ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800 bg-zinc-900/40'}`}>
+              <div className="flex items-center justify-between text-zinc-400">
+                <span>Output Resolution:</span>
+                <span className="font-bold text-zinc-200">1807 × 3000 px</span>
+              </div>
+              <div className="flex items-center justify-between text-zinc-400">
+                <span>Aspect Ratio:</span>
+                <span className="font-bold text-zinc-200">~1 : 1.66 (Portrait)</span>
+              </div>
+              <div className="flex items-center justify-between text-zinc-400">
+                <span>Interpolation:</span>
+                <span className="font-bold text-emerald-400">Bicubic High-Res</span>
+              </div>
+            </div>
+
+            {/* Export Action Button */}
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => void handleExportCrop()}
+              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 text-xs font-bold uppercase tracking-wider transition shadow-lg cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isExporting ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Rendering 1807×3000 Crop…</span>
+                </>
+              ) : (
+                <>
+                  <Download size={14} />
+                  <span>Download Zoomed Crop</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -3443,23 +3816,29 @@ export default function Design() {
   const [alwaysShowTour, setAlwaysShowTour] = useState(() => {
     return localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
   });
-  const [hasCompletedTour, setHasCompletedTour] = useState(() => {
-    return localStorage.getItem('shivnaresh_photo_tour_completed') === 'true';
-  });
+  // Whenever the user opens the website, tour shows on their first cloth upload of the session
+  const [tourShownThisSession, setTourShownThisSession] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem('shivnaresh_photo_tour_completed');
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleInitiateClothUpload = useCallback(() => {
     const isAlways = localStorage.getItem('shivnaresh_always_photo_tour') === 'true';
-    if (!hasCompletedTour || isAlways) {
+    if (!tourShownThisSession || isAlways) {
       setTourStep(0);
       setShowPhotoTour(true);
     } else {
       clothInput.current?.click();
     }
-  }, [hasCompletedTour]);
+  }, [tourShownThisSession]);
 
   const handleTourProceedToUpload = useCallback(() => {
-    localStorage.setItem('shivnaresh_photo_tour_completed', 'true');
-    setHasCompletedTour(true);
+    setTourShownThisSession(true);
     setShowPhotoTour(false);
     setTimeout(() => {
       clothInput.current?.click();
@@ -3467,10 +3846,14 @@ export default function Design() {
   }, []);
 
   const handleTourDismiss = useCallback(() => {
-    localStorage.setItem('shivnaresh_photo_tour_completed', 'true');
-    setHasCompletedTour(true);
+    setTourShownThisSession(true);
     setShowPhotoTour(false);
   }, []);
+
+  /* Zoom & Macro Crop Download state (Exact 1807×3000 Export) */
+  const [showZoomCropModal, setShowZoomCropModal] = useState(false);
+  const [zoomCropImage, setZoomCropImage] = useState<string | null>(null);
+  const [zoomCropTitle, setZoomCropTitle] = useState('photoshoot-crop');
 
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -4289,6 +4672,15 @@ export default function Design() {
         setStep={setTourStep}
         alwaysShow={alwaysShowTour}
         setAlwaysShow={setAlwaysShowTour}
+        isLight={isLight}
+      />
+
+      {/* Zoom & Macro Crop Download Modal (Exact 1807×3000 Output) */}
+      <ZoomCropDownloadModal
+        isOpen={showZoomCropModal}
+        onClose={() => setShowZoomCropModal(false)}
+        imageUrl={zoomCropImage}
+        imageTitle={zoomCropTitle}
         isLight={isLight}
       />
 
@@ -5957,6 +6349,23 @@ export default function Design() {
                     }`}
                   >
                     ⬇️ Download {fivePoseItems.length > 1 ? 'Selected Pose' : 'Render'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoomCropImage(result);
+                      setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.id || 'photoshoot-render');
+                      setShowZoomCropModal(true);
+                    }}
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${
+                      isLight
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/60'
+                    }`}
+                    title="Pan, zoom, and export exact 1807×3000 crop"
+                  >
+                    <Maximize2 size={13} />
+                    <span>Zoom & Crop (1807×3000)</span>
                   </button>
                   {fivePoseItems.filter(p => p.status === 'completed').length > 1 && (
                     <button
