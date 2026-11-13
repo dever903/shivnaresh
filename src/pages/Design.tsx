@@ -2136,7 +2136,7 @@ function CustomRequestsPanel({
   loading,
   onRefresh,
   creditsLocked,
-  customRequestsLocked,
+  customRequestsLocked: _customRequestsLocked,
   isLight = false,
   onUnreadCleared,
 }: {
@@ -2181,6 +2181,27 @@ function CustomRequestsPanel({
       } catch (e) {
         console.warn('Error marking deliveries read:', e);
       }
+    }
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    if (!window.confirm('Delete this custom request? It will be moved to the studio recycle bin.')) return;
+    try {
+      await api.deleteCustomRequest(id);
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete custom request');
+    }
+  };
+
+  const handleDeleteDelivery = async (id: string) => {
+    if (!window.confirm('Remove this delivery from your dashboard? It will be moved to the studio recycle bin.')) return;
+    try {
+      await api.deleteUserDelivery(id);
+      setDeliveries((prev) => prev.filter((d) => d.id !== id));
+      void loadDeliveries();
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove delivery');
     }
   };
 
@@ -2362,9 +2383,8 @@ function CustomRequestsPanel({
           {panelTab === 'send' && (
             <button
               type="button"
-              disabled={customRequestsLocked}
               onClick={() => setFormOpen(!formOpen)}
-              className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors cursor-pointer"
             >
               {formOpen ? 'Cancel' : '+ New Custom Request'}
             </button>
@@ -2418,28 +2438,8 @@ function CustomRequestsPanel({
       {panelTab === 'send' ? (
         <>
 
-          {/* Plan Upgrade Lock Banner if Custom Requests Locked by Admin */}
-          {customRequestsLocked && (
-            <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
-              }`}>
-              <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
-              <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
-              <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
-                Direct custom requests to our master tailors are available exclusively on the Ultra plan or accounts enabled by the administrator. Upgrade to Ultra to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
-              </p>
-              <div className="mt-4 flex items-center justify-center gap-3">
-                <a
-                  href="/pricing"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-sm transition"
-                >
-                  View pricing and plans
-                </a>
-              </div>
-            </div>
-          )}
-
-          {/* Submission Form */}
-          {formOpen && (
+      {/* Submission Form */}
+      {formOpen && (
             <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
               }`}>
               <div className="flex items-center justify-between">
@@ -2736,36 +2736,21 @@ function CustomRequestsPanel({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
-                        <div className="inline-flex items-center gap-1.5">
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
-                            }`}>
-                            1h edit window
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!window.confirm('Cancel and delete this custom request? This will permanently remove it from the studio queue.')) return;
-                              try {
-                                await api.deleteCustomRequest(req.id);
-                                onRefresh();
-                              } catch (err: any) {
-                                alert(err.message || 'Could not delete request');
-                              }
-                            }}
-                            className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
-                            title="Cancel within 1 hour grace window"
-                          >
-                            Cancel order
-                          </button>
-                        </div>
-                      )}
                       <span className={isLight ? 'text-slate-800' : 'text-white/40'}>24–48h SLA:</span>
                       {req.status === 'delivered' ? (
                         <span className="font-semibold text-emerald-600">Delivered Successfully</span>
                       ) : (
                         <LiveCountdownTimer createdAt={req.createdAt} deadlineHours={req.deadlineHours || 48} />
                       )}
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteRequest(req.id)}
+                        className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-500 hover:bg-red-500 hover:text-white transition flex items-center gap-1 cursor-pointer"
+                        title="Delete request (moves to recycle bin)"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
 
@@ -2996,7 +2981,9 @@ function CustomRequestsPanel({
                         </div>
                       </div>
 
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPhoto
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                        isPhoto
                           ? 'bg-purple-500/20 text-purple-300'
                           : isVideo
                             ? 'bg-blue-500/20 text-blue-300'
@@ -3005,18 +2992,19 @@ function CustomRequestsPanel({
                               : isFolder
                                 ? 'bg-emerald-500/20 text-emerald-300'
                                 : 'bg-slate-500/20 text-slate-300'
-                        }`}>
+                      }`}>
                         {delivery.type}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteDelivery(delivery.id)}
+                        className="p-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer"
+                        title="Delete delivery (moves to recycle bin)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-
-                    {/* Text Message */}
-                    {delivery.textMessage && (
-                      <div className={`mt-4 rounded-2xl border p-4 text-xs leading-relaxed ${isLight ? 'bg-gray-50 border-gray-200 text-gray-800' : 'bg-black/30 border-white/5 text-slate-200'
-                        }`}>
-                        <p className="whitespace-pre-wrap">{delivery.textMessage}</p>
-                      </div>
-                    )}
+                  </div>
 
                     {/* Media / File Content */}
                     <div className="mt-4">

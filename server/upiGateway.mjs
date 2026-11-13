@@ -641,7 +641,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       if (code !== '1450903') {
         return res.status(400).json({
           success: false,
-          error: 'Invalid verification code. Please enter code 1450903 to unlock invoice generation.',
+          error: 'Invalid verification code. Please check and enter the valid authorization code.',
         });
       }
 
@@ -653,10 +653,21 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
       const order = orders[orderIndex];
       order.status = 'paid';
-      order.utr = order.utr || `CODE_1450903_${Date.now()}`;
-      order.verified_by = 'code_1450903';
+      order.utr = order.utr || `UPI_${Date.now()}`;
+      order.verified_by = 'auth_code';
       order.paid_at = new Date().toISOString();
       order.invoice_generated = true;
+
+      // Continue sequential invoice numbering starting from serial 1450903
+      if (!order.invoice_no) {
+        const existingNos = orders
+          .map((o) => parseInt(o.invoice_no, 10))
+          .filter((n) => !isNaN(n) && n >= 1450903);
+        const maxNo = existingNos.length > 0 ? Math.max(...existingNos) : 1450902;
+        order.invoice_no = String(maxNo + 1);
+      }
+      order.invoice_date = order.invoice_date || new Date().toISOString();
+
       orders[orderIndex] = order;
       await writeOrders(orders);
 
@@ -667,7 +678,9 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         status: 'paid',
         paid: true,
         invoice_generated: true,
-        message: 'Code 1450903 verified! Invoice generated and plan activated.',
+        invoice_no: order.invoice_no,
+        invoice_date: order.invoice_date,
+        message: 'Code verified! Tax invoice generated and plan activated.',
         data: order,
       });
     } catch (err) {

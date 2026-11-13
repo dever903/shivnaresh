@@ -26,6 +26,48 @@ import { api, type GatewayConfig, type GatewayOrder } from '../lib/api';
 
 const DEFAULT_USD_TO_INR = 94.0;
 
+function numberToWordsINR(amount: number): string {
+  const n = Math.floor(Math.abs(amount));
+  if (n === 0) return 'Zero Rupees Only';
+
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function convertTwoDigits(val: number): string {
+    if (val === 0) return '';
+    if (val < 20) return ones[val];
+    const t = tens[Math.floor(val / 10)];
+    const u = ones[val % 10];
+    return u ? `${t}-${u}` : t;
+  }
+
+  function convertThreeDigits(val: number): string {
+    const h = Math.floor(val / 100);
+    const rem = val % 100;
+    const hPart = h > 0 ? `${ones[h]} Hundred` : '';
+    const remPart = convertTwoDigits(rem);
+    if (hPart && remPart) return `${hPart} ${remPart}`;
+    return hPart || remPart;
+  }
+
+  const crore = Math.floor(n / 10000000);
+  const lakh = Math.floor((n % 10000000) / 100000);
+  const thousand = Math.floor((n % 100000) / 1000);
+  const remainder = n % 1000;
+
+  const parts: string[] = [];
+  if (crore > 0) parts.push(`${convertTwoDigits(crore)} Crore`);
+  if (lakh > 0) parts.push(`${convertTwoDigits(lakh)} Lakh`);
+  if (thousand > 0) parts.push(`${convertTwoDigits(thousand)} Thousand`);
+  if (remainder > 0) parts.push(convertThreeDigits(remainder));
+
+  return `${parts.join(' ')} Rupees Only`;
+}
+
 interface Plan {
   id: string;
   name: string;
@@ -347,8 +389,8 @@ export default function Pricing() {
 
   const handleVerifyCode = async () => {
     const code = verificationCode.trim();
-    if (code !== '1450903') {
-      setCodeSubmitError('Enter code 1450903 to unlock invoice generation.');
+    if (!code) {
+      setCodeSubmitError('Please enter your authorization code.');
       return;
     }
     setVerifyingCode(true);
@@ -377,19 +419,26 @@ export default function Pricing() {
         throw new Error('Unable to initialize payment order. Please refresh and try again.');
       }
 
-      const res = await api.verifyGatewayCode(orderToVerify.order_no, '1450903');
+      const res = await api.verifyGatewayCode(orderToVerify.order_no, code);
       if (res?.success) {
         setInvoiceGenerated(true);
-        setActiveOrder((prev) => (prev ? { ...prev, status: 'paid', invoice_generated: true, utr: res.data?.utr || 'CODE_1450903' } : res.data));
+        setActiveOrder((prev) => (prev ? {
+          ...prev,
+          status: 'paid',
+          invoice_generated: true,
+          invoice_no: res.data?.invoice_no || (res as any)?.invoice_no,
+          invoice_date: res.data?.invoice_date || (res as any)?.invoice_date || new Date().toISOString(),
+          utr: res.data?.utr || 'UPI_RECEIVED',
+        } : res.data));
         try {
           const me = await api.me();
           if (me?.user) setCurrentUser(me.user);
         } catch {}
       } else {
-        setCodeSubmitError(res?.message || 'Verification failed. Please check code 1450903.');
+        setCodeSubmitError(res?.message || 'Invalid authorization code. Please verify and try again.');
       }
     } catch (err: any) {
-      setCodeSubmitError(err?.message || 'Verification error. Please try again.');
+      setCodeSubmitError(err?.message || 'Invalid authorization code. Please check and try again.');
     } finally {
       setVerifyingCode(false);
     }
@@ -426,6 +475,32 @@ export default function Pricing() {
     <div className={`min-h-screen font-sans antialiased ${
       isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
     }`}>
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-invoice, #printable-invoice * {
+            visibility: visible !important;
+          }
+          #printable-invoice {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 24px !important;
+            border: 1px solid #e5e7eb !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            z-index: 999999 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
       {/* Top Header */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
         isLight ? 'border-[#82b095] bg-[#97c1a9]/90' : 'border-white/10 bg-[#0a0a0f]/85'
@@ -841,12 +916,12 @@ export default function Pricing() {
             <div className="overflow-y-auto pr-1.5 pt-3 space-y-4 flex-1">
               {/* STATE A: INVOICE GENERATED & PLAN ACTIVATED */}
               {invoiceGenerated || activeOrder?.status === 'paid' ? (
-                <div className="py-4 space-y-5">
-                  <div className="text-center space-y-2">
-                    <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-500/40">
-                      <CheckCircle2 className="w-8 h-8" />
+                <div className="py-2 space-y-4">
+                  <div className="text-center space-y-1 no-print">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-500/40">
+                      <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <h3 className={`text-xl font-extrabold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                    <h3 className={`text-lg font-extrabold ${isLight ? 'text-gray-900' : 'text-white'}`}>
                       Invoice Generated & Plan Activated!
                     </h3>
                     <p className="text-xs text-emerald-500 font-bold uppercase tracking-wider">
@@ -854,59 +929,130 @@ export default function Pricing() {
                     </p>
                   </div>
 
-                  {/* Official Invoice Card */}
-                  <div className={`rounded-2xl border p-5 text-xs space-y-3 font-sans ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-slate-950/80 border-emerald-500/30 text-slate-200'
-                  }`}>
-                    <div className="flex justify-between items-center border-b pb-2.5 border-white/10">
+                  {/* Printable Invoice Container Matching Official PDF */}
+                  <div id="printable-invoice" className="bg-white text-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto font-sans border border-gray-200">
+                    {/* Header */}
+                    <div className="flex justify-between items-start border-b border-gray-200 pb-5">
                       <div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">Official Tax Invoice</span>
-                        <span className="font-mono font-bold text-xs">INV-{activeOrder?.order_no || '1450903'}</span>
+                        <h1 className="text-3xl font-black tracking-tight text-[#162f4d]">INVOICE</h1>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Paid & Verified
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 py-1">
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Plan Purchased:</span>
-                        <span className="font-bold">{selectedPlan.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Amount Paid:</span>
-                        <span className="font-extrabold text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Photoshoots Allocated:</span>
-                        <span className="font-semibold">{selectedPlan.specs.photoshoots}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Video Quota:</span>
-                        <span className="font-semibold">{selectedPlan.specs.videos}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Studio Credits:</span>
-                        <span className="font-bold text-emerald-400">{selectedPlan.specs.credits}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Payment Handle:</span>
-                        <span className="font-mono">{upiId}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="opacity-60">Verified Code:</span>
-                        <span className="font-mono text-emerald-400 font-bold">1450903</span>
+                      <div className="text-right text-xs space-y-1">
+                        <div>
+                          <span className="font-semibold text-gray-500">Invoice No:</span>{' '}
+                          <span className="font-mono font-bold text-gray-900">{activeOrder?.invoice_no || '1450903'}</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-500">Date:</span>{' '}
+                          <span className="font-medium text-gray-900">
+                            {activeOrder?.invoice_date
+                              ? new Date(activeOrder.invoice_date).toLocaleDateString('en-GB')
+                              : new Date().toLocaleDateString('en-GB')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-500">Status:</span>{' '}
+                          <span className="font-bold text-emerald-600 uppercase tracking-wide">PAID</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] opacity-70">
-                      <span>Date: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      <span>Shiv-Naresh AI Atelier</span>
+                    {/* From / Bill To */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-5 text-xs border-b border-gray-200">
+                      <div>
+                        <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">FROM (SELLER)</p>
+                        <p className="font-bold text-sm text-gray-900">Pawan Kumar</p>
+                        <p className="text-gray-600">Photo & Video Shoot Services</p>
+                        <p className="text-gray-600">256, Gali No. 5, Tukmirpur Ext,</p>
+                        <p className="text-gray-600">Karawal Nagar, Delhi - 110094</p>
+                      </div>
+                      <div>
+                        <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">BILL TO</p>
+                        <p className="font-bold text-sm text-gray-900">{userName.trim() || 'Shiv-Naresh Sports Private Limited'}</p>
+                        <p className="text-gray-600">E-23, Karampura,</p>
+                        <p className="text-gray-600">New Delhi - 110015</p>
+                        <p className="text-gray-500 font-mono text-[11px] mt-1">CIN: U18109DL1998PTC097659</p>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="mt-5 overflow-hidden rounded-lg border border-gray-200">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#162f4d] text-white">
+                          <tr>
+                            <th className="py-2.5 px-3 w-10 text-center">#</th>
+                            <th className="py-2.5 px-4">Description</th>
+                            <th className="py-2.5 px-3 text-center w-14">Qty</th>
+                            <th className="py-2.5 px-4 text-right w-36">Amount (INR)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          <tr>
+                            <td className="py-4 px-3 text-center font-bold text-gray-700 align-top">1</td>
+                            <td className="py-4 px-4 align-top">
+                              <p className="font-bold text-gray-900">Photo & Video Shoot Services</p>
+                              <p className="text-gray-600 mt-1">- {selectedPlan.specs.photoshoots} photo shoots (each shoot = 5 poses)</p>
+                              <p className="text-gray-600">- {selectedPlan.specs.videos} in 1080p, each 5 to 10 seconds long</p>
+                            </td>
+                            <td className="py-4 px-3 text-center font-medium text-gray-700 align-top">1</td>
+                            <td className="py-4 px-4 text-right font-mono font-semibold text-gray-900 align-top">
+                              {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Totals */}
+                    <div className="flex justify-end mt-4">
+                      <div className="w-full sm:w-64 text-xs space-y-1.5">
+                        <div className="flex justify-between text-gray-600">
+                          <span>Subtotal</span>
+                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>GST</span>
+                          <span>Not applicable</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 px-2 bg-gray-100 rounded font-bold text-gray-900 border-t border-gray-300">
+                          <span>Total</span>
+                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>Amount Paid</span>
+                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
+                        </div>
+                        <div className="flex justify-between font-semibold text-gray-900">
+                          <span>Balance Due</span>
+                          <span className="font-mono">INR 0.00</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Amount in words */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 text-xs">
+                      <span className="font-bold text-gray-900">Amount in words:</span>{' '}
+                      <span className="text-gray-700 italic">{numberToWordsINR(activeOrder?.amount || inrAmount)}</span>
+                    </div>
+
+                    {/* Payment details */}
+                    <div className="mt-5 rounded-lg bg-blue-50/70 border border-blue-200/60 p-4 text-xs">
+                      <p className="font-bold uppercase tracking-wider text-blue-900 mb-1.5">PAYMENT DETAILS</p>
+                      <div className="space-y-0.5 text-gray-700">
+                        <p><span className="font-semibold text-gray-900">Payment method:</span> UPI</p>
+                        <p><span className="font-semibold text-gray-900">UPI ID:</span> <span className="font-mono">{upiId}</span></p>
+                        <p><span className="font-semibold text-gray-900">Status:</span> Received in full</p>
+                      </div>
+                    </div>
+
+                    {/* Footer notes */}
+                    <div className="mt-5 text-[11px] text-gray-500 space-y-1 text-center sm:text-left">
+                      <p><strong className="text-gray-700">Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</p>
+                      <p className="text-center font-medium text-gray-600 mt-4">Thank you for your business.</p>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2 pt-2 no-print">
                     <button
                       type="button"
                       onClick={() => window.print()}
@@ -915,7 +1061,7 @@ export default function Pricing() {
                       }`}
                     >
                       <Printer className="w-4 h-4" />
-                      <span>Print / Save Invoice</span>
+                      <span>Print / Save PDF Invoice</span>
                     </button>
                     <a
                       href="/design"
@@ -927,7 +1073,7 @@ export default function Pricing() {
                   </div>
                 </div>
               ) : (
-                /* STATE B: SCAN FIXED QR + ENTER CODE 1450903 TO GENERATE INVOICE */
+                /* STATE B: SCAN FIXED QR + ENTER CODE TO GENERATE INVOICE */
                 <div className="space-y-4">
                   {/* Plan Price Banner */}
                   <div className={`p-3 rounded-2xl border flex items-center justify-between ${
@@ -1013,7 +1159,7 @@ export default function Pricing() {
                     </div>
                   )}
 
-                  {/* CODE 1450903 SUBMIT & GENERATE INVOICE OPTION */}
+                  {/* AUTHORIZATION CODE SUBMIT & GENERATE INVOICE OPTION */}
                   <div className={`p-4 rounded-2xl border ${
                     isLight ? 'bg-amber-50/80 border-amber-200' : 'bg-slate-950/80 border-amber-500/30'
                   }`}>
@@ -1024,19 +1170,19 @@ export default function Pricing() {
                       </span>
                     </div>
                     <p className={`text-xs mb-3 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                      Enter code number <strong className="font-mono text-amber-400">1450903</strong> below to unlock and generate your official tax invoice & activate the plan:
+                      Have an authorization or transaction code? Enter it below to unlock and generate your official tax invoice & activate the plan:
                     </p>
 
                     <div className="space-y-2">
                       <input
-                        type="text"
+                        type="password"
                         maxLength={20}
                         value={verificationCode}
                         onChange={(e) => {
                           setVerificationCode(e.target.value);
                           setCodeSubmitError('');
                         }}
-                        placeholder="Enter Code Number (e.g. 1450903)"
+                        placeholder="Enter Authorization Code"
                         className={`w-full rounded-xl border px-3.5 py-2.5 text-center font-mono text-sm font-bold tracking-widest outline-none transition-colors ${
                           isLight
                             ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
@@ -1050,11 +1196,11 @@ export default function Pricing() {
 
                       <button
                         type="button"
-                        disabled={verificationCode.trim() !== '1450903' || verifyingCode}
+                        disabled={!verificationCode.trim() || verifyingCode}
                         onClick={handleVerifyCode}
                         className={`w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                          verificationCode.trim() === '1450903'
-                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 animate-pulse'
+                          verificationCode.trim().length > 0
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
                             : 'bg-white/10 text-white/40 cursor-not-allowed border border-white/10'
                         }`}
                       >
@@ -1063,7 +1209,7 @@ export default function Pricing() {
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Verifying & Generating Invoice...</span>
                           </>
-                        ) : verificationCode.trim() === '1450903' ? (
+                        ) : verificationCode.trim().length > 0 ? (
                           <>
                             <CheckCircle2 className="w-4 h-4" />
                             <span>Generate Invoice & Activate {selectedPlan.name} Plan</span>
@@ -1071,7 +1217,7 @@ export default function Pricing() {
                         ) : (
                           <>
                             <Lock className="w-4 h-4" />
-                            <span>Enter Code 1450903 to Generate Invoice</span>
+                            <span>Enter Code to Generate Invoice</span>
                           </>
                         )}
                       </button>

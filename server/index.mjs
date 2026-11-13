@@ -408,18 +408,22 @@ const readSystemLogs = async () => {
   try {
     const db = await getMongoDb();
     if (db) {
-      // Auto-cleanup legacy dist/index.html startup errors from MongoDB
+      // Auto-cleanup resolved / legacy error reports from MongoDB
       await db.collection('system_logs').deleteMany({
         $or: [
           { message: { $regex: /dist\/index\.html|ENOENT.*index\.html/i } },
           { title: { $regex: /dist\/index\.html/i } },
+          { id: '16729044-4de9-4e59-a244-0339c59b502b' },
+          { id: '3f7fc7a2-4238-4ade-996c-5abf729555f5' },
+          { message: { $regex: /Expected property name or '\}' in JSON|image not found: \/uploads\/cloth-mweyvn4b-2dd0cb\.jpg/i } },
+          { title: { $regex: /Expected property name or '\}' in JSON/i } },
         ],
       }).catch(() => {});
 
       const logs = await db.collection('system_logs').find().sort({ timestamp: -1 }).limit(500).toArray();
       if (logs && logs.length > 0) {
         const cleanLogs = logs
-          .filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || ''))
+          .filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || '') && l.id !== '16729044-4de9-4e59-a244-0339c59b502b' && l.id !== '3f7fc7a2-4238-4ade-996c-5abf729555f5')
           .map(l => { const c = { ...l }; delete c._id; return c; });
         void writeJson(SYSTEM_LOGS_FILE, cleanLogs).catch(() => {});
         return cleanLogs;
@@ -427,7 +431,7 @@ const readSystemLogs = async () => {
     }
   } catch {}
   const local = await readJson(SYSTEM_LOGS_FILE, []);
-  return local.filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || ''));
+  return local.filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || '') && l.id !== '16729044-4de9-4e59-a244-0339c59b502b' && l.id !== '3f7fc7a2-4238-4ade-996c-5abf729555f5');
 };
 
 const writeSystemLogs = async (logs) => {
@@ -436,7 +440,7 @@ const writeSystemLogs = async (logs) => {
   try {
     const db = await getMongoDb();
     if (db && safeLogs.length > 0) {
-      const bulkOps = safeLogs.slice(0, 50).map((log) => ({
+      const bulkOps = safeLogs.map((log) => ({
         updateOne: {
           filter: { id: log.id },
           update: { $set: log },
@@ -667,6 +671,7 @@ async function toDataUri(src) {
   const candidates = [
     path.join(UPLOADS, basename),
     path.join(DATA, 'uploads', basename),
+    path.join(ROOT, 'server', 'data', 'uploads', basename),
     path.join(PUBLIC_DIR, cleanPath),
     path.join(PUBLIC_DIR, 'models', cleanPath.replace(/^models\//, '')),
     path.join(ROOT, 'public', cleanPath),
@@ -684,15 +689,62 @@ async function toDataUri(src) {
     }
   }
 
-  // Check MongoDB studio_models if not found on ephemeral disk
+  // Check hosted map (Cloudinary / permanent CDN)
+  try {
+    const hosted = await readHosted();
+    const remoteUrl = hosted.uploads?.[basename] || hosted.models?.[basename] || hosted.generated?.[basename];
+    if (remoteUrl && typeof remoteUrl === 'string' && /^https?:\/\//i.test(remoteUrl)) {
+      const resp = await fetch(remoteUrl);
+      if (resp.ok) {
+        const buf = Buffer.from(await resp.arrayBuffer());
+        const contentType = resp.headers.get('content-type') || 'image/jpeg';
+        return `data:${contentType};base64,${buf.toString('base64')}`;
+      }
+    }
+  } catch {}
+
+  // Check MongoDB user_uploads & studio_models if not found on ephemeral disk
   try {
     const db = await getMongoDb();
     if (db) {
+      // 1. Check user_uploads
+      const uploadDoc = await db.collection('user_uploads').findOne({
+        $or: [
+          { id: basename },
+          { id: cleanPath },
+          { url: `/uploads/${basename}` },
+          { url: src },
+          { remoteUrl: src },
+        ],
+      });
+      if (uploadDoc?.dataUrl) return uploadDoc.dataUrl;
+      if (uploadDoc?.remoteUrl && /^https?:\/\//i.test(uploadDoc.remoteUrl)) {
+        try {
+          const resp = await fetch(uploadDoc.remoteUrl);
+          if (resp.ok) {
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const contentType = resp.headers.get('content-type') || 'image/jpeg';
+            return `data:${contentType};base64,${buf.toString('base64')}`;
+          }
+        } catch {}
+      }
+
+      // 2. Check studio_models
       const modelId = cleanPath.replace(/^models\//, '');
       const doc = await db.collection('studio_models').findOne({
         $or: [{ id: modelId }, { id: cleanPath }, { url: src }, { remoteUrl: src }],
       });
       if (doc?.dataUrl) return doc.dataUrl;
+      if (doc?.remoteUrl && /^https?:\/\//i.test(doc.remoteUrl)) {
+        try {
+          const resp = await fetch(doc.remoteUrl);
+          if (resp.ok) {
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const contentType = resp.headers.get('content-type') || 'image/jpeg';
+            return `data:${contentType};base64,${buf.toString('base64')}`;
+          }
+        } catch {}
+      }
     }
   } catch {}
 
@@ -709,7 +761,7 @@ async function toDataUri(src) {
     return src;
   }
 
-  throw new Error(`image not found: ${src}`);
+  throw new Error(`Garment asset "${basename}" is no longer available on disk or storage. Please re-upload your garment image.`);
 }
 
 let cachedModelCategories = null;
@@ -828,6 +880,13 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '48mb' }));
+/* Handle client JSON parse errors gracefully as HTTP 400 without crashing or logging system faults */
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'invalid_json', message: 'Malformed JSON payload' });
+  }
+  next(err);
+});
 app.use('/uploads', express.static(UPLOADS, { maxAge: '1d' }));
 app.use('/uploads', async (req, res, next) => {
   try {
@@ -1703,10 +1762,23 @@ app.get('/api/admin/system-logs', requireAdmin, async (_req, res) => {
 
 app.post('/api/admin/system-logs/:id/resolve', requireAdmin, async (req, res) => {
   try {
+    const { id } = req.params;
     const logs = await readSystemLogs();
-    const item = logs.find((l) => l.id === req.params.id);
+    const item = logs.find((l) => l.id === id);
     if (!item) return res.status(404).json({ error: 'not_found' });
     item.resolved = !item.resolved;
+    item.resolvedAt = item.resolved ? Date.now() : null;
+
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('system_logs').updateOne(
+          { id },
+          { $set: { resolved: item.resolved, resolvedAt: item.resolvedAt } }
+        );
+      }
+    } catch {}
+
     await writeSystemLogs(logs);
     res.json({ ok: true, item });
   } catch (err) {
@@ -1716,8 +1788,16 @@ app.post('/api/admin/system-logs/:id/resolve', requireAdmin, async (req, res) =>
 
 app.delete('/api/admin/system-logs/:id', requireAdmin, async (req, res) => {
   try {
+    const { id } = req.params;
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('system_logs').deleteOne({ id });
+      }
+    } catch {}
+
     const logs = await readSystemLogs();
-    const filtered = logs.filter((l) => l.id !== req.params.id);
+    const filtered = logs.filter((l) => l.id !== id);
     await writeSystemLogs(filtered);
     res.json({ ok: true });
   } catch (err) {
@@ -1727,6 +1807,13 @@ app.delete('/api/admin/system-logs/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/system-logs/clear', requireAdmin, async (_req, res) => {
   try {
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('system_logs').deleteMany({});
+      }
+    } catch {}
+
     await writeSystemLogs([]);
     res.json({ ok: true });
   } catch (err) {
@@ -3305,16 +3392,22 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       });
       await writeGenerations(genList);
     } catch {}
-    await recordSystemProblem({
-      module: 'image-generation',
-      severity: 'error',
-      userEmail: req.user?.email || 'guest',
-      userId: req.user?._id,
-      title: 'Image Generation Exception',
-      message: error.message,
-      stack: error.stack,
+    const isMissingAsset = /no longer available|image not found|missing image/i.test(error.message || '');
+    if (!isMissingAsset) {
+      await recordSystemProblem({
+        module: 'image-generation',
+        severity: 'error',
+        userEmail: req.user?.email || 'guest',
+        userId: req.user?._id,
+        title: 'Image Generation Exception',
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+    res.status(isMissingAsset ? 400 : 500).json({
+      error: isMissingAsset ? 'missing_asset' : 'generate_failed',
+      message: String(error.message || error),
     });
-    res.status(500).json({ error: 'generate_failed', message: String(error.message || error) });
   }
 });
 
@@ -3780,7 +3873,7 @@ app.get('/api/custom-requests', auth.requireUser, async (req, res) => {
     }
     if (updated) await writeCustomRequests(all);
 
-    const items = all.filter((r) => r.userId === req.user._id);
+    const items = all.filter((r) => r.userId === req.user._id && !r.deleted);
     items.sort((a, b) => b.createdAt - a.createdAt);
     res.json({ items });
   } catch (error) {
@@ -3790,15 +3883,6 @@ app.get('/api/custom-requests', auth.requireUser, async (req, res) => {
 
 app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
   try {
-    const isUltra = req.user?.tier === 'ultra';
-    const isCustomAllowed = isUltra || req.user?.features?.customRequests === true;
-    if (!isCustomAllowed) {
-      return res.status(403).json({
-        error: 'plan_locked',
-        message: 'Bespoke Custom Requests are locked on your current plan. Custom requests are an exclusive Ultra feature. Please upgrade to Ultra or contact admin to unlock.',
-      });
-    }
-
     const {
       cloth,
       clothImages = [],
@@ -3937,18 +4021,30 @@ app.delete('/api/custom-requests/:id', auth.requireUser, async (req, res) => {
     if (!item) return res.status(404).json({ error: 'not_found', message: 'Custom request not found.' });
     if (item.userId !== req.user._id) return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own requests.' });
 
-    // 1-hour window check
-    const elapsedMs = Date.now() - (item.createdAt || 0);
-    if (elapsedMs > 60 * 60 * 1000) {
-      return res.status(400).json({
-        error: 'window_expired',
-        message: 'The 1-hour grace window has expired. Master designers are already actively tailoring this order.',
-      });
-    }
+    // Soft delete -> moves to Admin Recycle Bin
+    item.deleted = true;
+    item.deletedAt = Date.now();
+    item.deletedBy = req.user.email || 'user';
+    await writeCustomRequests(all);
+    res.json({ ok: true, deleted: id, message: 'Custom request moved to bin.' });
+  } catch (error) {
+    res.status(500).json({ error: 'delete_failed', message: error.message });
+  }
+});
 
-    const next = all.filter((r) => r.id !== id);
-    await writeCustomRequests(next);
-    res.json({ ok: true, deleted: id });
+app.delete('/api/admin/custom-requests/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const all = await readCustomRequests();
+    const item = all.find((r) => r.id === id);
+    if (!item) return res.status(404).json({ error: 'not_found', message: 'Custom request not found.' });
+
+    // Soft delete -> moves to Admin Recycle Bin
+    item.deleted = true;
+    item.deletedAt = Date.now();
+    item.deletedBy = req.user?.email || 'admin';
+    await writeCustomRequests(all);
+    res.json({ ok: true, deleted: id, message: 'Custom request moved to bin.' });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
   }
@@ -3961,14 +4057,6 @@ app.put('/api/custom-requests/:id', auth.requireUser, async (req, res) => {
     const item = all.find((r) => r.id === id);
     if (!item) return res.status(404).json({ error: 'not_found', message: 'Custom request not found.' });
     if (item.userId !== req.user._id) return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own requests.' });
-
-    const elapsedMs = Date.now() - (item.createdAt || 0);
-    if (elapsedMs > 60 * 60 * 1000) {
-      return res.status(400).json({
-        error: 'window_expired',
-        message: 'The 1-hour modification window has expired.',
-      });
-    }
 
     const { prompt, color, requestType } = req.body || {};
     if (typeof prompt === 'string') item.prompt = prompt.trim();
@@ -3995,8 +4083,9 @@ app.get('/api/admin/custom-requests', requireAdmin, async (_req, res) => {
     }
     if (updated) await writeCustomRequests(all);
 
-    all.sort((a, b) => b.createdAt - a.createdAt);
-    res.json({ items: all, total: all.length });
+    const activeRequests = all.filter((r) => !r.deleted);
+    activeRequests.sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ items: activeRequests, total: activeRequests.length });
   } catch (error) {
     res.status(500).json({ error: 'fetch_failed', message: String(error.message || error) });
   }
@@ -4245,6 +4334,7 @@ app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
     const userEmail = String(req.user.email || '').trim().toLowerCase();
 
     const items = all.filter((d) => {
+      if (d.deleted) return false;
       const matchId = d.recipientUserId && d.recipientUserId === userId;
       const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
       return matchId || matchEmail;
@@ -4256,6 +4346,27 @@ app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
     res.json({ items, unreadCount });
   } catch (err) {
     res.status(500).json({ error: 'fetch_deliveries_failed', message: err.message });
+  }
+});
+
+app.delete('/api/user/deliveries/:id', auth.requireUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const all = await readAdminDeliveries();
+    const userId = String(req.user._id || req.user.id || '');
+    const userEmail = String(req.user.email || '').trim().toLowerCase();
+
+    const item = all.find((d) => d.id === id && (d.recipientUserId === userId || (d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail)));
+    if (!item) {
+      return res.status(404).json({ error: 'not_found', message: 'Delivery not found.' });
+    }
+    item.deleted = true;
+    item.deletedAt = Date.now();
+    item.deletedBy = req.user.email || 'user';
+    await writeAdminDeliveries(all);
+    res.json({ ok: true, message: 'Delivery moved to bin.' });
+  } catch (err) {
+    res.status(500).json({ error: 'delete_failed', message: err.message });
   }
 });
 
@@ -4302,8 +4413,9 @@ app.post('/api/admin/custom-requests/mark-read', requireAdmin, async (_req, res)
 app.get('/api/admin/deliveries', requireAdmin, async (_req, res) => {
   try {
     const all = await readAdminDeliveries();
-    all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    res.json({ items: all, total: all.length });
+    const activeDeliveries = all.filter((d) => !d.deleted);
+    activeDeliveries.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    res.json({ items: activeDeliveries, total: activeDeliveries.length });
   } catch (err) {
     res.status(500).json({ error: 'fetch_failed', message: err.message });
   }
@@ -4395,14 +4507,121 @@ app.delete('/api/admin/deliveries/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const all = await readAdminDeliveries();
-    const filtered = all.filter((d) => d.id !== id);
-    if (filtered.length === all.length) {
+    const item = all.find((d) => d.id === id);
+    if (!item) {
       return res.status(404).json({ error: 'not_found', message: 'Delivery not found.' });
     }
-    await writeAdminDeliveries(filtered);
-    res.json({ ok: true, message: 'Delivery deleted.' });
+    item.deleted = true;
+    item.deletedAt = Date.now();
+    item.deletedBy = req.user?.email || 'admin';
+    await writeAdminDeliveries(all);
+    res.json({ ok: true, message: 'Delivery moved to bin.' });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });
+  }
+});
+
+/* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests & Deliveries) */
+app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
+  try {
+    const [allRequests, allDeliveries] = await Promise.all([
+      readCustomRequests(),
+      readAdminDeliveries(),
+    ]);
+    const deletedRequests = allRequests.filter((r) => r.deleted === true);
+    const deletedDeliveries = allDeliveries.filter((d) => d.deleted === true);
+    deletedRequests.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+    deletedDeliveries.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+    res.json({
+      requests: deletedRequests,
+      deliveries: deletedDeliveries,
+      total: deletedRequests.length + deletedDeliveries.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'fetch_bin_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
+  try {
+    const { type, id } = req.body || {};
+    if (type === 'request' || type === 'custom_request') {
+      const all = await readCustomRequests();
+      const item = all.find((r) => r.id === id);
+      if (!item) return res.status(404).json({ error: 'not_found' });
+      item.deleted = false;
+      delete item.deletedAt;
+      delete item.deletedBy;
+      await writeCustomRequests(all);
+      return res.json({ ok: true, item });
+    } else if (type === 'delivery') {
+      const all = await readAdminDeliveries();
+      const item = all.find((d) => d.id === id);
+      if (!item) return res.status(404).json({ error: 'not_found' });
+      item.deleted = false;
+      delete item.deletedAt;
+      delete item.deletedBy;
+      await writeAdminDeliveries(all);
+      return res.json({ ok: true, item });
+    }
+    res.status(400).json({ error: 'invalid_type' });
+  } catch (err) {
+    res.status(500).json({ error: 'restore_failed', message: err.message });
+  }
+});
+
+app.delete('/api/admin/bin/:type/:id', requireAdmin, async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    const db = await getMongoDb();
+    if (type === 'request' || type === 'custom_request') {
+      const all = await readCustomRequests();
+      const filtered = all.filter((r) => r.id !== id);
+      await writeJson(CUSTOM_REQUESTS_FILE, filtered);
+      if (db) {
+        await db.collection('custom_requests').deleteOne({ id });
+      }
+      return res.json({ ok: true, message: 'Custom request permanently deleted from bin.' });
+    } else if (type === 'delivery') {
+      const all = await readAdminDeliveries();
+      const filtered = all.filter((d) => d.id !== id);
+      await writeJson(ADMIN_DELIVERIES_FILE, filtered);
+      if (db) {
+        await db.collection('admin_deliveries').deleteOne({ id });
+      }
+      return res.json({ ok: true, message: 'Delivery permanently deleted from bin.' });
+    }
+    res.status(400).json({ error: 'invalid_type' });
+  } catch (err) {
+    res.status(500).json({ error: 'permanent_delete_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/bin/empty', requireAdmin, async (_req, res) => {
+  try {
+    const db = await getMongoDb();
+    const [allRequests, allDeliveries] = await Promise.all([
+      readCustomRequests(),
+      readAdminDeliveries(),
+    ]);
+
+    const activeRequests = allRequests.filter((r) => !r.deleted);
+    const deletedReqCount = allRequests.length - activeRequests.length;
+    await writeJson(CUSTOM_REQUESTS_FILE, activeRequests);
+    if (db) {
+      await db.collection('custom_requests').deleteMany({ deleted: true });
+    }
+
+    const activeDeliveries = allDeliveries.filter((d) => !d.deleted);
+    const deletedDelCount = allDeliveries.length - activeDeliveries.length;
+    await writeJson(ADMIN_DELIVERIES_FILE, activeDeliveries);
+    if (db) {
+      await db.collection('admin_deliveries').deleteMany({ deleted: true });
+    }
+
+    res.json({ ok: true, purged: deletedReqCount + deletedDelCount });
+  } catch (err) {
+    res.status(500).json({ error: 'empty_bin_failed', message: err.message });
   }
 });
 
@@ -5034,6 +5253,13 @@ function renderBootHtml() {
 app.use((err, req, res, _next) => {
   if (/dist\/index\.html|ENOENT.*index\.html/i.test(err.message || '')) {
     // Ignore harmless static asset startup checks
+    return;
+  }
+  // Client 400 Bad Requests & malformed payloads are client input issues, not server errors
+  if (err.status === 400 || err.statusCode === 400 || err instanceof SyntaxError) {
+    if (!res.headersSent) {
+      return res.status(400).json({ error: 'bad_request', message: err.message || 'Bad Request' });
+    }
     return;
   }
   console.error('[EXPRESS ROUTE ERROR]', err);

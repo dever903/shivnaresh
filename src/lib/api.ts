@@ -128,6 +128,9 @@ export type CustomRequest = {
   deliveredFileType?: string;
   deliveredFileSize?: number;
   deliveredAt?: number | null;
+  deleted?: boolean;
+  deletedAt?: number;
+  deletedBy?: string;
 };
 
 export type AdminDelivery = {
@@ -144,6 +147,9 @@ export type AdminDelivery = {
   fileSize?: number;
   mediaUrls?: string[];
   readByUser?: boolean;
+  deleted?: boolean;
+  deletedAt?: number;
+  deletedBy?: string;
   createdAt: number;
 };
 
@@ -312,6 +318,9 @@ export type GatewayOrder = {
   rejection_reason?: string | null;
   paid_at?: string | null;
   expires_at?: string | null;
+  invoice_no?: string;
+  invoice_date?: string;
+  invoice_generated?: boolean;
   created_at: string;
 };
 
@@ -463,6 +472,20 @@ export const api = {
   }) => request<AdminDelivery>('/api/admin/deliveries', json(body)),
   deleteAdminDelivery: (id: string) =>
     request<{ ok: boolean; message: string }>(`/api/admin/deliveries/${id}`, { method: 'DELETE' }),
+  deleteUserDelivery: (id: string) =>
+    request<{ ok: boolean; message: string }>(`/api/user/deliveries/${id}`, { method: 'DELETE' }),
+  deleteAdminCustomRequest: (id: string) =>
+    request<{ ok: boolean; message: string }>(`/api/admin/custom-requests/${id}`, { method: 'DELETE' }),
+
+  /* Admin Recycle Bin */
+  getAdminBin: () =>
+    request<{ requests: CustomRequest[]; deliveries: AdminDelivery[]; total: number }>('/api/admin/bin'),
+  restoreBinItem: (type: 'request' | 'delivery', id: string) =>
+    request<{ ok: boolean; item?: any }>('/api/admin/bin/restore', json({ type, id })),
+  permanentlyDeleteBinItem: (type: 'request' | 'delivery', id: string) =>
+    request<{ ok: boolean; message: string }>(`/api/admin/bin/${type}/${id}`, { method: 'DELETE' }),
+  emptyAdminBin: () =>
+    request<{ ok: boolean; purged: number }>('/api/admin/bin/empty', { method: 'POST' }),
 
   /* developer profile */
   developerProfile: () =>

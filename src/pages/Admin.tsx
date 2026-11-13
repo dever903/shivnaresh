@@ -43,6 +43,7 @@ import {
   Paperclip,
   QrCode,
   RefreshCw,
+  RotateCcw,
   Send,
   Settings,
   ShieldAlert,
@@ -67,7 +68,7 @@ export default function Admin() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch { }
+    } catch {}
     return [];
   });
 
@@ -75,7 +76,7 @@ export default function Admin() {
     setCategories(cats);
     try {
       localStorage.setItem('cached_studio_models', JSON.stringify(cats));
-    } catch { }
+    } catch {}
   };
 
   /* Tab Navigation */
@@ -136,7 +137,7 @@ export default function Admin() {
     try {
       const cached = localStorage.getItem('cached_plan_prices');
       if (cached) return JSON.parse(cached);
-    } catch { }
+    } catch {}
     return {
       starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3, photoshoots: 3 },
       ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 200, maxVideos: 2, maxModels: 20, photoshoots: 20 },
@@ -214,8 +215,12 @@ export default function Admin() {
   const [showProblemAlertBanner, setShowProblemAlertBanner] = useState(true);
   const [copiedProblemId, setCopiedProblemId] = useState<string | null>(null);
 
-  /* Data Collections & Custom Orders 2-Tab State */
-  const [adminRequestsTab, setAdminRequestsTab] = useState<'receive' | 'send'>('receive');
+  /* Data Collections & Custom Orders 3-Tab State (Receive, Send, Bin) */
+  const [adminRequestsTab, setAdminRequestsTab] = useState<'receive' | 'send' | 'bin'>('receive');
+  const [binRequests, setBinRequests] = useState<CustomRequest[]>([]);
+  const [binDeliveries, setBinDeliveries] = useState<AdminDelivery[]>([]);
+  const [binLoading, setBinLoading] = useState(false);
+  const [binCount, setBinCount] = useState(0);
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestFilter, setRequestFilter] = useState<'all' | 'queued' | 'in_progress' | 'delivered'>('all');
@@ -351,7 +356,7 @@ export default function Admin() {
     try {
       const res = await api.getAdminStorageStatus();
       setStorageStatus(res);
-    } catch { }
+    } catch {}
   };
 
   const handleSendAdminOtp = async () => {
@@ -503,7 +508,7 @@ export default function Admin() {
       }));
       try {
         localStorage.setItem('cached_plan_prices', JSON.stringify(s.plans));
-      } catch { }
+      } catch {}
     }
     try {
       const dp = await api.developerProfile();
@@ -664,6 +669,8 @@ export default function Admin() {
             loadFashnCredits(),
             loadGenerations(),
             loadGatewayData(),
+            loadAdminDeliveries(),
+            loadBin(),
           ]);
         }
       } catch {
@@ -717,9 +724,9 @@ export default function Admin() {
           setPlanPrices((prev) => ({ ...prev, ...pRes.plans }));
           try {
             localStorage.setItem('cached_plan_prices', JSON.stringify(pRes.plans));
-          } catch { }
+          } catch {}
         }
-      } catch { }
+      } catch {}
     } catch (err: any) {
       console.warn('Failed to load gateway data:', err);
     } finally {
@@ -738,7 +745,7 @@ export default function Admin() {
         setSettings((prev: any) => (prev ? { ...prev, plans: res.plans } : prev));
         try {
           localStorage.setItem('cached_plan_prices', JSON.stringify(res.plans));
-        } catch { }
+        } catch {}
       }
       isEditingPlansRef.current = false;
       setPlanSaveStatus({ ok: true, message: res.message || 'Plan prices and photoshoot limits saved permanently!' });
@@ -851,7 +858,7 @@ export default function Admin() {
         patch.upiGatewayApiKey = gwUpiGatewayApiKey.trim();
       }
       const res = await api.saveAdminGatewaySettings(patch);
-      await api.adminUpdatePlans(planPrices).catch(() => { });
+      await api.adminUpdatePlans(planPrices).catch(() => {});
       isEditingPlansRef.current = false;
       setGwSettingsStatus({ ok: true, message: res.message || 'Payment settings saved successfully!' });
       void loadGatewayData();
@@ -1023,7 +1030,7 @@ export default function Admin() {
         .filter((cat) => cat.items.length > 0);
       try {
         localStorage.setItem('cached_studio_models', JSON.stringify(next));
-      } catch { }
+      } catch {}
       return next;
     });
 
@@ -1054,7 +1061,7 @@ export default function Admin() {
               .filter((cat) => cat.items.length > 0);
             updateCategoriesAndCache(cleanCats);
           }
-        }).catch(() => { });
+        }).catch(() => {});
       } else {
         alert(`Could not delete model: ${msg}`);
       }
@@ -1267,12 +1274,69 @@ ${log.stack || 'None'}
   }
 
   async function handleDeleteDelivery(id: string) {
-    if (!window.confirm('Delete this sent delivery record?')) return;
+    if (!window.confirm('Move this sent delivery record to the recycle bin?')) return;
     try {
       await api.deleteAdminDelivery(id);
       setAdminDeliveries((prev) => prev.filter((d) => d.id !== id));
+      void loadBin();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete delivery.');
+      alert(err.message || 'Failed to move delivery to bin.');
+    }
+  }
+
+  async function handleDeleteAdminRequest(id: string) {
+    if (!window.confirm('Move this custom request to the recycle bin?')) return;
+    try {
+      await api.deleteAdminCustomRequest(id);
+      setCustomRequests((prev) => prev.filter((r) => r.id !== id));
+      void loadBin();
+    } catch (e: any) {
+      alert(e.message || 'Failed to move request to bin.');
+    }
+  }
+
+  async function loadBin() {
+    setBinLoading(true);
+    try {
+      const res = await api.getAdminBin();
+      setBinRequests(res.requests || []);
+      setBinDeliveries(res.deliveries || []);
+      setBinCount(res.total || 0);
+    } catch (e) {
+      console.warn('Failed to load admin bin:', e);
+    } finally {
+      setBinLoading(false);
+    }
+  }
+
+  async function handleRestoreItem(type: 'request' | 'delivery', id: string) {
+    try {
+      await api.restoreBinItem(type, id);
+      await loadBin();
+      if (type === 'request') await loadCustomRequests();
+      if (type === 'delivery') await loadAdminDeliveries();
+    } catch (e: any) {
+      alert(e.message || 'Restore failed');
+    }
+  }
+
+  async function handlePermanentlyDeleteItem(type: 'request' | 'delivery', id: string) {
+    if (!window.confirm('Permanently delete this item? This action is irreversible.')) return;
+    try {
+      await api.permanentlyDeleteBinItem(type, id);
+      await loadBin();
+    } catch (e: any) {
+      alert(e.message || 'Permanent delete failed');
+    }
+  }
+
+  async function handleEmptyBin() {
+    if (!window.confirm('Are you sure you want to permanently delete all items in the recycle bin?')) return;
+    try {
+      await api.emptyAdminBin();
+      await loadBin();
+    } catch (e: any) {
+      alert(e.message || 'Empty bin failed');
     }
   }
 
@@ -1356,14 +1420,15 @@ ${log.stack || 'None'}
 
   const pill = (ok: boolean, good: string, bad: string) => (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${ok
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+        ok
           ? theme === 'light'
             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
             : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
           : theme === 'light'
             ? 'bg-red-100 text-red-800 border border-red-300'
             : 'bg-red-950/60 text-red-400 border border-red-800/40'
-        }`}
+      }`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
       {ok ? good : bad}
@@ -1398,13 +1463,15 @@ ${log.stack || 'None'}
   /* Shell Layout */
   const shell = (children: React.ReactNode) => (
     <div
-      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
-        }`}
+      className={`min-h-screen font-sans antialiased ${
+        isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
+      }`}
     >
       {/* Top Enterprise Header */}
       <header
-        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
-          }`}
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${
+          isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
+        }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-4">
@@ -1428,8 +1495,9 @@ ${log.stack || 'None'}
 
             <a
               href="/design"
-              className={`hidden sm:inline-flex items-center gap-1.5 transition-colors ${isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-                }`}
+              className={`hidden sm:inline-flex items-center gap-1.5 transition-colors ${
+                isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
+              }`}
             >
               Studio &rarr;
             </a>
@@ -1442,8 +1510,9 @@ ${log.stack || 'None'}
 
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                }`}>
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}>
                 <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
@@ -1471,10 +1540,11 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
+                  isLight
                     ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
                     : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
-                  }`}
+                }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
                 <span>↻ Refresh Live</span>
@@ -1487,10 +1557,11 @@ ${log.stack || 'None'}
                 setToken('');
                 window.location.replace('/login?next=%2Fadmin');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                isLight
                   ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
                   : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
-                }`}
+              }`}
               title="Sign out of Admin Session"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1547,14 +1618,15 @@ ${log.stack || 'None'}
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${isActive
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                      isActive
                         ? isLight
                           ? 'bg-[#78a48b] text-slate-900 font-bold shadow-sm ring-1 ring-[#6b997e]'
                           : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
                         : isLight
                           ? 'text-slate-800 hover:bg-[#82b095] hover:text-slate-900'
                           : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                      }`}
+                    }`}
                   >
                     <IconComponent className="h-3.5 w-3.5" />
                     <span>{tab.label}</span>
@@ -1653,8 +1725,9 @@ ${log.stack || 'None'}
             </p>
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                }`}>
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}>
                 <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
@@ -1682,10 +1755,11 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
+                  isLight
                     ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
                     : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
-                  }`}
+                }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
                 <span>↻ Refresh Live</span>
@@ -2155,14 +2229,15 @@ ${log.stack || 'None'}
         <button
           type="button"
           onClick={handleOpenReceivedTab}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'receive'
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+            adminRequestsTab === 'receive'
               ? isLight
                 ? 'bg-gray-900 text-white shadow-sm'
                 : 'bg-white text-gray-900 shadow-sm'
               : isLight
                 ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-            }`}
+          }`}
         >
           <Inbox className="w-3.5 h-3.5" />
           <span>Received Requests</span>
@@ -2182,19 +2257,45 @@ ${log.stack || 'None'}
             void loadAdminDeliveries();
             if (usersList.length === 0) void loadUsers();
           }}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'send'
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+            adminRequestsTab === 'send'
               ? isLight
                 ? 'bg-gray-900 text-white shadow-sm'
                 : 'bg-white text-gray-900 shadow-sm'
               : isLight
                 ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-            }`}
+          }`}
         >
           <Send className="w-3.5 h-3.5" />
           <span>Send Delivery to User</span>
           {adminDeliveries.length > 0 && (
             <span className="text-[10px] opacity-75">({adminDeliveries.length})</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setAdminRequestsTab('bin');
+            void loadBin();
+          }}
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+            adminRequestsTab === 'bin'
+              ? isLight
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'bg-white text-gray-900 shadow-sm'
+              : isLight
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+          }`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>Recycle Bin</span>
+          {binCount > 0 && (
+            <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+              {binCount}
+            </span>
           )}
         </button>
       </div>
@@ -2216,14 +2317,15 @@ ${log.stack || 'None'}
                   key={filter}
                   type="button"
                   onClick={() => setRequestFilter(filter)}
-                  className={`rounded-full px-3.5 py-1 text-xs font-semibold capitalize transition-colors ${requestFilter === filter
+                  className={`rounded-full px-3.5 py-1 text-xs font-semibold capitalize transition-colors ${
+                    requestFilter === filter
                       ? isLight
                         ? 'bg-gray-900 text-white'
                         : 'bg-white text-gray-900'
                       : isLight
                         ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-                    }`}
+                  }`}
                 >
                   {filter.replace('_', ' ')}
                 </button>
@@ -2231,419 +2333,435 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => void loadCustomRequests()}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white/50 hover:text-white'
-                  }`}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white/50 hover:text-white'
+                }`}
               >
                 Refresh
               </button>
             </div>
           </div>
 
-          {requestsLoading ? (
-            <div className="py-20 text-center text-sm opacity-50">Loading bespoke requests…</div>
-          ) : filteredRequests.length === 0 ? (
-            <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
-              No orders found under "{requestFilter}".
-            </div>
-          ) : (
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {filteredRequests.map((req) => {
-                const isDelivered = req.status === 'delivered';
-                const elapsedHours = (Date.now() - req.createdAt) / (1000 * 60 * 60);
-                const hoursLeft = Math.max(0, req.deadlineHours - elapsedHours);
+      {requestsLoading ? (
+        <div className="py-20 text-center text-sm opacity-50">Loading bespoke requests…</div>
+      ) : filteredRequests.length === 0 ? (
+        <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
+          No orders found under "{requestFilter}".
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {filteredRequests.map((req) => {
+            const isDelivered = req.status === 'delivered';
+            const elapsedHours = (Date.now() - req.createdAt) / (1000 * 60 * 60);
+            const hoursLeft = Math.max(0, req.deadlineHours - elapsedHours);
 
-                return (
-                  <div
-                    key={req.id}
-                    className={`${cardClass} flex flex-col justify-between`}
-                  >
-                    <div>
-                      {/* Top Header */}
-                      <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                        <span className="text-[11px] font-semibold truncate flex items-center gap-1.5">
-                          <UserIcon className="h-3 w-3 text-current/70" />
-                          <span>{req.userEmail || 'Client'}</span>
-                        </span>
+            return (
+              <div
+                key={req.id}
+                className={`${cardClass} flex flex-col justify-between`}
+              >
+                <div>
+                  {/* Top Header */}
+                  <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                    <span className="text-[11px] font-semibold truncate flex items-center gap-1.5">
+                      <UserIcon className="h-3 w-3 text-current/70" />
+                      <span>{req.userEmail || 'Client'}</span>
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                        req.status === 'delivered'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : req.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                      }`}
+                    >
+                      {req.status === 'delivered'
+                        ? 'Delivered'
+                        : req.status === 'in_progress'
+                          ? 'Working'
+                          : 'Queued'}
+                    </span>
+                  </div>
+
+                  {/* SLA Countdown Timer */}
+                  <div className="mt-3 flex items-center justify-between text-[11px]">
+                    <span className="opacity-60">SLA 48h Window:</span>
+                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
+                      {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
+                    </span>
+                  </div>
+
+                  {/* Badges: Type & Visual Color Swatch */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {req.requestType && (
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                        {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
+                      </span>
+                    )}
+                    {req.color && (
+                      <div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1 border shadow-sm ${isLight ? 'border-gray-300 bg-white' : 'border-white/15 bg-black/50'}`}>
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : req.status === 'in_progress'
-                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                : 'bg-amber-100 text-amber-800 border border-amber-300'
-                            }`}
-                        >
-                          {req.status === 'delivered'
-                            ? 'Delivered'
-                            : req.status === 'in_progress'
-                              ? 'Working'
-                              : 'Queued'}
+                          className="inline-block h-4 w-4 rounded-full border border-black/30 shadow-inner shrink-0"
+                          style={{
+                            backgroundColor: req.color.includes('#')
+                              ? req.color.match(/#[0-9a-fA-F]{3,6}/)?.[0] || req.color
+                              : req.color,
+                          }}
+                        />
+                        <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          {req.color}
                         </span>
-                      </div>
-
-                      {/* SLA Countdown Timer */}
-                      <div className="mt-3 flex items-center justify-between text-[11px]">
-                        <span className="opacity-60">SLA 48h Window:</span>
-                        <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
-                          {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
-                        </span>
-                      </div>
-
-                      {/* Badges: Type & Visual Color Swatch */}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        {req.requestType && (
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
-                            {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
-                          </span>
-                        )}
-                        {req.color && (
-                          <div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1 border shadow-sm ${isLight ? 'border-gray-300 bg-white' : 'border-white/15 bg-black/50'}`}>
-                            <span
-                              className="inline-block h-4 w-4 rounded-full border border-black/30 shadow-inner shrink-0"
-                              style={{
-                                backgroundColor: req.color.includes('#')
-                                  ? req.color.match(/#[0-9a-fA-F]{3,6}/)?.[0] || req.color
-                                  : req.color,
-                              }}
-                            />
-                            <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                              {req.color}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const raw = req.color || '';
-                                const hex = raw.match(/#[0-9a-fA-F]{3,6}/)?.[0] || raw;
-                                if (hex) navigator.clipboard.writeText(hex);
-                              }}
-                              className="text-[10px] font-semibold text-emerald-500 hover:underline ml-0.5"
-                              title="Copy Hex Color"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Garment & Model Poses */}
-                      <div className="mt-3.5 space-y-2">
-                        <div className="flex gap-2">
-                          <div
-                            className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
-                            onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
-                          >
-                            {req.clothUrl ? (
-                              <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
-                            ) : (
-                              <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
-                                <Layers className="h-6 w-6" />
-                              </div>
-                            )}
-                            <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                              {req.clothName || 'Garment'}
-                            </p>
-                          </div>
-
-                          {/* Multi-pose models (Up to 5 poses) */}
-                          <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
-                            {req.modelImages && req.modelImages.length > 0 ? (
-                              req.modelImages.map((mUrl, mIdx) => (
-                                <div
-                                  key={mIdx}
-                                  className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
-                                  onClick={() => setLightboxImg(mUrl)}
-                                >
-                                  <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
-                                  <div className="absolute top-1 left-1 rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
-                                    Pose {mIdx + 1}
-                                  </div>
-                                </div>
-                              ))
-                            ) : req.modelUrl ? (
-                              <div
-                                className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
-                                onClick={() => setLightboxImg(req.modelUrl || '')}
-                              >
-                                <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
-                                <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                                  {req.modelName || 'Model'}
-                                </p>
-                              </div>
-                            ) : (
-                              <div className={`flex flex-1 items-center justify-center rounded-2xl border text-xs opacity-40 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                                No model uploaded
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Customer Instructions */}
-                      {req.prompt && (
-                        <div className={`mt-3 rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Instructions</p>
-                          <p className="mt-1 text-xs opacity-90 leading-relaxed italic line-clamp-3">"{req.prompt}"</p>
-                        </div>
-                      )}
-
-                      {/* Admin Reply If Any */}
-                      {req.adminReply && (
-                        <div className="mt-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-600 dark:text-emerald-300">
-                          <span className="font-semibold text-emerald-500">Your Reply: </span>
-                          {req.adminReply}
-                        </div>
-                      )}
-
-                      {/* Delivered Image Preview */}
-                      {req.deliveredImageUrl && (
-                        <div className="mt-2.5">
-                          <p className="text-[10px] font-semibold opacity-60 uppercase tracking-wider mb-1">Delivered Asset</p>
-                          <img
-                            src={req.deliveredImageUrl}
-                            alt="Delivered"
-                            onClick={() => setLightboxImg(req.deliveredImageUrl || '')}
-                            className="h-20 w-full rounded-xl object-cover border border-emerald-500/40 cursor-pointer shadow-sm"
-                          />
-                        </div>
-                      )}
-
-                      {/* Delivered File Download Badge */}
-                      {req.deliveredFileName && (
-                        <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Paperclip className="h-3 w-3 text-blue-400" />
-                            <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
-                          </div>
-                          {req.deliveredFileUrl && (
-                            <a
-                              href={req.deliveredFileUrl}
-                              download={req.deliveredFileName}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-500/40"
-                            >
-                              Download
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className={`mt-5 space-y-2 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                      <button
-                        type="button"
-                        onClick={() => void handleDownloadOrderZip(req)}
-                        disabled={downloadingZipId === req.id}
-                        className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isLight
-                            ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                            : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
-                          }`}
-                      >
-                        {downloadingZipId === req.id ? (
-                          <>
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            <span>Packaging ZIP…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-3.5 w-3.5" />
-                            <span>Download order ZIP</span>
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedRequest(req);
-                          setReplyStatus(req.status || 'in_progress');
-                          setReplyMessage(req.adminReply || '');
-                          setReplyImageUrl(req.deliveredImageUrl || '');
-                        }}
-                        className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
-                      >
-                        {req.status === 'delivered' ? 'Edit delivery / reply' : 'Reply & deliver render'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
-          {selectedRequest && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-              <div className={`w-full max-w-lg rounded-2xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
-                <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
-                  <div>
-                    <h3 className="text-base font-semibold">Order reply & delivery desk</h3>
-                    <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadOrderZip(selectedRequest)}
-                      disabled={downloadingZipId === selectedRequest.id}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${isLight
-                          ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
-                          : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                      title="Download all order images and text details in a combined ZIP"
-                    >
-                      {downloadingZipId === selectedRequest.id ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          <span>Packaging…</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-3 w-3" />
-                          <span>Download ZIP</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRequest(null)}
-                      className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Update Workflow Status</label>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      {(['queued', 'in_progress', 'delivered'] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setReplyStatus(s)}
-                          className={`rounded-xl py-2 text-xs font-semibold capitalize transition-colors ${replyStatus === s
-                              ? s === 'delivered'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : s === 'in_progress'
-                                  ? 'bg-blue-600 text-white shadow-sm'
-                                  : 'bg-amber-600 text-white shadow-sm'
-                              : isLight
-                                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                : 'bg-white/5 text-white/50 hover:bg-white/10'
-                            }`}
-                        >
-                          {s.replace('_', ' ')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin Reply Message to Client</label>
-                    <textarea
-                      value={replyMessage}
-                      onChange={(e) => setReplyMessage(e.target.value)}
-                      rows={3}
-                      placeholder="e.g. Your bespoke athletic team jersey render is complete! Logos and seams verified."
-                      className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/60 text-white focus:border-white/40'
-                        }`}
-                    />
-                  </div>
-
-                  {/* Direct File Attachment (Any File Type: ZIP, PDF, Video, Image, PSD, etc.) */}
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">
-                      Delivered File or Asset Attachment (Any Format: ZIP, PDF, Video, Image, etc.)
-                    </label>
-                    <div className="mt-2 flex flex-wrap gap-2 items-center">
-                      <input
-                        ref={replyFileInput}
-                        type="file"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const dataUrl = await fileToDataUrl(file);
-                          setReplyAttachment({
-                            dataUrl,
-                            name: file.name,
-                            size: file.size,
-                            type: file.type || 'application/octet-stream',
-                          });
-                          if (file.type.startsWith('image/')) {
-                            setReplyImageUrl(dataUrl);
-                          }
-                          if (replyStatus !== 'delivered') setReplyStatus('delivered');
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => replyFileInput.current?.click()}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-semibold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
-                      >
-                        <Paperclip className="h-3.5 w-3.5" />
-                        <span>Upload file from device</span>
-                      </button>
-                      <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
-                    </div>
-
-                    {replyAttachment && (
-                      <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
-                        <div className="flex items-center gap-2 truncate">
-                          <FileText className="h-3.5 w-3.5" />
-                          <strong className="truncate">{replyAttachment.name}</strong>
-                          <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
-                        </div>
                         <button
                           type="button"
-                          onClick={() => setReplyAttachment(null)}
-                          className="text-xs text-red-500 hover:text-red-700 ml-2"
+                          onClick={() => {
+                            const raw = req.color || '';
+                            const hex = raw.match(/#[0-9a-fA-F]{3,6}/)?.[0] || raw;
+                            if (hex) navigator.clipboard.writeText(hex);
+                          }}
+                          className="text-[10px] font-semibold text-emerald-500 hover:underline ml-0.5"
+                          title="Copy Hex Color"
                         >
-                          Remove
+                          Copy
                         </button>
                       </div>
                     )}
-
-                    <input
-                      type="text"
-                      value={replyAttachment ? `Attached: ${replyAttachment.name}` : replyImageUrl}
-                      onChange={(e) => setReplyImageUrl(e.target.value)}
-                      placeholder="https://... or direct download link"
-                      className={inputClass}
-                    />
                   </div>
 
-                  {replyImageUrl && !replyAttachment && (
-                    <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
-                      <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
-                      <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
+                  {/* Garment & Model Poses */}
+                  <div className="mt-3.5 space-y-2">
+                    <div className="flex gap-2">
+                      <div
+                        className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                        onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
+                      >
+                        {req.clothUrl ? (
+                          <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                        ) : (
+                          <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
+                            <Layers className="h-6 w-6" />
+                          </div>
+                        )}
+                        <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                          {req.clothName || 'Garment'}
+                        </p>
+                      </div>
+
+                      {/* Multi-pose models (Up to 5 poses) */}
+                      <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+                        {req.modelImages && req.modelImages.length > 0 ? (
+                          req.modelImages.map((mUrl, mIdx) => (
+                            <div
+                              key={mIdx}
+                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
+                              onClick={() => setLightboxImg(mUrl)}
+                            >
+                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
+                              <div className="absolute top-1 left-1 rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
+                                Pose {mIdx + 1}
+                              </div>
+                            </div>
+                          ))
+                        ) : req.modelUrl ? (
+                          <div
+                            className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                            onClick={() => setLightboxImg(req.modelUrl || '')}
+                          >
+                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                            <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                              {req.modelName || 'Model'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className={`flex flex-1 items-center justify-center rounded-2xl border text-xs opacity-40 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                            No model uploaded
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Instructions */}
+                  {req.prompt && (
+                    <div className={`mt-3 rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Instructions</p>
+                      <p className="mt-1 text-xs opacity-90 leading-relaxed italic line-clamp-3">"{req.prompt}"</p>
+                    </div>
+                  )}
+
+                  {/* Admin Reply If Any */}
+                  {req.adminReply && (
+                    <div className="mt-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-600 dark:text-emerald-300">
+                      <span className="font-semibold text-emerald-500">Your Reply: </span>
+                      {req.adminReply}
+                    </div>
+                  )}
+
+                  {/* Delivered Image Preview */}
+                  {req.deliveredImageUrl && (
+                    <div className="mt-2.5">
+                      <p className="text-[10px] font-semibold opacity-60 uppercase tracking-wider mb-1">Delivered Asset</p>
+                      <img
+                        src={req.deliveredImageUrl}
+                        alt="Delivered"
+                        onClick={() => setLightboxImg(req.deliveredImageUrl || '')}
+                        className="h-20 w-full rounded-xl object-cover border border-emerald-500/40 cursor-pointer shadow-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Delivered File Download Badge */}
+                  {req.deliveredFileName && (
+                    <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Paperclip className="h-3 w-3 text-blue-400" />
+                        <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
+                      </div>
+                      {req.deliveredFileUrl && (
+                        <a
+                          href={req.deliveredFileUrl}
+                          download={req.deliveredFileName}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-500/40"
+                        >
+                          Download
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <div className={`mt-6 flex items-center justify-end gap-3 border-t pt-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+                {/* Action Buttons */}
+                <div className={`mt-5 space-y-2 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
                   <button
                     type="button"
-                    onClick={() => setSelectedRequest(null)}
-                    className="rounded-full px-5 py-2 text-xs opacity-60 hover:opacity-100"
+                    onClick={() => void handleDownloadOrderZip(req)}
+                    disabled={downloadingZipId === req.id}
+                    className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
+                      isLight
+                        ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                        : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+                    }`}
                   >
-                    Cancel
+                    {downloadingZipId === req.id ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Packaging ZIP…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Download order ZIP</span>
+                      </>
+                    )}
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => void handleSendReply()}
-                    disabled={replySaving}
-                    className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+                    onClick={() => {
+                      setSelectedRequest(req);
+                      setReplyStatus(req.status || 'in_progress');
+                      setReplyMessage(req.adminReply || '');
+                      setReplyImageUrl(req.deliveredImageUrl || '');
+                    }}
+                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
                   >
-                    {replySaving ? 'Saving & Delivering…' : 'Save Reply & Deliver'}
+                    {req.status === 'delivered' ? 'Edit delivery / reply' : 'Reply & deliver render'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteAdminRequest(req.id)}
+                    className={`w-full flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 transition border border-red-500/20 cursor-pointer`}
+                    title="Move this custom request to the recycle bin"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Move to Bin</span>
                   </button>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className={`w-full max-w-lg rounded-2xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
+            <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+              <div>
+                <h3 className="text-base font-semibold">Order reply & delivery desk</h3>
+                <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadOrderZip(selectedRequest)}
+                  disabled={downloadingZipId === selectedRequest.id}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${
+                    isLight
+                      ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
+                      : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                  title="Download all order images and text details in a combined ZIP"
+                >
+                  {downloadingZipId === selectedRequest.id ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Packaging…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-3 w-3" />
+                      <span>Download ZIP</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRequest(null)}
+                  className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          )}
-        </>
-      ) : (
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Update Workflow Status</label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {(['queued', 'in_progress', 'delivered'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setReplyStatus(s)}
+                      className={`rounded-xl py-2 text-xs font-semibold capitalize transition-colors ${
+                        replyStatus === s
+                          ? s === 'delivered'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : s === 'in_progress'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'bg-amber-600 text-white shadow-sm'
+                          : isLight
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-white/5 text-white/50 hover:bg-white/10'
+                      }`}
+                    >
+                      {s.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin Reply Message to Client</label>
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Your bespoke athletic team jersey render is complete! Logos and seams verified."
+                  className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/60 text-white focus:border-white/40'
+                  }`}
+                />
+              </div>
+
+              {/* Direct File Attachment (Any File Type: ZIP, PDF, Video, Image, PSD, etc.) */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">
+                  Delivered File or Asset Attachment (Any Format: ZIP, PDF, Video, Image, etc.)
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2 items-center">
+                  <input
+                    ref={replyFileInput}
+                    type="file"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const dataUrl = await fileToDataUrl(file);
+                      setReplyAttachment({
+                        dataUrl,
+                        name: file.name,
+                        size: file.size,
+                        type: file.type || 'application/octet-stream',
+                      });
+                      if (file.type.startsWith('image/')) {
+                        setReplyImageUrl(dataUrl);
+                      }
+                      if (replyStatus !== 'delivered') setReplyStatus('delivered');
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => replyFileInput.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-semibold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span>Upload file from device</span>
+                  </button>
+                  <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
+                </div>
+
+                {replyAttachment && (
+                  <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="h-3.5 w-3.5" />
+                      <strong className="truncate">{replyAttachment.name}</strong>
+                      <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyAttachment(null)}
+                      className="text-xs text-red-500 hover:text-red-700 ml-2"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  value={replyAttachment ? `Attached: ${replyAttachment.name}` : replyImageUrl}
+                  onChange={(e) => setReplyImageUrl(e.target.value)}
+                  placeholder="https://... or direct download link"
+                  className={inputClass}
+                />
+              </div>
+
+              {replyImageUrl && !replyAttachment && (
+                <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                  <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
+                  <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
+                </div>
+              )}
+            </div>
+
+            <div className={`mt-6 flex items-center justify-end gap-3 border-t pt-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+              <button
+                type="button"
+                onClick={() => setSelectedRequest(null)}
+                className="rounded-full px-5 py-2 text-xs opacity-60 hover:opacity-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendReply()}
+                disabled={replySaving}
+                className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+              >
+                {replySaving ? 'Saving & Delivering…' : 'Save Reply & Deliver'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
+      ) : adminRequestsTab === 'send' ? (
         /* ============= SEND DELIVERY TO USER VIEW ============= */
         <div className="space-y-6">
           {/* Dispatch Form Card */}
@@ -2710,12 +2828,13 @@ ${log.stack || 'None'}
                         key={t.id}
                         type="button"
                         onClick={() => setDispatchType(t.id as any)}
-                        className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${isActive
+                        className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${
+                          isActive
                             ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-md'
                             : isLight
                               ? 'bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800'
                               : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
-                          }`}
+                        }`}
                       >
                         <Icon className="w-4 h-4" />
                         <span>{t.label}</span>
@@ -2770,8 +2889,9 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchFileInputRef.current?.click()}
-                      className={`py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
-                        }`}
+                      className={`py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
+                      }`}
                     >
                       <Paperclip className="w-4 h-4" />
                       <span>{dispatchFile ? 'Change File' : 'Browse Local File (Photo, Video, ZIP)'}</span>
@@ -2841,8 +2961,9 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => void loadAdminDeliveries()}
-                className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
-                  }`}
+                className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
+                }`}
               >
                 Refresh List
               </button>
@@ -2935,7 +3056,192 @@ ${log.stack || 'None'}
             )}
           </div>
         </div>
-      )}
+      ) : adminRequestsTab === 'bin' ? (
+        <div className="space-y-6">
+          {/* Bin Header & Actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                <h2 className="text-lg font-bold tracking-tight">Studio Recycle Bin</h2>
+                <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-[10px] font-bold text-red-400">
+                  {binCount} Deleted Items
+                </span>
+              </div>
+              <p className="text-xs opacity-60 mt-1">
+                Deleted custom requests and client deliveries are stored here safely. You can restore them back to active workflows or permanently destroy them.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadBin()}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border transition ${
+                  isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${binLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh Bin</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={binCount === 0}
+                onClick={() => void handleEmptyBin()}
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Empty Recycle Bin</span>
+              </button>
+            </div>
+          </div>
+
+          {binLoading ? (
+            <div className="py-20 text-center text-xs opacity-50">
+              <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-red-500 border-t-transparent mb-2" />
+              Loading deleted items...
+            </div>
+          ) : binCount === 0 ? (
+            <div className={`rounded-3xl border p-12 text-center ${
+              isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+            }`}>
+              <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500 opacity-60" />
+              <h3 className="text-base font-bold">Recycle Bin is Empty</h3>
+              <p className="text-xs opacity-60 mt-1">
+                There are no deleted custom requests or deliveries in the trash.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Deleted Custom Requests Section */}
+              {binRequests.length > 0 && (
+                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 mb-4 flex items-center gap-2">
+                    <Inbox className="w-4 h-4" />
+                    <span>Deleted Custom Requests ({binRequests.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {binRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                          isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs">{req.clothName || 'Custom Request'}</span>
+                            <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/20 text-red-400 font-semibold uppercase">
+                              Deleted
+                            </span>
+                          </div>
+                          <p className="text-[11px] opacity-70">
+                            Client: <span className="font-semibold">{req.userEmail}</span> &middot; Ordered: {new Date(req.createdAt).toLocaleDateString()}
+                          </p>
+                          {req.deletedAt && (
+                            <p className="text-[10px] text-red-400">
+                              Moved to Bin: {new Date(req.deletedAt).toLocaleString()} {req.deletedBy ? `by ${req.deletedBy}` : ''}
+                            </p>
+                          )}
+                          {req.prompt && (
+                            <p className="text-xs italic opacity-80 mt-1 line-clamp-1">"{req.prompt}"</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleRestoreItem('request', req.id)}
+                            className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            title="Restore back to active received requests"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Restore</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handlePermanentlyDeleteItem('request', req.id)}
+                            className="px-3 py-1.5 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            title="Permanently erase forever"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Permanently</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Deleted Admin Deliveries Section */}
+              {binDeliveries.length > 0 && (
+                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-blue-400 mb-4 flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    <span>Deleted Deliveries & Dispatches ({binDeliveries.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {binDeliveries.map((del) => (
+                      <div
+                        key={del.id}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                          isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs">{del.title}</span>
+                            <span className="px-2 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-300 font-semibold uppercase">
+                              {del.type}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/20 text-red-400 font-semibold uppercase">
+                              Deleted
+                            </span>
+                          </div>
+                          <p className="text-[11px] opacity-70">
+                            Recipient: <span className="font-semibold">{del.recipientEmail}</span> &middot; Dispatched: {new Date(del.createdAt).toLocaleDateString()}
+                          </p>
+                          {del.deletedAt && (
+                            <p className="text-[10px] text-red-400">
+                              Moved to Bin: {new Date(del.deletedAt).toLocaleString()} {del.deletedBy ? `by ${del.deletedBy}` : ''}
+                            </p>
+                          )}
+                          {del.textMessage && (
+                            <p className="text-xs italic opacity-80 mt-1 line-clamp-1">"{del.textMessage}"</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleRestoreItem('delivery', del.id)}
+                            className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            title="Restore back to active deliveries"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Restore</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handlePermanentlyDeleteItem('delivery', del.id)}
+                            className="px-3 py-1.5 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            title="Permanently erase forever"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Permanently</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -2959,14 +3265,16 @@ ${log.stack || 'None'}
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             placeholder="Search by email or name…"
-            className={`rounded-full px-4 py-1.5 text-xs border focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black/60 text-white'
-              }`}
+            className={`rounded-full px-4 py-1.5 text-xs border focus:outline-none ${
+              isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black/60 text-white'
+            }`}
           />
           <button
             type="button"
             onClick={() => void loadUsers()}
-            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
-              }`}
+            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
+              isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+            }`}
           >
             Refresh
           </button>
@@ -3044,8 +3352,9 @@ ${log.stack || 'None'}
                             },
                           }));
                         }}
-                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
-                          }`}
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${
+                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
+                        }`}
                       >
                         <option value="free">Starter ($0)</option>
                         <option value="ondemand">On-Demand ($49)</option>
@@ -3066,8 +3375,9 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), credits: Number(e.target.value) },
                           }))
                         }
-                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
-                          }`}
+                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${
+                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
+                        }`}
                       />
                     </td>
 
@@ -3084,8 +3394,9 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxVideos: Number(e.target.value) },
                             }))
                           }
-                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
-                            }`}
+                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
+                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
+                          }`}
                         />
                         <span className="text-[10px] opacity-40">({user.videosGenerated ?? 0} used)</span>
                       </div>
@@ -3104,8 +3415,9 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxModels: Number(e.target.value) },
                             }))
                           }
-                          className={`w-14 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
-                            }`}
+                          className={`w-14 rounded-lg border px-2 py-1 font-mono text-xs ${
+                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
+                          }`}
                         />
                         <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 6} poses)</span>
                       </div>
@@ -3133,12 +3445,13 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.hd2k
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
+                                currentFeatures.hd2k
                                   ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-bold' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
-                                }`}
+                              }`}
                               title="Toggle 2K Ultra HD Generation"
                             >
                               2K {currentFeatures.hd2k ? 'On' : 'Off'}
@@ -3152,12 +3465,13 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.fivePose
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
+                                currentFeatures.fivePose
                                   ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
-                                }`}
+                              }`}
                               title="Toggle 5-Pose Sequence"
                             >
                               5-Pose {currentFeatures.fivePose ? 'On' : 'Off'}
@@ -3171,12 +3485,13 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.video
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
+                                currentFeatures.video
                                   ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
-                                }`}
+                              }`}
                               title="Toggle Runway Video"
                             >
                               Video {currentFeatures.video ? 'On' : 'Off'}
@@ -3190,12 +3505,13 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.customRequests
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
+                                currentFeatures.customRequests
                                   ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
                                   : isLight
                                     ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
                                     : 'bg-white/5 text-white/30 border border-white/10'
-                                }`}
+                              }`}
                               title="Toggle Bespoke Custom Requests"
                             >
                               Custom {currentFeatures.customRequests ? 'On' : 'Off'}
@@ -3215,10 +3531,11 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), creditsLocked: !isLocked },
                           }))
                         }
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${isLocked
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                          isLocked
                             ? 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white'
                             : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white'
-                          }`}
+                        }`}
                       >
                         {isLocked ? 'Locked' : 'Active'}
                       </button>
@@ -3231,10 +3548,11 @@ ${log.stack || 'None'}
                           type="button"
                           onClick={() => void handleSaveUserRow(user)}
                           disabled={isSaving}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isSaved
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
+                            isSaved
                               ? 'bg-emerald-600 text-white'
                               : 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
-                            }`}
+                          }`}
                           title="Save this user's credits, video quota, model quota, and lock status"
                         >
                           {isSaving ? 'Saving…' : isSaved ? 'Saved' : 'Save'}
@@ -3484,8 +3802,9 @@ ${log.stack || 'None'}
         <section className={cardClass}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin 2-Factor Authentication (2FA)</h3>
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${admin2faEnabled ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-100 text-gray-800 border border-gray-300'
-              }`}>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+              admin2faEnabled ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-100 text-gray-800 border border-gray-300'
+            }`}>
               {admin2faEnabled ? '2FA Enforced' : '2FA Disabled (Direct Password)'}
             </span>
           </div>
@@ -3499,12 +3818,14 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setAdmin2faEnabled(!admin2faEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${admin2faEnabled ? 'bg-[#e5373f]' : 'bg-white/20'
-                }`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                admin2faEnabled ? 'bg-[#e5373f]' : 'bg-white/20'
+              }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${admin2faEnabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  admin2faEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
               />
             </button>
           </div>
@@ -3666,8 +3987,9 @@ ${log.stack || 'None'}
                 value={devProfile.bio}
                 onChange={(e) => setDevProfile((prev) => ({ ...prev, bio: e.target.value }))}
                 placeholder="Story of the developer and the studio..."
-                className={`mt-1 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
+                className={`mt-1 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
               />
             </div>
 
@@ -3707,8 +4029,9 @@ ${log.stack || 'None'}
               onChange={(e) => setDefaultPrompt(e.target.value)}
               rows={3}
               placeholder="Used when visitor leaves instructions blank"
-              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}
+              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
+                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
             />
           </div>
 
@@ -3718,8 +4041,9 @@ ${log.stack || 'None'}
               <select
                 value={defaultModel}
                 onChange={(e) => setDefaultModel(e.target.value)}
-                className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
+                className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
               >
                 <option value="">No default — visitor selects model</option>
                 {categories.map((group) => (
@@ -3740,8 +4064,9 @@ ${log.stack || 'None'}
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                    }`}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
                 >
                   <option value="1k">1k (Standard)</option>
                   <option value="2k">2k (Ultra HD)</option>
@@ -3754,8 +4079,9 @@ ${log.stack || 'None'}
                 <select
                   value={generationMode}
                   onChange={(e) => setGenerationMode(e.target.value)}
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                    }`}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
                 >
                   <option value="balanced">Balanced (Fast & Production Stable)</option>
                 </select>
@@ -3766,8 +4092,9 @@ ${log.stack || 'None'}
       </section>
 
       {/* Floating Save Action Bar */}
-      <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
-        }`}>
+      <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${
+        isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
+      }`}>
         <span className="text-xs opacity-60">{status || 'Saves all keys, CDN configs, and defaults in one unified request.'}</span>
         <button
           type="button"
@@ -3830,8 +4157,9 @@ ${log.stack || 'None'}
                 <select
                   value={uploadModelCat}
                   onChange={(e) => setUploadModelCat(e.target.value)}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                    }`}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
                 >
                   {categories.map((c) => (
                     <option key={c.category} value={c.category}>
@@ -3914,10 +4242,11 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => modelFileInput.current?.click()}
-                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${isLight
+                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
+                  isLight
                     ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
-                  }`}
+                }`}
               >
                 <UploadCloud size={15} />
                 <span>
@@ -3958,8 +4287,9 @@ ${log.stack || 'None'}
                   {selectedBatchModels.map((item, idx) => (
                     <div
                       key={idx}
-                      className={`relative rounded-lg border p-1.5 flex flex-col group ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.03]'
-                        }`}
+                      className={`relative rounded-lg border p-1.5 flex flex-col group ${
+                        isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.03]'
+                      }`}
                     >
                       <button
                         type="button"
@@ -3994,8 +4324,9 @@ ${log.stack || 'None'}
                           );
                         }}
                         placeholder="Model pose title"
-                        className={`w-full rounded px-1.5 py-0.5 text-[10px] font-medium border ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                          }`}
+                        className={`w-full rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                          isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                        }`}
                         title="Edit pose name"
                       />
                     </div>
@@ -4006,10 +4337,11 @@ ${log.stack || 'None'}
           </div>
 
           {modelMessage && (
-            <p className={`rounded-xl p-3 text-xs ${modelMessage.startsWith('✓')
+            <p className={`rounded-xl p-3 text-xs ${
+              modelMessage.startsWith('✓')
                 ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
                 : 'bg-[#e5373f]/10 border border-[#e5373f]/30 text-[#ffb3b7]'
-              }`}>
+            }`}>
               {modelMessage}
             </p>
           )}
@@ -4065,14 +4397,15 @@ ${log.stack || 'None'}
                   if (data.modelId && data.currentCategory !== cat.category) {
                     void handleMoveModel(data.modelId, cat.category);
                   }
-                } catch { }
+                } catch {}
               }}
-              className={`${cardClass} transition-all duration-200 ${isOver
+              className={`${cardClass} transition-all duration-200 ${
+                isOver
                   ? isLight
                     ? 'border-[#e5373f] bg-rose-50/50 ring-2 ring-[#e5373f]/30'
                     : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/40'
                   : ''
-                }`}
+              }`}
             >
               <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
                 <div className="flex items-center gap-2">
@@ -4107,8 +4440,9 @@ ${log.stack || 'None'}
                           setDraggedModel(null);
                           setDragOverCat(null);
                         }}
-                        className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
-                          } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
+                        className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
+                          isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
+                        } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
                         title="Drag to another category or select from the move menu"
                       >
                         <img
@@ -4148,7 +4482,7 @@ ${log.stack || 'None'}
                             ))}
                           </select>
                         </div>
-
+                        
                         {/* Delete Model Button */}
                         <button
                           type="button"
@@ -4212,8 +4546,9 @@ ${log.stack || 'None'}
               type="button"
               onClick={loadSystemLogs}
               disabled={problemsLoading}
-              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
-                }`}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
+                isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}
             >
               <RefreshCw size={12} className={problemsLoading ? 'animate-spin' : ''} />
               Refresh
@@ -4253,12 +4588,13 @@ ${log.stack || 'None'}
               key={mode}
               type="button"
               onClick={() => setProblemFilter(mode)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${problemFilter === mode
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
+                problemFilter === mode
                   ? 'bg-[#e5373f] text-white shadow-sm'
                   : isLight
                     ? 'bg-gray-200/80 text-gray-700 hover:bg-gray-300'
                     : 'bg-white/5 text-white/60 hover:bg-white/10'
-                }`}
+              }`}
             >
               {mode === 'all' ? `All (${systemLogs.length})` : mode === 'unresolved' ? `Unresolved (${unresolvedProblemsCount})` : 'Resolved'}
             </button>
@@ -4279,23 +4615,26 @@ ${log.stack || 'None'}
               return (
                 <div
                   key={log.id}
-                  className={`rounded-2xl border p-5 transition-all ${log.resolved
+                  className={`rounded-2xl border p-5 transition-all ${
+                    log.resolved
                       ? isLight ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-white/5 bg-white/[0.01] opacity-60'
                       : isLight ? 'border-red-200 bg-red-50/40 shadow-sm' : 'border-red-500/20 bg-red-950/10 shadow-sm'
-                    }`}
+                  }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${log.severity === 'error'
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                        log.severity === 'error'
                           ? 'bg-[#e5373f] text-white'
                           : log.severity === 'warning'
                             ? 'bg-amber-500 text-black'
                             : 'bg-blue-500 text-white'
-                        }`}>
+                      }`}>
                         {log.severity}
                       </span>
-                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
-                        }`}>
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${
+                        isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
+                      }`}>
                         [{log.module}]
                       </span>
                       <span className="text-[11px] opacity-50">
@@ -4307,10 +4646,11 @@ ${log.stack || 'None'}
                       <button
                         type="button"
                         onClick={() => copyProblemForAi(log)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold shadow-sm transition ${isCopied
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold shadow-sm transition ${
+                          isCopied
                             ? 'bg-emerald-500 text-white'
                             : 'bg-[#e5373f] hover:bg-[#d42d35] text-white'
-                          }`}
+                        }`}
                       >
                         {isCopied ? <Check size={12} /> : <Copy size={12} />}
                         {isCopied ? 'Copied for AI agent' : 'Copy problem for AI agent'}
@@ -4319,10 +4659,11 @@ ${log.stack || 'None'}
                       <button
                         type="button"
                         onClick={() => handleToggleResolveProblem(log.id)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${log.resolved
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                          log.resolved
                             ? 'border-gray-400 text-gray-500 hover:text-gray-900'
                             : 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
-                          }`}
+                        }`}
                       >
                         {log.resolved ? 'Mark Active' : 'Resolve'}
                       </button>
@@ -4420,8 +4761,9 @@ ${log.stack || 'None'}
             type="button"
             onClick={loadGenerations}
             disabled={generationsLoading}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
-              }`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
+              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
+            }`}
           >
             <RefreshCw size={12} className={generationsLoading ? 'animate-spin' : ''} />
             Refresh
@@ -4453,16 +4795,18 @@ ${log.stack || 'None'}
         </div>
 
         {/* Filters */}
-        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
-          }`}>
+        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${
+          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        }`}>
           <div className="flex flex-1 items-center gap-2 min-w-[240px]">
             <input
               type="text"
               value={genSearch}
               onChange={(e) => setGenSearch(e.target.value)}
               placeholder="Search by user email, prompt, ID, error..."
-              className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
-                }`}
+              className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
+                isLight ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+              }`}
             />
           </div>
 
@@ -4470,8 +4814,9 @@ ${log.stack || 'None'}
             <select
               value={genStatusFilter}
               onChange={(e) => setGenStatusFilter(e.target.value as any)}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed Only</option>
@@ -4483,8 +4828,9 @@ ${log.stack || 'None'}
             <select
               value={genTypeFilter}
               onChange={(e) => setGenTypeFilter(e.target.value as any)}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
             >
               <option value="all">All Types</option>
               <option value="tryon">Virtual Try-On</option>
@@ -4495,12 +4841,14 @@ ${log.stack || 'None'}
         </div>
 
         {/* Generations Table */}
-        <div className={`overflow-hidden rounded-3xl border shadow-sm ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
-          }`}>
+        <div className={`overflow-hidden rounded-3xl border shadow-sm ${
+          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        }`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/5 text-white/50'
-                }`}>
+              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
+                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/5 text-white/50'
+              }`}>
                 <tr>
                   <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Type &amp; Res</th>
@@ -4535,12 +4883,13 @@ ${log.stack || 'None'}
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${g.type === 'video'
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            g.type === 'video'
                               ? 'bg-purple-500/20 text-purple-600 border border-purple-500/30'
                               : g.mode === 'swap' || g.type === 'model-swap'
                                 ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-500/30'
                                 : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
-                            }`}>
+                          }`}>
                             {g.type === 'video' ? 'Video' : g.mode === 'swap' || g.type === 'model-swap' ? 'Swap' : 'Try-On'}
                           </span>
                           <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
@@ -4549,10 +4898,11 @@ ${log.stack || 'None'}
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className={`font-mono text-xs font-bold ${g.creditsUsed > 0
+                          <span className={`font-mono text-xs font-bold ${
+                            g.creditsUsed > 0
                               ? isLight ? 'text-amber-900 font-extrabold' : 'text-amber-400 font-extrabold'
                               : 'opacity-50'
-                            }`}>
+                          }`}>
                             {g.creditsUsed > 0 ? `-${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
                           </span>
                         </td>
@@ -4660,8 +5010,9 @@ ${log.stack || 'None'}
             onClick={() => setPreviewGenItem(null)}
           >
             <div
-              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
-                }`}
+              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${
+                isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -4753,10 +5104,11 @@ ${log.stack || 'None'}
         </div>
 
         {planSaveStatus && (
-          <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${planSaveStatus.ok
+          <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+            planSaveStatus.ok
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
               : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
+          }`}>
             {planSaveStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
             <span>{planSaveStatus.message}</span>
           </div>
@@ -4769,10 +5121,11 @@ ${log.stack || 'None'}
             return (
               <div
                 key={pm.id}
-                className={`p-4 rounded-2xl border transition ${isLight
+                className={`p-4 rounded-2xl border transition ${
+                  isLight
                     ? 'bg-gray-50 border-gray-200'
                     : 'bg-white/[0.02] border-white/10 hover:border-white/20'
-                  }`}
+                }`}
               >
                 <div className="flex items-center justify-between gap-1 mb-2">
                   <h4 className="text-xs font-extrabold truncate">{pm.name}</h4>
@@ -4879,8 +5232,9 @@ ${log.stack || 'None'}
                 </div>
 
                 {/* Live effective price calculation */}
-                <div className={`mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] ${isLight ? 'text-slate-800' : 'text-slate-300'
-                  }`}>
+                <div className={`mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] ${
+                  isLight ? 'text-slate-800' : 'text-slate-300'
+                }`}>
                   <span className="opacity-60">Customer Pays:</span>
                   <span className="font-extrabold text-amber-500">
                     {pm.id === 'starter' && p.priceUSD === 0 ? 'Free' : `₹${effectiveInr.toLocaleString('en-IN')}`}
@@ -4900,10 +5254,11 @@ ${log.stack || 'None'}
                         [pm.id]: { ...prev[pm.id], active: !currentActive },
                       }));
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition flex items-center gap-1.5 cursor-pointer ${p.active !== false
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition flex items-center gap-1.5 cursor-pointer ${
+                      p.active !== false
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
                         : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
-                      }`}
+                    }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${p.active !== false ? 'bg-emerald-400' : 'bg-red-400'}`} />
                     {p.active !== false ? 'Active' : 'Deactivated'}
@@ -4923,10 +5278,11 @@ ${log.stack || 'None'}
                         [pm.id]: { ...prev[pm.id], deleted: !isDeleted },
                       }));
                     }}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition cursor-pointer ${p.deleted
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      p.deleted
                         ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
                         : 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
-                      }`}
+                    }`}
                   >
                     {p.deleted ? 'Restore Plan' : 'Delete / Hide Plan'}
                   </button>
@@ -4968,8 +5324,9 @@ ${log.stack || 'None'}
               type="button"
               onClick={() => void loadGatewayData()}
               disabled={gatewayLoading}
-              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${isLight ? 'border-gray-200 bg-white hover:bg-gray-50 text-slate-800' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                isLight ? 'border-gray-200 bg-white hover:bg-gray-50 text-slate-800' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+              }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${gatewayLoading ? 'animate-spin' : ''}`} />
               <span>Refresh Orders</span>
@@ -5038,12 +5395,13 @@ ${log.stack || 'None'}
                   key={f.id}
                   type="button"
                   onClick={() => setGatewayFilter(f.id as typeof gatewayFilter)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${gatewayFilter === f.id
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${
+                    gatewayFilter === f.id
                       ? 'bg-[#e5373f] text-white shadow-sm'
                       : isLight
-                        ? 'bg-gray-100 hover:bg-gray-200 text-slate-700'
-                        : 'bg-white/5 hover:bg-white/10 text-white/70'
-                    }`}
+                      ? 'bg-gray-100 hover:bg-gray-200 text-slate-700'
+                      : 'bg-white/5 hover:bg-white/10 text-white/70'
+                  }`}
                 >
                   {f.label}
                 </button>
@@ -5116,14 +5474,15 @@ ${log.stack || 'None'}
                           )}
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${ord.status === 'paid'
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            ord.status === 'paid'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : ord.status === 'review'
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                : ord.status === 'pending'
-                                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            }`}>
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              : ord.status === 'pending'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
                             {ord.status === 'paid' && <CheckCircle2 className="w-3 h-3" />}
                             <span>{ord.status}</span>
                           </span>
@@ -5226,10 +5585,11 @@ ${log.stack || 'None'}
           </div>
 
           {gwSettingsStatus && (
-            <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${gwSettingsStatus.ok
+            <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+              gwSettingsStatus.ok
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                 : 'bg-red-500/10 border-red-500/30 text-red-400'
-              }`}>
+            }`}>
               {gwSettingsStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
               <span>{gwSettingsStatus.message}</span>
             </div>
