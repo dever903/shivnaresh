@@ -1021,6 +1021,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
       console.log(`[gateway-webhook] Received event: ${event}`, orderData);
 
+      // 1. Official Gateway Webhook (order.paid)
       if (event === 'order.paid' && orderData.order_id) {
         const orders = await readOrders();
         let order = orders.find((o) => o.order_no === orderData.order_id || o.client_order_id === orderData.client_order_id);
@@ -1032,10 +1033,66 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
           order.paid_at = orderData.paid_at || new Date().toISOString();
           await writeOrders(orders);
           await provisionPaidOrder(order);
+          return res.json({ received: true, order_no: order.order_no, status: 'paid' });
         }
       }
 
-      res.json({ received: true });
+      // 2. Smart Mobile Notification & Bank SMS Relay (MacroDroid / Tasker / SMS Forwarder)
+      const combinedText = [
+        eventData.message,
+        eventData.text,
+        eventData.sms,
+        eventData.body,
+        eventData.title,
+        typeof eventData === 'string' ? eventData : '',
+        rawBody,
+      ].filter(Boolean).join(' ');
+
+      let detectedAmount = Number(eventData.amount || eventData.amt || 0);
+      if (!detectedAmount || isNaN(detectedAmount)) {
+        // Extract amount: e.g. "Rs 4606", "Rs. 4,606", "₹4606", "credited with INR 4606", "received 4606"
+        const amtMatch = combinedText.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+                         combinedText.match(/credited\s+(?:by|with)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+                         combinedText.match(/received\s+(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+        if (amtMatch) {
+          detectedAmount = parseFloat(amtMatch[1].replace(/,/g, ''));
+        }
+      }
+
+      let detectedUtr = eventData.utr || eventData.ref_no || null;
+      if (!detectedUtr) {
+        // Extract 12-digit UTR/RRN/Txn ID
+        const utrMatch = combinedText.match(/(?:utr|ref(?:\s*no|\s*id)?|rrn|txn\s*id)[:\s#]*(\d{12})/i) ||
+                         combinedText.match(/\b(\d{12})\b/);
+        if (utrMatch) {
+          detectedUtr = utrMatch[1];
+        }
+      }
+
+      if (detectedAmount > 0) {
+        const orders = await readOrders();
+        const now = Date.now();
+        // Find most recent pending or review order matching this amount within the last 60 minutes
+        const pendingOrder = orders.find((o) => {
+          if (o.status !== 'pending' && o.status !== 'review') return false;
+          const orderAgeMin = (now - new Date(o.created_at).getTime()) / (1000 * 60);
+          if (orderAgeMin > 60) return false;
+          return Math.abs(Number(o.amount) - detectedAmount) <= 0.05;
+        });
+
+        if (pendingOrder) {
+          pendingOrder.status = 'paid';
+          pendingOrder.utr = detectedUtr || pendingOrder.utr || 'MOBILE_NOTIF_AUTO';
+          pendingOrder.verified_by = 'mobile_notification';
+          pendingOrder.paid_at = new Date().toISOString();
+          await writeOrders(orders);
+          const provOk = await provisionPaidOrder(pendingOrder);
+          console.log(`[gateway-webhook] Auto-activated pending order ${pendingOrder.order_no} for ₹${detectedAmount} (UTR: ${pendingOrder.utr}, provisioned: ${provOk})`);
+          return res.json({ success: true, matched_order: pendingOrder.order_no, provisioned: provOk });
+        }
+      }
+
+      res.json({ received: true, detectedAmount, detectedUtr });
     } catch (err) {
       console.error('[gateway-webhook] Webhook processing error:', err);
       res.status(400).json({ error: err.message });
