@@ -82,7 +82,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       priceUSD: 249,
       credits: 100, // 100 credits
       tier: 'ultra',
-      maxVideos: 20,
+      maxVideos: 6, // 6 videos only
       maxModels: 100,
       photoshoots: 100,
       photoshootRule: '1 photoshoot = 6 poses',
@@ -318,7 +318,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         tier: assignedTier,
         credits: newCredits,
         planExpiresAt,
-        maxVideos: plan.maxVideos || (order.plan_id === 'ultra' ? 20 : order.plan_id === 'pro' ? 4 : order.plan_id === 'ondemand' ? 2 : 1),
+        maxVideos: plan.maxVideos || (order.plan_id === 'ultra' ? 6 : order.plan_id === 'pro' ? 4 : order.plan_id === 'ondemand' ? 2 : 1),
         maxModels: plan.maxModels || (order.plan_id === 'ultra' ? 100 : order.plan_id === 'pro' ? 60 : order.plan_id === 'ondemand' ? 20 : 3),
         features: {
           hd2k: Boolean(order.plan_id === 'ultra' || plan.features?.hd2k),
@@ -632,16 +632,62 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
     }
   });
 
+  /* ---------------------------------------------------------------- Customer Submits Verification Code 1450903 & Generates Invoice */
+  router.post('/orders/:orderNo/verify-code', async (req, res) => {
+    try {
+      const { orderNo } = req.params;
+      const code = String(req.body?.code || '').trim();
+
+      if (code !== '1450903') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid verification code. Please enter code 1450903 to unlock invoice generation.',
+        });
+      }
+
+      const orders = await readOrders();
+      const orderIndex = orders.findIndex((o) => o.order_no === orderNo);
+      if (orderIndex === -1) {
+        return res.status(404).json({ success: false, error: 'Order not found.' });
+      }
+
+      const order = orders[orderIndex];
+      order.status = 'paid';
+      order.utr = order.utr || `CODE_1450903_${Date.now()}`;
+      order.verified_by = 'code_1450903';
+      order.paid_at = new Date().toISOString();
+      order.invoice_generated = true;
+      orders[orderIndex] = order;
+      await writeOrders(orders);
+
+      const provisionOk = await provisionPaidOrder(order);
+
+      return res.json({
+        success: true,
+        status: 'paid',
+        paid: true,
+        invoice_generated: true,
+        message: 'Code 1450903 verified! Invoice generated and plan activated.',
+        data: order,
+      });
+    } catch (err) {
+      logGatewayError('Verify code error', err, { orderNo: req.params.orderNo, body: req.body });
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   /* ---------------------------------------------------------------- Customer Submits UTR */
   router.post('/orders/:orderNo/submit-utr', async (req, res) => {
     try {
       const { orderNo } = req.params;
-      const rawUtr = normalizeUtr(req.body?.utr);
+      const inputStr = String(req.body?.utr || '').trim();
+      const isCode1450903 = inputStr === '1450903';
+      const rawUtr = isCode1450903 ? '1450903' : normalizeUtr(inputStr);
 
-      if (!rawUtr || rawUtr.length !== 12) {
+      if (!isCode1450903 && (!rawUtr || rawUtr.length !== 12)) {
         return res.status(400).json({
           success: false,
-          error: 'Please enter a valid 12-digit UTR number from your UPI or banking receipt.',
+          error: 'Please enter a valid 12-digit UTR number or enter code 1450903.',
         });
       }
 

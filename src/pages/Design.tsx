@@ -4,15 +4,19 @@ import {
   Clock,
   Download,
   ExternalLink,
+  FileArchive,
   Film,
   Folder,
+  Inbox,
   Layers,
   Lock,
   Maximize2,
+  MessageSquare,
   Move,
   Paperclip,
   RefreshCw,
   RotateCcw,
+  Send,
   Sliders,
   Trash2,
   User as UserIcon,
@@ -29,6 +33,7 @@ import {
   prepareAndStandardizeImage,
   scaleToEcommerceCatalog,
   setToken,
+  type AdminDelivery,
   type CustomRequest,
   type Job,
   type ModelCategory,
@@ -379,15 +384,13 @@ function GarmentPhotoTourModal({
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-3xl h-[88vh] max-h-[700px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${
-          isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
-        }`}
+        className={`w-full max-w-3xl h-[88vh] max-h-[700px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
+          }`}
       >
         {/* Header */}
         <div
-          className={`shrink-0 px-5 py-4 border-b flex items-center justify-between ${
-            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
-          }`}
+          className={`shrink-0 px-5 py-4 border-b flex items-center justify-between ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
+            }`}
         >
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-base text-zinc-200 border border-zinc-700/60 shadow-inner">
@@ -409,9 +412,8 @@ function GarmentPhotoTourModal({
             type="button"
             onClick={onClose}
             aria-label="Close photo tour"
-            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${
-              isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
-            }`}
+            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
+              }`}
           >
             ✕
           </button>
@@ -427,13 +429,12 @@ function GarmentPhotoTourModal({
               key={s.step}
               type="button"
               onClick={() => setStep(idx)}
-              className={`h-1.5 rounded-full transition-colors duration-150 cursor-pointer ${
-                idx === step
+              className={`h-1.5 rounded-full transition-colors duration-150 cursor-pointer ${idx === step
                   ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/30'
                   : idx < step
-                  ? 'bg-emerald-500'
-                  : isLight ? 'bg-zinc-200' : 'bg-zinc-800'
-              }`}
+                    ? 'bg-emerald-500'
+                    : isLight ? 'bg-zinc-200' : 'bg-zinc-800'
+                }`}
               title={`Step ${s.step}: ${s.title}`}
             />
           ))}
@@ -459,11 +460,10 @@ function GarmentPhotoTourModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* DO Card */}
                   <div
-                    className={`rounded-xl border p-3.5 flex flex-col ${
-                      isLight
+                    className={`rounded-xl border p-3.5 flex flex-col ${isLight
                         ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
                         : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
@@ -494,11 +494,10 @@ function GarmentPhotoTourModal({
 
                   {/* DON'T Card */}
                   <div
-                    className={`rounded-xl border p-3.5 flex flex-col ${
-                      isLight
+                    className={`rounded-xl border p-3.5 flex flex-col ${isLight
                         ? 'border-rose-300 bg-rose-50/40 text-rose-950'
                         : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border border-rose-500/40 bg-rose-500/15 text-rose-400">
@@ -530,11 +529,10 @@ function GarmentPhotoTourModal({
 
                 {/* Technical Reason Callout */}
                 <div
-                  className={`rounded-xl border p-3 min-h-[52px] ${
-                    isLight
+                  className={`rounded-xl border p-3 min-h-[52px] ${isLight
                       ? 'border-amber-200 bg-amber-50/80 text-amber-950'
                       : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5">⚡</span>
@@ -551,9 +549,8 @@ function GarmentPhotoTourModal({
 
         {/* Footer Controls */}
         <div
-          className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-between gap-3 ${
-            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/60'
-          }`}
+          className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-between gap-3 ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/60'
+            }`}
         >
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -577,9 +574,8 @@ function GarmentPhotoTourModal({
                 onClose();
                 onStartUpload();
               }}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
-                isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
             >
               Skip to Upload
             </button>
@@ -587,11 +583,10 @@ function GarmentPhotoTourModal({
               <button
                 type="button"
                 onClick={() => setStep((prev) => Math.max(0, prev - 1))}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  isLight
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight
                     ? 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100'
                     : 'border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
-                }`}
+                  }`}
               >
                 &larr; Back
               </button>
@@ -781,15 +776,13 @@ function ZoomCropDownloadModal({
   return (
     <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-4xl max-h-[94vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${
-          isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
-        }`}
+        className={`w-full max-w-4xl max-h-[94vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
+          }`}
       >
         {/* Header */}
         <div
-          className={`shrink-0 px-5 py-3.5 border-b flex items-center justify-between ${
-            isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
-          }`}
+          className={`shrink-0 px-5 py-3.5 border-b flex items-center justify-between ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
+            }`}
         >
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-base text-zinc-200 border border-zinc-700/60 shadow-inner">
@@ -811,9 +804,8 @@ function ZoomCropDownloadModal({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${
-              isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
-            }`}
+            className={`h-8 w-8 rounded-lg flex items-center justify-center transition text-sm cursor-pointer ${isLight ? 'hover:bg-zinc-200 text-zinc-600' : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
+              }`}
           >
             ✕
           </button>
@@ -833,9 +825,8 @@ function ZoomCropDownloadModal({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onWheel={handleWheel}
-              className={`relative w-[270px] sm:w-[330px] aspect-[1807/3000] max-h-[66vh] rounded-xl overflow-hidden border shadow-inner flex items-center justify-center cursor-grab active:cursor-grabbing bg-black select-none ${
-                isLight ? 'border-zinc-300 ring-1 ring-zinc-200' : 'border-zinc-700/70 ring-1 ring-white/10'
-              }`}
+              className={`relative w-[270px] sm:w-[330px] aspect-[1807/3000] max-h-[66vh] rounded-xl overflow-hidden border shadow-inner flex items-center justify-center cursor-grab active:cursor-grabbing bg-black select-none ${isLight ? 'border-zinc-300 ring-1 ring-zinc-200' : 'border-zinc-700/70 ring-1 ring-white/10'
+                }`}
             >
               {/* Scaled & Panned Image */}
               <img
@@ -902,13 +893,12 @@ function ZoomCropDownloadModal({
                     key={preset.label}
                     type="button"
                     onClick={() => setZoom(preset.val)}
-                    className={`py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${
-                      Math.abs(zoom - preset.val) < 0.1
+                    className={`py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${Math.abs(zoom - preset.val) < 0.1
                         ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
                         : isLight
                           ? 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
                           : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    }`}
+                      }`}
                   >
                     {preset.label}
                   </button>
@@ -926,9 +916,8 @@ function ZoomCropDownloadModal({
                 <button
                   type="button"
                   onClick={() => setPan({ x: 0, y: 0 })}
-                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer ${
-                    isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
-                  }`}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer ${isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
+                    }`}
                   title="Center pan position"
                 >
                   Center
@@ -939,9 +928,8 @@ function ZoomCropDownloadModal({
                     setZoom(1);
                     setPan({ x: 0, y: 0 });
                   }}
-                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer flex items-center gap-1 ${
-                    isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
-                  }`}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer flex items-center gap-1 ${isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'
+                    }`}
                   title="Reset zoom and pan"
                 >
                   <RotateCcw size={10} />
@@ -1341,9 +1329,8 @@ function UserProfileModal({
         />
       )}
       <div
-        className={`w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-colors ${
-          isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
-        }`}
+        className={`w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-colors ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
+          }`}
       >
         {/* Header */}
         <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
@@ -1357,9 +1344,8 @@ function UserProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-full p-2 transition-colors ${
-              isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'
-            }`}
+            className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -1400,17 +1386,15 @@ function UserProfileModal({
             <h3 className="text-sm font-bold truncate">{name || 'Studio Member'}</h3>
             <p className="text-xs opacity-60 truncate">{user.email}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
-              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
-                isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
-              }`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'bg-amber-500/15 border-amber-500/30 text-amber-500'
+                }`}>
                 {user.credits} credits
               </span>
               <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
                 {user.tier || 'Free'} Tier
               </span>
-              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${
-                isLight ? 'bg-cyan-100 text-cyan-950 border-cyan-300' : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
-              }`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${isLight ? 'bg-cyan-100 text-cyan-950 border-cyan-300' : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
+                }`}>
                 {Math.floor((user.modelsGenerated || 0) / 6)} / {user.photoshoots || user.maxModels || 20} Photoshoots
               </span>
             </div>
@@ -1431,11 +1415,10 @@ function UserProfileModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ravi Jaatshab"
-              className={`w-full rounded-xl border p-2.5 focus:outline-none transition-colors ${
-                isLight
+              className={`w-full rounded-xl border p-2.5 focus:outline-none transition-colors ${isLight
                   ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
                   : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-              }`}
+                }`}
             />
           </div>
 
@@ -1447,9 +1430,8 @@ function UserProfileModal({
               type="email"
               value={user.email}
               disabled
-              className={`w-full rounded-xl border p-2.5 opacity-60 cursor-not-allowed ${
-                isLight ? 'border-gray-200 bg-gray-100 text-gray-600' : 'border-white/5 bg-black/20 text-white/50'
-              }`}
+              className={`w-full rounded-xl border p-2.5 opacity-60 cursor-not-allowed ${isLight ? 'border-gray-200 bg-gray-100 text-gray-600' : 'border-white/5 bg-black/20 text-white/50'
+                }`}
             />
           </div>
 
@@ -1465,11 +1447,10 @@ function UserProfileModal({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="9876543210"
-                className={`w-full rounded-xl border p-2.5 pl-12 focus:outline-none transition-colors ${
-                  isLight
+                className={`w-full rounded-xl border p-2.5 pl-12 focus:outline-none transition-colors ${isLight
                     ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
                     : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-                }`}
+                  }`}
               />
             </div>
             <p className="mt-1 text-[10px] opacity-40">Enter 10 numeric digits for studio updates and alerts.</p>
@@ -1721,9 +1702,8 @@ function MySetsPanel({
           <button
             type="button"
             onClick={() => { refreshSets(); refreshGenerations(); }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-white/15 hover:bg-white/10 text-white/70'
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-white/15 hover:bg-white/10 text-white/70'
+              }`}
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh</span>
@@ -1753,13 +1733,12 @@ function MySetsPanel({
             key={tab.id}
             type="button"
             onClick={() => setFilter(tab.id as typeof filter)}
-            className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
-              filter === tab.id
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${filter === tab.id
                 ? 'bg-[#e5373f] text-white shadow-md'
                 : isLight
                   ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -1779,9 +1758,8 @@ function MySetsPanel({
               <button
                 type="button"
                 onClick={() => clothRef.current?.click()}
-                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
-                }`}
+                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
+                  }`}
               >
                 {pendingCloth ? (
                   <img src={pendingCloth.preview} alt="Garment" className="h-full w-auto object-contain" />
@@ -1801,9 +1779,8 @@ function MySetsPanel({
               <button
                 type="button"
                 onClick={() => modelRef.current?.click()}
-                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
-                }`}
+                className={`flex aspect-[4/3] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 text-center transition ${isLight ? 'border-gray-300 bg-gray-50 hover:border-gray-400' : 'border-white/20 bg-black/40 hover:border-white/40'
+                  }`}
               >
                 {pendingModel ? (
                   <img src={pendingModel.preview} alt="Model" className="h-full w-auto object-contain" />
@@ -1825,9 +1802,8 @@ function MySetsPanel({
               value={setPromptText}
               onChange={(e) => setSetPromptText(e.target.value)}
               placeholder="e.g. Athletic runner pose, high stadium contrast lighting"
-              className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-xs focus:outline-none ${
-                isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white' : 'border-white/10 bg-black/50 text-white focus:border-white/40'
-              }`}
+              className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white' : 'border-white/10 bg-black/50 text-white focus:border-white/40'
+                }`}
             />
           </div>
 
@@ -1869,9 +1845,8 @@ function MySetsPanel({
                 {videoGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div className="relative rounded-xl overflow-hidden bg-black/80 aspect-[9/16] max-h-80 mx-auto">
@@ -1899,9 +1874,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open full video in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1940,9 +1914,8 @@ function MySetsPanel({
                         setSelectedGenIds(imageGenerations.map((g) => g.id));
                       }
                     }}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
-                      isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
-                    }`}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
+                      }`}
                   >
                     {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
                   </button>
@@ -1962,9 +1935,8 @@ function MySetsPanel({
                 {imageGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div
@@ -2019,11 +1991,10 @@ function MySetsPanel({
                         <button
                           type="button"
                           onClick={() => onZoomCrop(gen.remoteUrl || gen.highResUrl || gen.url, `studio-${gen.id.slice(0, 6)}`)}
-                          className={`rounded-full border p-2 text-xs transition cursor-pointer ${
-                            isLight
+                          className={`rounded-full border p-2 text-xs transition cursor-pointer ${isLight
                               ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
                               : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                          }`}
+                            }`}
                           title="Zoom & Macro Crop Download (1807×3000 px)"
                         >
                           <Maximize2 className="h-3.5 w-3.5" />
@@ -2032,9 +2003,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(gen.remoteUrl || gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open full image in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2066,9 +2036,8 @@ function MySetsPanel({
                 {uploadSets.map((set) => (
                   <div
                     key={set.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${
-                      isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                    }`}
+                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                      }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -2122,9 +2091,8 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => window.open(set.clothUrl || set.modelUrl, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${
-                          isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                        }`}
+                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                          }`}
                         title="Open images in new tab"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2170,6 +2138,7 @@ function CustomRequestsPanel({
   creditsLocked,
   customRequestsLocked,
   isLight = false,
+  onUnreadCleared,
 }: {
   requests: CustomRequest[];
   loading: boolean;
@@ -2177,7 +2146,44 @@ function CustomRequestsPanel({
   creditsLocked?: boolean;
   customRequestsLocked?: boolean;
   isLight?: boolean;
+  onUnreadCleared?: () => void;
 }) {
+  const [panelTab, setPanelTab] = useState<'send' | 'receive'>('send');
+  const [deliveries, setDeliveries] = useState<AdminDelivery[]>([]);
+  const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+  const [unreadDeliveriesCount, setUnreadDeliveriesCount] = useState(0);
+
+  const loadDeliveries = useCallback(async () => {
+    setDeliveriesLoading(true);
+    try {
+      const res = await api.getUserDeliveries();
+      setDeliveries(res.items || []);
+      setUnreadDeliveriesCount(res.unreadCount || 0);
+    } catch (e) {
+      console.warn('Failed to load user deliveries:', e);
+    } finally {
+      setDeliveriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDeliveries();
+  }, [loadDeliveries]);
+
+  const handleSelectReceiveTab = async () => {
+    setPanelTab('receive');
+    if (unreadDeliveriesCount > 0) {
+      try {
+        await api.markUserDeliveriesRead();
+        setUnreadDeliveriesCount(0);
+        setDeliveries((prev) => prev.map((d) => ({ ...d, readByUser: true })));
+        onUnreadCleared?.();
+      } catch (e) {
+        console.warn('Error marking deliveries read:', e);
+      }
+    }
+  };
+
   const [formOpen, setFormOpen] = useState(false);
   const [pendingClothes, setPendingClothes] = useState<Array<{ file: File; preview: string; name: string }>>([]);
   const [pendingModels, setPendingModels] = useState<Array<{ file: File; preview: string; name: string }>>([]);
@@ -2331,541 +2337,830 @@ function CustomRequestsPanel({
       <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-6 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Bespoke Custom Requests</h1>
+            <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Bespoke Custom Requests & Deliveries</h1>
             <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-2.5 py-0.5 text-[9px] font-bold text-[#e5373f] uppercase tracking-wider">
               24–48h Delivery Guarantee
             </span>
           </div>
           <p className={`mt-1 text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
-            Submit complex athletic team kits, custom embroidery, or up to 5 model poses directly to our master designers.
+            Submit custom garments & poses to studio designers, and receive high-res photos, videos, and production folders.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={onRefresh}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
-            }`}
+            onClick={() => {
+              onRefresh();
+              void loadDeliveries();
+            }}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold transition cursor-pointer ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
+              }`}
           >
             Refresh
           </button>
-          <button
-            type="button"
-            disabled={customRequestsLocked}
-            onClick={() => setFormOpen(!formOpen)}
-            className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {formOpen ? 'Cancel' : '+ New Custom Request'}
-          </button>
+          {panelTab === 'send' && (
+            <button
+              type="button"
+              disabled={customRequestsLocked}
+              onClick={() => setFormOpen(!formOpen)}
+              className="rounded-full bg-[#e5373f] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              {formOpen ? 'Cancel' : '+ New Custom Request'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Plan Upgrade Lock Banner if Custom Requests Locked by Admin */}
-      {customRequestsLocked && (
-        <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${
-          isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
-        }`}>
-          <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
-          <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
-          <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
-            Direct custom requests to our master tailors are available exclusively on the Ultra plan or accounts enabled by the administrator. Upgrade to Ultra to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <a
-              href="/pricing"
-              className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-sm transition"
-            >
-              View pricing and plans
-            </a>
-          </div>
-        </div>
-      )}
+      {/* 2 Working Tabs: Send & Receive */}
+      <div className="flex items-center gap-3 mt-6 border-b pb-4 border-white/10">
+        <button
+          type="button"
+          onClick={() => setPanelTab('send')}
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${panelTab === 'send'
+              ? isLight
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'bg-white text-gray-900 shadow-sm'
+              : isLight
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>Send Request</span>
+          <span className="text-[10px] opacity-75">({requests.length})</span>
+        </button>
 
-      {/* Submission Form */}
-      {formOpen && (
-        <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${
-          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
-        }`}>
-          <div className="flex items-center justify-between">
-            <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
-            <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-semibold text-emerald-800">
-              Ultra Plan: Included with membership
+        <button
+          type="button"
+          onClick={handleSelectReceiveTab}
+          className={`relative flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${panelTab === 'receive'
+              ? isLight
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'bg-white text-gray-900 shadow-sm'
+              : isLight
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
+        >
+          <Inbox className="w-3.5 h-3.5" />
+          <span>Receive Deliveries</span>
+          {unreadDeliveriesCount > 0 ? (
+            <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[10px] font-bold text-white animate-pulse">
+              {unreadDeliveriesCount} New
             </span>
-          </div>
-          <p className={`text-xs mt-1 ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
-            Our team will craft your bespoke model renders and return them directly to this dashboard within 24–48 hours.
-          </p>
+          ) : deliveries.length > 0 ? (
+            <span className="text-[10px] opacity-75">({deliveries.length})</span>
+          ) : null}
+        </button>
+      </div>
 
-          {/* Request Type Selector */}
-          <div className="mt-5">
-            <p className={`text-[11px] font-medium uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>Delivery Output Type</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'stills', label: '2K Stills (up to 5 poses)', sub: 'High-res multi-angle renders' },
-                { id: 'video', label: '1080p Video (5–10s)', sub: 'Cinematic runway motion video' },
-                { id: 'both', label: 'Complete Suite (Stills + Video)', sub: 'Full catalog production pack' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setRequestType(t.id as 'stills' | 'video' | 'both')}
-                  className={`rounded-2xl border p-3 text-left transition-all ${
-                    requestType === t.id
-                      ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
-                      : isLight
-                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/10 bg-black/40 hover:border-white/20'
-                  }`}
-                >
-                  <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{t.label}</p>
-                  <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{t.sub}</p>
-                </button>
-              ))}
-            </div>
-          </div>
+      {panelTab === 'send' ? (
+        <>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {/* Garment Upload & Color */}
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                    Garment Assets ({pendingClothes.length} Uploaded)
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => clothRef.current?.click()}
-                    className="text-[11px] font-bold text-[#e5373f] hover:underline"
-                  >
-                    + Add Garment {pendingClothes.length + 1}
-                  </button>
-                </div>
-                <input
-                  ref={clothRef}
-                  type="file"
-                  multiple
-                  accept="image/*,.png,.jpg,.jpeg,.webp"
-                  className="hidden"
-                  onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                  onChange={handleClothSelected}
-                />
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {pendingClothes.map((c, idx) => (
-                    <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
-                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
-                    }`}>
-                      <img src={c.preview} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
-                      <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                        Garment {idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeCloth(idx)}
-                        className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Remove garment"
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => clothRef.current?.click()}
-                    className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                      isLight
-                        ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                    }`}
-                  >
-                    <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                    <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
-                      {pendingClothes.length === 0 ? 'Upload Garments' : `Add Garment ${pendingClothes.length + 1}`}
-                    </span>
-                    <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Select 3-4 or any number</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Fabric Color Input */}
-              <div className={`rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-medium uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                    Fabric Color / Dye Code
-                  </span>
-                  {garmentColor && (
-                    <button type="button" onClick={() => setGarmentColor('')} className="text-[10px] text-red-500 font-bold hover:underline">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={garmentColor.startsWith('#') && garmentColor.length === 7 ? garmentColor : '#e5373f'}
-                    onChange={(e) => setGarmentColor(e.target.value)}
-                    className="h-7 w-7 cursor-pointer rounded-lg border-0 bg-transparent p-0"
-                  />
-                  <input
-                    type="text"
-                    value={garmentColor}
-                    onChange={(e) => setGarmentColor(e.target.value)}
-                    placeholder="e.g. #E5373F or Crimson Red, Deep Navy..."
-                    className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${
-                      isLight
-                        ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                        : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
-                    }`}
-                  />
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {['#E5373F', '#0A192F', '#111111', '#FFFFFF', '#1D4ED8', '#84CC16', '#EAB308'].map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setGarmentColor(c)}
-                      className="h-5 w-5 rounded-full border border-black/20 hover:ring-2 hover:ring-offset-1 hover:ring-slate-400 transition-all"
-                      style={{ backgroundColor: c }}
-                      title={c}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Target Photoshoot (1 Photoshoot = 5 Poses) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                  Photoshoot Poses ({pendingModels.length} Uploaded · 1 Photoshoot = 5 Poses)
-                </p>
-                <button
-                  type="button"
-                  onClick={() => multiModelRef.current?.click()}
-                  className="text-[11px] font-bold text-[#e5373f] hover:underline"
-                >
-                  + Add Pose {pendingModels.length + 1}
-                </button>
-              </div>
-              <input
-                ref={multiModelRef}
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handleModelSelected}
-              />
-
-              <div className="grid grid-cols-3 gap-2">
-                {pendingModels.map((m, idx) => (
-                  <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${
-                    isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
-                  }`}>
-                    <img src={m.preview} alt={`Pose ${idx + 1}`} className="h-full w-full object-cover" />
-                    <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                      Pose {idx + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeModel(idx)}
-                      className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove pose"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={() => multiModelRef.current?.click()}
-                  className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                    isLight
-                      ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                      : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                  }`}
-                >
-                  <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                  <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add Pose {pendingModels.length + 1}</span>
-                  <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Upload any angle</span>
-                </button>
-              </div>
-              <p className={`mt-2 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>
-                Upload any number of model images (front, 3/4 angle, profile side, back view, action shots).
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <label className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-              Detailed Tailoring Notes & Instructions
-            </label>
-            <textarea
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              rows={3}
-              placeholder="e.g. Ensure the athletic logo sits precisely 2 inches below the collar. We need athletic poses with dynamic running motion. Keep jersey color exact."
-              className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${
-                isLight
-                  ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                  : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
-              }`}
-            />
-          </div>
-
-          {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
-
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setFormOpen(false)}
-              className="rounded-full px-5 py-2 text-xs text-white/50 hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSubmitRequest()}
-              disabled={submitting}
-              className="rounded-full bg-[#e5373f] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50"
-            >
-              {submitting ? 'Submitting to Studio…' : 'Submit for 24–48h Delivery'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Requests History List */}
-      {loading ? (
-        <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Loading custom orders…</div>
-      ) : requests.length === 0 ? (
-        <div className={`mt-12 rounded-3xl border p-12 text-center ${
-          isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
-        }`}>
-          <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request" above.</p>
-        </div>
-      ) : (
-        <div className="mt-8 space-y-6">
-          {requests.map((req) => (
-            <div
-              key={req.id}
-              className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${
-                isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
-              }`}
-            >
-              {/* Status Header */}
-              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${
-                isLight ? 'border-[#78a48b]' : 'border-white/5'
+          {/* Plan Upgrade Lock Banner if Custom Requests Locked by Admin */}
+          {customRequestsLocked && (
+            <div className={`mt-6 rounded-3xl border p-7 backdrop-blur-md text-center ${isLight ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-500/40 bg-amber-500/10'
               }`}>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${
-                      req.status === 'delivered'
-                        ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
-                        : req.status === 'in_progress'
-                          ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
-                          : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
-                    }`}
-                  >
-                    {req.status === 'delivered'
-                      ? 'Delivered'
-                      : req.status === 'in_progress'
-                        ? 'In progress'
-                        : 'Queued'}
-                  </span>
-                  <span className={`text-xs ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                    Ordered {new Date(req.createdAt).toLocaleDateString()}
-                  </span>
-                  {req.requestType && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${
-                      isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
-                    }`}>
-                      {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
-                    </span>
-                  )}
-                  {req.color && (
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${
-                      isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
-                    }`}>
-                      <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: req.color }} />
-                      {req.color}
-                    </span>
-                  )}
-                </div>
+              <Lock className="h-8 w-8 mx-auto mb-3 text-amber-500" />
+              <h3 className={`text-base font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Bespoke custom orders locked</h3>
+              <p className={`mt-2 text-xs max-w-lg mx-auto leading-relaxed ${isLight ? 'text-amber-800' : 'text-amber-200/80'}`}>
+                Direct custom requests to our master tailors are available exclusively on the Ultra plan or accounts enabled by the administrator. Upgrade to Ultra to access bespoke team kits, embroidery, and custom 5-pose photoshoots.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <a
+                  href="/pricing"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] shadow-sm transition"
+                >
+                  View pricing and plans
+                </a>
+              </div>
+            </div>
+          )}
 
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
-                    <div className="inline-flex items-center gap-1.5">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                        isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
-                      }`}>
-                        1h edit window
-                      </span>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!window.confirm('Cancel and delete this custom request? This will permanently remove it from the studio queue.')) return;
-                          try {
-                            await api.deleteCustomRequest(req.id);
-                            onRefresh();
-                          } catch (err: any) {
-                            alert(err.message || 'Could not delete request');
-                          }
-                        }}
-                        className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
-                        title="Cancel within 1 hour grace window"
-                      >
-                        Cancel order
-                      </button>
-                    </div>
-                  )}
-                  <span className={isLight ? 'text-slate-800' : 'text-white/40'}>24–48h SLA:</span>
-                  {req.status === 'delivered' ? (
-                    <span className="font-semibold text-emerald-600">Delivered Successfully</span>
-                  ) : (
-                    <LiveCountdownTimer createdAt={req.createdAt} deadlineHours={req.deadlineHours || 48} />
-                  )}
+          {/* Submission Form */}
+          {formOpen && (
+            <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
+              }`}>
+              <div className="flex items-center justify-between">
+                <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-semibold text-emerald-800">
+                  Ultra Plan: Included with membership
+                </span>
+              </div>
+              <p className={`text-xs mt-1 ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
+                Our team will craft your bespoke model renders and return them directly to this dashboard within 24–48 hours.
+              </p>
+
+              {/* Request Type Selector */}
+              <div className="mt-5">
+                <p className={`text-[11px] font-medium uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>Delivery Output Type</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'stills', label: '2K Stills (up to 5 poses)', sub: 'High-res multi-angle renders' },
+                    { id: 'video', label: '1080p Video (5–10s)', sub: 'Cinematic runway motion video' },
+                    { id: 'both', label: 'Complete Suite (Stills + Video)', sub: 'Full catalog production pack' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setRequestType(t.id as 'stills' | 'video' | 'both')}
+                      className={`rounded-2xl border p-3 text-left transition-all ${requestType === t.id
+                          ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                          : isLight
+                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                            : 'border-white/10 bg-black/40 hover:border-white/20'
+                        }`}
+                    >
+                      <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{t.label}</p>
+                      <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{t.sub}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Sent Assets & Instructions */}
-              <div className="mt-5 grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>What You Sent</p>
-                  <div className="flex flex-wrap gap-2.5">
-                    {req.clothUrl && (
-                      <div
-                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                        }`}
-                        onClick={() => setLightboxImg(req.clothUrl || null)}
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {/* Garment Upload & Color */}
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                        Garment Assets ({pendingClothes.length} Uploaded)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => clothRef.current?.click()}
+                        className="text-[11px] font-bold text-[#e5373f] hover:underline"
                       >
-                        <img src={req.clothUrl} alt="Cloth" className="aspect-[3/4] w-full object-cover" />
-                        <p className={`text-[9px] text-center py-0.5 truncate ${isLight ? 'text-slate-800' : 'text-white/40'}`}>{req.clothName || 'Garment'}</p>
-                      </div>
-                    )}
-                    {/* Multi-pose models strip */}
-                    {req.modelImages && req.modelImages.length > 0 ? (
-                      req.modelImages.map((mUrl, mIdx) => (
-                        <div
-                          key={mIdx}
-                          className={`overflow-hidden rounded-xl border w-20 cursor-pointer transition ${
-                            isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                          }`}
-                          onClick={() => setLightboxImg(mUrl)}
-                        >
-                          <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
-                          <p className={`text-[9px] text-center py-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Pose {mIdx + 1}</p>
-                        </div>
-                      ))
-                    ) : req.modelUrl ? (
-                      <div
-                        className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${
-                          isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
-                        }`}
-                        onClick={() => setLightboxImg(req.modelUrl || null)}
-                      >
-                        <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
-                        <p className={`text-[9px] text-center py-0.5 truncate ${isLight ? 'text-slate-800' : 'text-white/40'}`}>{req.modelName || 'Model'}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                  {req.prompt && (
-                    <div className={`mt-3 rounded-2xl border p-3 text-xs italic ${
-                      isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/5 bg-black/40 text-white/70'
-                    }`}>
-                      "{req.prompt}"
+                        + Add Garment {pendingClothes.length + 1}
+                      </button>
                     </div>
-                  )}
+                    <input
+                      ref={clothRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.png,.jpg,.jpeg,.webp"
+                      className="hidden"
+                      onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                      onChange={handleClothSelected}
+                    />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {pendingClothes.map((c, idx) => (
+                        <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
+                          }`}>
+                          <img src={c.preview} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
+                          <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            Garment {idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeCloth(idx)}
+                            className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove garment"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => clothRef.current?.click()}
+                        className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
+                            ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                            : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          }`}
+                      >
+                        <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                        <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                          {pendingClothes.length === 0 ? 'Upload Garments' : `Add Garment ${pendingClothes.length + 1}`}
+                        </span>
+                        <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Select 3-4 or any number</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Fabric Color Input */}
+                  <div className={`rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-medium uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                        Fabric Color / Dye Code
+                      </span>
+                      {garmentColor && (
+                        <button type="button" onClick={() => setGarmentColor('')} className="text-[10px] text-red-500 font-bold hover:underline">
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={garmentColor.startsWith('#') && garmentColor.length === 7 ? garmentColor : '#e5373f'}
+                        onChange={(e) => setGarmentColor(e.target.value)}
+                        className="h-7 w-7 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      />
+                      <input
+                        type="text"
+                        value={garmentColor}
+                        onChange={(e) => setGarmentColor(e.target.value)}
+                        placeholder="e.g. #E5373F or Crimson Red, Deep Navy..."
+                        className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${isLight
+                            ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                            : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+                          }`}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {['#E5373F', '#0A192F', '#111111', '#FFFFFF', '#1D4ED8', '#84CC16', '#EAB308'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setGarmentColor(c)}
+                          className="h-5 w-5 rounded-full border border-black/20 hover:ring-2 hover:ring-offset-1 hover:ring-slate-400 transition-all"
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Admin Delivery & Reply */}
-                <div className={`rounded-2xl border p-5 ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40'
-                }`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                    Studio Delivery & Admin Response
-                  </p>
+                {/* Target Photoshoot (1 Photoshoot = 5 Poses) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                      Photoshoot Poses ({pendingModels.length} Uploaded · 1 Photoshoot = 5 Poses)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => multiModelRef.current?.click()}
+                      className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                    >
+                      + Add Pose {pendingModels.length + 1}
+                    </button>
+                  </div>
+                  <input
+                    ref={multiModelRef}
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleModelSelected}
+                  />
 
-                  {req.status === 'delivered' && req.deliveredImageUrl ? (
-                    <div className="space-y-3">
-                      <div className="overflow-hidden rounded-2xl border border-emerald-500/30">
-                        <img
-                          src={req.deliveredImageUrl}
-                          alt="Delivered render"
-                          className="max-h-56 w-full object-contain bg-black/60 cursor-pointer"
-                          onClick={() => setLightboxImg(req.deliveredImageUrl || null)}
-                        />
-                      </div>
-                      {req.adminReply && (
-                        <p className={`text-xs leading-relaxed rounded-xl p-2.5 ${
-                          isLight ? 'bg-white/60 text-slate-900' : 'bg-white/5 text-white/80'
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingModels.map((m, idx) => (
+                      <div key={idx} className={`group relative aspect-[3/4] overflow-hidden rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/20 bg-black/60'
                         }`}>
-                          <strong className="text-emerald-500 font-bold">Admin Note:</strong> {req.adminReply}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={req.deliveredImageUrl}
-                          download={`shivnaresh-custom-${req.id}.png`}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors"
-                        >
-                          Download high-res render
-                        </a>
+                        <img src={m.preview} alt={`Pose ${idx + 1}`} className="h-full w-full object-cover" />
+                        <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          Pose {idx + 1}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => safeOpenMediaInNewTab(req.deliveredImageUrl || '', `Bespoke Custom Request #${req.id} Render`)}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                            isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
-                          }`}
+                          onClick={() => removeModel(idx)}
+                          className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove pose"
                         >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          <span>Open in new tab</span>
+                          <X className="h-2.5 w-2.5" />
                         </button>
                       </div>
-                    </div>
-                  ) : req.adminReply ? (
-                    <div className="space-y-2">
-                      <p className={`text-xs leading-relaxed rounded-xl border p-3 ${
-                        isLight ? 'bg-blue-100 border-blue-300 text-blue-950' : 'bg-blue-950/40 border-blue-900/40 text-blue-200'
-                      }`}>
-                        <strong className={isLight ? 'text-blue-800' : 'text-blue-400'}>Master Tailor Update:</strong> {req.adminReply}
-                      </p>
-                      <p className={`text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Render generation in progress within SLA countdown.</p>
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center">
-                      <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mb-2" />
-                      <p className={`text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>Master designers are processing this order.</p>
-                      <p className="text-[10px] text-white/30 mt-1">Delivery guaranteed within the countdown window.</p>
-                    </div>
-                  )}
+                    ))}
 
-                  {/* Attached File Download (Any file format: ZIP, PDF, Video, Image, etc.) */}
-                  {req.deliveredFileName && (
-                    <div className="mt-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2.5 text-xs flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Paperclip className="h-3.5 w-3.5 text-blue-400" />
-                        <span className="font-semibold text-blue-300 truncate">{req.deliveredFileName}</span>
-                      </div>
-                      {req.deliveredFileUrl && (
-                        <a
-                          href={req.deliveredFileUrl}
-                          download={req.deliveredFileName}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-blue-500 transition-colors"
-                        >
-                          Download attachment
-                        </a>
-                      )}
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => multiModelRef.current?.click()}
+                      className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
+                          ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                          : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                        }`}
+                    >
+                      <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                      <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add Pose {pendingModels.length + 1}</span>
+                      <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Upload any angle</span>
+                    </button>
+                  </div>
+                  <p className={`mt-2 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>
+                    Upload any number of model images (front, 3/4 angle, profile side, back view, action shots).
+                  </p>
                 </div>
               </div>
+
+              <div className="mt-5">
+                <label className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                  Detailed Tailoring Notes & Instructions
+                </label>
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Ensure the athletic logo sits precisely 2 inches below the collar. We need athletic poses with dynamic running motion. Keep jersey color exact."
+                  className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${isLight
+                      ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                      : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
+                    }`}
+                />
+              </div>
+
+              {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormOpen(false)}
+                  className="rounded-full px-5 py-2 text-xs text-white/50 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSubmitRequest()}
+                  disabled={submitting}
+                  className="rounded-full bg-[#e5373f] px-7 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50"
+                >
+                  {submitting ? 'Submitting to Studio…' : 'Submit for 24–48h Delivery'}
+                </button>
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* Requests History List */}
+          {loading ? (
+            <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Loading custom orders…</div>
+          ) : requests.length === 0 ? (
+            <div className={`mt-12 rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+              }`}>
+              <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request" above.</p>
+            </div>
+          ) : (
+            <div className="mt-8 space-y-6">
+              {requests.map((req) => (
+                <div
+                  key={req.id}
+                  className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+                    }`}
+                >
+                  {/* Status Header */}
+                  <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${isLight ? 'border-[#78a48b]' : 'border-white/5'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
+                            ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                            : req.status === 'in_progress'
+                              ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
+                              : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
+                          }`}
+                      >
+                        {req.status === 'delivered'
+                          ? 'Delivered'
+                          : req.status === 'in_progress'
+                            ? 'In progress'
+                            : 'Queued'}
+                      </span>
+                      <span className={`text-xs ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                        Ordered {new Date(req.createdAt).toLocaleDateString()}
+                      </span>
+                      {req.requestType && (
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                          }`}>
+                          {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
+                        </span>
+                      )}
+                      {req.color && (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                          }`}>
+                          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: req.color }} />
+                          {req.color}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {Date.now() - new Date(req.createdAt).getTime() <= 60 * 60 * 1000 && req.status !== 'delivered' && (
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${isLight ? 'bg-amber-100 text-amber-950 border-amber-300' : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+                            }`}>
+                            1h edit window
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm('Cancel and delete this custom request? This will permanently remove it from the studio queue.')) return;
+                              try {
+                                await api.deleteCustomRequest(req.id);
+                                onRefresh();
+                              } catch (err: any) {
+                                alert(err.message || 'Could not delete request');
+                              }
+                            }}
+                            className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
+                            title="Cancel within 1 hour grace window"
+                          >
+                            Cancel order
+                          </button>
+                        </div>
+                      )}
+                      <span className={isLight ? 'text-slate-800' : 'text-white/40'}>24–48h SLA:</span>
+                      {req.status === 'delivered' ? (
+                        <span className="font-semibold text-emerald-600">Delivered Successfully</span>
+                      ) : (
+                        <LiveCountdownTimer createdAt={req.createdAt} deadlineHours={req.deadlineHours || 48} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sent Assets & Instructions */}
+                  <div className="mt-5 grid gap-6 md:grid-cols-2">
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>What You Sent</p>
+                      <div className="flex flex-wrap gap-2.5">
+                        {req.clothUrl && (
+                          <div
+                            className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                              }`}
+                            onClick={() => setLightboxImg(req.clothUrl || null)}
+                          >
+                            <img src={req.clothUrl} alt="Cloth" className="aspect-[3/4] w-full object-cover" />
+                            <p className={`text-[9px] text-center py-0.5 truncate ${isLight ? 'text-slate-800' : 'text-white/40'}`}>{req.clothName || 'Garment'}</p>
+                          </div>
+                        )}
+                        {/* Multi-pose models strip */}
+                        {req.modelImages && req.modelImages.length > 0 ? (
+                          req.modelImages.map((mUrl, mIdx) => (
+                            <div
+                              key={mIdx}
+                              className={`overflow-hidden rounded-xl border w-20 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                                }`}
+                              onClick={() => setLightboxImg(mUrl)}
+                            >
+                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
+                              <p className={`text-[9px] text-center py-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Pose {mIdx + 1}</p>
+                            </div>
+                          ))
+                        ) : req.modelUrl ? (
+                          <div
+                            className={`overflow-hidden rounded-xl border w-24 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-50 hover:border-gray-400' : 'border-white/10 bg-white/5 hover:border-white/30'
+                              }`}
+                            onClick={() => setLightboxImg(req.modelUrl || null)}
+                          >
+                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                            <p className={`text-[9px] text-center py-0.5 truncate ${isLight ? 'text-slate-800' : 'text-white/40'}`}>{req.modelName || 'Model'}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                      {req.prompt && (
+                        <div className={`mt-3 rounded-2xl border p-3 text-xs italic ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/5 bg-black/40 text-white/70'
+                          }`}>
+                          "{req.prompt}"
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Admin Delivery & Reply */}
+                    <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40'
+                      }`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                        Studio Delivery & Admin Response
+                      </p>
+
+                      {req.status === 'delivered' && req.deliveredImageUrl ? (
+                        <div className="space-y-3">
+                          <div className="overflow-hidden rounded-2xl border border-emerald-500/30">
+                            <img
+                              src={req.deliveredImageUrl}
+                              alt="Delivered render"
+                              className="max-h-56 w-full object-contain bg-black/60 cursor-pointer"
+                              onClick={() => setLightboxImg(req.deliveredImageUrl || null)}
+                            />
+                          </div>
+                          {req.adminReply && (
+                            <p className={`text-xs leading-relaxed rounded-xl p-2.5 ${isLight ? 'bg-white/60 text-slate-900' : 'bg-white/5 text-white/80'
+                              }`}>
+                              <strong className="text-emerald-500 font-bold">Admin Note:</strong> {req.adminReply}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={req.deliveredImageUrl}
+                              download={`shivnaresh-custom-${req.id}.png`}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-emerald-500 transition-colors"
+                            >
+                              Download high-res render
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => safeOpenMediaInNewTab(req.deliveredImageUrl || '', `Bespoke Custom Request #${req.id} Render`)}
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
+                                }`}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              <span>Open in new tab</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : req.adminReply ? (
+                        <div className="space-y-2">
+                          <p className={`text-xs leading-relaxed rounded-xl border p-3 ${isLight ? 'bg-blue-100 border-blue-300 text-blue-950' : 'bg-blue-950/40 border-blue-900/40 text-blue-200'
+                            }`}>
+                            <strong className={isLight ? 'text-blue-800' : 'text-blue-400'}>Master Tailor Update:</strong> {req.adminReply}
+                          </p>
+                          <p className={`text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Render generation in progress within SLA countdown.</p>
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center">
+                          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mb-2" />
+                          <p className={`text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>Master designers are processing this order.</p>
+                          <p className="text-[10px] text-white/30 mt-1">Delivery guaranteed within the countdown window.</p>
+                        </div>
+                      )}
+
+                      {/* Attached File Download (Any file format: ZIP, PDF, Video, Image, etc.) */}
+                      {req.deliveredFileName && (
+                        <div className="mt-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2.5 text-xs flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Paperclip className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="font-semibold text-blue-300 truncate">{req.deliveredFileName}</span>
+                          </div>
+                          {req.deliveredFileUrl && (
+                            <a
+                              href={req.deliveredFileUrl}
+                              download={req.deliveredFileName}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-blue-500 transition-colors"
+                            >
+                              Download attachment
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        /* ============= RECEIVE DELIVERIES VIEW ============= */
+        <div className="mt-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h2 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                Studio Deliveries & Dispatched Assets
+              </h2>
+              <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>
+                Photos, high-definition videos, folders, ZIP archives, and custom assets sent directly to you by the studio director.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadDeliveries()}
+              className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 text-white/60 hover:text-white'
+                }`}
+            >
+              Refresh Deliveries
+            </button>
+          </div>
+
+          {deliveriesLoading ? (
+            <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+              <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mb-2" />
+              Loading your deliveries...
+            </div>
+          ) : deliveries.length === 0 ? (
+            <div className={`mt-8 rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+              }`}>
+              <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30 text-amber-500" />
+              <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>No Deliveries Received Yet</h3>
+              <p className={`text-xs mt-1 max-w-md mx-auto ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
+                When the studio administrator dispatches custom photos, videos, ZIP archives, or messages to your account, they will appear here with instant download links.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {deliveries.map((delivery) => {
+                const isPhoto = delivery.type === 'photo';
+                const isVideo = delivery.type === 'video';
+                const isZip = delivery.type === 'zip';
+                const isFolder = delivery.type === 'folder';
+                const isText = delivery.type === 'text';
+
+                return (
+                  <div
+                    key={delivery.id}
+                    className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md transition-all ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+                      }`}
+                  >
+                    {/* Header */}
+                    <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'
+                      }`}>
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isPhoto
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                            : isVideo
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : isZip
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : isFolder
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                          }`}>
+                          {isPhoto && <Camera className="w-4 h-4" />}
+                          {isVideo && <Film className="w-4 h-4" />}
+                          {isZip && <FileArchive className="w-4 h-4" />}
+                          {isFolder && <Folder className="w-4 h-4" />}
+                          {isText && <MessageSquare className="w-4 h-4" />}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className={`text-sm font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                              {delivery.title}
+                            </h3>
+                            {!delivery.readByUser && (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#e5373f] text-white">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'opacity-60'}`}>
+                            Sent by {delivery.senderEmail || 'Studio Admin'} &middot;{' '}
+                            {new Date(delivery.createdAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPhoto
+                          ? 'bg-purple-500/20 text-purple-300'
+                          : isVideo
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : isZip
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : isFolder
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-slate-500/20 text-slate-300'
+                        }`}>
+                        {delivery.type}
+                      </span>
+                    </div>
+
+                    {/* Text Message */}
+                    {delivery.textMessage && (
+                      <div className={`mt-4 rounded-2xl border p-4 text-xs leading-relaxed ${isLight ? 'bg-gray-50 border-gray-200 text-gray-800' : 'bg-black/30 border-white/5 text-slate-200'
+                        }`}>
+                        <p className="whitespace-pre-wrap">{delivery.textMessage}</p>
+                      </div>
+                    )}
+
+                    {/* Media / File Content */}
+                    <div className="mt-4">
+                      {/* Photo / Images */}
+                      {isPhoto && (
+                        <div className="space-y-3">
+                          {delivery.fileUrl && (
+                            <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
+                              }`}>
+                              <img
+                                src={delivery.fileUrl}
+                                alt={delivery.title}
+                                className="w-full object-cover max-h-96 cursor-pointer"
+                                onClick={() => setLightboxImg(delivery.fileUrl || null)}
+                              />
+                              <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
+                                <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
+                                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download Photo</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {delivery.mediaUrls && delivery.mediaUrls.length > 1 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                              {delivery.mediaUrls.map((url, uIdx) => (
+                                <div
+                                  key={uIdx}
+                                  className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black cursor-pointer"
+                                  onClick={() => setLightboxImg(url)}
+                                >
+                                  <img src={url} alt={`Asset ${uIdx + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Video */}
+                      {isVideo && delivery.fileUrl && (
+                        <div className="max-w-xl space-y-2">
+                          <video
+                            src={delivery.fileUrl}
+                            controls
+                            className="w-full rounded-2xl border border-white/10 bg-black max-h-96"
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'video.mp4')}
+                              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download Video</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ZIP Archive */}
+                      {isZip && (
+                        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
+                          }`}>
+                          <div className="flex items-center gap-3 truncate">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                              <FileArchive className="w-5 h-5" />
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-amber-500 truncate">{delivery.fileName || 'Studio-Package.zip'}</p>
+                              {delivery.fileSize ? (
+                                <p className="text-[10px] opacity-60">
+                                  Size: {(delivery.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          {delivery.fileUrl && (
+                            <a
+                              href={delivery.fileUrl}
+                              download={delivery.fileName || 'Studio-Package.zip'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download ZIP</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Folder */}
+                      {isFolder && (
+                        <div className={`p-4 rounded-2xl border space-y-3 ${isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/25'
+                          }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                              <Folder className="w-4 h-4" />
+                              <span>{delivery.fileName || 'Folder Asset Collection'}</span>
+                            </div>
+                            {delivery.fileUrl && (
+                              <a
+                                href={delivery.fileUrl}
+                                download={delivery.fileName || 'Folder-Assets.zip'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download Folder</span>
+                              </a>
+                            )}
+                          </div>
+                          {delivery.mediaUrls && delivery.mediaUrls.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10">
+                              {delivery.mediaUrls.map((url, uIdx) => (
+                                <a
+                                  key={uIdx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-2 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 flex items-center justify-between text-[11px] truncate text-slate-300"
+                                >
+                                  <span className="truncate">File {uIdx + 1}</span>
+                                  <Download className="w-3 h-3 shrink-0 opacity-60" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2976,7 +3271,7 @@ function VideoStudioPanel({
             aspectRatio,
           }).then((res) => {
             onGenerationSaved?.(res);
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
         if (next.status === 'failed') {
@@ -3145,11 +3440,10 @@ function VideoStudioPanel({
       )}
 
       {/* Banner */}
-      <div className={`relative overflow-hidden rounded-3xl border p-8 ${
-        isLight
+      <div className={`relative overflow-hidden rounded-3xl border p-8 ${isLight
           ? 'border-red-200 bg-red-50/50 shadow-sm'
           : 'border-[#e5373f]/30 bg-[#e5373f]/10'
-      }`}>
+        }`}>
         <div className="max-w-2xl">
           <span className="inline-block rounded-full bg-[#e5373f] px-3.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
             Runway motion &middot; 60fps
@@ -3165,21 +3459,19 @@ function VideoStudioPanel({
       </div>
 
       {/* Monthly Video Quota Banner */}
-      <div className={`mt-6 rounded-2xl border p-5 transition-all ${
-        isLimitReached
+      <div className={`mt-6 rounded-2xl border p-5 transition-all ${isLimitReached
           ? isLight ? 'border-red-300 bg-red-50 text-red-950' : 'border-rose-500/40 bg-rose-950/20 text-rose-200'
           : isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'
-      }`}>
+        }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Film className="h-4 w-4 text-current/70" />
               <h3 className="text-sm font-semibold">Monthly Video Quota</h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${
-                isLimitReached
+              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${isLimitReached
                   ? 'bg-rose-500 text-white'
                   : isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/10 text-white/70'
-              }`}>
+                }`}>
                 {videosGenerated} of {maxVideos > 0 ? maxVideos : 'Unlimited'} Videos Used
               </span>
             </div>
@@ -3228,11 +3520,10 @@ function VideoStudioPanel({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${
-                isLight
+              className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${isLight
                   ? 'border-gray-300 bg-gray-50 hover:border-gray-400'
                   : 'border-white/20 bg-black/40 hover:border-white/40'
-              }`}
+                }`}
             >
               {videoImg ? (
                 <img src={videoImg} alt="Source" className="h-full w-auto object-contain" />
@@ -3256,11 +3547,10 @@ function VideoStudioPanel({
               onChange={(e) => setVideoPrompt(e.target.value)}
               rows={3}
               placeholder="e.g. Model walks briskly down an asphalt track, dynamic camera tracking shot, zoom in on jersey logo"
-              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
-                isLight
+              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight
                   ? 'border-gray-300 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-400'
                   : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
-              }`}
+                }`}
             />
           </div>
 
@@ -3277,21 +3567,19 @@ function VideoStudioPanel({
                     key={item.id}
                     type="button"
                     onClick={() => setAspectRatio(item.id as typeof aspectRatio)}
-                    className={`rounded-2xl border p-3 text-left transition-all ${
-                      active
+                    className={`rounded-2xl border p-3 text-left transition-all ${active
                         ? isLight
                           ? 'border-[#e5373f] bg-red-50/60 ring-2 ring-[#e5373f]/20'
                           : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/30'
                         : isLight
                           ? 'border-gray-200 bg-gray-50 hover:border-gray-300'
                           : 'border-white/10 bg-black/40 hover:border-white/25'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-base">{item.icon}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        active ? 'bg-[#e5373f] text-white' : (isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60')
-                      }`}>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${active ? 'bg-[#e5373f] text-white' : (isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60')
+                        }`}>
                         {item.id}
                       </span>
                     </div>
@@ -3312,11 +3600,10 @@ function VideoStudioPanel({
               <button
                 type="button"
                 onClick={() => setDuration(5)}
-                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${
-                  duration === 5
+                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 5
                     ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
                     : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-                }`}
+                  }`}
               >
                 <span className="block text-xs font-bold">5 Seconds</span>
                 <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -3326,11 +3613,10 @@ function VideoStudioPanel({
               <button
                 type="button"
                 onClick={() => setDuration(10)}
-                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${
-                  duration === 10
+                className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 10
                     ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
                     : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-                }`}
+                  }`}
               >
                 <span className="block text-xs font-bold">10 Seconds</span>
                 <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -3344,9 +3630,8 @@ function VideoStudioPanel({
           </div>
 
           {/* Credit & Quota Status */}
-          <div className={`rounded-xl border p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs ${
-            isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
-          }`}>
+          <div className={`rounded-xl border p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/40 text-white/70'
+            }`}>
             <div>
               <span>Account balance: <strong className={isLight ? 'text-amber-950 font-semibold' : 'text-amber-500'}>{userCredits} credits</strong></span>
             </div>
@@ -3360,8 +3645,7 @@ function VideoStudioPanel({
             type="button"
             onClick={() => handleInitiateClick(false)}
             disabled={isBusy || isLocked || isLimitReached || !hasEnoughCredits}
-            className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-              isBusy
+            className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isBusy
                 ? isLight ? 'cursor-wait bg-gray-300 text-gray-700' : 'cursor-wait bg-gray-700 text-white opacity-80'
                 : isLocked
                   ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/30 text-rose-300 border border-rose-500/30'
@@ -3370,7 +3654,7 @@ function VideoStudioPanel({
                     : !hasEnoughCredits
                       ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
-            }`}
+              }`}
           >
             {isBusy
               ? 'Generation in progress…'
@@ -3384,18 +3668,16 @@ function VideoStudioPanel({
           </button>
 
           {error && (
-            <p className={`rounded-xl border p-3 text-center text-xs ${
-              isLight ? 'border-red-300 bg-red-50 text-red-700' : 'border-red-500/30 bg-red-500/10 text-red-400'
-            }`}>
+            <p className={`rounded-xl border p-3 text-center text-xs ${isLight ? 'border-red-300 bg-red-50 text-red-700' : 'border-red-500/30 bg-red-500/10 text-red-400'
+              }`}>
               {error}
             </p>
           )}
         </div>
 
         {/* Video Preview Canvas */}
-        <div className={`flex flex-col items-center justify-center rounded-3xl border p-8 text-center ${
-          isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
-        }`}>
+        <div className={`flex flex-col items-center justify-center rounded-3xl border p-8 text-center ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
+          }`}>
           {videoResult ? (
             <div className="space-y-4 w-full max-w-sm">
               <video
@@ -3404,9 +3686,8 @@ function VideoStudioPanel({
                 autoPlay
                 loop
                 playsInline
-                className={`w-full rounded-2xl object-cover shadow-2xl border border-white/20 mx-auto ${
-                  aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
-                }`}
+                className={`w-full rounded-2xl object-cover shadow-2xl border border-white/20 mx-auto ${aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
+                  }`}
               />
               <div className="flex flex-col gap-2">
                 <a
@@ -3419,13 +3700,12 @@ function VideoStudioPanel({
                 <button
                   type="button"
                   onClick={() => setIsVideoEditOpen(!isVideoEditOpen)}
-                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-                    isVideoEditOpen
+                  className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isVideoEditOpen
                       ? 'bg-[#e5373f] text-white border-[#e5373f]'
                       : isLight
                         ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
                         : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
-                  }`}
+                    }`}
                 >
                   {isVideoEditOpen ? 'Close video edit' : 'Edit this video'}
                 </button>
@@ -3443,9 +3723,8 @@ function VideoStudioPanel({
 
               {/* POST-VIDEO EDIT PANEL */}
               {isVideoEditOpen && (
-                <div className={`mt-4 rounded-2xl border p-4 text-left space-y-3 transition-all ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}>
+                <div className={`mt-4 rounded-2xl border p-4 text-left space-y-3 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}>
                   <div className="flex items-center justify-between border-b pb-2 border-current/10">
                     <div className="flex items-center gap-2">
                       <Film className="h-4 w-4 text-current/70" />
@@ -3474,11 +3753,10 @@ function VideoStudioPanel({
                       onChange={(e) => setVideoEditPrompt(e.target.value)}
                       rows={2}
                       placeholder="e.g. Add subtle camera orbit, enhance stadium lighting on track, highlight brand insignia"
-                      className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${
-                        isLight
+                      className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
                           ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-gray-500'
                           : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
-                      }`}
+                        }`}
                     />
                   </div>
 
@@ -3516,9 +3794,8 @@ function VideoStudioPanel({
                       <button
                         type="button"
                         onClick={() => videoEditFileInput.current?.click()}
-                        className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${
-                          isLight ? 'border-gray-300 bg-white hover:border-gray-400 text-gray-700' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
-                        }`}
+                        className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:border-gray-400 text-gray-700' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                          }`}
                       >
                         + Add Overlay / Reference Image (Optional)
                       </button>
@@ -3549,9 +3826,8 @@ function VideoStudioPanel({
               </div>
             </div>
           ) : (
-            <div className={`relative w-64 overflow-hidden rounded-2xl border border-white/15 bg-black/80 flex items-center justify-center shadow-2xl ${
-              aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
-            }`}>
+            <div className={`relative w-64 overflow-hidden rounded-2xl border border-white/15 bg-black/80 flex items-center justify-center shadow-2xl ${aspectRatio === '16:9' ? 'aspect-[16/9]' : aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'
+              }`}>
               {videoImg ? (
                 <img src={videoImg} alt="Preview" className="h-full w-full object-cover opacity-60" />
               ) : (
@@ -3586,7 +3862,7 @@ export default function Design() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch { }
     return [];
   });
   const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
@@ -3600,6 +3876,7 @@ export default function Design() {
 
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
   const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'video'>('studio');
@@ -3785,7 +4062,7 @@ export default function Design() {
       if (res.refunded && typeof res.refundedCredits === 'number') {
         setUser((prev) => (prev ? { ...prev, credits: prev.credits + res.refundedCredits } : null));
       }
-      void api.unlockUser().catch(() => {});
+      void api.unlockUser().catch(() => { });
       activePoseIndexRef.current = -1;
       batchPayloadRef.current = null;
       setJob(null);
@@ -4054,6 +4331,15 @@ export default function Design() {
     }
   }, []);
 
+  const loadDeliveriesUnread = useCallback(async () => {
+    try {
+      const res = await api.getUserDeliveries();
+      setDeliveriesUnreadCount(res.unreadCount || 0);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
   const loadUserGenerations = useCallback(async () => {
     setLoadingGenerations(true);
     try {
@@ -4089,7 +4375,7 @@ export default function Design() {
           setCategories(m.categories);
           try {
             localStorage.setItem('cached_studio_models', JSON.stringify(m.categories));
-          } catch {}
+          } catch { }
         }
       });
 
@@ -4126,7 +4412,7 @@ export default function Design() {
 
       setError('');
       setUser(me);
-      void api.unlockUser().catch(() => {});
+      void api.unlockUser().catch(() => { });
 
       if (me.tier && me.tier !== 'free') {
         setQuality('2k');
@@ -4139,6 +4425,7 @@ export default function Design() {
         loadUploads(),
         loadUploadSets(),
         loadCustomRequests(),
+        loadDeliveriesUnread(),
         loadUserGenerations(),
       ]);
     })();
@@ -4146,7 +4433,7 @@ export default function Design() {
     return () => {
       cancelled = true;
     };
-  }, [loadUploadSets, loadCustomRequests, loadUserGenerations, loadUploads]);
+  }, [loadUploadSets, loadCustomRequests, loadDeliveriesUnread, loadUserGenerations, loadUploads]);
 
   /* Poll job */
   useEffect(() => {
@@ -4187,7 +4474,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
-            }).catch(() => {});
+            }).catch(() => { });
 
             // Find next uncancelled pending item in batch sequence
             let nextItemIdx = -1;
@@ -4286,7 +4573,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
 
@@ -4677,9 +4964,8 @@ export default function Design() {
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${
-      isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
-    }`}>
+    <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
+      }`}>
       {/* 2K Resolution Tier Lock Modal */}
       {showTierLockModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
@@ -4871,18 +5157,16 @@ export default function Design() {
       )}
 
       {/* Main Studio Header */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
-      }`}>
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
+        }`}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
           <div className="flex items-center gap-3">
             <a href="/" className={`flex items-center gap-2 text-xs font-semibold tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
               <img src="/brand-mark-white.png" alt="Shiv-Naresh" className={`h-4 w-auto ${isLight ? 'invert' : ''}`} />
               SHIV-NARESH
             </a>
-            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${
-              isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
-            }`}>
+            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
+              }`}>
               STUDIO
             </span>
           </div>
@@ -4899,13 +5183,12 @@ export default function Design() {
             >
               <span>{user ? user.credits : 10} credits</span>
               {user?.tier && (
-                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${
-                  user.tier === 'ultra' || user.tier === 'enterprise'
+                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
                     ? 'bg-purple-500/30 text-purple-400'
                     : user.tier === 'pro'
                       ? 'bg-blue-500/30 text-blue-400'
                       : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
-                }`}>
+                  }`}>
                   {user.tier}
                 </span>
               )}
@@ -4921,11 +5204,10 @@ export default function Design() {
               <button
                 type="button"
                 onClick={() => setShowProfileModal(true)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                  isLight
+                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${isLight
                     ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
-                }`}
+                  }`}
                 title="View & Edit Profile"
               >
                 {user.avatar ? (
@@ -4951,11 +5233,10 @@ export default function Design() {
                 setToken('');
                 window.location.replace('/login');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
-                isLight
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
                   ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
                   : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
-              }`}
+                }`}
               title="Sign out of your account"
             >
               <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4974,7 +5255,11 @@ export default function Design() {
             {[
               { id: 'studio', label: 'Studio Canvas' },
               { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
-              { id: 'custom-requests', label: 'Custom Requests' + (customRequests.length ? ` (${customRequests.length})` : '') },
+              {
+                id: 'custom-requests',
+                label: 'Custom Requests' + (customRequests.length ? ` (${customRequests.length})` : ''),
+                unread: deliveriesUnreadCount,
+              },
               { id: 'video', label: 'Video Studio' },
             ].map((v) => (
               <button
@@ -4984,16 +5269,21 @@ export default function Design() {
                   setPageView(v.id as typeof pageView);
                   if (v.id === 'custom-requests') {
                     void loadCustomRequests();
-                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+                    void loadDeliveriesUnread();
+                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
                   }
                 }}
-                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap ${
-                  pageView === v.id
+                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap flex items-center gap-1.5 ${pageView === v.id
                     ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
                     : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
-                }`}
+                  }`}
               >
-                {v.label}
+                <span>{v.label}</span>
+                {Boolean(v.unread && v.unread > 0) && (
+                  <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white animate-pulse">
+                    {v.unread} New
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -5049,13 +5339,15 @@ export default function Design() {
           loading={loadingRequests}
           onRefresh={() => {
             void loadCustomRequests();
-            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => {});
+            void loadDeliveriesUnread();
+            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
           }}
           creditsLocked={isLocked}
           customRequestsLocked={
             !(user?.tier === 'ultra' || user?.features?.customRequests === true)
           }
           isLight={isLight}
+          onUnreadCleared={() => setDeliveriesUnreadCount(0)}
         />
       )}
 
@@ -5092,15 +5384,14 @@ export default function Design() {
                     key={m.id}
                     type="button"
                     onClick={() => setMode(m.id)}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${
-                      active
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${active
                         ? isLight
                           ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
                           : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
                         : isLight
                           ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
                           : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {m.label}
                   </button>
@@ -5109,9 +5400,8 @@ export default function Design() {
             </div>
 
             {/* Resolution / Quality & 5-Pose Mode Pickers */}
-            <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${
-              isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
-            }`}>
+            <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+              }`}>
               <div>
                 <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
                   Render Quality
@@ -5120,11 +5410,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => setQuality('1k')}
-                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${
-                      quality === '1k'
+                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${quality === '1k'
                         ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                         : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                    }`}
+                      }`}
                   >
                     1K Standard
                   </button>
@@ -5132,17 +5421,15 @@ export default function Design() {
                     <button
                       type="button"
                       onClick={() => setQuality('2k')}
-                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                        quality === '2k'
+                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
                           ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                           : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
+                        }`}
                       title="Switch to 2K Ultra HD (Exclusive Ultra Plan Feature)"
                     >
                       <span>2K Ultra HD</span>
-                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${
-                        isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                      }`}>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                        }`}>
                         Ultra
                       </span>
                     </button>
@@ -5160,11 +5447,10 @@ export default function Design() {
                       <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
                         Model Swap Drafts (Up to 5 Simultaneous Swaps)
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
-                        validSwapDrafts.length > 0
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${validSwapDrafts.length > 0
                           ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                           : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
-                      }`}>
+                        }`}>
                         {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
                       </span>
                     </div>
@@ -5187,13 +5473,12 @@ export default function Design() {
                       return (
                         <div
                           key={draft.id}
-                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${
-                            isActive
+                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${isActive
                               ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
                               : isComplete
-                              ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
-                              : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
-                          }`}
+                                ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
+                                : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                            }`}
                         >
                           <button
                             type="button"
@@ -5263,11 +5548,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => swapSourceInput.current?.click()}
-                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${
-                      isLight
+                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${isLight
                         ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                         : 'border-white/15 hover:border-white/35'
-                    }`}
+                      }`}
                   >
                     {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
                       <img
@@ -5377,11 +5661,10 @@ export default function Design() {
                                 key={item.id}
                                 type="button"
                                 onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                                className={`overflow-hidden rounded-md border transition ${
-                                  (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
                                     ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
                                     : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                                }`}
+                                  }`}
                               >
                                 <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
                               </button>
@@ -5398,11 +5681,10 @@ export default function Design() {
                               key={item.url || idx}
                               type="button"
                               onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                              className={`overflow-hidden rounded-md border transition ${
-                                (swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                              className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                   : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                              }`}
+                                }`}
                             >
                               <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
                             </button>
@@ -5431,11 +5713,10 @@ export default function Design() {
                     }}
                     rows={3}
                     placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
-                      isLight
+                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
                         ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                    }`}
+                      }`}
                   />
                 </div>
               </>
@@ -5478,11 +5759,10 @@ export default function Design() {
                           type="button"
                           onClick={() => setTryOnTarget(opt.id)}
                           title={opt.hint}
-                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${
-                            tryOnTarget === opt.id
+                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${tryOnTarget === opt.id
                               ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
                               : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
-                          }`}
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -5538,9 +5818,8 @@ export default function Design() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {(classifiedGarments.length > 0 ? classifiedGarments : (cloth ? [{ url: cloth.url, preview: cloth.preview || cloth.url, name: cloth.name, role: 'top-front' as GarmentRole }] : [])).map((garment) => {
                           return (
-                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${
-                              isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
-                            }`}>
+                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
+                              }`}>
                               <div className="aspect-[3/4] relative">
                                 <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-cover" />
                                 <button
@@ -5558,9 +5837,8 @@ export default function Design() {
                                 <select
                                   value={garment.role}
                                   onChange={(e) => updateGarmentRole(garment.url, e.target.value as GarmentRole)}
-                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${
-                                    isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
-                                  }`}
+                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
+                                    }`}
                                   title="Specify garment view angle"
                                 >
                                   <option value="top-front">👕 Top Front</option>
@@ -5581,9 +5859,8 @@ export default function Design() {
                                     value={garment.customLabel || ''}
                                     onChange={(e) => updateGarmentCustomLabel(garment.url, e.target.value)}
                                     placeholder="e.g. Collar, Pocket"
-                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${
-                                      isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
-                                    }`}
+                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                                      }`}
                                   />
                                 )}
                               </div>
@@ -5595,9 +5872,8 @@ export default function Design() {
                           type="button"
                           onClick={handleInitiateClothUpload}
                           disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                            isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                          }`}
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                            }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                           <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add More</span>
@@ -5607,9 +5883,8 @@ export default function Design() {
 
                       {/* Full Outfit Visual Pairing & Quick Swap */}
                       {tryOnTarget === 'both' && (
-                        <div className={`rounded-2xl border p-3.5 space-y-3 ${
-                          isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
-                        }`}>
+                        <div className={`rounded-2xl border p-3.5 space-y-3 ${isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
+                          }`}>
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
                               ✨ Full Outfit Pair (1 Credit per Finished Model)
@@ -5699,9 +5974,8 @@ export default function Design() {
                         type="button"
                         onClick={handleInitiateClothUpload}
                         disabled={uploading}
-                        className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${
-                          isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
-                        }`}
+                        className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
+                          }`}
                       >
                         {uploading && uploadProgress?.kind === 'cloth' ? (
                           <div className="flex items-center gap-3 w-full py-1">
@@ -5755,17 +6029,15 @@ export default function Design() {
                                 addClassifiedGarment(pick);
                                 setCloth(pick);
                               }}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
-                                isSelected
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60'
                                   : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                              }`}
+                                }`}
                               title={`Add ${item.name} to garment views`}
                             >
                               <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${
-                                isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
-                              }`}>
+                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
+                                }`}>
                                 {isSelected ? '✓' : '+'}
                               </span>
                             </button>
@@ -5808,11 +6080,10 @@ export default function Design() {
                       value={garmentColor}
                       onChange={(e) => setGarmentColor(e.target.value)}
                       placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
-                        isLight
+                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight
                           ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                           : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
-                      }`}
+                        }`}
                     />
                   </div>
                   {/* Athletic Quick Swatches */}
@@ -5831,13 +6102,12 @@ export default function Design() {
                         key={sw.name}
                         type="button"
                         onClick={() => setGarmentColor(`${sw.name} (${sw.hex})`)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${
-                          garmentColor.includes(sw.hex)
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${garmentColor.includes(sw.hex)
                             ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
                             : isLight
                               ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                               : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
-                        }`}
+                          }`}
                       >
                         <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: sw.hex }} />
                         <span>{sw.name}</span>
@@ -5940,18 +6210,16 @@ export default function Design() {
                             <div
                               key={idx}
                               onClick={() => setModel(item)}
-                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${
-                                isCurrent
+                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${isCurrent
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
                                   : isLight
                                     ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
                                     : 'border-white/15 bg-black/40 hover:border-white/30'
-                              }`}
+                                }`}
                             >
                               <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
-                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
-                              }`}>
+                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
+                                }`}>
                                 {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
                               </span>
                               <button
@@ -5976,11 +6244,10 @@ export default function Design() {
                           type="button"
                           onClick={() => modelInput.current?.click()}
                           disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${
-                            isLight
+                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
                               ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
                               : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                          }`}
+                            }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
                           <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
@@ -6032,11 +6299,10 @@ export default function Design() {
                               key={item.url || idx}
                               type="button"
                               onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${
-                                isSelected
+                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                   : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                              }`}
+                                }`}
                               title={`Select ${item.name}`}
                             >
                               <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
@@ -6054,9 +6320,8 @@ export default function Design() {
 
                   {/* Athlete Sports Equipment & Prop Preservation Notice */}
                   {effectiveModels.length > 0 && (
-                    <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${
-                      isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
-                    }`}>
+                    <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+                      }`}>
                       <span className="text-sm shrink-0">🏀</span>
                       <div>
                         <span className="font-bold">Athletic Prop & Pose Guide:</span>
@@ -6082,13 +6347,12 @@ export default function Design() {
                                   key={item.id}
                                   type="button"
                                   onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                  className={`group relative overflow-hidden rounded-md border transition ${
-                                    isSelected
+                                  className={`group relative overflow-hidden rounded-md border transition ${isSelected
                                       ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                       : isLight
                                         ? 'border-gray-200 hover:border-gray-400'
                                         : 'border-transparent hover:border-white/30'
-                                  }`}
+                                    }`}
                                 >
                                   <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
                                   {isSelected && (
@@ -6115,13 +6379,12 @@ export default function Design() {
                                 key={item.url || idx}
                                 type="button"
                                 onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                className={`group relative overflow-hidden rounded-md border transition ${
-                                  isSelected
+                                className={`group relative overflow-hidden rounded-md border transition ${isSelected
                                     ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                     : isLight
                                       ? 'border-gray-200 hover:border-gray-400'
                                       : 'border-transparent hover:border-white/30'
-                                }`}
+                                  }`}
                               >
                                 <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
                                 {isSelected && (
@@ -6158,11 +6421,10 @@ export default function Design() {
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={3}
                     placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${
-                      isLight
+                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
                         ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                         : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                    }`}
+                      }`}
                   />
                 </div>
               </>
@@ -6184,27 +6446,26 @@ export default function Design() {
                   if (canRun) setShowConfirmModal(true);
                 }}
                 disabled={!canRun || isGlobalBusy}
-                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${
-                  isLocked
+                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
                     ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
                     : isGlobalBusy
-                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : canRun
-                    ? isLight
-                      ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
-                      : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
-                    : isLight
-                    ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                    : 'cursor-not-allowed bg-white/20 text-white/40'
-                }`}
+                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : canRun
+                        ? isLight
+                          ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                          : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
+                        : isLight
+                          ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                          : 'cursor-not-allowed bg-white/20 text-white/40'
+                  }`}
               >
                 {isLocked
                   ? 'Credits locked by administrator'
                   : isGlobalBusy
-                  ? 'Generation in Progress (Please wait)…'
-                  : mode === 'swap'
-                  ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                  : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+                    ? 'Generation in Progress (Please wait)…'
+                    : mode === 'swap'
+                      ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                      : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
@@ -6305,13 +6566,12 @@ export default function Design() {
                               setSelectedPoseIndex(idx);
                               if (pose.url) setResult(pose.url);
                             }}
-                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${
-                              isSelected
+                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
                                 ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
                                 : isLight
                                   ? 'border-gray-300 bg-white hover:bg-gray-50'
                                   : 'border-white/10 bg-black/40 hover:border-white/20'
-                            }`}
+                              }`}
                           >
                             {pose.url ? (
                               <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
@@ -6397,11 +6657,10 @@ export default function Design() {
                   <button
                     type="button"
                     onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${
-                      isLight
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${isLight
                         ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                    }`}
+                      }`}
                   >
                     ⬇️ Download {fivePoseItems.length > 1 ? 'Selected Pose' : 'Render'}
                   </button>
@@ -6412,11 +6671,10 @@ export default function Design() {
                       setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.id || 'photoshoot-render');
                       setShowZoomCropModal(true);
                     }}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${
-                      isLight
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${isLight
                         ? 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                         : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/60'
-                    }`}
+                      }`}
                     title="Pan, zoom, and export exact 1807×3000 crop"
                   >
                     <Maximize2 size={13} />
@@ -6443,24 +6701,22 @@ export default function Design() {
                     href={result}
                     target="_blank"
                     rel="noreferrer"
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${
-                      isLight
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${isLight
                         ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                         : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                    }`}
+                      }`}
                   >
                     Open New Tab
                   </a>
                   <button
                     type="button"
                     onClick={() => setIsEditOpen((prev) => !prev)}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
-                      isEditOpen
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${isEditOpen
                         ? 'bg-[#e5373f] text-white border-[#e5373f]'
                         : isLight
                           ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
                           : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
-                    }`}
+                      }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
                   </button>
@@ -6470,11 +6726,10 @@ export default function Design() {
                       setResult(null);
                       setFivePoseItems([]);
                     }}
-                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${
-                      isLight
+                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${isLight
                         ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
                         : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
-                    }`}
+                      }`}
                     title="Clear this preview from canvas"
                   >
                     Clear Preview
@@ -6484,9 +6739,8 @@ export default function Design() {
 
               {/* EDIT PANEL (Placed underneath generated image in Result Canvas) */}
               {result && isEditOpen && (
-                <div className={`border-t p-4 transition-all ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
-                }`}>
+                <div className={`border-t p-4 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
+                  }`}>
                   <div className="flex items-center justify-between border-b pb-2 mb-3 border-current/10">
                     <div className="flex items-center gap-2">
                       <Sliders className="h-4 w-4 text-current/70" />
@@ -6551,9 +6805,8 @@ export default function Design() {
                         <button
                           type="button"
                           onClick={() => editRefInput.current?.click()}
-                          className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${
-                            isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
-                          }`}
+                          className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                            }`}
                         >
                           + Add Reference Image (Optional)
                         </button>
@@ -6570,11 +6823,10 @@ export default function Design() {
                         onChange={(e) => setEditPrompt(e.target.value)}
                         rows={2}
                         placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
-                        className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${
-                          isLight
+                        className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
                             ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
                             : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
-                        }`}
+                          }`}
                       />
                     </div>
 

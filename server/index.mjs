@@ -42,6 +42,7 @@ const COLLECTIONS_FILE = path.join(DATA, 'collections.json');
 const HOSTED_FILE = path.join(DATA, 'hosted.json');
 const UPLOAD_SETS_FILE = path.join(DATA, 'upload-sets.json');
 const CUSTOM_REQUESTS_FILE = path.join(DATA, 'custom-requests.json');
+const ADMIN_DELIVERIES_FILE = path.join(DATA, 'admin_deliveries.json');
 const SYSTEM_LOGS_FILE = path.join(DATA, 'system_logs.json');
 const GENERATIONS_FILE = path.join(DATA, 'generations.json');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -183,7 +184,7 @@ export const DEFAULT_PLANS = {
     priceINR: 0,
     credits: 100, // 100 credits for rapid experimentation
     tier: 'ultra',
-    maxVideos: 20,
+    maxVideos: 6,
     maxModels: 100,
     photoshoots: 100,
     photoshootRule: '1 photoshoot = 6 poses',
@@ -360,6 +361,40 @@ const writeCustomRequests = async (items) => {
       for (const item of items) {
         if (!item.id) continue;
         await db.collection('custom_requests').updateOne(
+          { id: item.id },
+          { $set: item },
+          { upsert: true }
+        );
+      }
+    }
+  } catch {}
+};
+
+const readAdminDeliveries = async () => {
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const items = await db.collection('admin_deliveries').find().sort({ createdAt: -1 }).toArray();
+      if (items && items.length > 0) {
+        return items.map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+      }
+    }
+  } catch {}
+  return readJson(ADMIN_DELIVERIES_FILE, []);
+};
+
+const writeAdminDeliveries = async (items) => {
+  await writeJson(ADMIN_DELIVERIES_FILE, items);
+  try {
+    const db = await getMongoDb();
+    if (db && Array.isArray(items)) {
+      for (const item of items) {
+        if (!item.id) continue;
+        await db.collection('admin_deliveries').updateOne(
           { id: item.id },
           { $set: item },
           { upsert: true }
@@ -3881,6 +3916,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
       adminReply: '',
       deliveredImageUrl: '',
       deliveredAt: null,
+      readByAdmin: false,
     };
 
     const all = await readCustomRequests();
@@ -4201,6 +4237,175 @@ app.put('/api/admin/custom-requests/:id', requireAdmin, async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------- Custom Studio Deliveries & Dispatch */
+app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
+  try {
+    const all = await readAdminDeliveries();
+    const userId = String(req.user._id || req.user.id || '');
+    const userEmail = String(req.user.email || '').trim().toLowerCase();
+
+    const items = all.filter((d) => {
+      const matchId = d.recipientUserId && d.recipientUserId === userId;
+      const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
+      return matchId || matchEmail;
+    });
+
+    items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const unreadCount = items.filter((d) => d.readByUser === false).length;
+
+    res.json({ items, unreadCount });
+  } catch (err) {
+    res.status(500).json({ error: 'fetch_deliveries_failed', message: err.message });
+  }
+});
+
+app.post('/api/user/deliveries/mark-read', auth.requireUser, async (req, res) => {
+  try {
+    const all = await readAdminDeliveries();
+    const userId = String(req.user._id || req.user.id || '');
+    const userEmail = String(req.user.email || '').trim().toLowerCase();
+    let updated = false;
+
+    for (const d of all) {
+      const matchId = d.recipientUserId && d.recipientUserId === userId;
+      const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
+      if ((matchId || matchEmail) && d.readByUser === false) {
+        d.readByUser = true;
+        updated = true;
+      }
+    }
+
+    if (updated) await writeAdminDeliveries(all);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'mark_read_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/custom-requests/mark-read', requireAdmin, async (_req, res) => {
+  try {
+    const all = await readCustomRequests();
+    let updated = false;
+    for (const r of all) {
+      if (r.readByAdmin === false) {
+        r.readByAdmin = true;
+        updated = true;
+      }
+    }
+    if (updated) await writeCustomRequests(all);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'mark_read_failed', message: err.message });
+  }
+});
+
+app.get('/api/admin/deliveries', requireAdmin, async (_req, res) => {
+  try {
+    const all = await readAdminDeliveries();
+    all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    res.json({ items: all, total: all.length });
+  } catch (err) {
+    res.status(500).json({ error: 'fetch_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const {
+      recipientUserId,
+      recipientEmail,
+      recipientName,
+      type = 'photo', // 'photo' | 'video' | 'zip' | 'folder' | 'text'
+      title,
+      textMessage,
+      file,
+      fileName,
+      fileType,
+      fileSize,
+      mediaUrls = [],
+    } = body;
+
+    if (!recipientEmail && !recipientUserId) {
+      return res.status(400).json({ error: 'missing_recipient', message: 'Please select a recipient user.' });
+    }
+
+    let finalFileUrl = '';
+    let finalFileName = fileName || '';
+    let finalFileSize = fileSize || 0;
+
+    if (typeof file === 'string' && file.startsWith('data:')) {
+      const match = /^data:([^;]+);base64,(.+)$/.exec(file);
+      if (match) {
+        const mime = match[1];
+        const rawBuf = Buffer.from(match[2], 'base64');
+        const safeName = (fileName || `delivery-${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filename = `dispatch-${Date.now()}-${safeName}`;
+        await fs.writeFile(path.join(UPLOADS, filename), rawBuf);
+        finalFileUrl = `/uploads/${filename}`;
+        finalFileName = fileName || safeName;
+        finalFileSize = rawBuf.length;
+
+        // Try CDN backup if image
+        if (mime.startsWith('image/')) {
+          try {
+            const cdn = await uploadToCloudinary(file, recipientUserId || 'delivery', `del-${Date.now()}`);
+            if (cdn?.url) finalFileUrl = cdn.url;
+          } catch {}
+        }
+      }
+    } else if (typeof file === 'string' && file.trim()) {
+      finalFileUrl = file.trim();
+    }
+
+    const allMedia = Array.isArray(mediaUrls) ? mediaUrls.filter(Boolean) : [];
+    if (finalFileUrl && !allMedia.includes(finalFileUrl)) {
+      allMedia.unshift(finalFileUrl);
+    }
+
+    const newDelivery = {
+      id: `del_${crypto.randomUUID()}`,
+      recipientUserId: String(recipientUserId || '').trim(),
+      recipientEmail: String(recipientEmail || '').trim().toLowerCase(),
+      recipientName: String(recipientName || '').trim(),
+      senderEmail: req.user.email,
+      type: String(type || 'photo'), // 'photo' | 'video' | 'zip' | 'folder' | 'text'
+      title: String(title || (type === 'text' ? 'Message from Studio' : `${type.toUpperCase()} Delivery`)).trim(),
+      textMessage: String(textMessage || '').trim(),
+      fileUrl: finalFileUrl,
+      fileName: finalFileName,
+      fileSize: finalFileSize,
+      mediaUrls: allMedia,
+      readByUser: false,
+      createdAt: Date.now(),
+    };
+
+    const all = await readAdminDeliveries();
+    all.unshift(newDelivery);
+    await writeAdminDeliveries(all);
+
+    res.status(201).json(newDelivery);
+  } catch (err) {
+    console.error('[admin-deliveries] Dispatch error:', err);
+    res.status(500).json({ error: 'dispatch_failed', message: err.message });
+  }
+});
+
+app.delete('/api/admin/deliveries/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const all = await readAdminDeliveries();
+    const filtered = all.filter((d) => d.id !== id);
+    if (filtered.length === all.length) {
+      return res.status(404).json({ error: 'not_found', message: 'Delivery not found.' });
+    }
+    await writeAdminDeliveries(filtered);
+    res.json({ ok: true, message: 'Delivery deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'delete_failed', message: err.message });
+  }
+});
+
 /* ---------------------------------------------------- admin user management */
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   try {
@@ -4306,7 +4511,7 @@ app.post('/api/admin/users/:id/tier', requireAdmin, async (req, res) => {
       },
     };
     if (tier === 'ultra') {
-      if ((user.maxVideos || 0) < 20) patch.maxVideos = 20;
+      if ((user.maxVideos || 0) < 6) patch.maxVideos = 6;
       if ((user.maxModels || 0) < 100) patch.maxModels = 100;
     } else if (tier === 'pro') {
       if ((user.maxVideos || 0) < 4) patch.maxVideos = 4;
@@ -4370,7 +4575,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     }
 
     if (targetTier === 'ultra') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 20) patch.maxVideos = 20;
+      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 6) patch.maxVideos = 6;
       if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 100) patch.maxModels = 100;
     } else if (targetTier === 'pro') {
       if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 4) patch.maxVideos = 4;

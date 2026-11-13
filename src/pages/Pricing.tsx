@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Check, ShieldCheck, Zap, Building2, HelpCircle, ArrowRight, QrCode, MessageSquare, AlertCircle, ExternalLink, X, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  Check,
+  ShieldCheck,
+  Zap,
+  Building2,
+  HelpCircle,
+  ArrowRight,
+  MessageSquare,
+  AlertCircle,
+  ExternalLink,
+  X,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  FileText,
+  Copy,
+} from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import SiteFooter from '../components/SiteFooter';
 import { api, type GatewayConfig, type GatewayOrder } from '../lib/api';
@@ -116,7 +135,7 @@ const PLANS: Plan[] = [
     specs: {
       photoshoots: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
       models: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
-      videos: '20 Studio Videos (Max 1 Video/Day) · 1 Month Expiry',
+      videos: '6 Studio Videos (1 Month Expiry)',
       credits: '100 Account Credits (Custom shoots free)',
       delivery: 'Guaranteed 24-48h Delivery',
       support: '24/7 Dedicated Human Art Team',
@@ -124,8 +143,8 @@ const PLANS: Plan[] = [
     },
     features: [
       'Custom Atelier Service: upload cloths & garments in Custom Requests',
-      'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 6 poses) and 1 video per day',
-      'Total 100 Photoshoots (600 Poses) + 20 Studio Videos delivered within 24-48 hours (1 month validity)',
+      'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 6 poses)',
+      'Total 100 Photoshoots (600 Poses) + 6 Studio Videos delivered within 24-48 hours (1 month validity)',
       '100 active credits in your account for rapid neural experimentation',
       'Wrong/test generations are counted in image generation count (6 poses = 1 photoshoot)',
       'Photoshoots & studio videos in custom requests do NOT consume your account credits',
@@ -161,29 +180,28 @@ export default function Pricing() {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [paymentDone, setPaymentDone] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [transactionId, setTransactionId] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<'method' | 'pay'>('method');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
   const qrMode = 'fixed';
   const [showEnlargedQr, setShowEnlargedQr] = useState<boolean>(false);
 
   const [usdToInrRate, setUsdToInrRate] = useState<number>(DEFAULT_USD_TO_INR);
-  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'bank'>('qr');
-  const [copiedBank, setCopiedBank] = useState(false);
 
   /* UPI Gateway Live State */
   const [gatewayConfig, setGatewayConfig] = useState<GatewayConfig | null>(null);
   const [activeOrder, setActiveOrder] = useState<GatewayOrder | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
-  const [submittingUtr, setSubmittingUtr] = useState(false);
-  const [utrSubmitError, setUtrSubmitError] = useState('');
-  const [utrSubmitSuccess, setUtrSubmitSuccess] = useState(false);
+
+  /* Code 1450903 Invoice Generation & Expandable Features State */
+  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
+  const [verificationCode, setVerificationCode] = useState('');
+  const [invoiceGenerated, setInvoiceGenerated] = useState(false);
+  const [codeSubmitError, setCodeSubmitError] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [showBankDetails, setShowBankDetails] = useState(false);
 
   useEffect(() => {
     // Real-time live USD to INR exchange rate fetcher
@@ -270,18 +288,20 @@ export default function Pricing() {
       return;
     }
     setSelectedPlan(plan);
-    setShowTermsModal(true);
+    setVerificationCode('');
+    setCodeSubmitError('');
+    setInvoiceGenerated(false);
+    setShowTermsModal(false);
+    setShowCheckoutModal(true);
+    void createOrGetOrder('upi', plan);
   };
 
   const handleAgreeTerms = () => {
-    setCheckoutStep('method');
-    setSubmitted(false);
-    setTransactionId('');
-    setActiveOrder(null);
-    setUtrSubmitError('');
-    setUtrSubmitSuccess(false);
     setShowTermsModal(false);
     setShowCheckoutModal(true);
+    if (selectedPlan) {
+      void createOrGetOrder('upi', selectedPlan);
+    }
   };
 
   const inrAmount = selectedPlan
@@ -299,13 +319,17 @@ export default function Pricing() {
   };
 
   // Create or retrieve existing gateway order
-  const createOrGetOrder = async (method: 'upi' | 'bank') => {
-    if (!selectedPlan) return;
+  const createOrGetOrder = async (method: 'upi' | 'bank', targetPlan?: Plan) => {
+    const planToUse = targetPlan || selectedPlan;
+    if (!planToUse) return;
     setOrderLoading(true);
+    const amt = planToUse.priceINR && planToUse.priceINR > 0
+      ? planToUse.priceINR
+      : Math.round(planToUse.priceUSD * usdToInrRate);
     try {
       const res = await api.createGatewayOrder({
-        amount: inrAmount,
-        plan_id: selectedPlan.id,
+        amount: amt,
+        plan_id: planToUse.id,
         customer_name: userName.trim() || undefined,
         customer_email: userEmail.trim() || undefined,
         payment_method: method,
@@ -321,44 +345,56 @@ export default function Pricing() {
     }
   };
 
-  const handleSelectMethod = (method: 'qr' | 'bank') => {
-    setPaymentMethod(method);
-    setCheckoutStep('pay');
-    setSubmitted(false);
-    setUtrSubmitError('');
-    setUtrSubmitSuccess(false);
-    void createOrGetOrder(method === 'qr' ? 'upi' : 'bank');
-  };
-
-  const handleSubmitUtr = async () => {
-    if (!transactionId.trim()) {
-      setUtrSubmitError('Please enter your 12-digit transaction ID or UTR number.');
+  const handleVerifyCode = async () => {
+    const code = verificationCode.trim();
+    if (code !== '1450903') {
+      setCodeSubmitError('Enter code 1450903 to unlock invoice generation.');
       return;
     }
-    if (!activeOrder?.order_no) {
-      setSubmitted(true);
-      return;
-    }
-    setSubmittingUtr(true);
-    setUtrSubmitError('');
+    setVerifyingCode(true);
+    setCodeSubmitError('');
     try {
-      const res = await api.submitGatewayUtr(activeOrder.order_no, transactionId.trim());
-      if (res?.data) {
-        setActiveOrder(res.data);
-        setUtrSubmitSuccess(true);
-        setSubmitted(true);
-        if (res.data.status === 'paid' || (res as any).paid || (res as any).autoActivated) {
-          try {
-            await api.me();
-          } catch {}
+      let orderToVerify = activeOrder;
+      if (!orderToVerify && selectedPlan) {
+        const amt = selectedPlan.priceINR && selectedPlan.priceINR > 0
+          ? selectedPlan.priceINR
+          : Math.round(selectedPlan.priceUSD * usdToInrRate);
+        const res = await api.createGatewayOrder({
+          amount: amt,
+          plan_id: selectedPlan.id,
+          customer_name: userName.trim() || undefined,
+          customer_email: userEmail.trim() || undefined,
+          payment_method: 'upi',
+          redirect_url: '/design',
+        });
+        if (res?.data) {
+          orderToVerify = res.data;
+          setActiveOrder(res.data);
         }
       }
+
+      if (!orderToVerify?.order_no) {
+        throw new Error('Unable to initialize payment order. Please refresh and try again.');
+      }
+
+      const res = await api.verifyGatewayCode(orderToVerify.order_no, '1450903');
+      if (res?.success) {
+        setInvoiceGenerated(true);
+        setActiveOrder((prev) => (prev ? { ...prev, status: 'paid', invoice_generated: true, utr: res.data?.utr || 'CODE_1450903' } : res.data));
+        try {
+          const me = await api.me();
+          if (me?.user) setCurrentUser(me.user);
+        } catch {}
+      } else {
+        setCodeSubmitError(res?.message || 'Verification failed. Please check code 1450903.');
+      }
     } catch (err: any) {
-      setUtrSubmitError(err?.message || 'Failed to record UTR. Please check the digits and try again.');
+      setCodeSubmitError(err?.message || 'Verification error. Please try again.');
     } finally {
-      setSubmittingUtr(false);
+      setVerifyingCode(false);
     }
   };
+
   const cleanPlanName = (selectedPlan?.name || 'Pro').replace(/[^a-zA-Z0-9]/g, '');
   // Official NPCI standard UPI link (clean parameters, no .00 suffix to ensure universal scanner compatibility)
   const upiPayLink = selectedPlan && qrMode === 'fixed'
@@ -385,19 +421,6 @@ export default function Pricing() {
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2500);
   };
-
-  const waOrderText = `*NEW PLAN SUBSCRIPTION ORDER*
-  
-*Plan:* ${selectedPlan?.name || 'Pro'}
-*Amount:* $${selectedPlan?.priceUSD} (₹${inrAmount.toLocaleString('en-IN')})
-*Payment Method:* ${paymentMethod === 'qr' ? 'UPI QR Code' : 'Direct Bank Transfer (SBI A/C 41614259248)'}
-*Name:* ${userName.trim() || 'Customer'}
-*Email:* ${userEmail.trim() || 'lpawankumar015221684@gmail.com'}
-*Transaction ID / UTR:* ${transactionId.trim() || 'Pending verification'}
-
-_Please verify payment and activate my plan within 30 minutes._`;
-
-  const waLink = `https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(waOrderText)}`;
 
   return (
     <div className={`min-h-screen font-sans antialiased ${
@@ -553,42 +576,62 @@ _Please verify payment and activate my plan within 30 minutes._`;
                     )}
                   </div>
 
-                  {/* Specifications Highlights */}
-                  <div className={`space-y-2.5 mb-6 text-xs rounded-xl p-3.5 border ${
+                  {/* Simplified Specifications: Photoshoots, Videos, Credits ONLY */}
+                  <div className={`space-y-2 mb-4 text-xs rounded-xl p-3.5 border ${
                     isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
                   }`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Photoshoots:</span>
-                        <span className="block text-[9px] text-[#e5373f] font-bold tracking-tight">1 photoshoot = 6 poses</span>
-                      </div>
-                      <span className={`font-semibold text-right text-xs max-w-[55%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Photoshoots:</span>
+                      <span className={`font-semibold text-right text-xs max-w-[60%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
                         {plan.specs.photoshoots || plan.specs.models}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center py-0.5">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Videos:</span>
                       <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.videos}</span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center py-0.5">
                       <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Credits:</span>
                       <span className={`font-bold text-right ${isLight ? 'text-[#e5373f]' : 'text-amber-400'}`}>{plan.specs.credits}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Turnaround:</span>
-                      <span className={`font-medium text-right ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{plan.specs.delivery}</span>
-                    </div>
                   </div>
 
-                  {/* Features List */}
-                  <div className="space-y-2.5 mb-8">
-                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>What's Included</p>
-                    {plan.features.map((feat, idx) => (
-                      <div key={idx} className={`flex items-start gap-2 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
-                        <Check className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                        <span>{feat}</span>
+                  {/* View More Features Toggle */}
+                  <div className="mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPlans((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
+                      className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border ${
+                        isLight
+                          ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          : 'border-white/10 bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      <span>{expandedPlans[plan.id] ? 'Hide Features' : 'View More Features'}</span>
+                      {expandedPlans[plan.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {expandedPlans[plan.id] && (
+                      <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs">
+                        <div className="flex justify-between items-center py-0.5">
+                          <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Turnaround:</span>
+                          <span className={`font-medium text-right ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{plan.specs.delivery}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-0.5">
+                          <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Resolution:</span>
+                          <span className={`font-medium text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.resolution}</span>
+                        </div>
+                        <div className="pt-2 space-y-2">
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>Full Specifications</p>
+                          {plan.features.map((feat, idx) => (
+                            <div key={idx} className={`flex items-start gap-2 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
+                              <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{feat}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -612,14 +655,14 @@ _Please verify payment and activate my plan within 30 minutes._`;
                 ) : (
                   <button
                     onClick={() => handleChoosePlan(plan)}
-                    className={`w-full py-3 px-4 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
-                      ? 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
+                      ? 'bg-[#e5373f] text-white hover:bg-[#d42d35] shadow-lg shadow-[#e5373f]/25'
                       : plan.priceUSD === 0
                         ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200' : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
                         : isLight ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-100'
                       }`}
                   >
-                    {plan.priceUSD === 0 ? 'Start free' : `Select ${plan.name}`}
+                    {plan.priceUSD === 0 ? 'Start Free Forever' : `Pay ₹${inrPrice.toLocaleString('en-IN')}`}
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -772,200 +815,142 @@ _Please verify payment and activate my plan within 30 minutes._`;
         </div>
       )}
 
-      {/* Modal 2: Step-by-Step Checkout Modal (Method Selection -> Fixed QR / Bank Transfer) */}
+      {/* Simplified Checkout Modal (Fixed Amount QR, UPI ID, Code 1450903 Unlock & Generate Invoice) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
           <div className={`relative w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
             isLight ? 'bg-white text-slate-900 border-gray-200' : 'bg-[#0f1117] text-white border-white/10'
           }`}>
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                {checkoutStep === 'method' ? 'Step 1: Select Payment Method' : 'Step 2: Pay & Confirm'}
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                <FileText className="w-4 h-4" />
+                <span>{invoiceGenerated || activeOrder?.status === 'paid' ? 'Tax Invoice & Plan Activated' : 'Plan Checkout'}</span>
               </span>
               <button
                 onClick={() => {
                   setShowCheckoutModal(false);
-                  setSubmitted(false);
-                  setPaymentDone(false);
-                  setTransactionId('');
-                  setCheckoutStep('method');
+                  setVerificationCode('');
+                  setCodeSubmitError('');
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             <div className="overflow-y-auto pr-1.5 pt-3 space-y-4 flex-1">
-
-            {/* STEP 1: CHOOSE PAYMENT METHOD */}
-            {checkoutStep === 'method' ? (
-              <div>
-                <div className="text-center mb-6">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-bold uppercase tracking-wider mb-2">
-                    Step 1 of 2 &middot; Choose Payment Method
-                  </div>
-                  <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>Select How You Want to Pay</h3>
-                  <p className={`text-xs mt-1 ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
-                    Plan: <strong className="text-amber-500">{selectedPlan.name}</strong> &middot; Fixed Amount: <strong className="text-emerald-500 text-sm">₹{inrAmount.toLocaleString('en-IN')}</strong>
-                  </p>
-                </div>
-
-                <div className="space-y-3 mb-6">
-                  {/* Option A: UPI QR Code */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMethod('qr')}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 group cursor-pointer ${
-                      isLight
-                        ? 'bg-amber-50/50 hover:bg-amber-50 border-amber-200 hover:border-amber-400'
-                        : 'bg-slate-950/70 hover:bg-slate-950 border-amber-500/30 hover:border-amber-400'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-                      <QrCode className="w-5 h-5" />
+              {/* STATE A: INVOICE GENERATED & PLAN ACTIVATED */}
+              {invoiceGenerated || activeOrder?.status === 'paid' ? (
+                <div className="py-4 space-y-5">
+                  <div className="text-center space-y-2">
+                    <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-500/40">
+                      <CheckCircle2 className="w-8 h-8" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-amber-500">Scan & Pay via UPI QR</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          Recommended
-                        </span>
-                      </div>
-                      <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                        Instant scan using Paytm, Google Pay, PhonePe, BHIM, Cred or any banking UPI app with automatic exact fixed price ₹{inrAmount.toLocaleString('en-IN')}.
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-2.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">Paytm</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">GPay</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">PhonePe</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">BHIM</span>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Option B: Direct Bank Transfer */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMethod('bank')}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 group cursor-pointer ${
-                      isLight
-                        ? 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-gray-400'
-                        : 'bg-slate-950/70 hover:bg-slate-950 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-white">Direct Bank to Bank Transfer</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                          SBI Bank
-                        </span>
-                      </div>
-                      <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                        Transfer directly via IMPS / NEFT / RTGS to State Bank of India account {bankDetails.accountNumber} (IFSC: {bankDetails.ifsc}). Beneficiary: {bankDetails.accountHolder}.
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-2.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">IMPS</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">NEFT</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">RTGS</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-black/40 text-slate-300 font-semibold">Net Banking</span>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
-                  <p className="text-xs text-amber-500 font-semibold leading-tight">
-                    Instant UPI activation: plan quotas activate automatically upon submitting your 12-digit UTR. Bank transfers are reviewed within 30 minutes.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* STEP 2: COMPLETE PAYMENT & SUBMIT UTR */
-              activeOrder?.status === 'paid' ? (
-                <div className="py-6 px-3 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border-2 border-emerald-500/40">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                      Payment Confirmed!
+                    <h3 className={`text-xl font-extrabold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                      Invoice Generated & Plan Activated!
                     </h3>
                     <p className="text-xs text-emerald-500 font-bold uppercase tracking-wider">
-                      {selectedPlan.name} Plan Activated
-                    </p>
-                    <p className={`text-xs max-w-sm mx-auto leading-relaxed mt-2 ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                      Your transaction has been verified. Studio credits, photoshoots (1 photoshoot = 5 poses), and custom order features are now active on your account.
+                      {selectedPlan.name} is now active on your account
                     </p>
                   </div>
-                  <div className={`p-3 rounded-xl border text-xs font-mono ${isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'}`}>
-                    Order: {activeOrder.order_no} &middot; Verified: {activeOrder.utr || activeOrder.customer_utr || 'Auto-Verified'}
+
+                  {/* Official Invoice Card */}
+                  <div className={`rounded-2xl border p-5 text-xs space-y-3 font-sans ${
+                    isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-slate-950/80 border-emerald-500/30 text-slate-200'
+                  }`}>
+                    <div className="flex justify-between items-center border-b pb-2.5 border-white/10">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">Official Tax Invoice</span>
+                        <span className="font-mono font-bold text-xs">INV-{activeOrder?.order_no || '1450903'}</span>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Paid & Verified
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 py-1">
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Plan Purchased:</span>
+                        <span className="font-bold">{selectedPlan.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Amount Paid:</span>
+                        <span className="font-extrabold text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Photoshoots Allocated:</span>
+                        <span className="font-semibold">{selectedPlan.specs.photoshoots}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Video Quota:</span>
+                        <span className="font-semibold">{selectedPlan.specs.videos}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Studio Credits:</span>
+                        <span className="font-bold text-emerald-400">{selectedPlan.specs.credits}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Payment Handle:</span>
+                        <span className="font-mono">{upiId}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="opacity-60">Verified Code:</span>
+                        <span className="font-mono text-emerald-400 font-bold">1450903</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] opacity-70">
+                      <span>Date: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span>Shiv-Naresh AI Atelier</span>
+                    </div>
                   </div>
-                  <a
-                    href="/design"
-                    className="inline-flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#e5373f]/25"
-                  >
-                    <span>Open AI Studio & Start Designing</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
+
+                  {/* Actions */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className={`w-full py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-800' : 'border-white/15 hover:bg-white/10 text-white'
+                      }`}
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print / Save Invoice</span>
+                    </button>
+                    <a
+                      href="/design"
+                      className="w-full py-3 px-4 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg shadow-[#e5373f]/25 cursor-pointer"
+                    >
+                      <span>Open AI Studio & Start Designing</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </a>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  {/* Back to Method Selector button */}
-                  <button
-                    type="button"
-                    onClick={() => setCheckoutStep('method')}
-                    className="mb-3 inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 font-bold transition-colors cursor-pointer"
-                  >
-                    &larr; Change Payment Method ({paymentMethod === 'qr' ? 'UPI QR' : 'Bank Transfer'})
-                  </button>
-
-                  {/* Order tracking indicator */}
-                  {activeOrder && (
-                    <div className={`mb-3 p-2.5 rounded-xl border flex items-center justify-between text-[11px] ${
-                      isLight ? 'bg-gray-100 border-gray-200 text-slate-800' : 'bg-slate-900/80 border-white/10 text-slate-300'
-                    }`}>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="opacity-70">Order ID:</span>
-                        <span className="font-mono font-bold text-amber-500 truncate">{activeOrder.order_no}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                          activeOrder.status === 'review' ? 'bg-amber-400 animate-pulse' : 'bg-blue-400 animate-ping'
-                        }`} />
-                        <span className={`font-semibold capitalize text-[10px] ${
-                          activeOrder.status === 'review' ? 'text-amber-500' : 'text-blue-400'
-                        }`}>
-                          {activeOrder.status === 'review' ? 'Reviewing UTR' : 'Awaiting Payment'}
-                        </span>
-                      </div>
+                /* STATE B: SCAN FIXED QR + ENTER CODE 1450903 TO GENERATE INVOICE */
+                <div className="space-y-4">
+                  {/* Plan Price Banner */}
+                  <div className={`p-3 rounded-2xl border flex items-center justify-between ${
+                    isLight ? 'bg-amber-50 border-amber-200' : 'bg-slate-900/90 border-amber-500/30'
+                  }`}>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 block">Selected Atelier Plan</span>
+                      <h4 className="text-base font-extrabold text-amber-500">{selectedPlan.name}</h4>
                     </div>
-                  )}
-
-                  <div className="text-center mb-4">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                      Step 2 of 2 &middot; {paymentMethod === 'qr' ? 'Scan Fixed UPI QR' : 'SBI Bank Transfer'}
-                    </div>
-                    <h3 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>{selectedPlan.name} Activation</h3>
-                    <div className="flex items-center justify-center gap-2 mt-1">
-                      <span className={`text-sm line-through ${isLight ? 'text-gray-400' : 'text-slate-400'}`}>${selectedPlan.priceUSD}</span>
-                      <span className="text-2xl font-black text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Fixed Price
-                      </span>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-amber-500">₹{inrAmount.toLocaleString('en-IN')}</span>
+                      <span className="block text-[10px] font-bold text-emerald-400">Fixed Exact Amount</span>
                     </div>
                   </div>
 
                   {orderLoading ? (
                     <div className="py-12 text-center space-y-3">
                       <Loader2 className="w-7 h-7 animate-spin text-amber-500 mx-auto" />
-                      <p className="text-xs text-slate-400 font-semibold">Generating secure trackable UPI order...</p>
+                      <p className="text-xs text-slate-400 font-semibold">Generating fixed amount QR code...</p>
                     </div>
-                  ) : paymentMethod === 'qr' ? (
-                    /* GENERATED FIXED PRICE UPI QR CODE */
-                    <div className="mb-4">
+                  ) : (
+                    /* FIXED AMOUNT QR CODE & UPI ID */
+                    <div className="space-y-3">
                       <div className="bg-[#111726] border border-amber-500/30 p-3.5 sm:p-4 rounded-2xl shadow-xl flex flex-col items-center justify-center mx-auto text-center w-full">
                         <div className="bg-white p-2 rounded-2xl shadow-md inline-block">
                           {activeOrder?.qr_data_url || localQrDataUrl ? (
@@ -981,44 +966,36 @@ _Please verify payment and activate my plan within 30 minutes._`;
                             </div>
                           )}
                         </div>
+
                         <div className="mt-3 text-center w-full">
-                          <p className="text-xs sm:text-sm font-extrabold text-white">{payeeName} &middot; Paytm UPI</p>
+                          <p className="text-xs sm:text-sm font-extrabold text-white">{payeeName} &middot; PhonePe UPI</p>
                           <p className="text-xs font-mono text-amber-400 font-bold tracking-wider mt-0.5">{upiId}</p>
                           <span className="inline-block mt-1.5 text-xs font-black text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-3 py-0.5 rounded-full">
                             Fixed ₹{inrAmount.toLocaleString('en-IN')} (Non-editable)
                           </span>
                         </div>
-
-                        {/* Enlarge QR Link */}
-                        <button
-                          type="button"
-                          onClick={() => setShowEnlargedQr(true)}
-                          className="mt-2 text-xs text-amber-400 hover:text-amber-300 font-semibold underline flex items-center gap-1 cursor-pointer"
-                        >
-                          Tap to enlarge QR code
-                        </button>
                       </div>
 
                       {/* Supported Apps Badge */}
-                      <div className="flex items-center justify-center gap-2 my-2 text-[11px] text-slate-400">
-                        <span>GPay</span> &middot;
+                      <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400">
                         <span>PhonePe</span> &middot;
+                        <span>Google Pay</span> &middot;
                         <span>Paytm</span> &middot;
                         <span>BHIM</span> &middot;
-                        <span>Bank UPI</span>
+                        <span>Any UPI App</span>
                       </div>
 
-                      {/* 1-Tap Mobile UPI Payment Link */}
+                      {/* 1-Tap Mobile UPI Intent Link */}
                       <a
                         href={activeOrder?.upi_intent || upiPayLink}
-                        className="mb-2 block w-full py-2.5 px-3 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-center font-semibold text-xs transition cursor-pointer"
+                        className="block w-full py-2.5 px-3 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-center font-semibold text-xs transition cursor-pointer"
                       >
-                        Pay via mobile UPI app (GPay / PhonePe / Paytm)
+                        Pay via mobile UPI app (PhonePe / GPay / Paytm)
                       </a>
 
                       {/* UPI ID Copy Card */}
                       <div className={`flex items-center justify-between rounded-xl border p-2.5 ${
-                        isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800'
+                        isLight ? 'bg-gray-100 border-gray-300 text-slate-900' : 'bg-slate-950 border-slate-800'
                       }`}>
                         <div className="text-left">
                           <span className={`text-[10px] uppercase font-bold block ${isLight ? 'text-gray-500' : 'text-slate-500'}`}>Payee UPI ID:</span>
@@ -1027,217 +1004,133 @@ _Please verify payment and activate my plan within 30 minutes._`;
                         <button
                           type="button"
                           onClick={handleCopyUpi}
-                          className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition active:scale-95 cursor-pointer"
+                          className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1"
                         >
-                          {copiedUpi ? 'Copied' : 'Copy UPI'}
+                          <Copy className="w-3 h-3" />
+                          <span>{copiedUpi ? 'Copied' : 'Copy UPI'}</span>
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    /* DIRECT BANK TRANSFER DETAILS CARD (SBI) */
-                    <div className={`rounded-2xl border p-4 mb-4 ${
-                      isLight ? 'bg-[#87b299] border-[#78a48b] text-slate-900' : 'bg-slate-950 border-slate-800'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
-                        <Building2 className="w-4 h-4 text-amber-500" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                          State Bank of India (SBI) Account Details
-                        </span>
-                      </div>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between items-center py-1 border-b border-white/5">
-                          <span className="opacity-60">Beneficiary Name:</span>
-                          <span className="font-bold">{bankDetails.accountHolder}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-white/5">
-                          <span className="opacity-60">Bank Name:</span>
-                          <span className="font-semibold">{bankDetails.bankName}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-white/5">
-                          <span className="opacity-60">Account Number:</span>
-                          <span className={`font-mono font-bold select-all text-sm ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{bankDetails.accountNumber}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-b border-white/5">
-                          <span className="opacity-60">IFSC Code:</span>
-                          <span className={`font-mono font-bold select-all ${isLight ? 'text-emerald-950 font-black' : 'text-emerald-400'}`}>{bankDetails.ifsc}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1">
-                          <span className="opacity-60">Exact Amount:</span>
-                          <span className={`font-bold text-sm ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>₹{inrAmount.toLocaleString('en-IN')}</span>
-                        </div>
-                      </div>
+                  )}
+
+                  {/* CODE 1450903 SUBMIT & GENERATE INVOICE OPTION */}
+                  <div className={`p-4 rounded-2xl border ${
+                    isLight ? 'bg-amber-50/80 border-amber-200' : 'bg-slate-950/80 border-amber-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <FileText className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                        Generate Invoice
+                      </span>
+                    </div>
+                    <p className={`text-xs mb-3 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
+                      Enter code number <strong className="font-mono text-amber-400">1450903</strong> below to unlock and generate your official tax invoice & activate the plan:
+                    </p>
+
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        maxLength={20}
+                        value={verificationCode}
+                        onChange={(e) => {
+                          setVerificationCode(e.target.value);
+                          setCodeSubmitError('');
+                        }}
+                        placeholder="Enter Code Number (e.g. 1450903)"
+                        className={`w-full rounded-xl border px-3.5 py-2.5 text-center font-mono text-sm font-bold tracking-widest outline-none transition-colors ${
+                          isLight
+                            ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                            : 'bg-black/70 border-white/20 text-white placeholder:text-slate-500 focus:border-amber-400'
+                        }`}
+                      />
+
+                      {codeSubmitError && (
+                        <p className="text-xs text-red-400 font-semibold text-center">{codeSubmitError}</p>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(`A/C: ${bankDetails.accountNumber}\nIFSC: ${bankDetails.ifsc}\nName: ${bankDetails.accountHolder}\nBank: ${bankDetails.bankName}\nAmount: ₹${inrAmount}`);
-                          setCopiedBank(true);
-                          setTimeout(() => setCopiedBank(false), 2500);
-                        }}
-                        className={`mt-3 w-full py-2 rounded-xl border font-semibold text-xs transition cursor-pointer ${
-                          isLight ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                        disabled={verificationCode.trim() !== '1450903' || verifyingCode}
+                        onClick={handleVerifyCode}
+                        className={`w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          verificationCode.trim() === '1450903'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 animate-pulse'
+                            : 'bg-white/10 text-white/40 cursor-not-allowed border border-white/10'
                         }`}
                       >
-                        {copiedBank ? 'Bank details copied' : 'Copy bank details'}
+                        {verifyingCode ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Verifying & Generating Invoice...</span>
+                          </>
+                        ) : verificationCode.trim() === '1450903' ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Generate Invoice & Activate {selectedPlan.name} Plan</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            <span>Enter Code 1450903 to Generate Invoice</span>
+                          </>
+                        )}
                       </button>
                     </div>
-                  )}
-
-                  {/* Form Fields: Name, Email, UTR */}
-                  <div className="space-y-3 mb-4">
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
-                        isLight ? 'text-gray-700' : 'text-slate-300'
-                      }`}>Your Full Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Rahul Sharma"
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                        className={`w-full border rounded-xl px-3.5 py-2 text-xs outline-none transition-colors ${
-                          isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
-                        isLight ? 'text-gray-700' : 'text-slate-300'
-                      }`}>Your Account Email</label>
-                      <input
-                        type="email"
-                        placeholder="e.g. rahul@example.com"
-                        value={userEmail}
-                        onChange={(e) => setUserEmail(e.target.value)}
-                        className={`w-full border rounded-xl px-3.5 py-2 text-xs outline-none transition-colors ${
-                          isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1 ${
-                        isLight ? 'text-gray-700' : 'text-slate-300'
-                      }`}>
-                        12-Digit Transaction ID / UTR Number <span className="text-[#ff5252]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={30}
-                        required
-                        placeholder="e.g. 431289054321"
-                        value={transactionId}
-                        onChange={(e) => {
-                          setTransactionId(e.target.value);
-                          setUtrSubmitError('');
-                        }}
-                        className={`w-full border rounded-xl px-3.5 py-2 text-xs font-mono outline-none tracking-wider transition-colors ${
-                          isLight ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#e5373f]' : 'bg-black/60 border-white/10 text-white placeholder-slate-500 focus:border-[#e5373f]'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Feedback alerts */}
-                    {utrSubmitError && (
-                      <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{utrSubmitError}</span>
-                      </div>
-                    )}
-
-                    {utrSubmitSuccess && (
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>UTR recorded! Admin verifies and activates your quota within 30 minutes.</span>
-                      </div>
-                    )}
-
-                    {/* Checkbox confirmation */}
-                    <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={paymentDone}
-                        onChange={(e) => setPaymentDone(e.target.checked)}
-                        className="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                      />
-                      <span className={`text-xs leading-snug ${isLight ? 'text-gray-900 font-medium' : 'text-slate-300'}`}>
-                        I have transferred exact <strong className={isLight ? "text-amber-950 font-black" : "text-amber-500"}>₹{inrAmount.toLocaleString('en-IN')}</strong> to Pawan Kumar via {paymentMethod === 'qr' ? 'UPI' : 'Bank Transfer'}.
-                      </span>
-                    </label>
                   </div>
 
-                  {/* Submit & Verify UTR Button */}
-                  <button
-                    type="button"
-                    onClick={handleSubmitUtr}
-                    disabled={submittingUtr || !transactionId.trim()}
-                    className="w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors bg-[#e5373f] hover:bg-[#d42d35] disabled:opacity-50 text-white cursor-pointer shadow-lg shadow-[#e5373f]/20 mb-2.5"
-                  >
-                    {submittingUtr ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Recording UTR...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Submit & Verify UTR</span>
-                      </>
-                    )}
-                  </button>
-
-                  {paymentMethod === 'bank' ? (
-                    <a
-                      href={waLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setSubmitted(true)}
-                      className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                  {/* Collapsible SBI Bank Transfer Alternative */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowBankDetails(!showBankDetails)}
+                      className="w-full py-1.5 text-center text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
                     >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Send Bank Receipt on WhatsApp &rarr;</span>
-                    </a>
-                  ) : (
-                    <div className={`p-2.5 rounded-xl border text-center text-[11px] leading-relaxed ${
-                      isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
-                    }`}>
-                      <span>✨ <strong>Instant UPI Activation:</strong> No WhatsApp required! Enter your 12-digit UTR above and click <strong>Submit & Verify UTR</strong> to activate your plan immediately.</span>
-                    </div>
-                  )}
+                      {showBankDetails ? 'Hide Bank Details' : 'Prefer direct bank transfer instead? Click here'}
+                    </button>
 
-                  {/* Direct Support WhatsApp Link Always Visible */}
-                  <div className={`mt-3 pt-3 border-t text-center ${isLight ? 'border-gray-200' : 'border-slate-800'}`}>
+                    {showBankDetails && (
+                      <div className={`mt-2 rounded-2xl border p-4 text-xs space-y-2 ${
+                        isLight ? 'bg-gray-100 border-gray-300 text-slate-900' : 'bg-slate-950 border-slate-800 text-slate-200'
+                      }`}>
+                        <div className="flex items-center gap-2 pb-1 border-b border-white/10 text-amber-500 font-bold uppercase tracking-wider text-[11px]">
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>State Bank of India (SBI)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-60">Beneficiary:</span>
+                          <span className="font-bold">{bankDetails.accountHolder}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-60">A/C Number:</span>
+                          <span className="font-mono font-bold text-amber-400 select-all">{bankDetails.accountNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-60">IFSC Code:</span>
+                          <span className="font-mono font-bold text-emerald-400 select-all">{bankDetails.ifsc}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="opacity-60">Amount:</span>
+                          <span className="font-bold">₹{inrAmount.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Support WhatsApp Link */}
+                  <div className={`pt-2 border-t text-center ${isLight ? 'border-gray-200' : 'border-slate-800'}`}>
                     <a
-                      href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I have a query about the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
+                      href={`https://api.whatsapp.com/send/?phone=916398743132&text=${encodeURIComponent(`Hello Pawan Kumar, I am subscribing to the ${selectedPlan.name} plan on Shiv-Naresh AI Studio.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium inline-flex items-center gap-1.5"
                     >
-                      <MessageSquare size={13} /> Questions? Chat with Pawan Kumar directly on WhatsApp (+91 6398743132)
+                      <MessageSquare size={13} /> Questions? Chat with Pawan Kumar on WhatsApp (+91 6398743132)
                     </a>
                   </div>
-
-                  {submitted && paymentMethod === 'bank' && (
-                    <div className="mt-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
-                      <p className="text-xs text-emerald-400 font-semibold">
-                        Bank transfer recorded. Admin will verify your UTR and activate your plan.
-                      </p>
-                      <p className="text-[11px] text-slate-300">
-                        You can also send your receipt directly to Pawan Kumar on WhatsApp for faster verification:
-                      </p>
-                      <a
-                        href={waLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold uppercase tracking-wider shadow-sm transition"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        <span>Send Receipt on WhatsApp (+91 6398743132)</span>
-                      </a>
-                    </div>
-                  )}
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
-        </div>
         </div>
       )}
 

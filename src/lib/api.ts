@@ -120,6 +120,7 @@ export type CustomRequest = {
   status: 'queued' | 'in_progress' | 'delivered';
   createdAt: number;
   deadlineHours: number;
+  readByAdmin?: boolean;
   adminReply?: string;
   deliveredImageUrl?: string;
   deliveredFileUrl?: string;
@@ -127,6 +128,23 @@ export type CustomRequest = {
   deliveredFileType?: string;
   deliveredFileSize?: number;
   deliveredAt?: number | null;
+};
+
+export type AdminDelivery = {
+  id: string;
+  recipientUserId: string;
+  recipientEmail: string;
+  recipientName?: string;
+  senderEmail: string;
+  type: 'photo' | 'video' | 'zip' | 'folder' | 'text';
+  title: string;
+  textMessage?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mediaUrls?: string[];
+  readByUser?: boolean;
+  createdAt: number;
 };
 
 export type UserGeneration = {
@@ -424,6 +442,27 @@ export const api = {
       deliveredFileSize?: number;
     },
   ) => request<CustomRequest>(`/api/admin/custom-requests/${id}`, { ...json(body), method: 'PUT' }),
+  markAdminRequestsRead: () => request<{ ok: boolean }>('/api/admin/custom-requests/mark-read', { method: 'POST' }),
+
+  /* custom studio deliveries & dispatch */
+  getUserDeliveries: () => request<{ items: AdminDelivery[]; unreadCount: number }>('/api/user/deliveries'),
+  markUserDeliveriesRead: () => request<{ ok: boolean }>('/api/user/deliveries/mark-read', { method: 'POST' }),
+  getAdminDeliveries: () => request<{ items: AdminDelivery[]; total: number }>('/api/admin/deliveries'),
+  createAdminDelivery: (body: {
+    recipientUserId?: string;
+    recipientEmail: string;
+    recipientName?: string;
+    type: 'photo' | 'video' | 'zip' | 'folder' | 'text';
+    title?: string;
+    textMessage?: string;
+    file?: string;
+    fileName?: string;
+    fileType?: string;
+    fileSize?: number;
+    mediaUrls?: string[];
+  }) => request<AdminDelivery>('/api/admin/deliveries', json(body)),
+  deleteAdminDelivery: (id: string) =>
+    request<{ ok: boolean; message: string }>(`/api/admin/deliveries/${id}`, { method: 'DELETE' }),
 
   /* developer profile */
   developerProfile: () =>
@@ -596,6 +635,11 @@ export const api = {
     request<{ success: boolean; message: string; data: GatewayOrder }>(
       `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/submit-utr`,
       json({ utr })
+    ),
+  verifyGatewayCode: (orderNo: string, code: string) =>
+    request<{ success: boolean; message: string; paid: boolean; invoice_generated?: boolean; data: GatewayOrder }>(
+      `/api/upi-gateway/orders/${encodeURIComponent(orderNo)}/verify-code`,
+      json({ code })
     ),
   adminGatewayOrders: () =>
     request<{
