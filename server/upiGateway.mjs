@@ -465,8 +465,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15-minute standard expiry
 
       // Build standard universal NPCI UPI intent link
-      const upiId = selectedAccount.upi_id || state.upiId || '6398743132@paytm';
-      const payeeName = selectedAccount.payee_name || state.payeeName || 'PAWAN KUMAR';
+      const upiId = (state.upiId || selectedAccount.upi_id || '6398743132@ptaxis').trim();
+      const payeeName = (state.payeeName || selectedAccount.payee_name || 'PAWAN KUMAR').trim();
 
       const cleanAmount = Number(amount) % 1 === 0 ? String(Math.round(amount)) : Number(amount).toFixed(2);
       const cleanNote = `ShivNaresh${(plan.name || 'Pro').replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -979,8 +979,18 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
       await patchState(patch);
 
+      // Sync active accounts in database
+      const existingAccounts = await readAccounts();
       if (Array.isArray(body.accounts)) {
         await writeAccounts(body.accounts);
+      } else if (patch.upiId || patch.payeeName) {
+        for (const acc of existingAccounts) {
+          if (acc.provider === 'paytm_business' || acc.is_default) {
+            if (patch.upiId) acc.upi_id = patch.upiId;
+            if (patch.payeeName) acc.payee_name = patch.payeeName;
+          }
+        }
+        await writeAccounts(existingAccounts);
       }
 
       res.json({ success: true, message: 'UPI Gateway configuration updated successfully.' });
