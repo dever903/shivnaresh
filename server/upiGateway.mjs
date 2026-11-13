@@ -464,19 +464,29 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const clientOrderId = String(body.client_order_id || `PLAN_${planId.toUpperCase()}_${Date.now()}`).slice(0, 64);
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15-minute standard expiry
 
-      // Build standard UPI intent deep link
-      // tr (transaction reference) carries our exact order number for automated provider verification
+      // Build standard universal NPCI UPI intent link
       const upiId = selectedAccount.upi_id || state.upiId || '6398743132@paytm';
       const payeeName = selectedAccount.payee_name || state.payeeName || 'PAWAN KUMAR';
+
+      const cleanAmount = Number(amount) % 1 === 0 ? String(Math.round(amount)) : Number(amount).toFixed(2);
+      const cleanNote = `ShivNaresh${(plan.name || 'Pro').replace(/[^a-zA-Z0-9]/g, '')}`;
 
       const upiParams = new URLSearchParams({
         pa: upiId,
         pn: payeeName,
-        am: amount.toFixed(2),
+        am: cleanAmount,
         cu: 'INR',
-        tr: orderNo,
-        tn: `Shiv-Naresh AI ${plan.name} (${orderNo})`,
+        tn: cleanNote,
       });
+
+      // NOTE: Only include merchant transaction reference (tr) if verified merchant credentials exist.
+      // Passing `tr` to a personal savings UPI ID causes PhonePe/GPay to fail with:
+      // "Your request failed as the feature you're trying to use isn't supported by the receiver's payment provider."
+      const hasMerchantMid = Boolean(selectedAccount.credentials?.mid || process.env.PAYTM_MID);
+      if (hasMerchantMid) {
+        upiParams.set('tr', orderNo);
+      }
+
       const upiIntentUrl = `upi://pay?${upiParams.toString()}`;
 
       // Generate High-Res QR Code Data URL on server
