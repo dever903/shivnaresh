@@ -92,15 +92,15 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
   const DEFAULT_ACCOUNTS = [
     {
-      id: 'acc_paytm_primary',
-      provider: 'paytm_business',
-      label: 'Paytm for Business (Auto-Verify)',
-      upi_id: '6398743132@paytm',
+      id: 'acc_phonepe_primary',
+      provider: 'manual',
+      label: 'PhonePe UPI (Verified Account)',
+      upi_id: '6398743132@ybl',
       payee_name: 'PAWAN KUMAR',
       is_active: true,
       is_default: true,
       daily_limit: 100000,
-      credentials: { mid: '' },
+      credentials: {},
     },
     {
       id: 'acc_bank_sbi',
@@ -395,7 +395,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
     res.json({
       ok: true,
-      upiId: state.upiId || primaryUpi.upi_id || '6398743132@paytm',
+      upiId: state.upiId || primaryUpi.upi_id || '6398743132@ybl',
       payeeName: state.payeeName || primaryUpi.payee_name || 'PAWAN KUMAR',
       bankDetails: bankAccount.bank_details || DEFAULT_ACCOUNTS[1].bank_details,
       accounts: activeAccounts.map((a) => ({
@@ -465,7 +465,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15-minute standard expiry
 
       // Build standard universal NPCI UPI intent link
-      const upiId = (state.upiId || selectedAccount.upi_id || '6398743132@ptaxis').trim();
+      const upiId = (state.upiId || selectedAccount.upi_id || '6398743132@ybl').trim();
       const payeeName = (state.payeeName || selectedAccount.payee_name || 'PAWAN KUMAR').trim();
 
       const cleanAmount = Number(amount) % 1 === 0 ? String(Math.round(amount)) : Number(amount).toFixed(2);
@@ -925,7 +925,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
 
       res.json({
         success: true,
-        upiId: state.upiId || '6398743132@paytm',
+        upiId: state.upiId || '6398743132@ybl',
         payeeName: state.payeeName || 'PAWAN KUMAR',
         paytmMid: state.paytmMid || '',
         paytmMidMasked: state.paytmMid ? `${state.paytmMid.slice(0, 4)}••••${state.paytmMid.slice(-4)}` : '',

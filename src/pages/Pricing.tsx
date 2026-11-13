@@ -289,7 +289,7 @@ export default function Pricing() {
         ? selectedPlan.priceINR
         : Math.round(selectedPlan.priceUSD * usdToInrRate))
     : 0;
-  const upiId = gatewayConfig?.upiId || '6398743132@ptaxis';
+  const upiId = gatewayConfig?.upiId || '6398743132@ybl';
   const payeeName = gatewayConfig?.payeeName || 'PAWAN KUMAR';
   const bankDetails = gatewayConfig?.bankDetails || {
     accountNumber: '41614259248',
