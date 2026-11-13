@@ -234,6 +234,7 @@ export default function Admin() {
   const [dispatchTitle, setDispatchTitle] = useState('');
   const [dispatchMessage, setDispatchMessage] = useState('');
   const [dispatchFile, setDispatchFile] = useState<{ dataUrl: string; name: string; size: number; type: string } | null>(null);
+  const [dispatchFiles, setDispatchFiles] = useState<{ dataUrl: string; name: string; size: number; type: string }[]>([]);
   const [dispatchFileUrl, setDispatchFileUrl] = useState('');
   const [dispatchSending, setDispatchSending] = useState(false);
   const [dispatchSuccess, setDispatchSuccess] = useState('');
@@ -1207,21 +1208,35 @@ ${log.stack || 'None'}
   }
 
   function handleDispatchFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDispatchFile({
-        dataUrl: String(reader.result),
-        name: file.name,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (dispatchType === 'photo' && files.length > 1) {
+      // Multi-photo: read all files into dispatchFiles array
+      const pending: { dataUrl: string; name: string; size: number; type: string }[] = [];
+      let loaded = 0;
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          pending.push({ dataUrl: String(reader.result), name: file.name, size: file.size, type: file.type || 'image/jpeg' });
+          loaded++;
+          if (loaded === files.length) {
+            setDispatchFiles((prev) => [...prev, ...pending]);
+            if (!dispatchTitle.trim()) setDispatchTitle('Photo Delivery');
+          }
+        };
+        reader.readAsDataURL(file);
       });
-      if (!dispatchTitle.trim()) {
-        setDispatchTitle(file.name.replace(/\.[^/.]+$/, ''));
-      }
-    };
-    reader.readAsDataURL(file);
+    } else {
+      // Single file (or non-photo types)
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setDispatchFile({ dataUrl: String(reader.result), name: file.name, size: file.size, type: file.type || 'application/octet-stream' });
+        if (!dispatchTitle.trim()) setDispatchTitle(file.name.replace(/\.[^/.]+$/, ''));
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   async function handleSendDispatch() {
@@ -1247,7 +1262,14 @@ ${log.stack || 'None'}
         textMessage: dispatchMessage.trim() || undefined,
       };
 
-      if (dispatchFile) {
+      // Multi-photo: pass all dataUrls as mediaUrls in one delivery
+      if (dispatchType === 'photo' && dispatchFiles.length > 0) {
+        payload.mediaUrls = dispatchFiles.map((f) => f.dataUrl);
+        payload.file = dispatchFiles[0].dataUrl;
+        payload.fileName = dispatchFiles[0].name;
+        payload.fileSize = dispatchFiles[0].size;
+        payload.fileType = dispatchFiles[0].type;
+      } else if (dispatchFile) {
         payload.file = dispatchFile.dataUrl;
         payload.fileName = dispatchFile.name;
         payload.fileSize = dispatchFile.size;
@@ -1262,6 +1284,7 @@ ${log.stack || 'None'}
       setDispatchTitle('');
       setDispatchMessage('');
       setDispatchFile(null);
+      setDispatchFiles([]);
       setDispatchFileUrl('');
       if (dispatchFileInputRef.current) dispatchFileInputRef.current.value = '';
       setAdminDeliveries((prev) => [res, ...prev]);
@@ -2827,7 +2850,7 @@ ${log.stack || 'None'}
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setDispatchType(t.id as any)}
+                        onClick={() => { setDispatchType(t.id as any); setDispatchFiles([]); setDispatchFile(null); }}
                         className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${
                           isActive
                             ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-md'
@@ -2876,7 +2899,7 @@ ${log.stack || 'None'}
               {dispatchType !== 'text' && (
                 <div className="space-y-3 pt-1">
                   <label className="block text-[11px] font-bold uppercase tracking-wider opacity-80">
-                    Attach File or Enter Hosted URL
+                    {dispatchType === 'photo' ? 'Attach Photos (select any number)' : 'Attach File or Enter Hosted URL'}
                   </label>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -2885,6 +2908,8 @@ ${log.stack || 'None'}
                       ref={dispatchFileInputRef}
                       onChange={handleDispatchFileSelected}
                       className="hidden"
+                      multiple={dispatchType === 'photo'}
+                      accept={dispatchType === 'photo' ? 'image/*' : undefined}
                     />
                     <button
                       type="button"
@@ -2894,10 +2919,14 @@ ${log.stack || 'None'}
                       }`}
                     >
                       <Paperclip className="w-4 h-4" />
-                      <span>{dispatchFile ? 'Change File' : 'Browse Local File (Photo, Video, ZIP)'}</span>
+                      <span>
+                        {dispatchType === 'photo'
+                          ? dispatchFiles.length > 0 ? `${dispatchFiles.length} Photo(s) Selected — Add More` : 'Select Photos'
+                          : dispatchFile ? 'Change File' : 'Browse Local File (Photo, Video, ZIP)'}
+                      </span>
                     </button>
 
-                    {dispatchFile && (
+                    {dispatchFile && dispatchType !== 'photo' && (
                       <div className="flex-1 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs flex items-center justify-between gap-2">
                         <span className="font-mono text-emerald-400 truncate">{dispatchFile.name} ({(dispatchFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
                         <button
@@ -2914,16 +2943,38 @@ ${log.stack || 'None'}
                     )}
                   </div>
 
-                  <div>
-                    <span className="text-[10px] opacity-60 block mb-1">Or direct file/media URL (Cloudinary / CDN / hosted URL):</span>
-                    <input
-                      type="text"
-                      placeholder="https://... or /uploads/..."
-                      value={dispatchFileUrl}
-                      onChange={(e) => setDispatchFileUrl(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
+                  {/* Multi-photo grid preview */}
+                  {dispatchType === 'photo' && dispatchFiles.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {dispatchFiles.map((f, idx) => (
+                        <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                          <img src={f.dataUrl} alt={f.name} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setDispatchFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove photo"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                          <span className="absolute bottom-0 left-0 right-0 text-[8px] text-white bg-black/60 px-1 py-0.5 truncate">{f.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {dispatchType !== 'photo' && (
+                    <div>
+                      <span className="text-[10px] opacity-60 block mb-1">Or direct file/media URL (Cloudinary / CDN / hosted URL):</span>
+                      <input
+                        type="text"
+                        placeholder="https://... or /uploads/..."
+                        value={dispatchFileUrl}
+                        onChange={(e) => setDispatchFileUrl(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

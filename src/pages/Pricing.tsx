@@ -476,7 +476,15 @@ export default function Pricing() {
       isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
     }`}>
       <style>{`
+        @page {
+          size: A4;
+          margin: 0.8cm;
+        }
         @media print {
+          html, body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -489,12 +497,13 @@ export default function Pricing() {
             top: 0 !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 24px !important;
-            border: 1px solid #e5e7eb !important;
+            padding: 20px !important;
+            border: none !important;
             box-shadow: none !important;
             background: #ffffff !important;
             color: #111827 !important;
             z-index: 999999 !important;
+            border-radius: 0 !important;
           }
           .no-print {
             display: none !important;
@@ -751,7 +760,7 @@ export default function Pricing() {
           isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'
         }`}>
           <div className="max-w-2xl mb-6">
-            <h3 className={`text-xl font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Atelier specifications & guarantees</h3>
+            <h3 className={`text-xl font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Studio specs & guarantees</h3>
             <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>Engineered for athletic performance apparel, team jerseys, and technical fabrics.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -759,9 +768,9 @@ export default function Pricing() {
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 mb-3">
                 <ShieldCheck className="w-4 h-4" />
               </div>
-              <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Master tailor guarantee</h4>
+              <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Custom order guarantee</h4>
               <p className={`text-xs leading-relaxed opacity-75`}>
-                Bespoke and custom orders are fulfilled directly by our in-house master tailors within 24 to 48 hours.
+                Bespoke and custom orders are fulfilled directly by our our studio team within 24 to 48 hours.
               </p>
             </div>
             <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
@@ -1055,7 +1064,12 @@ export default function Pricing() {
                   <div className="space-y-2 pt-2 no-print">
                     <button
                       type="button"
-                      onClick={() => window.print()}
+                      onClick={() => {
+                        const prev = document.title;
+                        document.title = `Invoice ${activeOrder?.invoice_no ?? ''}`;
+                        window.print();
+                        document.title = prev;
+                      }}
                       className={`w-full py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                         isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-800' : 'border-white/15 hover:bg-white/10 text-white'
                       }`}
@@ -1067,7 +1081,7 @@ export default function Pricing() {
                       href="/design"
                       className="w-full py-3 px-4 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg shadow-[#e5373f]/25 cursor-pointer"
                     >
-                      <span>Open AI Studio & Start Designing</span>
+                      <span>Go to Studio</span>
                       <ArrowRight className="w-4 h-4" />
                     </a>
                   </div>
@@ -1080,7 +1094,7 @@ export default function Pricing() {
                     isLight ? 'bg-amber-50 border-amber-200' : 'bg-slate-900/90 border-amber-500/30'
                   }`}>
                     <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 block">Selected Atelier Plan</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 block">Selected Plan</span>
                       <h4 className="text-base font-extrabold text-amber-500">{selectedPlan.name}</h4>
                     </div>
                     <div className="text-right">
@@ -1170,7 +1184,7 @@ export default function Pricing() {
                       </span>
                     </div>
                     <p className={`text-xs mb-3 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
-                      Have an authorization or transaction code? Enter it below to unlock and generate your official tax invoice & activate the plan:
+                      After payment, enter the authorization code you received to generate your invoice and activate the plan.
                     </p>
 
                     <div className="space-y-2">

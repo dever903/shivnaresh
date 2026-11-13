@@ -3011,7 +3011,31 @@ function CustomRequestsPanel({
                       {/* Photo / Images */}
                       {isPhoto && (
                         <div className="space-y-3">
-                          {delivery.fileUrl && (
+                          {/* Multi-photo grid when mediaUrls has photos */}
+                          {delivery.mediaUrls && delivery.mediaUrls.length > 1 ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {delivery.mediaUrls.map((url, uIdx) => (
+                                <div
+                                  key={uIdx}
+                                  className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black cursor-pointer"
+                                  onClick={() => setLightboxImg(url)}
+                                >
+                                  <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
+                                    <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold">View</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); void downloadDirectFile(url, `photo-${uIdx + 1}.jpg`); }}
+                                    className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded-lg bg-black/70 text-white transition"
+                                    title="Download"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : delivery.fileUrl ? (
                             <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
                               }`}>
                               <img
@@ -3032,21 +3056,7 @@ function CustomRequestsPanel({
                                 </button>
                               </div>
                             </div>
-                          )}
-
-                          {delivery.mediaUrls && delivery.mediaUrls.length > 1 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-                              {delivery.mediaUrls.map((url, uIdx) => (
-                                <div
-                                  key={uIdx}
-                                  className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black cursor-pointer"
-                                  onClick={() => setLightboxImg(url)}
-                                >
-                                  <img src={url} alt={`Asset ${uIdx + 1}`} className="w-full h-full object-cover" />
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          ) : null}
                         </div>
                       )}
 

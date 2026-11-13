@@ -4471,8 +4471,24 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
     }
 
     const allMedia = Array.isArray(mediaUrls) ? mediaUrls.filter(Boolean) : [];
-    if (finalFileUrl && !allMedia.includes(finalFileUrl)) {
-      allMedia.unshift(finalFileUrl);
+
+    // Upload any additional mediaUrls that are data URIs to Cloudinary
+    const hostedMedia = [];
+    for (const mUrl of allMedia) {
+      if (typeof mUrl === 'string' && mUrl.startsWith('data:image/')) {
+        try {
+          const cdn = await uploadToCloudinary(mUrl, recipientUserId || 'delivery', `media-${Date.now()}-${hostedMedia.length}`);
+          hostedMedia.push(cdn?.url || mUrl);
+        } catch {
+          hostedMedia.push(mUrl); // keep raw as fallback
+        }
+      } else if (mUrl) {
+        hostedMedia.push(mUrl);
+      }
+    }
+
+    if (finalFileUrl && !hostedMedia.includes(finalFileUrl)) {
+      hostedMedia.unshift(finalFileUrl);
     }
 
     const newDelivery = {
@@ -4487,7 +4503,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       fileUrl: finalFileUrl,
       fileName: finalFileName,
       fileSize: finalFileSize,
-      mediaUrls: allMedia,
+      mediaUrls: hostedMedia,
       readByUser: false,
       createdAt: Date.now(),
     };
