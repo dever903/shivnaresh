@@ -16,6 +16,7 @@ import {
   type User,
   type FashnCredits,
   type GatewayOrder,
+  type UploadSet,
   downloadDirectFile,
 } from '../lib/api';
 import { useTheme, ThemeToggle } from '../lib/theme';
@@ -40,6 +41,7 @@ import {
   Lock,
   MessageSquare,
   Move,
+  Package,
   Paperclip,
   QrCode,
   RefreshCw,
@@ -81,7 +83,7 @@ export default function Admin() {
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'requests' | 'users' | 'generations' | 'gateway' | 'settings' | 'models' | 'problems'
+    'overview' | 'requests' | 'user-sets' | 'users' | 'generations' | 'gateway' | 'settings' | 'models' | 'problems'
   >('overview');
 
   /* UPI Gateway Admin State */
@@ -240,6 +242,18 @@ export default function Admin() {
   const [dispatchSuccess, setDispatchSuccess] = useState('');
   const [dispatchError, setDispatchError] = useState('');
   const dispatchFileInputRef = useRef<HTMLInputElement>(null);
+
+  /* User Sets & Assets State (Admin View & Asset Picker for Dispatch) */
+  const [adminUploadSetsList, setAdminUploadSetsList] = useState<UploadSet[]>([]);
+  const [adminUploadSetsLoading, setAdminUploadSetsLoading] = useState(false);
+  const [userSetsFilterUser, setUserSetsFilterUser] = useState<string>('all');
+  const [userSetsSubTab, setUserSetsSubTab] = useState<'sets' | 'renders'>('sets');
+  const [userSetsSearch, setUserSetsSearch] = useState('');
+  const [showAssetPickerModal, setShowAssetPickerModal] = useState(false);
+  const [assetPickerSubTab, setAssetPickerSubTab] = useState<'sets' | 'renders'>('sets');
+  const [assetPickerSearch, setAssetPickerSearch] = useState('');
+  const [selectedAssetUrls, setSelectedAssetUrls] = useState<Array<{ url: string; name: string; userId?: string; userEmail?: string }>>([]);
+  const [bundlingZip, setBundlingZip] = useState(false);
 
   /* Reply Drawer / Modal State */
   const [selectedRequest, setSelectedRequest] = useState<CustomRequest | null>(null);
@@ -623,6 +637,85 @@ export default function Admin() {
     }
   }
 
+  async function loadAdminUploadSets(silent: boolean | unknown = false) {
+    if (silent !== true) setAdminUploadSetsLoading(true);
+    try {
+      const res = await api.adminUploadSets();
+      setAdminUploadSetsList(res.items || []);
+    } catch (e) {
+      console.warn('Failed to load admin upload sets:', e);
+    } finally {
+      if (silent !== true) setAdminUploadSetsLoading(false);
+    }
+  }
+
+  function handleUseAssetInDelivery(assetUrl: string, assetTitle: string, targetUserId?: string, targetUserEmail?: string) {
+    setActiveTab('requests');
+    setAdminRequestsTab('send');
+    if (targetUserId) {
+      setDispatchRecipientId(targetUserId);
+    } else if (targetUserEmail) {
+      const u = usersList.find((x) => x.email === targetUserEmail);
+      if (u) setDispatchRecipientId(u.id);
+    }
+    setDispatchType('photo');
+    setDispatchTitle(assetTitle || 'Finished Photo Render');
+    setDispatchFileUrl(assetUrl);
+    setDispatchFiles([{
+      dataUrl: assetUrl,
+      name: (assetTitle || 'render').toLowerCase().replace(/[^a-z0-9_-]/g, '-') + '.png',
+      size: 500000,
+      type: 'image/png',
+    }]);
+    setShowAssetPickerModal(false);
+  }
+
+  async function handleBundleAssetsToZip(assets: { url: string; name: string }[], targetUserId?: string, targetUserEmail?: string) {
+    if (!assets || assets.length === 0) return;
+    setBundlingZip(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      for (let i = 0; i < assets.length; i++) {
+        const a = assets[i];
+        try {
+          const resp = await fetch(a.url);
+          if (resp.ok) {
+            const buf = await resp.arrayBuffer();
+            zip.file(a.name || `photo_${i + 1}.png`, buf);
+          }
+        } catch {}
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setActiveTab('requests');
+        setAdminRequestsTab('send');
+        if (targetUserId) {
+          setDispatchRecipientId(targetUserId);
+        } else if (targetUserEmail) {
+          const u = usersList.find((x) => x.email === targetUserEmail);
+          if (u) setDispatchRecipientId(u.id);
+        }
+        setDispatchType('zip');
+        setDispatchTitle('ZIP Package of Finished Assets');
+        setDispatchFile({
+          dataUrl: base64,
+          name: `assets_bundle_${Date.now().toString(36)}.zip`,
+          size: zipBlob.size,
+          type: 'application/zip',
+        });
+        setShowAssetPickerModal(false);
+      };
+      reader.readAsDataURL(zipBlob);
+    } catch (e: any) {
+      alert(`Could not create ZIP: ${e.message || e}`);
+    } finally {
+      setBundlingZip(false);
+    }
+  }
+
   async function loadHost() {
     try {
       setHost(await api.hostStatus());
@@ -683,6 +776,7 @@ export default function Admin() {
             loadGenerations(),
             loadGatewayData(),
             loadAdminDeliveries(),
+            loadAdminUploadSets(),
             loadBin(),
           ]);
         }
@@ -692,7 +786,7 @@ export default function Admin() {
     })();
   }, []);
 
-  // 5-second silent auto-refresh for live Fashn credits, users, and generations
+  // 5-second silent auto-refresh for live Fashn credits, users, generations, and upload sets
   useEffect(() => {
     if (!access?.admin) return;
     const interval = setInterval(() => {
@@ -700,6 +794,7 @@ export default function Admin() {
         loadFashnCredits(true),
         loadUsers(true),
         loadGenerations(true),
+        loadAdminUploadSets(true),
       ]);
     }, 5000);
     return () => clearInterval(interval);
@@ -1620,6 +1715,12 @@ ${log.stack || 'None'}
                   label: 'Custom Orders',
                   icon: Inbox,
                   badge: unreadClientRequestsCount > 0 ? unreadClientRequestsCount : undefined,
+                },
+                {
+                  id: 'user-sets',
+                  label: 'User Sets & Renders',
+                  icon: Package,
+                  count: adminUploadSetsList.length,
                 },
                 { id: 'users', label: 'Users & Credits', icon: Users, count: usersList.length },
                 {
@@ -2905,6 +3006,33 @@ ${log.stack || 'None'}
                   onChange={(e) => setDispatchMessage(e.target.value)}
                   className={inputClass}
                 />
+              </div>
+
+              {/* Quick Pick from User Sets & Generations */}
+              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                isLight ? 'border-indigo-300 bg-indigo-50/70 text-indigo-950' : 'border-indigo-500/30 bg-indigo-500/10 text-white'
+              }`}>
+                <div>
+                  <p className="text-xs font-bold flex items-center gap-1.5 text-indigo-400">
+                    <Package className="w-4 h-4" />
+                    <span>Select from User Sets or AI Generated Renders</span>
+                  </p>
+                  <p className={`text-[11px] mt-0.5 ${isLight ? 'text-indigo-800' : 'text-indigo-200/60'}`}>
+                    Choose from {adminUploadSetsList.length} User Upload Sets or {generationsList.filter(g => g.url || g.outputUrl).length} Completed Renders. Send as photo or bundle into ZIP.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (adminUploadSetsList.length === 0) void loadAdminUploadSets();
+                    if (generationsList.length === 0) void loadGenerations();
+                    setShowAssetPickerModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer whitespace-nowrap"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Browse &amp; Pick Assets</span>
+                </button>
               </div>
 
               {/* File Attachment & URL */}
@@ -5936,16 +6064,544 @@ ${log.stack || 'None'}
     );
   };
 
+  const renderUserSets = () => {
+    const userEmails = Array.from(new Set([
+      ...adminUploadSetsList.map((s) => s.userEmail).filter(Boolean),
+      ...generationsList.map((g) => g.userEmail).filter(Boolean)
+    ]));
+
+    const filteredSets = adminUploadSetsList.filter((s) => {
+      const matchUser = userSetsFilterUser === 'all' || s.userEmail === userSetsFilterUser;
+      const q = userSetsSearch.trim().toLowerCase();
+      const matchSearch = !q || (s.clothName?.toLowerCase().includes(q) || s.modelName?.toLowerCase().includes(q) || s.userEmail?.toLowerCase().includes(q) || s.prompt?.toLowerCase().includes(q));
+      return matchUser && matchSearch;
+    });
+
+    const filteredGens = generationsList.filter((g) => {
+      const hasUrl = Boolean(g.url || g.outputUrl || g.remoteUrl || g.highResUrl);
+      const matchUser = userSetsFilterUser === 'all' || g.userEmail === userSetsFilterUser;
+      const q = userSetsSearch.trim().toLowerCase();
+      const matchSearch = !q || (g.prompt?.toLowerCase().includes(q) || g.userEmail?.toLowerCase().includes(q) || g.userName?.toLowerCase().includes(q) || g.id?.toLowerCase().includes(q));
+      return hasUrl && matchUser && matchSearch;
+    });
+
+    return (
+      <div className="space-y-6">
+        {/* Header & Controls Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#e5373f]" />
+              <span>User Sets &amp; Generated Assets</span>
+            </h2>
+            <p className="text-xs opacity-60 mt-0.5">
+              Browse all user-uploaded clothing/model sets and generated studio renders. Use any asset directly in a delivery to any client or bundle into ZIP.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                void loadAdminUploadSets();
+                void loadGenerations();
+              }}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+              }`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${adminUploadSetsLoading || generationsLoading ? 'animate-spin' : ''}`} />
+              <span>Refresh Assets</span>
+            </button>
+          </div>
+        </div>
+
+        {/* View Switcher Tabs & Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUserSetsSubTab('sets')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                userSetsSubTab === 'sets'
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>User Sets ({adminUploadSetsList.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setUserSetsSubTab('renders')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                userSetsSubTab === 'renders'
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>Generated Renders ({generationsList.filter((g) => g.url || g.outputUrl).length})</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* User Filter Dropdown */}
+            <select
+              value={userSetsFilterUser}
+              onChange={(e) => setUserSetsFilterUser(e.target.value)}
+              className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white focus:outline-none"
+            >
+              <option value="all">All Users ({userEmails.length})</option>
+              {userEmails.map((email) => (
+                <option key={email} value={email}>{email}</option>
+              ))}
+            </select>
+
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Search assets..."
+              value={userSetsSearch}
+              onChange={(e) => setUserSetsSearch(e.target.value)}
+              className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:outline-none w-40 sm:w-56"
+            />
+          </div>
+        </div>
+
+        {/* Tab 1: User Sets Grid */}
+        {userSetsSubTab === 'sets' && (
+          <div className="space-y-4">
+            {filteredSets.length === 0 ? (
+              <div className="text-center py-12 opacity-50 text-xs">
+                {adminUploadSetsLoading ? 'Loading user sets...' : 'No user sets found matching the selected filter.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredSets.map((s) => (
+                  <div key={s.id} className={cardClass}>
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[#e5373f]">Set #{s.setNumber}</span>
+                        <span className="opacity-50">&middot;</span>
+                        <span className="truncate max-w-[160px] opacity-80" title={s.userEmail}>{s.userEmail || 'Unknown User'}</span>
+                      </div>
+                      <span className="text-[10px] opacity-50">{new Date(s.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {/* Cloth Image */}
+                      <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                        {s.clothUrl ? (
+                          <>
+                            <img src={s.clothUrl} alt={s.clothName} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[9px] text-white truncate text-center">
+                              {s.clothName || 'Garment'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleUseAssetInDelivery(s.clothUrl, s.clothName || `Garment Set #${s.setNumber}`, s.userId, s.userEmail)}
+                              className="absolute top-1 right-1 rounded-full bg-[#e5373f] p-1 text-white shadow hover:bg-[#d42d35] transition text-[9px]"
+                              title="Send this garment in delivery"
+                            >
+                              <Send className="w-2.5 h-2.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-[10px] opacity-40">No Garment</div>
+                        )}
+                      </div>
+
+                      {/* Model Image */}
+                      <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                        {s.modelUrl ? (
+                          <>
+                            <img src={s.modelUrl} alt={s.modelName} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[9px] text-white truncate text-center">
+                              {s.modelName || 'Model'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleUseAssetInDelivery(s.modelUrl, s.modelName || `Model Set #${s.setNumber}`, s.userId, s.userEmail)}
+                              className="absolute top-1 right-1 rounded-full bg-[#e5373f] p-1 text-white shadow hover:bg-[#d42d35] transition text-[9px]"
+                              title="Send this model in delivery"
+                            >
+                              <Send className="w-2.5 h-2.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-[10px] opacity-40">No Model</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => handleUseAssetInDelivery(s.clothUrl || s.modelUrl, `Set #${s.setNumber} Assets`, s.userId, s.userEmail)}
+                        className="flex-1 py-1.5 px-2 rounded-xl bg-[#e5373f]/20 border border-[#e5373f]/40 hover:bg-[#e5373f]/30 text-[#ff8f95] text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>Send to User</span>
+                      </button>
+
+                      {s.clothUrl && s.modelUrl && (
+                        <button
+                          type="button"
+                          disabled={bundlingZip}
+                          onClick={() => void handleBundleAssetsToZip([
+                            { url: s.clothUrl, name: `${s.clothName || 'garment'}.png` },
+                            { url: s.modelUrl, name: `${s.modelName || 'model'}.png` }
+                          ], s.userId, s.userEmail)}
+                          className="py-1.5 px-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                          title="Bundle garment and model into a ZIP and dispatch"
+                        >
+                          <FileArchive className="w-3 h-3" />
+                          <span>ZIP &amp; Send</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Generated Renders Grid */}
+        {userSetsSubTab === 'renders' && (
+          <div className="space-y-4">
+            {filteredGens.length === 0 ? (
+              <div className="text-center py-12 opacity-50 text-xs">
+                {generationsLoading ? 'Loading generations...' : 'No completed renders found.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {filteredGens.map((g) => {
+                  const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                  if (!targetUrl) return null;
+                  return (
+                    <div key={g.id} className="group relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 flex flex-col">
+                      <div className="aspect-[3/4] relative overflow-hidden">
+                        <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                        <span className="absolute top-1.5 left-1.5 rounded-full bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white truncate max-w-[120px]">
+                          {g.userEmail ? g.userEmail.split('@')[0] : 'User'}
+                        </span>
+                      </div>
+                      <div className="p-2 space-y-1 bg-black/60 text-xs flex-1 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[10px] font-medium text-white/90 truncate">{g.prompt || 'Studio Pose Render'}</p>
+                          <p className="text-[9px] text-white/50">{new Date(g.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUseAssetInDelivery(targetUrl, g.prompt || 'Fashion Studio Render', g.userId, g.userEmail)}
+                            className="flex-1 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                            title="Dispatch this render to client"
+                          >
+                            <Send className="w-2.5 h-2.5" />
+                            <span>Send</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void downloadDirectFile(targetUrl, `shivnaresh-${g.id}.png`)}
+                            className="p-1 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                            title="Download render"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAssetPickerModal = () => {
+    const userEmails = Array.from(new Set([
+      ...adminUploadSetsList.map((s) => s.userEmail).filter(Boolean),
+      ...generationsList.map((g) => g.userEmail).filter(Boolean)
+    ]));
+
+    const filteredSets = adminUploadSetsList.filter((s) => {
+      const matchUser = userSetsFilterUser === 'all' || s.userEmail === userSetsFilterUser;
+      const q = assetPickerSearch.trim().toLowerCase();
+      const matchSearch = !q || (s.clothName?.toLowerCase().includes(q) || s.modelName?.toLowerCase().includes(q) || s.userEmail?.toLowerCase().includes(q) || s.prompt?.toLowerCase().includes(q));
+      return matchUser && matchSearch;
+    });
+
+    const filteredGens = generationsList.filter((g) => {
+      const hasUrl = Boolean(g.url || g.outputUrl || g.remoteUrl || g.highResUrl);
+      const matchUser = userSetsFilterUser === 'all' || g.userEmail === userSetsFilterUser;
+      const q = assetPickerSearch.trim().toLowerCase();
+      const matchSearch = !q || (g.prompt?.toLowerCase().includes(q) || g.userEmail?.toLowerCase().includes(q) || g.userName?.toLowerCase().includes(q) || g.id?.toLowerCase().includes(q));
+      return hasUrl && matchUser && matchSearch;
+    });
+
+    const isSelected = (url: string) => selectedAssetUrls.some((a) => a.url === url);
+    const toggleSelect = (asset: { url: string; name: string; userId?: string; userEmail?: string }) => {
+      setSelectedAssetUrls((prev) =>
+        isSelected(asset.url) ? prev.filter((a) => a.url !== asset.url) : [...prev, asset]
+      );
+    };
+
+    return (
+      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-150">
+        <div className={`w-full max-w-5xl max-h-[92vh] rounded-3xl border shadow-2xl overflow-hidden flex flex-col select-none ${
+          isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
+        }`}>
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+                <Package className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="text-base font-bold">Pick Asset from User Sets &amp; Generated Renders</h3>
+                <p className="text-xs opacity-60">Click any image to select it for delivery, or check multiple to bundle into a ZIP.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShowAssetPickerModal(false); setSelectedAssetUrls([]); }}
+              className="p-2 rounded-xl border border-white/10 hover:bg-white/10 transition text-sm cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Subtabs & Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 border-b border-white/10 bg-black/20">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAssetPickerSubTab('sets')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  assetPickerSubTab === 'sets'
+                    ? 'bg-[#e5373f] text-white shadow-sm'
+                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>User Sets ({filteredSets.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssetPickerSubTab('renders')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  assetPickerSubTab === 'renders'
+                    ? 'bg-[#e5373f] text-white shadow-sm'
+                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>Renders ({filteredGens.length})</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={userSetsFilterUser}
+                onChange={(e) => setUserSetsFilterUser(e.target.value)}
+                className="rounded-xl border border-white/15 bg-black/50 px-3 py-1.5 text-xs text-white focus:outline-none"
+              >
+                <option value="all">All Users ({userEmails.length})</option>
+                {userEmails.map((email) => (
+                  <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Search..."
+                value={assetPickerSearch}
+                onChange={(e) => setAssetPickerSearch(e.target.value)}
+                className="rounded-xl border border-white/15 bg-black/50 px-3 py-1.5 text-xs text-white placeholder:text-white/40 focus:outline-none w-36 sm:w-48"
+              />
+            </div>
+          </div>
+
+          {/* Modal Body: Scrollable Grid */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            {assetPickerSubTab === 'sets' ? (
+              filteredSets.length === 0 ? (
+                <div className="py-16 text-center opacity-50 text-xs">No upload sets found.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {filteredSets.map((s) => (
+                    <div key={s.id} className="p-3 rounded-2xl border border-white/10 bg-white/[0.03] space-y-2">
+                      <div className="flex items-center justify-between text-[11px] opacity-75">
+                        <span className="font-bold text-[#e5373f]">Set #{s.setNumber}</span>
+                        <span className="truncate max-w-[140px]">{s.userEmail}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {s.clothUrl && (
+                          <div
+                            onClick={() => toggleSelect({ url: s.clothUrl, name: `${s.clothName || 'garment'}.png`, userId: s.userId, userEmail: s.userEmail })}
+                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${
+                              isSelected(s.clothUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <img src={s.clothUrl} alt={s.clothName} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
+                              {s.clothName || 'Garment'}
+                            </span>
+                            <div className="absolute top-1 left-1">
+                              <input type="checkbox" checked={isSelected(s.clothUrl)} readOnly className="rounded text-[#e5373f]" />
+                            </div>
+                          </div>
+                        )}
+                        {s.modelUrl && (
+                          <div
+                            onClick={() => toggleSelect({ url: s.modelUrl, name: `${s.modelName || 'model'}.png`, userId: s.userId, userEmail: s.userEmail })}
+                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${
+                              isSelected(s.modelUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <img src={s.modelUrl} alt={s.modelName} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
+                              {s.modelName || 'Model'}
+                            </span>
+                            <div className="absolute top-1 left-1">
+                              <input type="checkbox" checked={isSelected(s.modelUrl)} readOnly className="rounded text-[#e5373f]" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleUseAssetInDelivery(s.clothUrl || s.modelUrl, `Set #${s.setNumber} Garment`, s.userId, s.userEmail)}
+                          className="flex-1 py-1 rounded-lg bg-[#e5373f]/20 hover:bg-[#e5373f]/30 border border-[#e5373f]/40 text-[#ff8f95] text-[10px] font-bold cursor-pointer"
+                        >
+                          Pick for Delivery
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              filteredGens.length === 0 ? (
+                <div className="py-16 text-center opacity-50 text-xs">No completed renders found.</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {filteredGens.map((g) => {
+                    const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                    if (!targetUrl) return null;
+                    const checked = isSelected(targetUrl);
+                    return (
+                      <div
+                        key={g.id}
+                        onClick={() => toggleSelect({ url: targetUrl, name: `render_${g.id}.png`, userId: g.userId, userEmail: g.userEmail })}
+                        className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border cursor-pointer transition flex flex-col ${
+                          checked ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                        }`}
+                      >
+                        <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover" />
+                        <div className="absolute top-2 left-2">
+                          <input type="checkbox" checked={checked} readOnly className="rounded text-[#e5373f]" />
+                        </div>
+                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 text-white">
+                          <p className="text-[10px] font-bold truncate">{g.userEmail ? g.userEmail.split('@')[0] : 'User'}</p>
+                          <p className="text-[9px] opacity-70 truncate">{g.prompt || 'Fashion Render'}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Modal Footer (Sticky Selection Bar) */}
+          <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-black/40">
+            <div className="text-xs">
+              <span className="font-bold text-[#e5373f]">{selectedAssetUrls.length}</span> asset{selectedAssetUrls.length === 1 ? '' : 's'} selected
+              {selectedAssetUrls.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAssetUrls([])}
+                  className="ml-3 text-[11px] opacity-60 hover:opacity-100 underline cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowAssetPickerModal(false); setSelectedAssetUrls([]); }}
+                className="px-4 py-2 rounded-xl border border-white/15 hover:bg-white/10 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              {selectedAssetUrls.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDispatchType('photo');
+                      setDispatchFiles(selectedAssetUrls.map((a) => ({
+                        dataUrl: a.url,
+                        name: a.name,
+                        size: 500000,
+                        type: 'image/png'
+                      })));
+                      if (selectedAssetUrls[0]?.userId) setDispatchRecipientId(selectedAssetUrls[0].userId);
+                      setShowAssetPickerModal(false);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Attach as Photos ({selectedAssetUrls.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={bundlingZip}
+                    onClick={() => void handleBundleAssetsToZip(
+                      selectedAssetUrls,
+                      selectedAssetUrls[0]?.userId,
+                      selectedAssetUrls[0]?.userEmail
+                    )}
+                    className="px-4 py-2 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer"
+                  >
+                    <FileArchive className="w-3.5 h-3.5" />
+                    <span>{bundlingZip ? 'Compressing ZIP…' : `Bundle as ZIP (${selectedAssetUrls.length})`}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return shell(
     <div>
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'requests' && renderRequests()}
+      {activeTab === 'user-sets' && renderUserSets()}
       {activeTab === 'users' && renderUsers()}
       {activeTab === 'gateway' && renderGateway()}
       {activeTab === 'generations' && renderGenerations()}
       {activeTab === 'settings' && renderSettings()}
       {activeTab === 'models' && renderModels()}
       {activeTab === 'problems' && renderProblems()}
+      {showAssetPickerModal && renderAssetPickerModal()}
     </div>,
   );
 }

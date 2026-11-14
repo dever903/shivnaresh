@@ -190,6 +190,8 @@ export type AdminGeneration = {
   targetModel?: string;
   outputUrl?: string | null;
   url?: string;
+  remoteUrl?: string;
+  highResUrl?: string;
   createdAt: number;
   completedAt?: number;
 };
@@ -1102,6 +1104,34 @@ export async function downloadDirectFile(
       return;
     } catch (e) {
       console.warn(`[download] Candidate fetch failed for ${testUrl}:`, e);
+    }
+  }
+
+  // Relative /generated/ URL fallback: recover live upstream URL from job
+  if (url.startsWith('/generated/') || url.startsWith('generated/')) {
+    try {
+      const clean = url.replace(/^\/?generated\//, '');
+      const jId = clean.replace(/-\d+\.[^.]+$/, '');
+      if (jId && jId.length > 5) {
+        const jobRes = await fetch(`/api/job/${jId}`).then((r) => r.json()).catch(() => null);
+        const upstream = (Array.isArray(jobRes?.output) && jobRes.output[0]) || jobRes?.remoteUrl || jobRes?.highResUrl;
+        if (upstream && typeof upstream === 'string' && /^https?:/.test(upstream)) {
+          try {
+            const upRes = await fetch(upstream);
+            if (upRes.ok) {
+              const upBlob = await upRes.blob();
+              if (upBlob.size >= 200) {
+                triggerBlobDownload(upBlob, filename);
+                return;
+              }
+            }
+          } catch {}
+          window.open(upstream, '_blank');
+          return;
+        }
+      }
+    } catch (recoverErr) {
+      console.warn('[download] Live upstream recovery failed:', recoverErr);
     }
   }
 

@@ -2747,18 +2747,25 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       }
       const file = `${jobId}-${i}.png`;
       const target = path.join(GENERATED, file);
+      let savedLocally = false;
       try {
         await fs.access(target);
+        savedLocally = true;
       } catch {
-        const img = await fetch(remote);
-        if (img.ok) await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
+        try {
+          const img = await fetch(remote);
+          if (img.ok) {
+            await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
+            savedLocally = true;
+          }
+        } catch {}
       }
 
       let permanent = '';
       try {
         const map = await readHosted();
         permanent = map.generated?.[file] || '';
-        if (!permanent) {
+        if (!permanent && savedLocally) {
           const uploaded = await hostImage(await fs.readFile(target), file);
           if (uploaded) {
             permanent = uploaded.url;
@@ -2769,7 +2776,9 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         }
       } catch {}
 
-      localOutputs.push(permanent || `/generated/${file}`);
+      // Safe fallback: prioritize permanent cloud URL, then verified local copy, then original remote CDN URL
+      const finalUrl = permanent || (savedLocally ? `/generated/${file}` : remote) || remote;
+      localOutputs.push(finalUrl);
     }
 
     const job = localJobMap.get(jobId);
@@ -2782,12 +2791,13 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
     try {
       const genList = await readGenerations();
       const found = genList.find((g) => g.id === jobId);
+      const primaryUrl = localOutputs[0] || generatedUrls[0];
       if (found) {
         found.status = 'completed';
-        found.outputUrl = localOutputs[0] || null;
-        found.url = found.outputUrl;
-        found.remoteUrl = generatedUrls[0] || null;
-        found.highResUrl = found.highResUrl || generatedUrls[0] || found.url;
+        found.outputUrl = primaryUrl;
+        found.url = primaryUrl;
+        found.remoteUrl = generatedUrls[0] || primaryUrl;
+        found.highResUrl = generatedUrls[0] || primaryUrl;
         found.completedAt = Date.now();
         await writeGenerations(genList);
       }
@@ -3083,6 +3093,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       // Universal dynamic fidelity rules: strictly mirror what is in the uploaded image, zero hardcoding
       const dynamicFidelityRules =
         'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, hands, shoes, and props (balls, equipment) with 100% fidelity. ' +
+        'SHIV-NARESH LOGO & PATTERN HIGH FIDELITY: The athletic wear features the official SHIV-NARESH brand logo (leaping athletic silhouette with "SHIV-NARESH" brand lettering) and signature geometric dot/gradient patterns. Faithfully replicate the SHIV-NARESH logo with sharp vector clarity on the left chest and left thigh. Reproduce the dot gradient grid pattern on the torso and sides cleanly with perfect symmetry, sharp contrast, and zero blurring or distortion. Every graphic, logo, letter, and pattern from the reference garment must appear sharp, legible, and accurately placed. ' +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/neckline style, closures (pullover, buttons, or zipper), textures, logos, and graphics strictly as visually present in the reference photos. Do NOT invent or add features (such as zippers, collars, pockets, or sleeves) that are absent in the reference photos, and do NOT omit features that are present. ' +
         'GRAPHIC & LOGO CENTERING: Any central chest graphics, badges, or brand text must remain aligned with the chest midline, wrapping smoothly across the 3D torso with natural perspective matching the model’s angle. ' +
         'REFERENCE CLEANUP: Discard any photo backgrounds (grass, turf, floor shadows, hangers) and price/brand tags visible in the reference photos. ';
@@ -3127,7 +3138,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         const modelUri = await toDataUri(body.model);
         const singleClothUri = await toDataUri(body.cloth);
         images = [modelUri, singleClothUri];
-        if (body.category === 'bottoms') {
+        const isTracksuitOrSet = Boolean(
+          body.category === 'one-pieces' ||
+          body.tryOnTarget === 'both' ||
+          (typeof body.clothName === 'string' && /tracksuit|suit|outfit|set|kit|combo|track/i.test(body.clothName)) ||
+          (typeof body.prompt === 'string' && /tracksuit|suit|outfit|both|track\s*pant/i.test(body.prompt))
+        );
+        if (isTracksuitOrSet) {
+          agentPrompt += 'Target: Complete Tracksuit / Sports Outfit. Dress the model in Image 1 wearing the complete athletic tracksuit from Image 2 (both the upper jacket/top and the matching track pants/bottoms simultaneously). Ensure matching fabric, colors, logos, and side dot patterns on both top and bottom with 100% fidelity. ';
+        } else if (body.category === 'bottoms' || body.tryOnTarget === 'lower') {
           agentPrompt += 'Target: Lower body. Dress the model’s legs in Image 1 with the bottom garment from Image 2, matching its exact length, waistband, and details. Keep existing top, face, and shoes intact. ';
         } else {
           agentPrompt += 'Target: Upper body. Dress the model’s upper torso in Image 1 with the garment from Image 2, faithfully replicating its cut, sleeve length, neckline, and graphics. Keep existing pants, shoes, and body intact. ';
@@ -3494,11 +3513,18 @@ app.get('/api/job/:id', async (req, res) => {
         const ext = isVideo ? 'mp4' : 'png';
         const file = `${req.params.id}-${i}.${ext}`;
         const target = path.join(GENERATED, file);
+        let savedLocally = false;
         try {
           await fs.access(target);
+          savedLocally = true;
         } catch {
-          const img = await fetch(remote);
-          if (img.ok) await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
+          try {
+            const img = await fetch(remote);
+            if (img.ok) {
+              await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
+              savedLocally = true;
+            }
+          } catch {}
         }
 
         /* keep a permanent copy on the image host for images — the provider expires its
@@ -3508,7 +3534,7 @@ app.get('/api/job/:id', async (req, res) => {
           try {
             const map = await readHosted();
             permanent = map.generated?.[file] || '';
-            if (!permanent) {
+            if (!permanent && savedLocally) {
               const uploaded = await hostImage(await fs.readFile(target), file);
               if (uploaded) {
                 permanent = uploaded.url;
@@ -3522,28 +3548,52 @@ app.get('/api/job/:id', async (req, res) => {
           }
         }
 
-        local.push(permanent || `/generated/${file}`);
+        // Safe fallback: prioritize permanent cloud URL, then verified local copy, then original remote CDN URL
+        const finalUrl = permanent || (savedLocally ? `/generated/${file}` : remote) || remote;
+        local.push(finalUrl);
       }
       data.output = local;
+      data.remoteUrl = originalRemoteUrls[0] || local[0];
+      data.highResUrl = local[0] || originalRemoteUrls[0];
 
       if (data.status === 'completed' || data.status === 'failed') {
         try {
           const genList = await readGenerations();
-          const found = genList.find((g) => g.id === req.params.id);
+          let found = genList.find((g) => g.id === req.params.id);
+          const rawOutput = (Array.isArray(data.output) && data.output[0]) ? data.output[0] : null;
+          const directUpstream = (Array.isArray(originalRemoteUrls) && originalRemoteUrls[0] && /^https?:/.test(originalRemoteUrls[0])) ? originalRemoteUrls[0] : null;
+          const finalUrl = rawOutput || directUpstream;
+
           if (found) {
             found.status = data.status === 'completed' ? 'completed' : 'failed';
             if (data.status === 'completed') {
-              const rawOutput = (Array.isArray(data.output) && data.output[0]) ? data.output[0] : null;
-              const directUpstream = (Array.isArray(originalRemoteUrls) && originalRemoteUrls[0] && /^https?:/.test(originalRemoteUrls[0])) ? originalRemoteUrls[0] : null;
-              found.outputUrl = rawOutput;
-              found.url = rawOutput;
-              found.remoteUrl = directUpstream || (rawOutput && /^https?:/.test(rawOutput) ? rawOutput : null);
-              found.highResUrl = found.highResUrl || directUpstream || rawOutput;
+              found.outputUrl = finalUrl;
+              found.url = finalUrl;
+              found.remoteUrl = directUpstream || finalUrl;
+              found.highResUrl = finalUrl || directUpstream;
             } else {
               found.error = data.error || data.message || data.detail || 'Render rejected or failed on cluster.';
             }
             found.completedAt = Date.now();
-            await writeGenerations(genList);
+          } else {
+            found = {
+              id: req.params.id,
+              userId: req.user?._id || 'guest',
+              userEmail: req.user?.email || 'guest',
+              userName: req.user?.name || '',
+              type: 'tryon',
+              mode: 'tryon',
+              status: data.status === 'completed' ? 'completed' : 'failed',
+              outputUrl: finalUrl,
+              url: finalUrl,
+              remoteUrl: directUpstream || finalUrl,
+              highResUrl: finalUrl || directUpstream,
+              createdAt: Date.now(),
+              completedAt: Date.now(),
+            };
+            genList.unshift(found);
+          }
+          await writeGenerations(genList);
           }
         } catch (genUpdateErr) {
           console.error('[generations] Failed to update status in generations.json:', genUpdateErr.message);
@@ -3664,7 +3714,19 @@ app.post('/api/user/unlock', auth.requireUser, (req, res) => {
 app.get('/api/user/generations', auth.requireUser, async (req, res) => {
   try {
     const list = await readGenerations();
-    const items = list.filter((g) => g.userId === req.user._id);
+    const currentUserId = String(req.user._id);
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+
+    const items = list.filter((g) => {
+      const gUserId = g.userId ? String(g.userId) : '';
+      const gEmail = (g.userEmail || '').toLowerCase().trim();
+      return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail);
+    }).map((g) => ({
+      ...g,
+      url: g.url || g.highResUrl || g.remoteUrl || g.outputUrl || '',
+      highResUrl: g.highResUrl || g.remoteUrl || g.url || g.outputUrl || '',
+    }));
+
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     res.json({ items });
   } catch (error) {
@@ -3781,7 +3843,13 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
 /* --------------------------------------------------- upload sets */
 app.get('/api/upload-sets', auth.requireUser, async (req, res) => {
   try {
-    const sets = (await readUploadSets()).filter((s) => s.userId === req.user._id);
+    const currentUserId = String(req.user._id);
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const sets = (await readUploadSets()).filter((s) => {
+      const sUserId = s.userId ? String(s.userId) : '';
+      const sEmail = (s.userEmail || '').toLowerCase().trim();
+      return (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
+    });
     sets.sort((a, b) => a.setNumber - b.setNumber);
     res.json({ items: sets });
   } catch (error) {
@@ -3798,9 +3866,11 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
 
     const userId = req.user._id;
     const userEmail = req.user.email || '';
+    const userName = req.user.name || '';
 
     const allSets = await readUploadSets();
-    const userSets = allSets.filter((s) => s.userId === userId);
+    const currentUserId = String(userId);
+    const userSets = allSets.filter((s) => String(s.userId) === currentUserId || (s.userEmail && s.userEmail === userEmail));
     const setNumber = userSets.length > 0 ? Math.max(...userSets.map((s) => s.setNumber)) + 1 : 1;
 
     let clothUrl = '';
@@ -3819,6 +3889,7 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
       id: crypto.randomUUID(),
       userId,
       userEmail,
+      userName,
       setNumber,
       clothUrl,
       clothName: String(clothName || 'cloth.jpg').slice(0, 120),
@@ -3838,8 +3909,15 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
 
 app.delete('/api/upload-sets/:id', auth.requireUser, async (req, res) => {
   try {
+    const currentUserId = String(req.user._id);
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
     const allSets = await readUploadSets();
-    const idx = allSets.findIndex((s) => s.id === req.params.id && s.userId === req.user._id);
+    const idx = allSets.findIndex((s) => {
+      const sUserId = s.userId ? String(s.userId) : '';
+      const sEmail = (s.userEmail || '').toLowerCase().trim();
+      const isOwner = (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
+      return s.id === req.params.id && isOwner;
+    });
     if (idx === -1) return res.status(404).json({ error: 'not_found', message: 'Set not found.' });
     allSets.splice(idx, 1);
     await writeUploadSets(allSets);
