@@ -57,6 +57,37 @@ import {
   X,
 } from 'lucide-react';
 
+function playAdminNotificationChime() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch {}
+}
+
+function sendAdminNotification(title: string, body: string) {
+  playAdminNotificationChime();
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/brand-mark-white.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then((perm) => {
+      if (perm === 'granted') {
+        new Notification(title, { body, icon: '/brand-mark-white.png' });
+      }
+    });
+  }
+}
+
 export default function Admin() {
   const { theme, toggleTheme } = useTheme();
 
@@ -557,26 +588,28 @@ export default function Admin() {
     }
   }
 
-  async function loadCustomRequests() {
-    setRequestsLoading(true);
+  async function loadCustomRequests(silent: boolean | unknown = false) {
+    const isSilent = silent === true;
+    if (!isSilent) setRequestsLoading(true);
     try {
       setCustomRequests((await api.adminCustomRequests()).items);
     } catch {
       /* non-fatal */
     } finally {
-      setRequestsLoading(false);
+      if (!isSilent) setRequestsLoading(false);
     }
   }
 
-  async function loadAdminDeliveries() {
-    setAdminDeliveriesLoading(true);
+  async function loadAdminDeliveries(silent: boolean | unknown = false) {
+    const isSilent = silent === true;
+    if (!isSilent) setAdminDeliveriesLoading(true);
     try {
       const res = await api.getAdminDeliveries();
       setAdminDeliveries(res.items || []);
     } catch {
       /* non-fatal */
     } finally {
-      setAdminDeliveriesLoading(false);
+      if (!isSilent) setAdminDeliveriesLoading(false);
     }
   }
 
@@ -796,7 +829,7 @@ export default function Admin() {
     })();
   }, []);
 
-  // 5-second silent auto-refresh for live Fashn credits, users, generations, and upload sets
+  // 5-second silent auto-refresh for live Fashn credits, users, generations, upload sets, custom requests, and gateway orders
   useEffect(() => {
     if (!access?.admin) return;
     const interval = setInterval(() => {
@@ -805,13 +838,73 @@ export default function Admin() {
         loadUsers(true),
         loadGenerations(true),
         loadAdminUploadSets(true),
+        loadCustomRequests(true),
+        loadAdminDeliveries(true),
+        loadGatewayData(true),
       ]);
     }, 5000);
     return () => clearInterval(interval);
   }, [access?.admin]);
 
-  async function loadGatewayData() {
-    setGatewayLoading(true);
+  const prevAlertsRef = useRef<{ requests: number; reviews: number; queries: number }>({ requests: -1, reviews: -1, queries: -1 });
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!access?.admin) return;
+    const prev = prevAlertsRef.current;
+    const unreadReqs = customRequests.filter((r) => r.readByAdmin === false).length;
+    const currentQueries = usersList.filter((u) => u.photoshootOffer?.status === 'queried').length;
+
+    // Initial load: record baseline without firing alerts
+    if (prev.requests === -1) {
+      prevAlertsRef.current = {
+        requests: unreadReqs,
+        reviews: gatewayStats.reviewCount,
+        queries: currentQueries,
+      };
+      return;
+    }
+
+    // New custom requests received
+    if (unreadReqs > prev.requests) {
+      const diff = unreadReqs - prev.requests;
+      sendAdminNotification(
+        '🔔 New Custom Order Received!',
+        `${diff} new custom tailoring request${diff > 1 ? 's' : ''} received from client.`
+      );
+    }
+
+    // New UPI payment proof submitted
+    if (gatewayStats.reviewCount > prev.reviews) {
+      sendAdminNotification(
+        '💳 New Payment Submitted!',
+        'New UPI payment proof submitted for verification in Payments & UPI tab.'
+      );
+    }
+
+    // New photoshoot query submitted
+    if (currentQueries > prev.queries) {
+      sendAdminNotification(
+        '📸 Photoshoot Quota Inquiry!',
+        'A user submitted an inquiry regarding photoshoot quota.'
+      );
+    }
+
+    prevAlertsRef.current = {
+      requests: unreadReqs,
+      reviews: gatewayStats.reviewCount,
+      queries: currentQueries,
+    };
+  }, [customRequests, gatewayStats.reviewCount, usersList, access?.admin]);
+
+  async function loadGatewayData(silent: boolean | unknown = false) {
+    const isSilent = silent === true;
+    if (!isSilent) setGatewayLoading(true);
     try {
       const [ordersRes, settingsRes] = await Promise.all([
         api.adminGatewayOrders(),
@@ -848,7 +941,7 @@ export default function Admin() {
     } catch (err: any) {
       console.warn('Failed to load gateway data:', err);
     } finally {
-      setGatewayLoading(false);
+      if (!isSilent) setGatewayLoading(false);
     }
   }
 

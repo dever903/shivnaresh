@@ -3766,7 +3766,6 @@ app.get('/api/job/:id', async (req, res) => {
             genList.unshift(found);
           }
           await writeGenerations(genList);
-          }
         } catch (genUpdateErr) {
           console.error('[generations] Failed to update status in generations.json:', genUpdateErr.message);
         }
