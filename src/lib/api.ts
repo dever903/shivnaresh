@@ -379,19 +379,43 @@ export class ApiError extends Error {
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+async function request<T>(url: string, init?: RequestInit, retries = 2): Promise<T> {
   const headers = new Headers(init?.headers);
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-  const response = await fetch(targetUrl, { ...init, headers });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = (data && (data.message || data.error)) || `Request failed (${response.status})`;
-    throw new ApiError(message, response.status);
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(targetUrl, { ...init, headers });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = (data && (data.message || data.error)) || `Request failed (${response.status})`;
+        throw new ApiError(message, response.status);
+      }
+      return data as T;
+    } catch (err: any) {
+      lastError = err;
+      if (err instanceof ApiError) {
+        // Do not retry predictable client errors (400 Bad Request, 401 Unauthorized, 403 Forbidden, 409 Conflict)
+        if (err.status < 500 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
+          throw err;
+        }
+      }
+      // Wait and retry on transient network/502/redeploy errors
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        continue;
+      }
+    }
   }
-  return data as T;
+
+  if (lastError && (lastError.message?.toLowerCase().includes('failed to fetch') || lastError.name === 'TypeError')) {
+    throw new Error('Server connection was momentarily interrupted (likely a server update). Please click Generate again.');
+  }
+  throw lastError || new Error('Request failed');
 }
 
 const json = (body: unknown): RequestInit => ({

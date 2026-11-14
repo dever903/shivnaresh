@@ -6741,6 +6741,8 @@ export default function Design() {
       let msg = e instanceof Error ? e.message : 'Generation failed';
       if (msg.toLowerCase().includes('rendering is off') || msg.toLowerCase().includes('no render key')) {
         msg = 'The render service key was rejected. Please contact support or try again later.';
+      } else if (msg.toLowerCase().includes('failed to fetch')) {
+        msg = 'Connection to the studio server was momentarily interrupted. Please click Generate again.';
       }
       setError(msg);
       void api.reportClientError({ title: 'Studio Generation Error', message: msg, details: e });

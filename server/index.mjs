@@ -1047,9 +1047,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '48mb' }));
-/* Handle client JSON parse errors gracefully as HTTP 400 without crashing or logging system faults */
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+/* Handle client JSON parse / payload size errors gracefully without dropping socket connection */
 app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    return res.status(413).json({ error: 'payload_too_large', message: 'Uploaded images are too large. Please compress or resize before generating.' });
+  }
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({ error: 'invalid_json', message: 'Malformed JSON payload' });
   }
