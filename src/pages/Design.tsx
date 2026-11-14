@@ -2867,6 +2867,36 @@ function CustomRequestsPanel({
 
       {panelTab === 'send' ? (
         <>
+          {/* Prominent Photoshoot Quota & Upload Allowance Info Card */}
+          <div className={`mt-5 p-4 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+            isLight ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-sm' : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Camera className="w-5 h-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <span>Photoshoot Quota &amp; Upload Allowance</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 font-mono text-emerald-300">
+                    Unlimited Photos Allowed
+                  </span>
+                </p>
+                <p className="text-xs mt-0.5 opacity-80">
+                  You can upload any number of garment photos per request. Atelier master tailors stitch and render high-resolution 1807×3000 multi-angle photoshoot sets.
+                </p>
+              </div>
+            </div>
+            {!formOpen && (
+              <button
+                type="button"
+                onClick={() => setFormOpen(true)}
+                className="px-4 py-2 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold tracking-wider uppercase transition shadow cursor-pointer shrink-0"
+              >
+                + Create Request
+              </button>
+            )}
+          </div>
 
           {/* Submission Form */}
           {formOpen && (
@@ -3555,11 +3585,10 @@ function CustomRequestsPanel({
                         <button
                           type="button"
                           onClick={() => toggleDeliveryExpand(delivery.id)}
-                          className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
-                            expandedDeliveryIds.has(delivery.id)
-                              ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-sm'
-                              : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300' : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
-                          }`}
+                          className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${expandedDeliveryIds.has(delivery.id)
+                            ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-sm'
+                            : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300' : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
+                            }`}
                         >
                           <span>{expandedDeliveryIds.has(delivery.id) ? 'Collapse' : 'View Photos'}</span>
                           {expandedDeliveryIds.has(delivery.id) ? (
@@ -3628,210 +3657,210 @@ function CustomRequestsPanel({
                         </button>
                       </div>
                     ) : (
-                    /* Media / File Content */
-                    <div className="mt-4">
-                      {/* Photo / Images */}
-                      {isPhoto && (
-                        <div className="space-y-3">
-                          {/* Multi-photo grid when mediaUrls has photos */}
-                          {delivery.mediaUrls && delivery.mediaUrls.length > 1 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {delivery.mediaUrls.map((url, uIdx) => {
-                                const selected = selectedMediaUrls.some((a) => a.url === url);
-                                return (
-                                  <div
-                                    key={uIdx}
-                                    className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
-                                      } bg-black`}
-                                    onClick={() => setLightboxImg(url)}
-                                  >
-                                    <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
-
-                                    {/* Selection Checkbox */}
+                      /* Media / File Content */
+                      <div className="mt-4">
+                        {/* Photo / Images */}
+                        {isPhoto && (
+                          <div className="space-y-3">
+                            {/* Multi-photo grid when mediaUrls has photos */}
+                            {delivery.mediaUrls && delivery.mediaUrls.length > 1 ? (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {delivery.mediaUrls.map((url, uIdx) => {
+                                  const selected = selectedMediaUrls.some((a) => a.url === url);
+                                  return (
                                     <div
-                                      className="absolute top-2 left-2 z-10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedMediaUrls((prev) =>
-                                          prev.some((a) => a.url === url)
-                                            ? prev.filter((a) => a.url !== url)
-                                            : [...prev, { url, name: `photo-${delivery.id}-${uIdx + 1}.png` }]
-                                        );
-                                      }}
+                                      key={uIdx}
+                                      className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
+                                        } bg-black`}
+                                      onClick={() => setLightboxImg(url)}
                                     >
-                                      <input
-                                        type="checkbox"
-                                        checked={selected}
-                                        onChange={() => { }}
-                                        className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
-                                      />
-                                    </div>
+                                      <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
 
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition flex items-center justify-center">
-                                      <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold flex items-center gap-1 bg-black/60 px-2 py-1 rounded-lg">
-                                        <ZoomIn className="w-3.5 h-3.5" /> Inspect
-                                      </span>
-                                    </div>
+                                      {/* Selection Checkbox */}
+                                      <div
+                                        className="absolute top-2 left-2 z-10"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedMediaUrls((prev) =>
+                                            prev.some((a) => a.url === url)
+                                              ? prev.filter((a) => a.url !== url)
+                                              : [...prev, { url, name: `photo-${delivery.id}-${uIdx + 1}.png` }]
+                                          );
+                                        }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={selected}
+                                          onChange={() => { }}
+                                          className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                                        />
+                                      </div>
 
-                                    {/* Quick Actions */}
-                                    <div className="absolute bottom-1.5 inset-x-1.5 opacity-0 group-hover:opacity-100 flex items-center justify-between gap-1 transition">
-                                      {onUseAsset && (
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition flex items-center justify-center">
+                                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold flex items-center gap-1 bg-black/60 px-2 py-1 rounded-lg">
+                                          <ZoomIn className="w-3.5 h-3.5" /> Inspect
+                                        </span>
+                                      </div>
+
+                                      {/* Quick Actions */}
+                                      <div className="absolute bottom-1.5 inset-x-1.5 opacity-0 group-hover:opacity-100 flex items-center justify-between gap-1 transition">
+                                        {onUseAsset && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onUseAsset(url, 'cloth');
+                                            }}
+                                            className="px-2 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold shadow cursor-pointer"
+                                            title="Use in Try-On Studio"
+                                          >
+                                            Use in Studio
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onUseAsset(url, 'cloth');
-                                          }}
-                                          className="px-2 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold shadow cursor-pointer"
-                                          title="Use in Try-On Studio"
+                                          onClick={(e) => { e.stopPropagation(); void downloadDirectFile(url, `photo-${uIdx + 1}.jpg`); }}
+                                          className="p-1 rounded-lg bg-black/70 hover:bg-black text-white transition ml-auto"
+                                          title="Download"
                                         >
-                                          Use in Studio
+                                          <Download className="w-3 h-3" />
                                         </button>
-                                      )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : delivery.fileUrl ? (
+                              <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
+                                }`}>
+                                <img
+                                  src={delivery.fileUrl}
+                                  alt={delivery.title}
+                                  className="w-full object-cover max-h-96 cursor-pointer"
+                                  onClick={() => setLightboxImg(delivery.fileUrl || null)}
+                                />
+                                <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
+                                  <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
+                                  <div className="flex items-center gap-2">
+                                    {onUseAsset && (
                                       <button
                                         type="button"
-                                        onClick={(e) => { e.stopPropagation(); void downloadDirectFile(url, `photo-${uIdx + 1}.jpg`); }}
-                                        className="p-1 rounded-lg bg-black/70 hover:bg-black text-white transition ml-auto"
-                                        title="Download"
+                                        onClick={() => onUseAsset(delivery.fileUrl || '', 'cloth')}
+                                        className="px-3 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
                                       >
-                                        <Download className="w-3 h-3" />
+                                        <Send className="w-3 h-3" />
+                                        <span>Use in Studio</span>
                                       </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : delivery.fileUrl ? (
-                            <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
-                              }`}>
-                              <img
-                                src={delivery.fileUrl}
-                                alt={delivery.title}
-                                className="w-full object-cover max-h-96 cursor-pointer"
-                                onClick={() => setLightboxImg(delivery.fileUrl || null)}
-                              />
-                              <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
-                                <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
-                                <div className="flex items-center gap-2">
-                                  {onUseAsset && (
+                                    )}
                                     <button
                                       type="button"
-                                      onClick={() => onUseAsset(delivery.fileUrl || '', 'cloth')}
-                                      className="px-3 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+                                      onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
+                                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                                     >
-                                      <Send className="w-3 h-3" />
-                                      <span>Use in Studio</span>
+                                      <Download className="w-3.5 h-3.5" />
+                                      <span>Download</span>
                                     </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
-                                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                                  >
-                                    <Download className="w-3.5 h-3.5" />
-                                    <span>Download</span>
-                                  </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-
-                      {/* Video */}
-                      {isVideo && delivery.fileUrl && (
-                        <div className="max-w-xl space-y-2">
-                          <video
-                            src={delivery.fileUrl}
-                            controls
-                            className="w-full rounded-2xl border border-white/10 bg-black max-h-96"
-                          />
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'video.mp4')}
-                              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Download Video</span>
-                            </button>
+                            ) : null}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* ZIP Archive */}
-                      {isZip && (
-                        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
-                          }`}>
-                          <div className="flex items-center gap-3 truncate">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                              <FileArchive className="w-5 h-5" />
-                            </div>
-                            <div className="truncate">
-                              <p className="text-xs font-bold text-amber-500 truncate">{delivery.fileName || 'Studio-Package.zip'}</p>
-                              {delivery.fileSize ? (
-                                <p className="text-[10px] opacity-60">
-                                  Size: {(delivery.fileSize / (1024 * 1024)).toFixed(2)} MB
-                                </p>
-                              ) : null}
+                        {/* Video */}
+                        {isVideo && delivery.fileUrl && (
+                          <div className="max-w-xl space-y-2">
+                            <video
+                              src={delivery.fileUrl}
+                              controls
+                              className="w-full rounded-2xl border border-white/10 bg-black max-h-96"
+                            />
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'video.mp4')}
+                                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download Video</span>
+                              </button>
                             </div>
                           </div>
-                          {delivery.fileUrl && (
-                            <a
-                              href={delivery.fileUrl}
-                              download={delivery.fileName || 'Studio-Package.zip'}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Download ZIP</span>
-                            </a>
-                          )}
-                        </div>
-                      )}
+                        )}
 
-                      {/* Folder */}
-                      {isFolder && (
-                        <div className={`p-4 rounded-2xl border space-y-3 ${isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/25'
-                          }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                              <Folder className="w-4 h-4" />
-                              <span>{delivery.fileName || 'Folder Asset Collection'}</span>
+                        {/* ZIP Archive */}
+                        {isZip && (
+                          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
+                            }`}>
+                            <div className="flex items-center gap-3 truncate">
+                              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                <FileArchive className="w-5 h-5" />
+                              </div>
+                              <div className="truncate">
+                                <p className="text-xs font-bold text-amber-500 truncate">{delivery.fileName || 'Studio-Package.zip'}</p>
+                                {delivery.fileSize ? (
+                                  <p className="text-[10px] opacity-60">
+                                    Size: {(delivery.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                  </p>
+                                ) : null}
+                              </div>
                             </div>
                             {delivery.fileUrl && (
                               <a
                                 href={delivery.fileUrl}
-                                download={delivery.fileName || 'Folder-Assets.zip'}
+                                download={delivery.fileName || 'Studio-Package.zip'}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer"
                               >
                                 <Download className="w-3.5 h-3.5" />
-                                <span>Download Folder</span>
+                                <span>Download ZIP</span>
                               </a>
                             )}
                           </div>
-                          {delivery.mediaUrls && delivery.mediaUrls.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10">
-                              {delivery.mediaUrls.map((url, uIdx) => (
+                        )}
+
+                        {/* Folder */}
+                        {isFolder && (
+                          <div className={`p-4 rounded-2xl border space-y-3 ${isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/25'
+                            }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                                <Folder className="w-4 h-4" />
+                                <span>{delivery.fileName || 'Folder Asset Collection'}</span>
+                              </div>
+                              {delivery.fileUrl && (
                                 <a
-                                  key={uIdx}
-                                  href={url}
+                                  href={delivery.fileUrl}
+                                  download={delivery.fileName || 'Folder-Assets.zip'}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-2 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 flex items-center justify-between text-[11px] truncate text-slate-300"
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
                                 >
-                                  <span className="truncate">File {uIdx + 1}</span>
-                                  <Download className="w-3 h-3 shrink-0 opacity-60" />
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download Folder</span>
                                 </a>
-                              ))}
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                            {delivery.mediaUrls && delivery.mediaUrls.length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10">
+                                {delivery.mediaUrls.map((url, uIdx) => (
+                                  <a
+                                    key={uIdx}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 flex items-center justify-between text-[11px] truncate text-slate-300"
+                                  >
+                                    <span className="truncate">File {uIdx + 1}</span>
+                                    <Download className="w-3 h-3 shrink-0 opacity-60" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -4593,17 +4622,61 @@ function CompareStudio({
     }
   });
 
-  const [leftUrl, setLeftUrl] = useState<string>(() => refCandidates[0]?.url || (userGenerations[0]?.url || ''));
-  const [leftName, setLeftName] = useState<string>(() => refCandidates[0]?.name || 'Reference Garment');
-  const [rightUrl, setRightUrl] = useState<string>(() => renderCandidates[0]?.url || (refCandidates[1]?.url || ''));
-  const [rightName, setRightName] = useState<string>(() => renderCandidates[0]?.name || 'Generated Render');
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('sn_broken_urls');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const markUrlBroken = (url: string) => {
+    if (!url) return;
+    setBrokenUrls((prev) => {
+      const next = new Set(prev);
+      next.add(url);
+      try {
+        localStorage.setItem('sn_broken_urls', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  const visibleRefCandidates = refCandidates.filter((c) => !brokenUrls.has(c.url));
+  const visibleRenderCandidates = renderCandidates.filter((c) => !brokenUrls.has(c.url));
+
+  const [leftUrl, setLeftUrl] = useState<string>(() => visibleRefCandidates[0]?.url || (refCandidates[0]?.url || (userGenerations[0]?.url || '')));
+  const [leftName, setLeftName] = useState<string>(() => visibleRefCandidates[0]?.name || (refCandidates[0]?.name || 'Reference Garment'));
+  const [rightUrl, setRightUrl] = useState<string>(() => visibleRenderCandidates[0]?.url || (renderCandidates[0]?.url || (refCandidates[1]?.url || '')));
+  const [rightName, setRightName] = useState<string>(() => visibleRenderCandidates[0]?.name || (renderCandidates[0]?.name || 'Generated Render'));
+
+  useEffect(() => {
+    if (leftUrl && brokenUrls.has(leftUrl)) {
+      const next = visibleRefCandidates[0];
+      if (next) {
+        setLeftUrl(next.url);
+        setLeftName(next.name);
+      }
+    }
+  }, [leftUrl, brokenUrls, visibleRefCandidates]);
+
+  useEffect(() => {
+    if (rightUrl && brokenUrls.has(rightUrl)) {
+      const next = visibleRenderCandidates[0];
+      if (next) {
+        setRightUrl(next.url);
+        setRightName(next.name);
+      }
+    }
+  }, [rightUrl, brokenUrls, visibleRenderCandidates]);
 
   const [compareMode, setCompareMode] = useState<'split' | 'curtain'>('split');
   const [curtainPos, setCurtainPos] = useState<number>(50); // percentage 0-100%
 
   const [zoom, setZoom] = useState<number>(1.0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isSynced, setIsSynced] = useState<boolean>(true);
+  const [isSynced, setIsSynced] = useState<boolean>(false);
 
   const [leftPan, setLeftPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [rightPan, setRightPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -4835,9 +4908,8 @@ function CompareStudio({
       onTouchEnd={handleTouchEnd}
     >
       {/* Header Bar */}
-      <div className={`p-4 rounded-3xl border transition shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${
-        isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
-      }`}>
+      <div className={`p-4 rounded-3xl border transition shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
+        }`}>
         <div>
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-[#e5373f]/15 text-[#e5373f]">
@@ -4862,9 +4934,8 @@ function CompareStudio({
             <button
               type="button"
               onClick={() => setCompareMode('split')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                compareMode === 'split' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${compareMode === 'split' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
+                }`}
               title="Side-by-Side Dual 1807×3000 Viewports"
             >
               Dual Split View
@@ -4872,9 +4943,8 @@ function CompareStudio({
             <button
               type="button"
               onClick={() => setCompareMode('curtain')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                compareMode === 'curtain' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${compareMode === 'curtain' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
+                }`}
               title="Before / After Sliding Curtain Divider"
             >
               Curtain Slider
@@ -4885,23 +4955,43 @@ function CompareStudio({
           <button
             type="button"
             onClick={() => setIsSynced((s) => !s)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
-              isSynced
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : isLight
-                  ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                  : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-            }`}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${isSynced
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : isLight
+                ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+              }`}
             title={isSynced ? 'Simultaneous zoom & pan enabled across both viewports' : 'Independent zoom & pan enabled'}
           >
             {isSynced ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Unlock className="w-3.5 h-3.5 text-amber-400" />}
             <span>{isSynced ? 'Synced Zoom' : 'Independent'}</span>
           </button>
 
+          {/* Clean Dead Cache Button */}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                localStorage.removeItem('sn_broken_urls');
+                setBrokenUrls(new Set());
+                await api.cleanBrokenCache().catch(() => {});
+                alert('Dead image cache purged successfully.');
+              } catch {
+                alert('Cache refreshed.');
+              }
+            }}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+              isLight ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+            }`}
+            title="Clean dead image links & purge cache"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Clean Cache</span>
+          </button>
+
           {/* Synchronized Zoom Slider & Controls */}
-          <div className={`flex items-center rounded-xl border px-2.5 py-1 gap-2 ${
-            isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
-          }`}>
+          <div className={`flex items-center rounded-xl border px-2.5 py-1 gap-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
+            }`}>
             <button
               type="button"
               onClick={() => setSynchronizedZoom(activeLeftZoom - 0.25)}
@@ -4948,11 +5038,10 @@ function CompareStudio({
                 key={val}
                 type="button"
                 onClick={() => setSynchronizedZoom(val)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                  Math.abs(activeLeftZoom - val) < 0.05
-                    ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                    : 'border-white/10 text-white/60 hover:text-white hover:bg-white/5'
-                }`}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${Math.abs(activeLeftZoom - val) < 0.05
+                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                  : 'border-white/10 text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 {val * 100}%
               </button>
@@ -4975,9 +5064,8 @@ function CompareStudio({
           <button
             type="button"
             onClick={onClose}
-            className={`p-2 rounded-xl border transition cursor-pointer ${
-              isLight ? 'border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-            }`}
+            className={`p-2 rounded-xl border transition cursor-pointer ${isLight ? 'border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+              }`}
             title="Return to Studio Canvas"
           >
             <X className="w-4 h-4" />
@@ -4988,14 +5076,13 @@ function CompareStudio({
       {/* Candidate Selectors: Visual Thumbnail Strips */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* LEFT SELECTOR: Reference Garments (Visual Thumbnails) */}
-        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${
-          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
-        }`}>
+        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                1. Reference Garment ({refCandidates.length})
+                1. Reference Garment ({visibleRefCandidates.length})
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -5009,9 +5096,8 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => refUploadInputRef.current?.click()}
-                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                  }`}
                 title="Upload manual reference photo"
               >
                 <Upload className="w-3 h-3 text-[#e5373f]" />
@@ -5020,9 +5106,8 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => setLeftRotation((r) => (r + 90) % 360)}
-                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                  }`}
                 title="Rotate 90° clockwise"
               >
                 <RotateCw className="w-3 h-3" />
@@ -5032,19 +5117,23 @@ function CompareStudio({
 
           {/* Visual Cards Strip */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            {refCandidates.map((c, idx) => (
+            {visibleRefCandidates.map((c, idx) => (
               <button
-                key={idx}
+                key={c.url || idx}
                 type="button"
                 onClick={() => { setLeftUrl(c.url); setLeftName(c.name); }}
-                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${
-                  leftUrl === c.url
-                    ? 'border-purple-500 ring-2 ring-purple-500/60 shadow-lg scale-105'
-                    : isLight ? 'border-gray-200 bg-white hover:border-purple-400' : 'border-white/10 bg-black/40 hover:border-white/30'
-                }`}
+                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${leftUrl === c.url
+                  ? 'border-purple-500 ring-2 ring-purple-500/60 shadow-lg scale-105'
+                  : isLight ? 'border-gray-200 bg-white hover:border-purple-400' : 'border-white/10 bg-black/40 hover:border-white/30'
+                  }`}
                 title={c.name}
               >
-                <img src={c.url} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                <img
+                  src={c.url}
+                  alt={c.name}
+                  onError={() => markUrlBroken(c.url)}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
                   <p className="text-[9px] font-bold text-white truncate leading-tight text-center">{c.label}</p>
                 </div>
@@ -5059,14 +5148,13 @@ function CompareStudio({
         </div>
 
         {/* RIGHT SELECTOR: AI Renders / My Sets (Visual Thumbnails) */}
-        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${
-          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
-        }`}>
+        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                2. AI Render / My Sets ({renderCandidates.length})
+                2. AI Render / My Sets ({visibleRenderCandidates.length})
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -5080,9 +5168,8 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => renderUploadInputRef.current?.click()}
-                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                  }`}
                 title="Upload manual render photo"
               >
                 <Upload className="w-3 h-3 text-[#e5373f]" />
@@ -5091,9 +5178,8 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => setRightRotation((r) => (r + 90) % 360)}
-                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                  }`}
                 title="Rotate 90° clockwise"
               >
                 <RotateCw className="w-3 h-3" />
@@ -5103,19 +5189,23 @@ function CompareStudio({
 
           {/* Visual Cards Strip */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            {renderCandidates.map((c, idx) => (
+            {visibleRenderCandidates.map((c, idx) => (
               <button
-                key={idx}
+                key={c.url || idx}
                 type="button"
                 onClick={() => { setRightUrl(c.url); setRightName(c.name); }}
-                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${
-                  rightUrl === c.url
-                    ? 'border-emerald-500 ring-2 ring-emerald-500/60 shadow-lg scale-105'
-                    : isLight ? 'border-gray-200 bg-white hover:border-emerald-400' : 'border-white/10 bg-black/40 hover:border-white/30'
-                }`}
+                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${rightUrl === c.url
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/60 shadow-lg scale-105'
+                  : isLight ? 'border-gray-200 bg-white hover:border-emerald-400' : 'border-white/10 bg-black/40 hover:border-white/30'
+                  }`}
                 title={c.name}
               >
-                <img src={c.url} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                <img
+                  src={c.url}
+                  alt={c.name}
+                  onError={() => markUrlBroken(c.url)}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
                   <p className="text-[9px] font-bold text-white truncate leading-tight text-center">{c.label}</p>
                 </div>
@@ -5135,12 +5225,39 @@ function CompareStudio({
         /* DUAL SPLIT VIEWPORTS (Side by Side 1807×3000) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* LEFT VIEWPORT: Reference Garment */}
-          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${
-            isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
-          }`}>
+          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+            }`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-purple-400">Reference: {leftName}</span>
-              <span className="text-[10px] font-mono opacity-60">Scale: {Math.round(activeLeftZoom * 100)}%</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setLeftZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))))}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+                  title="Zoom Out Reference Garment"
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </button>
+                <span className="text-[10px] font-mono font-bold text-purple-400 w-11 text-center">
+                  {Math.round(activeLeftZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLeftZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))))}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+                  title="Zoom In Reference Garment"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLeftZoom(1.0); setLeftPan({ x: 0, y: 0 }); }}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white/60 hover:text-white text-[10px] cursor-pointer"
+                  title="Reset Reference Zoom & Pan"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             <div
               className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
@@ -5152,6 +5269,7 @@ function CompareStudio({
                 <img
                   src={leftUrl}
                   alt={leftName}
+                  onError={() => markUrlBroken(leftUrl)}
                   draggable={false}
                   style={{
                     transform: `translate(${activeLeftPan.x}px, ${activeLeftPan.y}px) scale(${activeLeftZoom}) rotate(${leftRotation}deg)`,
@@ -5183,12 +5301,39 @@ function CompareStudio({
           </div>
 
           {/* RIGHT VIEWPORT: Generated Render */}
-          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${
-            isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
-          }`}>
+          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+            }`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400">Render: {rightName}</span>
-              <span className="text-[10px] font-mono opacity-60">Scale: {Math.round(activeRightZoom * 100)}%</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRightZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))))}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+                  title="Zoom Out Model Render"
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </button>
+                <span className="text-[10px] font-mono font-bold text-emerald-400 w-11 text-center">
+                  {Math.round(activeRightZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRightZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))))}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+                  title="Zoom In Model Render"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setRightZoom(1.0); setRightPan({ x: 0, y: 0 }); }}
+                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-white/60 hover:text-white text-[10px] cursor-pointer"
+                  title="Reset Model Render Zoom & Pan"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             <div
               className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
@@ -5200,6 +5345,7 @@ function CompareStudio({
                 <img
                   src={rightUrl}
                   alt={rightName}
+                  onError={() => markUrlBroken(rightUrl)}
                   draggable={false}
                   style={{
                     transform: `translate(${activeRightPan.x}px, ${activeRightPan.y}px) scale(${activeRightZoom}) rotate(${rightRotation}deg)`,
@@ -5232,9 +5378,8 @@ function CompareStudio({
         </div>
       ) : (
         /* BEFORE / AFTER SPLIT CURTAIN SLIDER VIEW (Synchronized Overlay) */
-        <div className={`p-5 rounded-3xl border transition shadow-sm space-y-3 ${
-          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
-        }`}>
+        <div className={`p-5 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-purple-400">&larr; Drag Left for Reference Garment</span>
             <span className="text-white/60 font-mono">Curtain: {Math.round(curtainPos)}% &middot; Zoom: {Math.round(activeLeftZoom * 100)}%</span>
@@ -5396,6 +5541,27 @@ export default function Design() {
   const [loadingSets, setLoadingSets] = useState(false);
   const [userGenerations, setUserGenerations] = useState<UserGeneration[]>([]);
   const [loadingGenerations, setLoadingGenerations] = useState(false);
+
+  const [brokenImageUrls, setBrokenImageUrls] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('sn_broken_urls');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const markGlobalBrokenUrl = useCallback((url: string) => {
+    if (!url) return;
+    setBrokenImageUrls((prev) => {
+      const next = new Set(prev);
+      next.add(url);
+      try {
+        localStorage.setItem('sn_broken_urls', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
@@ -5783,12 +5949,12 @@ export default function Design() {
     const map = new Map<string, { url: string; name: string; at: number }>();
     uploads.forEach((u) => {
       const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
-      if (!isModel) {
+      if (!isModel && !brokenImageUrls.has(u.url)) {
         map.set(u.url, { url: u.url, name: u.name || 'Garment', at: u.at || 0 });
       }
     });
     uploadSets.forEach((s) => {
-      if (s.clothUrl && !map.has(s.clothUrl)) {
+      if (s.clothUrl && !map.has(s.clothUrl) && !brokenImageUrls.has(s.clothUrl)) {
         map.set(s.clothUrl, { url: s.clothUrl, name: s.clothName || 'Saved Garment', at: s.createdAt || 0 });
       }
     });
@@ -5800,12 +5966,12 @@ export default function Design() {
     const map = new Map<string, { url: string; name: string; at: number }>();
     uploads.forEach((u) => {
       const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
-      if (isModel) {
+      if (isModel && !brokenImageUrls.has(u.url)) {
         map.set(u.url, { url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
       }
     });
     uploadSets.forEach((s) => {
-      if (s.modelUrl && !map.has(s.modelUrl)) {
+      if (s.modelUrl && !map.has(s.modelUrl) && !brokenImageUrls.has(s.modelUrl)) {
         map.set(s.modelUrl, { url: s.modelUrl, name: s.modelName || 'Studio Model', at: s.createdAt || 0 });
       }
     });
@@ -7664,6 +7830,37 @@ export default function Design() {
                           📸 Photo Guidelines Tour
                         </button>
                       </div>
+
+                      {/* Photoshoot Quota & Upload Allowance Info Card */}
+                      {user && (() => {
+                        const totalQuota = user.photoshoots || user.maxModels || 20;
+                        const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
+                        const leftCount = Math.max(0, totalQuota - doneCount);
+                        return (
+                          <div className={`mb-3 rounded-2xl border p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs ${
+                            isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                          }`}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+                                <Camera className="w-4 h-4" />
+                              </span>
+                              <div>
+                                <p className="font-bold text-xs leading-tight flex items-center gap-2">
+                                  <span>📸 Photoshoot Quota: {leftCount} Left</span>
+                                  <span className="text-[10px] font-mono opacity-75">({doneCount} / {totalQuota} Finished)</span>
+                                </p>
+                                <p className="text-[11px] opacity-80 mt-0.5">
+                                  <strong>Unlimited Reference Uploads:</strong> You can upload any number of garment photos. Quota is only used when studio renders are generated.
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 shrink-0">
+                              {user.tier ? `${user.tier.toUpperCase()} QUOTA` : 'ACTIVE'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       <button
                         type="button"
                         onClick={handleInitiateClothUpload}
@@ -7707,14 +7904,37 @@ export default function Design() {
                         <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
                           ⚡ Previous Garments Library ({previousGarmentsList.length})
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowAllGarmentsModal(true)}
-                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Browse Full Library ({previousGarmentsList.length})</span>
-                          <span>&rarr;</span>
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                localStorage.removeItem('sn_broken_urls');
+                                setBrokenImageUrls(new Set());
+                                await api.cleanUserCache().catch(() => {});
+                                void loadUploads();
+                                alert('Dead image cache refreshed.');
+                              } catch {
+                                alert('Cache refreshed.');
+                              }
+                            }}
+                            className={`text-[10px] flex items-center gap-1 transition cursor-pointer ${
+                              isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/50 hover:text-white'
+                            }`}
+                            title="Purge dead/broken cached images"
+                          >
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            <span>Clean Cache</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowAllGarmentsModal(true)}
+                            className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Browse Full Library ({previousGarmentsList.length})</span>
+                            <span>&rarr;</span>
+                          </button>
+                        </div>
                       </div>
                       <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
                         {previousGarmentsList.map((item, idx) => {
@@ -7734,13 +7954,17 @@ export default function Design() {
                                 }`}
                               title={`Select ${item.name}`}
                             >
-                              <img src={item.url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                              <img
+                                src={item.url}
+                                alt={item.name}
+                                onError={() => markGlobalBrokenUrl(item.url)}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              />
                               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
                                 <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
                               </div>
-                              <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${
-                                isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
-                              }`}>
+                              <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
+                                }`}>
                                 {isSelected ? '✓' : '+'}
                               </span>
                             </button>
@@ -7757,9 +7981,8 @@ export default function Design() {
                       onClick={() => setShowAllGarmentsModal(false)}
                     >
                       <div
-                        className={`w-full max-w-4xl max-h-[85vh] rounded-3xl border p-6 flex flex-col shadow-2xl ${
-                          isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121316] border-white/10 text-white'
-                        }`}
+                        className={`w-full max-w-4xl max-h-[85vh] rounded-3xl border p-6 flex flex-col shadow-2xl ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121316] border-white/10 text-white'
+                          }`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -7787,9 +8010,8 @@ export default function Design() {
                             value={garmentSearchQuery}
                             onChange={(e) => setGarmentSearchQuery(e.target.value)}
                             placeholder="Search garment by name or keyword..."
-                            className={`w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none ${
-                              isLight ? 'bg-gray-100 border-gray-300 text-gray-900 focus:bg-white' : 'bg-black/40 border-white/10 text-white focus:border-white/30'
-                            }`}
+                            className={`w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none ${isLight ? 'bg-gray-100 border-gray-300 text-gray-900 focus:bg-white' : 'bg-black/40 border-white/10 text-white focus:border-white/30'
+                              }`}
                           />
                         </div>
 
@@ -7808,13 +8030,17 @@ export default function Design() {
                                     setCloth(pick);
                                     setShowAllGarmentsModal(false);
                                   }}
-                                  className={`relative aspect-[3/4] rounded-2xl border overflow-hidden group transition text-left cursor-pointer ${
-                                    isSelected
-                                      ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-[1.02]'
-                                      : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                                  }`}
+                                  className={`relative aspect-[3/4] rounded-2xl border overflow-hidden group transition text-left cursor-pointer ${isSelected
+                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-[1.02]'
+                                    : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                    }`}
                                 >
-                                  <img src={item.url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                                  <img
+                                    src={item.url}
+                                    alt={item.name}
+                                    onError={() => markGlobalBrokenUrl(item.url)}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                  />
                                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2 pt-4">
                                     <p className="text-[11px] font-bold text-white truncate text-center">{item.name}</p>
                                   </div>

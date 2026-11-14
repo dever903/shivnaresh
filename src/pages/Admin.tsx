@@ -6709,18 +6709,19 @@ ${log.stack || 'None'}
                               type="button"
                               disabled={isSaving}
                               onClick={async () => {
-                                setSavingPhotoshootUserId(u.id);
+                                const targetId = u.id || (u as any)._id || u.email;
+                                setSavingPhotoshootUserId(targetId);
                                 try {
-                                  const res = await api.updateUserPhotoshootsProgress(u.id, activeDone, activeQuota);
+                                  const res = await api.updateUserPhotoshootsProgress(targetId, activeDone, activeQuota, u.email);
                                   setUsersList((prev) =>
                                     prev.map((usr) =>
-                                      usr.id === u.id || (usr as any)._id === u.id
+                                      usr.id === targetId || (usr as any)._id === targetId || usr.email === u.email
                                         ? { ...usr, photoshootsDone: res.photoshootsDone ?? activeDone, photoshoots: res.photoshoots ?? activeQuota, photoshootsLeft: res.photoshootsLeft ?? activeLeft }
                                         : usr
                                     )
                                   );
-                                  setSavedPhotoshootUserId(u.id);
-                                  setTimeout(() => setSavedPhotoshootUserId((curr) => (curr === u.id ? null : curr)), 3500);
+                                  setSavedPhotoshootUserId(targetId);
+                                  setTimeout(() => setSavedPhotoshootUserId((curr) => (curr === targetId ? null : curr)), 3500);
                                 } catch (err: any) {
                                   alert(err?.message || 'Failed to update photoshoot progress');
                                 } finally {
@@ -6818,9 +6819,10 @@ ${log.stack || 'None'}
                             onClick={async () => {
                               setQuotaUpdating(true);
                               try {
-                                const res = await api.updateUserPhotoshoots(u.id, quotaEditValue, quotaEditNote);
+                                const targetId = u.id || (u as any)._id || u.email;
+                                const res = await api.updateUserPhotoshoots(targetId, quotaEditValue, quotaEditNote);
                                 setUsersList((prev) =>
-                                  prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootOffer: res.photoshootOffer } : usr))
+                                  prev.map((usr) => (usr.id === targetId || (usr as any)._id === targetId || usr.email === u.email ? { ...usr, photoshootOffer: res.photoshootOffer } : usr))
                                 );
                                 setQuotaEditUserId(null);
                                 setQuotaEditNote('');

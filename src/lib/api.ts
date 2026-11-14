@@ -559,8 +559,13 @@ export const api = {
     request<{ ok: boolean; id: string; maxVideos: number }>(`/api/admin/users/${id}/video-limit`, json({ maxVideos })),
   updateUserPhotoshoots: (id: string, photoshoots: number, note?: string) =>
     request<{ ok: boolean; id: string; photoshootOffer: PhotoshootOffer }>(`/api/admin/users/${id}/photoshoots`, json({ photoshoots, note })),
-  updateUserPhotoshootsProgress: (id: string, photoshootsDone: number, photoshoots?: number) =>
-    request<{ ok: boolean; id: string; photoshootsDone: number; photoshoots: number; photoshootsLeft: number }>(`/api/admin/users/${id}/photoshoots-progress`, json({ photoshootsDone, photoshoots })),
+  updateUserPhotoshootsProgress: (id: string, photoshootsDone: number, photoshoots?: number, email?: string) =>
+    request<{ ok: boolean; id: string; photoshootsDone: number; photoshoots: number; photoshootsLeft: number }>(
+      `/api/admin/users/${encodeURIComponent(id || email || '')}/photoshoots-progress`,
+      json({ photoshootsDone, photoshoots, email })
+    ),
+  cleanBrokenCache: () => request<{ ok: boolean; message: string }>('/api/admin/clean-broken-cache', { method: 'POST' }),
+  cleanUserCache: () => request<{ ok: boolean; message: string }>('/api/user/clean-cache', { method: 'POST' }),
   respondPhotoshootOffer: (action: 'agree' | 'query', queryText?: string) =>
     request<{ ok: boolean; status: string; photoshoots?: number; userQuery?: string }>('/api/user/photoshoot-response', json({ action, queryText })),
   deleteUser: (id: string) =>

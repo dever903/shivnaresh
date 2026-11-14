@@ -336,72 +336,101 @@ const writeUploadSets = async (sets) => {
   } catch {}
 };
 
+let cachedCustomRequests = { items: null, time: 0 };
+let cachedAdminDeliveries = { items: null, time: 0 };
+
 const readCustomRequests = async () => {
-  try {
-    const db = await getMongoDb();
-    if (db) {
-      const items = await db.collection('custom_requests').find().sort({ createdAt: -1 }).toArray();
-      if (items && items.length > 0) {
-        return items.map((it) => {
-          const clean = { ...it };
-          delete clean._id;
-          return clean;
-        });
+  if (cachedCustomRequests.items && Date.now() - cachedCustomRequests.time < 5000) {
+    return cachedCustomRequests.items;
+  }
+  let items = await readJson(CUSTOM_REQUESTS_FILE, []);
+  if (!items || items.length === 0) {
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const raw = await db.collection('custom_requests').find().sort({ createdAt: -1 }).limit(100).toArray();
+        if (raw && raw.length > 0) {
+          items = raw.map((it) => {
+            const clean = { ...it };
+            delete clean._id;
+            return clean;
+          });
+          void writeJson(CUSTOM_REQUESTS_FILE, items);
+        }
       }
-    }
-  } catch {}
-  return readJson(CUSTOM_REQUESTS_FILE, []);
+    } catch {}
+  }
+  cachedCustomRequests = { items, time: Date.now() };
+  return items;
 };
 
 const writeCustomRequests = async (items) => {
+  cachedCustomRequests = { items, time: Date.now() };
   await writeJson(CUSTOM_REQUESTS_FILE, items);
-  try {
-    const db = await getMongoDb();
-    if (db && Array.isArray(items)) {
-      for (const item of items) {
-        if (!item.id) continue;
-        await db.collection('custom_requests').updateOne(
-          { id: item.id },
-          { $set: item },
-          { upsert: true }
-        );
+  (async () => {
+    try {
+      const db = await getMongoDb();
+      if (db && Array.isArray(items)) {
+        const bulk = items.filter((it) => it && it.id).map((it) => ({
+          updateOne: {
+            filter: { id: it.id },
+            update: { $set: it },
+            upsert: true,
+          },
+        }));
+        if (bulk.length > 0) {
+          await db.collection('custom_requests').bulkWrite(bulk, { ordered: false });
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  })().catch(() => {});
 };
 
 const readAdminDeliveries = async () => {
-  try {
-    const db = await getMongoDb();
-    if (db) {
-      const items = await db.collection('admin_deliveries').find().sort({ createdAt: -1 }).toArray();
-      if (items && items.length > 0) {
-        return items.map((it) => {
-          const clean = { ...it };
-          delete clean._id;
-          return clean;
-        });
+  if (cachedAdminDeliveries.items && Date.now() - cachedAdminDeliveries.time < 5000) {
+    return cachedAdminDeliveries.items;
+  }
+  let items = await readJson(ADMIN_DELIVERIES_FILE, []);
+  if (!items || items.length === 0) {
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const raw = await db.collection('admin_deliveries').find().sort({ createdAt: -1 }).limit(100).toArray();
+        if (raw && raw.length > 0) {
+          items = raw.map((it) => {
+            const clean = { ...it };
+            delete clean._id;
+            return clean;
+          });
+          void writeJson(ADMIN_DELIVERIES_FILE, items);
+        }
       }
-    }
-  } catch {}
-  return readJson(ADMIN_DELIVERIES_FILE, []);
+    } catch {}
+  }
+  cachedAdminDeliveries = { items, time: Date.now() };
+  return items;
 };
 
 const writeAdminDeliveries = async (items) => {
+  cachedAdminDeliveries = { items, time: Date.now() };
   await writeJson(ADMIN_DELIVERIES_FILE, items);
-  try {
-    const db = await getMongoDb();
-    if (db && Array.isArray(items)) {
-      for (const item of items) {
-        if (!item.id) continue;
-        await db.collection('admin_deliveries').updateOne(
-          { id: item.id },
-          { $set: item },
-          { upsert: true }
-        );
+  (async () => {
+    try {
+      const db = await getMongoDb();
+      if (db && Array.isArray(items)) {
+        const bulk = items.filter((it) => it && it.id).map((it) => ({
+          updateOne: {
+            filter: { id: it.id },
+            update: { $set: it },
+            upsert: true,
+          },
+        }));
+        if (bulk.length > 0) {
+          await db.collection('admin_deliveries').bulkWrite(bulk, { ordered: false });
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  })().catch(() => {});
 };
 
 const readSystemLogs = async () => {
@@ -2440,7 +2469,19 @@ app.get('/api/uploads', async (_req, res) => {
       }
     }
 
-    const items = Array.from(itemsMap.values()).sort((a, b) => b.at - a.at);
+    const diskFilesSet = new Set(diskFiles);
+    const items = Array.from(itemsMap.values())
+      .filter((it) => {
+        if (!it || !it.url) return false;
+        const u = String(it.url);
+        if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) return true;
+        if (u.startsWith('/uploads/')) {
+          const fname = path.basename(u);
+          return diskFilesSet.has(fname);
+        }
+        return true;
+      })
+      .sort((a, b) => b.at - a.at);
     res.json({ items });
   } catch {
     res.json({ items: [] });
@@ -4612,42 +4653,14 @@ app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
     const userId = String(req.user._id || req.user.id || '');
     const userEmail = String(req.user.email || '').trim().toLowerCase();
 
-    let items = [];
-    try {
-      const db = await getMongoDb();
-      if (db) {
-        const query = {
-          $and: [
-            { deleted: { $ne: true } },
-            {
-              $or: [
-                { recipientUserId: userId },
-                { recipientEmail: { $regex: `^${userEmail}$`, $options: 'i' } }
-              ]
-            }
-          ]
-        };
-        const raw = await db.collection('admin_deliveries').find(query).sort({ createdAt: -1 }).limit(100).toArray();
-        if (raw && raw.length > 0) {
-          items = raw.map((it) => {
-            const clean = { ...it };
-            delete clean._id;
-            return clean;
-          });
-        }
-      }
-    } catch {}
-
-    if (items.length === 0) {
-      const all = await readAdminDeliveries();
-      items = all.filter((d) => {
-        if (d.deleted) return false;
-        const matchId = d.recipientUserId && d.recipientUserId === userId;
-        const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
-        return matchId || matchEmail;
-      });
-      items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    }
+    const all = await readAdminDeliveries();
+    const items = all.filter((d) => {
+      if (d.deleted) return false;
+      const matchId = d.recipientUserId && String(d.recipientUserId) === userId;
+      const matchEmail = d.recipientEmail && String(d.recipientEmail).trim().toLowerCase() === userEmail;
+      return matchId || matchEmail;
+    });
+    items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     const unreadCount = items.filter((d) => d.readByUser === false).length;
     res.json({ items, unreadCount });
@@ -5054,11 +5067,26 @@ app.post('/api/admin/users/:id/credits', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { photoshoots, note } = req.body || {};
-    const user = await auth.findUserById(id);
+    const rawParam = decodeURIComponent(String(req.params.id || '').trim());
+    const { photoshoots, note, email } = req.body || {};
+
+    let user = await auth.findUserById(rawParam);
+    if (!user && (email || rawParam)) {
+      user = await auth.findUserByEmail(email || rawParam);
+    }
+    if (!user) {
+      const all = await auth.getAllUsers();
+      user = all.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
+    }
+    if (!user) {
+      try {
+        const local = (await auth.readLocal?.()) || [];
+        user = local.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
+      } catch {}
+    }
     if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
 
+    const targetUserId = String(user._id || user.id || rawParam);
     const newQuota = typeof photoshoots === 'number' ? Math.max(0, Math.floor(photoshoots)) : 20;
     const oldQuota = typeof user.photoshoots === 'number' ? user.photoshoots : (user.maxModels || 20);
 
@@ -5071,11 +5099,11 @@ app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
       userQuery: '',
     };
 
-    await auth.patchUser(id, {
+    await auth.patchUser(targetUserId, {
       photoshootOffer: offer,
     });
 
-    res.json({ ok: true, id, photoshootOffer: offer });
+    res.json({ ok: true, id: targetUserId, photoshootOffer: offer });
   } catch (error) {
     res.status(500).json({ error: 'update_photoshoots_failed', message: error.message });
   }
@@ -5083,11 +5111,27 @@ app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { photoshootsDone, photoshoots } = req.body || {};
-    const user = await auth.findUserById(id);
+    const rawParam = decodeURIComponent(String(req.params.id || '').trim());
+    const { photoshootsDone, photoshoots, email } = req.body || {};
+
+    let user = await auth.findUserById(rawParam);
+    if (!user && (email || rawParam)) {
+      user = await auth.findUserByEmail(email || rawParam);
+    }
+    if (!user) {
+      const all = await auth.getAllUsers();
+      user = all.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
+    }
+    if (!user) {
+      try {
+        const local = (await auth.readLocal?.()) || [];
+        user = local.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
+      } catch {}
+    }
+
     if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
 
+    const targetUserId = String(user._id || user.id || rawParam);
     const patch = {};
     if (typeof photoshootsDone === 'number') {
       const doneVal = Math.max(0, Math.floor(photoshootsDone));
@@ -5100,13 +5144,13 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
       patch.maxModels = val;
     }
 
-    await auth.patchUser(id, patch);
-    const updated = await auth.findUserById(id);
+    await auth.patchUser(targetUserId, patch);
+    const updated = (await auth.findUserById(targetUserId)) || { ...user, ...patch };
     const total = updated.photoshoots || updated.maxModels || 20;
     const done = typeof updated.photoshootsDone === 'number' ? updated.photoshootsDone : Math.floor((updated.modelsGenerated || 0) / 5);
     res.json({
       ok: true,
-      id,
+      id: targetUserId,
       photoshootsDone: done,
       photoshoots: total,
       photoshootsLeft: Math.max(0, total - done),
@@ -5114,6 +5158,45 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
   } catch (error) {
     res.status(500).json({ error: 'update_photoshoots_progress_failed', message: error.message });
   }
+});
+
+app.post('/api/admin/clean-broken-cache', requireAdmin, async (_req, res) => {
+  try {
+    cachedCustomRequests = { items: null, time: 0 };
+    cachedAdminDeliveries = { items: null, time: 0 };
+    const diskFiles = await fs.readdir(UPLOADS).catch(() => []);
+    const diskFilesSet = new Set(diskFiles);
+    let cleanedCount = 0;
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const dbUploads = await db.collection('user_uploads').find({}).toArray();
+        const idsToDelete = [];
+        for (const u of dbUploads) {
+          const urlStr = String(u.url || u.id || '');
+          if (urlStr.includes('/uploads/')) {
+            const fname = path.basename(urlStr);
+            if (!diskFilesSet.has(fname) && !u.dataUrl && !u.remoteUrl) {
+              idsToDelete.push(u._id);
+            }
+          }
+        }
+        if (idsToDelete.length > 0) {
+          await db.collection('user_uploads').deleteMany({ _id: { $in: idsToDelete } });
+          cleanedCount = idsToDelete.length;
+        }
+      }
+    } catch {}
+    res.json({ ok: true, message: `Server caches purged. Cleaned ${cleanedCount} dead upload records.` });
+  } catch (err) {
+    res.status(500).json({ error: 'cache_clean_failed', message: err.message });
+  }
+});
+
+app.post('/api/user/clean-cache', auth.requireUser, async (_req, res) => {
+  cachedCustomRequests = { items: null, time: 0 };
+  cachedAdminDeliveries = { items: null, time: 0 };
+  res.json({ ok: true, message: 'User cache refreshed successfully.' });
 });
 
 app.post('/api/user/photoshoot-response', auth.requireUser, async (req, res) => {
