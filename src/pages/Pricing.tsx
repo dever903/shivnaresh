@@ -28,7 +28,8 @@ const DEFAULT_USD_TO_INR = 94.0;
 
 function numberToWordsINR(amount: number): string {
   const n = Math.floor(Math.abs(amount));
-  if (n === 0) return 'Zero Rupees Only';
+  const paise = Math.round((Math.abs(amount) - n) * 100);
+  if (n === 0 && paise === 0) return 'Zero Rupees Only';
 
   const ones = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
@@ -65,7 +66,9 @@ function numberToWordsINR(amount: number): string {
   if (thousand > 0) parts.push(`${convertTwoDigits(thousand)} Thousand`);
   if (remainder > 0) parts.push(convertThreeDigits(remainder));
 
-  return `${parts.join(' ')} Rupees Only`;
+  let res = `${parts.join(' ')} Rupees`;
+  if (paise > 0) res += ` and ${convertTwoDigits(paise)} Paise`;
+  return `${res} Only`;
 }
 
 function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _clientName: string, _inrFallback: number, _upiId: string, bankDetailsOverride?: any) {
@@ -99,10 +102,8 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
   const photoAmount = photoshootsCount * photoRate;
   const videoAmount = videosCount * videoRate;
   const computedSubtotal = photoAmount + videoAmount;
-  const finalTotal = Math.round(computedSubtotal);
-  const roundOff = finalTotal - computedSubtotal;
-  const formattedTotal = finalTotal.toLocaleString('en-IN');
-  const amountWords = numberToWordsINR(finalTotal);
+  const formattedSubtotal = computedSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const amountWords = numberToWordsINR(computedSubtotal);
 
   const bankName = bankDetailsOverride?.bankName || 'State Bank of India';
   const beneficiaryName = bankDetailsOverride?.accountHolder || 'PAWAN KUMAR';
@@ -321,12 +322,8 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
 
     <div class="totals-wrap">
       <div class="totals-box">
-        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR ${computedSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-        <div class="totals-row"><span>Round off</span><span style="font-family: monospace;">(+) INR ${roundOff.toFixed(2)}</span></div>
-        <div class="totals-row"><span>GST</span><span>Not applicable</span></div>
-        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR ${formattedTotal}.00</span></div>
-        <div class="totals-row"><span>Amount Paid</span><span style="font-family: monospace;">INR ${formattedTotal}.00</span></div>
-        <div class="totals-row" style="font-weight: 700; color: #111827;"><span>Balance Due</span><span style="font-family: monospace;">INR 0.00</span></div>
+        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR ${formattedSubtotal}</span></div>
+        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR ${formattedSubtotal}</span></div>
       </div>
     </div>
 
@@ -1306,8 +1303,6 @@ export default function Pricing() {
                       const modalPhotoAmt = modalPhotosCount * 199.99;
                       const modalVidAmt = modalVidsCount * 199.99;
                       const modalSubtotal = modalPhotoAmt + modalVidAmt;
-                      const modalTotal = Math.round(modalSubtotal);
-                      const modalRound = modalTotal - modalSubtotal;
 
                       return (
                         <>
@@ -1358,25 +1353,9 @@ export default function Pricing() {
                                 <span>Subtotal</span>
                                 <span className="font-mono">INR {modalSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
-                              <div className="flex justify-between text-gray-600">
-                                <span>Round off</span>
-                                <span className="font-mono">(+) INR {modalRound.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between text-gray-600">
-                                <span>GST</span>
-                                <span>Not applicable</span>
-                              </div>
                               <div className="flex justify-between py-1 px-2 bg-[#EEF2F8] rounded font-bold text-gray-900 border-t-[1.5px] border-[#1F3A5F]">
                                 <span>Total</span>
-                                <span className="font-mono">INR {modalTotal.toLocaleString('en-IN')}.00</span>
-                              </div>
-                              <div className="flex justify-between text-gray-600 px-2">
-                                <span>Amount Paid</span>
-                                <span className="font-mono">INR {modalTotal.toLocaleString('en-IN')}.00</span>
-                              </div>
-                              <div className="flex justify-between font-semibold text-gray-900 px-2">
-                                <span>Balance Due</span>
-                                <span className="font-mono">INR 0.00</span>
+                                <span className="font-mono">INR {modalSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             </div>
                           </div>
@@ -1384,7 +1363,7 @@ export default function Pricing() {
                           {/* Amount in words */}
                           <div className="mt-3 pt-2.5 border-t border-gray-200 text-xs">
                             <span className="font-bold text-gray-900">Amount in words:</span>{' '}
-                            <span className="text-gray-700 italic">{numberToWordsINR(modalTotal)}</span>
+                            <span className="text-gray-700 italic">{numberToWordsINR(modalSubtotal)}</span>
                           </div>
                         </>
                       );
