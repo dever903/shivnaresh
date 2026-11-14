@@ -3313,29 +3313,20 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let images = [];
       let agentPrompt = '';
 
-      // Universal dynamic fidelity rules: strictly mirror what is in the uploaded image, zero hardcoding
-      const dynamicFidelityRules =
-        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, hands, shoes, and props (balls, equipment) with 100% fidelity. ' +
-        'SHIV-NARESH LOGO & PATTERN HIGH FIDELITY: The athletic wear features the official SHIV-NARESH brand logo (leaping athletic silhouette with "SHIV-NARESH" brand lettering) and signature geometric dot/gradient patterns. Faithfully replicate the SHIV-NARESH logo with sharp vector clarity on the left chest and left thigh. Reproduce the dot gradient grid pattern on the torso and sides cleanly with perfect symmetry, sharp contrast, and zero blurring or distortion. Every graphic, logo, letter, and pattern from the reference garment must appear sharp, legible, and accurately placed. ' +
-        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/neckline style, closures (pullover, buttons, or zipper), textures, logos, and graphics strictly as visually present in the reference photos. Do NOT invent or add features (such as zippers, collars, pockets, or sleeves) that are absent in the reference photos, and do NOT omit features that are present. ' +
-        'GRAPHIC & LOGO CENTERING: Any central chest graphics, badges, or brand text must remain aligned with the chest midline, wrapping smoothly across the 3D torso with natural perspective matching the model’s angle. ' +
-        'REFERENCE CLEANUP: Discard any photo backgrounds (grass, turf, floor shadows, hangers) and price/brand tags visible in the reference photos. ';
-
       if (isSwap) {
         const targetUri = await toDataUri(body.targetModel || body.model);
         const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
         images = [targetUri, sourceUri];
-        agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ' +
-          dynamicFidelityRules;
+        agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ';
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
-        const viewsToUse = garmentViews.slice(0, 5); // Fashn limit: 1 model + max 5 garment views = max 6 images
+        const viewsToUse = garmentViews.slice(0, 4); // Leave slot for master logo reference (max 6 images total)
         const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
         images = [modelUri, ...garmentUris];
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the model in Image 1 with the authentic garment shown across the reference photos (${viewLabels}). ` +
-          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture. ';
+          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, hood/collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture. ';
 
         if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
           agentPrompt += 'Target: Lower body. Dress the model’s legs with the bottom garment from the reference views, matching its exact silhouette, length, waistband, and side details. Keep top shirt, face, shoes, and posture intact. ';
@@ -3344,8 +3335,6 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         } else {
           agentPrompt += 'Target: Upper body. Dress the model’s upper torso with the garment from the reference views, keeping existing pants, shoes, and body intact. ';
         }
-
-        agentPrompt += dynamicFidelityRules;
       } else if (isOutfit) {
         const modelUri = await toDataUri(body.model);
         const topClothUri = await toDataUri(body.topCloth || body.cloth);
@@ -3356,7 +3345,6 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         } else {
           agentPrompt += 'Put the garment from Image 2 onto the model in Image 1 with realistic fit and high fidelity. ';
         }
-        agentPrompt += dynamicFidelityRules;
       } else {
         const modelUri = await toDataUri(body.model);
         const singleClothUri = await toDataUri(body.cloth);
@@ -3374,8 +3362,40 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         } else {
           agentPrompt += 'Target: Upper body. Dress the model’s upper torso in Image 1 with the garment from Image 2, faithfully replicating its cut, sleeve length, neckline, and graphics. Keep existing pants, shoes, and body intact. ';
         }
-        agentPrompt += dynamicFidelityRules;
       }
+
+      // Check if master brand logo reference should be attached (up to 6 images total)
+      let masterLogoIndex = -1;
+      if (images.length < 6) {
+        try {
+          const logoPath = path.join(process.cwd(), 'public', 'brand-logo-2k-white.png');
+          const logoBuf = await fs.readFile(logoPath);
+          images.push(`data:image/png;base64,${logoBuf.toString('base64')}`);
+          masterLogoIndex = images.length;
+        } catch {}
+      }
+
+      // Determine Hood / Cap styling instruction
+      let hoodInstruction = 'HOOD & CAP PRESERVATION: Inspect the upper garment in reference photos carefully. If an attached or detachable hood/cap or drawstrings are present (common in tracksuits, windbreakers, and hoodies), you MUST faithfully include the hood on the model. Style the hood draped naturally resting around the back of the neck and across the upper shoulders with drawstrings hanging symmetrically on the chest, matching premium athletic sportswear catalog photography. Do NOT omit the hood, do NOT clip it off at the collar, and do NOT substitute it with a plain stand-up collar. The full hood structure must be clearly visible and styled on the athlete model. ';
+      if (body.hoodStyle === 'on-head' || (typeof body.prompt === 'string' && /hood\s*(on|up|over)|cap\s*(on|up|pehni)/i.test(body.prompt))) {
+        hoodInstruction = 'HOOD & CAP STYLING: The model must wear the hood/cap up over their head in an athletic training/warm-up posture, neatly framing the face while keeping facial features sharp and unobscured. ';
+      } else if (body.hoodStyle === 'none') {
+        hoodInstruction = 'NECKLINE: Style the jacket with a clean athletic stand collar, no hood. ';
+      }
+
+      // Universal dynamic fidelity rules: 3D realism, true fabric drape, hood preservation, and logo fidelity
+      const dynamicFidelityRules =
+        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, hands, shoes, and props (balls, equipment) with 100% fidelity. ' +
+        '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around the zipper seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. The geometric dot gradient grid and stripe patterns must wrap seamlessly following the anatomical 3D cylindrical curvature and perspective foreshortening of the athlete’s chest, torso, and ribcage. Render professional commercial sportswear studio lighting: crisp directional key lighting, soft natural contact shadows in fabric folds, realistic ambient occlusion, and subtle micro-specular sheen characteristic of performance moisture-wicking polyester/nylon sportswear fabric. ' +
+        hoodInstruction +
+        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/hood style, closures (zipper with realistic zipper pull), textures, logos, and graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
+        'GRAPHIC & LOGO CENTERING: Any central chest graphics, badges, or brand text must remain aligned with the chest midline, wrapping smoothly across the 3D torso with natural perspective matching the model’s angle. ' +
+        'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
+        (masterLogoIndex > 0
+          ? `OFFICIAL SHIV-NARESH BRAND LOGO & LETTERING: Image ${masterLogoIndex} is the official master high-resolution SHIV-NARESH brand logo reference (leaping athlete mark and bold sans-serif capital text "SHIV-NARESH" underneath). You MUST precisely replicate this exact brand emblem and sharp legible lettering onto the left chest of the upper garment and left thigh of the track pants. The text must cleanly and distinctly spell "SHIV-NARESH" in bold, high-contrast capital letters without blurring, distortion, or missing characters. `
+          : 'SHIV-NARESH BRAND LOGO FIDELITY: Replicate the official SHIV-NARESH brand logo (leaping athletic silhouette with "SHIV-NARESH" bold capital brand lettering) with sharp clarity on the left chest and left thigh. The lettering must cleanly spell "SHIV-NARESH". ');
+
+      agentPrompt += dynamicFidelityRules;
 
       if (body.color && typeof body.color === 'string' && body.color.trim()) {
         agentPrompt += `Exact fabric color: ${body.color.trim()}. Maintain true garment dye and athlete kit tones with accurate color matching. `;

@@ -5681,7 +5681,22 @@ export default function Design() {
   const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'compare'>('studio');
 
   const [mode, setMode] = useState<ModeId>('tryon');
-  const [quality, setQuality] = useState<'1k' | '2k'>('1k');
+  const [quality, setQuality] = useState<'1k' | '2k'>(() => {
+    try {
+      const cached = localStorage.getItem('cached_current_user');
+      if (cached) {
+        const u = JSON.parse(cached);
+        if (u.tier === 'ultra' || u.features?.hd2k) return '2k';
+      }
+    } catch {}
+    return '1k';
+  });
+  const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
+  const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
+  const [hdLogoColor, setHdLogoColor] = useState<'white' | 'black' | 'golden'>('white');
+  const [hdLogoScale, setHdLogoScale] = useState<number>(38);
+  const [hdLogoX, setHdLogoX] = useState<number>(50);
+  const [hdLogoY, setHdLogoY] = useState<number>(22);
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -6520,6 +6535,61 @@ export default function Design() {
 
 
 
+  /* Helper: download rendered image with optional vector-sharp Shiv-Naresh brand logo stamp */
+  async function downloadRenderWithBranding(imgUrl: string, fileName: string) {
+    if (!showHdLogoOverlay) {
+      return downloadDirectFile(imgUrl, fileName);
+    }
+    try {
+      const baseImg = new Image();
+      baseImg.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        baseImg.onload = () => resolve();
+        baseImg.onerror = () => reject(new Error('Failed to load base image'));
+        baseImg.src = imgUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = baseImg.naturalWidth || baseImg.width || 1024;
+      canvas.height = baseImg.naturalHeight || baseImg.height || 1024;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return downloadDirectFile(imgUrl, fileName);
+
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      const logoSrc = hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png';
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => reject(new Error('Failed to load logo image'));
+        logoImg.src = logoSrc;
+      });
+
+      // Calculate placement on canvas natural dimensions
+      const logoW = (canvas.width * (hdLogoScale * 1.5)) / 1000;
+      const logoH = (logoW * (logoImg.naturalHeight || 1)) / (logoImg.naturalWidth || 1);
+      const posX = (canvas.width * hdLogoX) / 100 - logoW / 2;
+      const posY = (canvas.height * hdLogoY) / 100 - logoH / 2;
+
+      ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return downloadDirectFile(imgUrl, fileName);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2500);
+      }, 'image/png');
+    } catch {
+      downloadDirectFile(imgUrl, fileName);
+    }
+  }
+
   /* ------------------------------------------------
      Unified Execution Function (runs after user clicks Yes in confirmation)
      ------------------------------------------------ */
@@ -6556,6 +6626,7 @@ export default function Design() {
         resolution: quality,
         color: garmentColor.trim(),
         tryOnTarget,
+        hoodStyle,
       };
 
       if (isEditingRender) {
@@ -7383,6 +7454,59 @@ export default function Design() {
                       </span>
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* Hood / Cap Style Selector */}
+              <div>
+                <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                  🧢 Hood / Cap Style
+                </span>
+                <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setHoodStyle('auto')}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${hoodStyle === 'auto'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      }`}
+                    title="Auto-detect hood from garment photo and drape on shoulders"
+                  >
+                    Auto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHoodStyle('draped')}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${hoodStyle === 'draped'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      }`}
+                    title="Style hood naturally draped around neck and shoulders with drawstrings on chest"
+                  >
+                    Draped (Catalog)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHoodStyle('on-head')}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${hoodStyle === 'on-head'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      }`}
+                    title="Wear hood up over head in athletic training warm-up posture"
+                  >
+                    On Head
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHoodStyle('none')}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${hoodStyle === 'none'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      }`}
+                    title="No hood (stand collar only)"
+                  >
+                    No Hood
+                  </button>
                 </div>
               </div>
             </div>
@@ -8784,7 +8908,28 @@ export default function Design() {
                         <span>✨ Generated AI Studio Render</span>
                         <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
                       </div>
-                      <img src={result} alt="Generated" className="max-h-[480px] w-full rounded-xl object-contain shadow-2xl border border-emerald-500/20" />
+                      <div className="relative inline-block w-full overflow-hidden rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20">
+                        <img src={result} alt="Generated" className="max-h-[480px] w-full object-contain" />
+                        {showHdLogoOverlay && (
+                          <div
+                            className="absolute pointer-events-none select-none transition-all duration-75"
+                            style={{
+                              left: `${hdLogoX}%`,
+                              top: `${hdLogoY}%`,
+                              transform: 'translate(-50%, -50%)',
+                              width: `${hdLogoScale}px`,
+                            }}
+                          >
+                            <img
+                              src={hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png'}
+                              alt="SHIV-NARESH HD Logo"
+                              className={`w-full filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] ${
+                                hdLogoColor === 'golden' ? 'sepia hue-rotate-[15deg] saturate-[300%]' : ''
+                              }`}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : busy ? (
@@ -8827,7 +8972,20 @@ export default function Design() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
+                    onClick={() => setShowHdLogoOverlay((prev) => !prev)}
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${showHdLogoOverlay
+                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm'
+                      : isLight
+                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                        : 'border-emerald-500/40 text-emerald-300 hover:text-white hover:border-emerald-500'
+                      }`}
+                    title="Toggle 100% Vector-Sharp Official Shiv-Naresh Brand Logo Stamp (Zero AI Blur at any zoom)"
+                  >
+                    <span>✨ HD Brand Logo {showHdLogoOverlay ? 'ON' : 'Stamp'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadRenderWithBranding(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${isLight
                       ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
                       : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
@@ -8905,6 +9063,79 @@ export default function Design() {
                   >
                     Clear Preview
                   </button>
+                </div>
+              )}
+
+              {/* HD Logo Stamp Controls Strip */}
+              {result && showHdLogoOverlay && (
+                <div className={`border-t px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ${isLight ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950' : 'bg-emerald-950/30 border-emerald-500/20 text-emerald-200'}`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ HD Logo Stamp:</span>
+                    <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/20">
+                      {(['white', 'black', 'golden'] as const).map((col) => (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => setHdLogoColor(col)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase transition-all ${hdLogoColor === col ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'}`}
+                        >
+                          {col}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <span className="text-[10px] opacity-75">Preset:</span>
+                      <button
+                        type="button"
+                        onClick={() => { setHdLogoX(48); setHdLogoY(22); setHdLogoScale(36); }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30"
+                      >
+                        👕 Chest
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setHdLogoX(62); setHdLogoY(62); setHdLogoScale(28); }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30"
+                      >
+                        👖 Thigh
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <label className="flex items-center gap-1">
+                      <span>Size</span>
+                      <input
+                        type="range"
+                        min={18}
+                        max={65}
+                        value={hdLogoScale}
+                        onChange={(e) => setHdLogoScale(Number(e.target.value))}
+                        className="w-16 accent-emerald-500 cursor-pointer"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <span>X</span>
+                      <input
+                        type="range"
+                        min={10}
+                        max={90}
+                        value={hdLogoX}
+                        onChange={(e) => setHdLogoX(Number(e.target.value))}
+                        className="w-14 accent-emerald-500 cursor-pointer"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <span>Y</span>
+                      <input
+                        type="range"
+                        min={5}
+                        max={90}
+                        value={hdLogoY}
+                        onChange={(e) => setHdLogoY(Number(e.target.value))}
+                        className="w-14 accent-emerald-500 cursor-pointer"
+                      />
+                    </label>
+                  </div>
                 </div>
               )}
 
