@@ -2390,6 +2390,27 @@ function CustomRequestsPanel({
   const [saveToSetsNotice, setSaveToSetsNotice] = useState('');
   const [expandedDeliveryIds, setExpandedDeliveryIds] = useState<Set<string>>(new Set());
 
+  const [brokenImageUrls, setBrokenImageUrls] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('sn_broken_urls');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const markGlobalBrokenUrl = useCallback((url: string) => {
+    if (!url) return;
+    setBrokenImageUrls((prev) => {
+      const next = new Set(prev);
+      next.add(url);
+      try {
+        localStorage.setItem('sn_broken_urls', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const toggleDeliveryExpand = (id: string) => {
     setExpandedDeliveryIds((prev) => {
       const next = new Set(prev);
@@ -3611,13 +3632,17 @@ function CustomRequestsPanel({
                     {/* Collapsed State: Neat Compact Strip */}
                     {!expandedDeliveryIds.has(delivery.id) ? (
                       <div className="mt-3 pt-3 flex items-center justify-between gap-3 flex-wrap">
-                        {isPhoto && delivery.mediaUrls && delivery.mediaUrls.length > 0 ? (
+                        {isPhoto && delivery.mediaUrls && delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 0 ? (
                           <div className="flex items-center gap-2">
-                            {delivery.mediaUrls.slice(0, 4).map((url, uIdx) => (
+                            {delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).slice(0, 4).map((url, uIdx) => (
                               <img
                                 key={uIdx}
                                 src={url}
                                 alt="Thumb"
+                                onError={(e) => {
+                                  markGlobalBrokenUrl(url);
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
                                 className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black cursor-pointer hover:opacity-80 transition"
                                 onClick={() => {
                                   toggleDeliveryExpand(delivery.id);
@@ -3625,16 +3650,20 @@ function CustomRequestsPanel({
                                 }}
                               />
                             ))}
-                            {delivery.mediaUrls.length > 4 && (
+                            {delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 4 && (
                               <span className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white/70">
-                                +{delivery.mediaUrls.length - 4}
+                                +{delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length - 4}
                               </span>
                             )}
                           </div>
-                        ) : delivery.fileUrl && isPhoto ? (
+                        ) : delivery.fileUrl && isPhoto && !brokenImageUrls.has(delivery.fileUrl) ? (
                           <img
                             src={delivery.fileUrl}
                             alt="Thumb"
+                            onError={(e) => {
+                              markGlobalBrokenUrl(delivery.fileUrl || '');
+                              (e.currentTarget as HTMLElement).style.display = 'none';
+                            }}
                             className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black cursor-pointer hover:opacity-80 transition"
                             onClick={() => {
                               toggleDeliveryExpand(delivery.id);
@@ -3663,9 +3692,9 @@ function CustomRequestsPanel({
                         {isPhoto && (
                           <div className="space-y-3">
                             {/* Multi-photo grid when mediaUrls has photos */}
-                            {delivery.mediaUrls && delivery.mediaUrls.length > 1 ? (
+                            {delivery.mediaUrls && delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 1 ? (
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {delivery.mediaUrls.map((url, uIdx) => {
+                                {delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).map((url, uIdx) => {
                                   const selected = selectedMediaUrls.some((a) => a.url === url);
                                   return (
                                     <div
@@ -3674,7 +3703,15 @@ function CustomRequestsPanel({
                                         } bg-black`}
                                       onClick={() => setLightboxImg(url)}
                                     >
-                                      <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                                      <img
+                                        src={url}
+                                        alt={`Photo ${uIdx + 1}`}
+                                        onError={(e) => {
+                                          markGlobalBrokenUrl(url);
+                                          (e.currentTarget.closest('.group') as HTMLElement)?.style.setProperty('display', 'none');
+                                        }}
+                                        className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                                      />
 
                                       {/* Selection Checkbox */}
                                       <div
@@ -3730,15 +3767,20 @@ function CustomRequestsPanel({
                                   );
                                 })}
                               </div>
-                            ) : delivery.fileUrl ? (
-                              <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
-                                }`}>
-                                <img
-                                  src={delivery.fileUrl}
-                                  alt={delivery.title}
-                                  className="w-full object-cover max-h-96 cursor-pointer"
-                                  onClick={() => setLightboxImg(delivery.fileUrl || null)}
-                                />
+                            ) : delivery.fileUrl && !brokenImageUrls.has(delivery.fileUrl) ? (
+                              <div className={`relative group max-w-sm rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
+                                <div className="aspect-[3/4] relative overflow-hidden bg-black/20 flex items-center justify-center">
+                                  <img
+                                    src={delivery.fileUrl}
+                                    alt={delivery.title}
+                                    onError={(e) => {
+                                      markGlobalBrokenUrl(delivery.fileUrl || '');
+                                      (e.currentTarget.closest('.group') as HTMLElement)?.style.setProperty('display', 'none');
+                                    }}
+                                    className="w-full h-full object-contain cursor-pointer transition hover:scale-102"
+                                    onClick={() => setLightboxImg(delivery.fileUrl || null)}
+                                  />
+                                </div>
                                 <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
                                   <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
                                   <div className="flex items-center gap-2">
@@ -4641,6 +4683,21 @@ function CompareStudio({
       } catch {}
       return next;
     });
+    // Immediately auto-advance if current selection failed
+    if (leftUrl === url) {
+      const next = refCandidates.find((c) => c.url !== url && !brokenUrls.has(c.url));
+      if (next) {
+        setLeftUrl(next.url);
+        setLeftName(next.name);
+      }
+    }
+    if (rightUrl === url) {
+      const next = renderCandidates.find((c) => c.url !== url && !brokenUrls.has(c.url));
+      if (next) {
+        setRightUrl(next.url);
+        setRightName(next.name);
+      }
+    }
   };
 
   const visibleRefCandidates = refCandidates.filter((c) => !brokenUrls.has(c.url));
@@ -5131,7 +5188,10 @@ function CompareStudio({
                 <img
                   src={c.url}
                   alt={c.name}
-                  onError={() => markUrlBroken(c.url)}
+                  onError={(e) => {
+                    markUrlBroken(c.url);
+                    (e.currentTarget.closest('button') as HTMLElement)?.style.setProperty('display', 'none');
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
@@ -5203,7 +5263,10 @@ function CompareStudio({
                 <img
                   src={c.url}
                   alt={c.name}
-                  onError={() => markUrlBroken(c.url)}
+                  onError={(e) => {
+                    markUrlBroken(c.url);
+                    (e.currentTarget.closest('button') as HTMLElement)?.style.setProperty('display', 'none');
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
@@ -5227,12 +5290,30 @@ function CompareStudio({
           {/* LEFT VIEWPORT: Reference Garment */}
           <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
             }`}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-bold text-purple-400">Reference: {leftName}</span>
               <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="100"
+                  max="500"
+                  step="10"
+                  value={Math.round(activeLeftZoom * 100)}
+                  onChange={(e) => {
+                    const z = Number(e.target.value) / 100;
+                    setLeftZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
+                  className="w-16 sm:w-24 accent-purple-500 cursor-pointer"
+                  title="Garment Zoom (100% to 500%)"
+                />
                 <button
                   type="button"
-                  onClick={() => setLeftZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))))}
+                  onClick={() => {
+                    const z = Math.max(1.0, Number((activeLeftZoom - 0.25).toFixed(2)));
+                    setLeftZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
                   className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
                   title="Zoom Out Reference Garment"
                 >
@@ -5243,7 +5324,11 @@ function CompareStudio({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setLeftZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))))}
+                  onClick={() => {
+                    const z = Math.min(5.0, Number((activeLeftZoom + 0.25).toFixed(2)));
+                    setLeftZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
                   className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
                   title="Zoom In Reference Garment"
                 >
@@ -5303,12 +5388,30 @@ function CompareStudio({
           {/* RIGHT VIEWPORT: Generated Render */}
           <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
             }`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-400">Render: {rightName}</span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-bold text-emerald-400">Model Render: {rightName}</span>
               <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="100"
+                  max="500"
+                  step="10"
+                  value={Math.round(activeRightZoom * 100)}
+                  onChange={(e) => {
+                    const z = Number(e.target.value) / 100;
+                    setRightZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
+                  className="w-16 sm:w-24 accent-emerald-500 cursor-pointer"
+                  title="Model Render Zoom (100% to 500%)"
+                />
                 <button
                   type="button"
-                  onClick={() => setRightZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))))}
+                  onClick={() => {
+                    const z = Math.max(1.0, Number((activeRightZoom - 0.25).toFixed(2)));
+                    setRightZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
                   className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
                   title="Zoom Out Model Render"
                 >
@@ -5319,7 +5422,11 @@ function CompareStudio({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setRightZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))))}
+                  onClick={() => {
+                    const z = Math.min(5.0, Number((activeRightZoom + 0.25).toFixed(2)));
+                    setRightZoom(z);
+                    if (isSynced) setZoom(z);
+                  }}
                   className="p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
                   title="Zoom In Model Render"
                 >

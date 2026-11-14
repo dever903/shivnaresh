@@ -483,6 +483,21 @@ const writeSystemLogs = async (logs) => {
   } catch {}
 };
 
+function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  try {
+    const u = new URL(clean, 'http://localhost');
+    if (u.searchParams.has('url')) {
+      clean = u.searchParams.get('url') || '';
+    } else {
+      clean = u.pathname;
+    }
+  } catch {}
+  const base = path.basename(clean).split('?')[0].toLowerCase();
+  return base.replace(/^fashn-/, '').replace(/-\d+\.[^.]+$/, '');
+}
+
 function getGenerationKeys(g) {
   const keys = new Set();
   if (g.id) keys.add(String(g.id).trim());
@@ -495,9 +510,24 @@ function getGenerationKeys(g) {
       try {
         const u = new URL(val, 'http://localhost');
         keys.add(u.pathname);
+        if (u.searchParams.has('url')) {
+          const inner = u.searchParams.get('url');
+          if (inner) {
+            keys.add(inner);
+            try {
+              const innerU = new URL(inner);
+              keys.add(innerU.pathname);
+              const innerBase = path.basename(innerU.pathname);
+              if (innerBase && innerBase.length > 5) keys.add(innerBase);
+            } catch {}
+          }
+        }
         const base = path.basename(u.pathname);
         if (base && base.length > 5) keys.add(base);
       } catch {}
+
+      const norm = normalizeImageUrl(val);
+      if (norm && norm.length > 6) keys.add(`norm:${norm}`);
     }
   }
   return keys;
@@ -506,12 +536,15 @@ function getGenerationKeys(g) {
 function deduplicateGenerations(list) {
   if (!Array.isArray(list)) return [];
   const seenKeys = new Set();
+  const seenNormImages = new Set();
   const result = [];
   const duplicateIdsToDelete = [];
 
   for (const item of list) {
     if (!item) continue;
     const keys = getGenerationKeys(item);
+    const targetUrl = item.url || item.highResUrl || item.outputUrl || item.remoteUrl;
+    const normImg = normalizeImageUrl(targetUrl);
 
     let matchedIndex = -1;
     for (const key of keys) {
@@ -527,6 +560,13 @@ function deduplicateGenerations(list) {
       }
     }
 
+    if (matchedIndex === -1 && normImg && normImg.length > 8 && seenNormImages.has(normImg)) {
+      matchedIndex = result.findIndex((r) => {
+        const rUrl = r.url || r.highResUrl || r.outputUrl || r.remoteUrl;
+        return normalizeImageUrl(rUrl) === normImg;
+      });
+    }
+
     if (matchedIndex >= 0) {
       const existing = result[matchedIndex];
       const itemPrompt = typeof item.prompt === 'string' ? item.prompt.trim() : '';
@@ -538,14 +578,17 @@ function deduplicateGenerations(list) {
       if (!existing.remoteUrl && item.remoteUrl) existing.remoteUrl = item.remoteUrl;
       if (!existing.highResUrl && item.highResUrl) existing.highResUrl = item.highResUrl;
       if (!existing.url && item.url) existing.url = item.url;
+      if (!existing.outputUrl && item.outputUrl) existing.outputUrl = item.outputUrl;
       if (item.id && item.id !== existing.id) {
         duplicateIdsToDelete.push(item.id);
       }
       for (const k of keys) seenKeys.add(k);
+      if (normImg) seenNormImages.add(normImg);
       continue;
     }
 
     for (const k of keys) seenKeys.add(k);
+    if (normImg) seenNormImages.add(normImg);
     result.push(item);
   }
 
@@ -1034,13 +1077,18 @@ app.use('/uploads', async (req, res, next) => {
     if (remoteUrl && typeof remoteUrl === 'string') {
       return res.redirect(302, remoteUrl);
     }
-    // Fallback 2: Retrieve persistent dataUrl buffer from MongoDB user_uploads
+    // Fallback 2: Retrieve persistent dataUrl buffer from MongoDB user_uploads or admin_delivery_files
     try {
       const db = await getMongoDb();
       if (db) {
-        const doc = await db.collection('user_uploads').findOne({
+        let doc = await db.collection('user_uploads').findOne({
           $or: [{ id: filename }, { url: `/uploads/${filename}` }]
         });
+        if (!doc || !doc.dataUrl) {
+          doc = await db.collection('admin_delivery_files').findOne({
+            $or: [{ id: filename }, { url: `/uploads/${filename}` }]
+          });
+        }
         if (doc && doc.dataUrl) {
           const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
           if (m) {
@@ -4778,13 +4826,13 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
         finalFileUrl = `/uploads/${filename}`;
         finalFileName = fileName || safeName;
         finalFileSize = rawBuf.length;
+        mediaToBackup.push({ localUrl: finalFileUrl, filepath: path.join(UPLOADS, filename), dataUrl: file, filename });
       }
     } else if (typeof file === 'string' && file.trim()) {
       finalFileUrl = file.trim();
     }
 
     const allMedia = Array.isArray(mediaUrls) ? mediaUrls.filter(Boolean) : [];
-    const mediaToBackup = [];
     const hostedMedia = [];
 
     // Process all mediaUrls in parallel without blocking on slow cloud uploads
@@ -4800,7 +4848,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
             await fs.writeFile(filepath, Buffer.from(match[2], 'base64'));
             const localUrl = `/uploads/${filename}`;
             hostedMedia[idx] = localUrl;
-            mediaToBackup.push({ localUrl, filepath, dataUrl: mUrl, idx });
+            mediaToBackup.push({ localUrl, filepath, dataUrl: mUrl, idx, filename });
             return;
           }
         }
@@ -4837,9 +4885,32 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
     // Return immediate response to Admin (completes in < 200ms instead of 10 minutes)
     res.status(201).json(newDelivery);
 
-    // Non-blocking background Cloudinary sync if configured
+    // Asynchronously save persistent dataUrls in MongoDB so deliveries never 404 after redeploys
     if (mediaToBackup.length > 0) {
       (async () => {
+        try {
+          const db = await getMongoDb();
+          if (db) {
+            const bulk = mediaToBackup.map((item) => ({
+              updateOne: {
+                filter: { id: item.filename || path.basename(item.localUrl) },
+                update: {
+                  $set: {
+                    id: item.filename || path.basename(item.localUrl),
+                    url: item.localUrl,
+                    dataUrl: item.dataUrl,
+                    deliveryId: newDelivery.id,
+                    createdAt: Date.now(),
+                  },
+                },
+                upsert: true,
+              },
+            }));
+            await db.collection('admin_delivery_files').bulkWrite(bulk, { ordered: false });
+          }
+        } catch {}
+
+        // Non-blocking background Cloudinary sync if configured
         try {
           const s = await getSettings().catch(() => ({}));
           if (s.cloudinaryCloudName && s.cloudinaryApiKey && /^\d+$/.test(s.cloudinaryApiKey)) {
@@ -4859,7 +4930,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
             }
           }
         } catch {}
-      })();
+      })().catch(() => {});
     }
   } catch (err) {
     console.error('[admin-deliveries] Dispatch error:', err);

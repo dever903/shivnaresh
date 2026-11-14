@@ -68,7 +68,7 @@ function numberToWordsINR(amount: number): string {
   return `${parts.join(' ')} Rupees Only`;
 }
 
-function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, clientName: string, inrFallback: number, upiId: string) {
+function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _clientName: string, inrFallback: number, _upiId: string, bankDetailsOverride?: any) {
   const invoiceNo = order?.invoice_no || '1450903';
   const invoiceDate = order?.invoice_date
     ? new Date(order.invoice_date).toLocaleDateString('en-GB')
@@ -76,9 +76,30 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, cli
   const amount = order?.amount || inrFallback || 0;
   const formattedAmount = amount.toLocaleString('en-IN');
   const amountWords = numberToWordsINR(amount);
-  const photoshoots = plan?.specs?.photoshoots || (plan?.id === 'ultra' ? 100 : plan?.id === 'pro' ? 60 : 20);
-  const videos = plan?.specs?.videos || (plan?.id === 'ultra' ? 6 : plan?.id === 'pro' ? 4 : 1);
-  const billToName = clientName.trim() || 'Shiv-Naresh Sports Private Limited';
+
+  // Extract clean numerical counts without any expiry text
+  let photoshootsCount = 20;
+  if (plan?.id === 'ultra') photoshootsCount = 100;
+  else if (plan?.id === 'pro') photoshootsCount = 60;
+  else if (plan?.id === 'ondemand') photoshootsCount = 20;
+  else if (typeof plan?.specs?.photoshoots === 'string') {
+    const m = plan.specs.photoshoots.match(/(\d+)/);
+    if (m) photoshootsCount = parseInt(m[1], 10);
+  }
+
+  let videosCount = 2;
+  if (plan?.id === 'ultra') videosCount = 6;
+  else if (plan?.id === 'pro') videosCount = 4;
+  else if (plan?.id === 'ondemand') videosCount = 2;
+  else if (typeof plan?.specs?.videos === 'string') {
+    const m = plan.specs.videos.match(/(\d+)/);
+    if (m) videosCount = parseInt(m[1], 10);
+  }
+
+  const bankName = bankDetailsOverride?.bankName || 'State Bank of India';
+  const beneficiaryName = bankDetailsOverride?.accountHolder || 'PAWAN KUMAR';
+  const accountNumber = bankDetailsOverride?.accountNumber || '41614259248';
+  const ifscCode = bankDetailsOverride?.ifsc || 'SBIN0011558';
 
   const html = `<!DOCTYPE html>
 <html>
@@ -236,7 +257,6 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, cli
       <div style="text-align: right; line-height: 1.55;">
         <div><strong style="color: #4b5563;">Invoice No:</strong> <span style="font-family: monospace; font-weight: 700; color: #111827;">${invoiceNo}</span></div>
         <div><strong style="color: #4b5563;">Date:</strong> <span style="color: #111827;">${invoiceDate}</span></div>
-        <div><strong style="color: #4b5563;">Status:</strong> <span style="color: #1B7F3B; font-weight: 800;">PAID</span></div>
       </div>
     </div>
 
@@ -250,7 +270,7 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, cli
       </div>
       <div>
         <div class="col-title">BILL TO</div>
-        <div class="party-name">${billToName}</div>
+        <div class="party-name">Shiv-Naresh Sports Private Limited</div>
         <div class="party-detail">E-23, Karampura,</div>
         <div class="party-detail">New Delhi - 110015</div>
         <div class="party-detail" style="font-family: monospace; font-size: 10.5px; margin-top: 2px;">CIN: U18109DL1998PTC097659</div>
@@ -271,8 +291,8 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, cli
           <td style="text-align: center; font-weight: 600;">1</td>
           <td>
             <div style="font-weight: 700; color: #111827; margin-bottom: 3px;">Photo &amp; Video Shoot Services</div>
-            <div style="color: #4b5563; margin-bottom: 2px;">- ${photoshoots} photo shoots (each shoot = 5 poses)</div>
-            <div style="color: #4b5563;">- ${videos} videos in 1080p, each 5 to 10 seconds long</div>
+            <div style="color: #4b5563; margin-bottom: 2px;">- ${photoshootsCount} photo shoots (each shoot = 5 poses)</div>
+            <div style="color: #4b5563;">- ${videosCount} videos in 1080p, each 5 to 10 seconds long</div>
           </td>
           <td style="text-align: center;">1</td>
           <td style="text-align: right; font-family: monospace; font-weight: 600;">${formattedAmount}.00</td>
@@ -297,9 +317,11 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, cli
     <div class="payment-box">
       <div class="payment-header">PAYMENT DETAILS</div>
       <div class="payment-body">
-        <div><strong>Payment method:</strong> UPI</div>
-        <div><strong>UPI ID:</strong> <span style="font-family: monospace;">${upiId}</span></div>
-        <div><strong>Status:</strong> Received in full</div>
+        <div><strong>Payment method:</strong> Bank Transfer (NEFT / RTGS / IMPS)</div>
+        <div><strong>Bank Name:</strong> ${bankName}</div>
+        <div><strong>Beneficiary / Account Name:</strong> ${beneficiaryName}</div>
+        <div><strong>Account Number:</strong> <span style="font-family: monospace; font-weight: 700;">${accountNumber}</span></div>
+        <div><strong>IFSC Code:</strong> <span style="font-family: monospace; font-weight: 700;">${ifscCode}</span></div>
       </div>
     </div>
 
@@ -1236,10 +1258,6 @@ export default function Pricing() {
                               : new Date().toLocaleDateString('en-GB')}
                           </span>
                         </div>
-                        <div>
-                          <span className="font-semibold text-gray-500">Status:</span>{' '}
-                          <span className="font-bold text-[#1B7F3B] uppercase tracking-wide">PAID</span>
-                        </div>
                       </div>
                     </div>
 
@@ -1254,7 +1272,7 @@ export default function Pricing() {
                       </div>
                       <div>
                         <p className="font-bold uppercase tracking-wider text-[#1F3A5F] text-[11px] mb-2">BILL TO</p>
-                        <p className="font-bold text-sm text-gray-900">{userName.trim() || 'Shiv-Naresh Sports Private Limited'}</p>
+                        <p className="font-bold text-sm text-gray-900">Shiv-Naresh Sports Private Limited</p>
                         <p className="text-gray-600">E-23, Karampura,</p>
                         <p className="text-gray-600">New Delhi - 110015</p>
                         <p className="text-gray-500 font-mono text-[11px] mt-1">CIN: U18109DL1998PTC097659</p>
@@ -1277,8 +1295,8 @@ export default function Pricing() {
                             <td className="py-3.5 px-3 text-center font-bold text-gray-700 align-top border border-[#bbbbbb]">1</td>
                             <td className="py-3.5 px-4 align-top border border-[#bbbbbb]">
                               <p className="font-bold text-gray-900">Photo & Video Shoot Services</p>
-                              <p className="text-gray-600 mt-1">- {selectedPlan.specs.photoshoots} photo shoots (each shoot = 5 poses)</p>
-                              <p className="text-gray-600">- {selectedPlan.specs.videos} in 1080p, each 5 to 10 seconds long</p>
+                              <p className="text-gray-600 mt-1">- {selectedPlan.id === 'ultra' ? 100 : selectedPlan.id === 'pro' ? 60 : 20} photo shoots (each shoot = 5 poses)</p>
+                              <p className="text-gray-600">- {selectedPlan.id === 'ultra' ? 6 : selectedPlan.id === 'pro' ? 4 : 2} videos in 1080p, each 5 to 10 seconds long</p>
                             </td>
                             <td className="py-3.5 px-3 text-center font-medium text-gray-700 align-top border border-[#bbbbbb]">1</td>
                             <td className="py-3.5 px-4 text-right font-mono font-semibold text-gray-900 align-top border border-[#bbbbbb]">
@@ -1327,9 +1345,11 @@ export default function Pricing() {
                         <p className="font-bold uppercase tracking-wider text-[#1F3A5F] text-[10.5px]">PAYMENT DETAILS</p>
                       </div>
                       <div className="p-3 space-y-0.5 text-gray-700">
-                        <p><span className="font-semibold text-gray-900">Payment method:</span> UPI</p>
-                        <p><span className="font-semibold text-gray-900">UPI ID:</span> <span className="font-mono">{upiId}</span></p>
-                        <p><span className="font-semibold text-gray-900">Status:</span> Received in full</p>
+                        <p><span className="font-semibold text-gray-900">Payment method:</span> Bank Transfer (NEFT / RTGS / IMPS)</p>
+                        <p><span className="font-semibold text-gray-900">Bank Name:</span> {bankDetails.bankName || 'State Bank of India'}</p>
+                        <p><span className="font-semibold text-gray-900">Beneficiary / Account Name:</span> {bankDetails.accountHolder || 'PAWAN KUMAR'}</p>
+                        <p><span className="font-semibold text-gray-900">Account Number:</span> <span className="font-mono font-bold">{bankDetails.accountNumber || '41614259248'}</span></p>
+                        <p><span className="font-semibold text-gray-900">IFSC Code:</span> <span className="font-mono font-bold">{bankDetails.ifsc || 'SBIN0011558'}</span></p>
                       </div>
                     </div>
 
@@ -1344,7 +1364,7 @@ export default function Pricing() {
                   <div className="space-y-2 pt-2 no-print">
                     <button
                       type="button"
-                      onClick={() => printInvoiceDocument(activeOrder, selectedPlan, userName, inrAmount, upiId)}
+                      onClick={() => printInvoiceDocument(activeOrder, selectedPlan, userName, inrAmount, upiId, bankDetails)}
                       className={`w-full py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                         isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-800' : 'border-white/15 hover:bg-white/10 text-white'
                       }`}

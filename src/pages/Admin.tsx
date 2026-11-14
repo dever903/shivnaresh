@@ -295,6 +295,21 @@ export default function Admin() {
   const [assetPickerSearch, setAssetPickerSearch] = useState('');
   const [selectedAssetUrls, setSelectedAssetUrls] = useState<Array<{ url: string; name: string; userId?: string; userEmail?: string }>>([]);
   const [bundlingZip, setBundlingZip] = useState(false);
+  const [failedRenderIds, setFailedRenderIds] = useState<Set<string>>(new Set());
+
+  const normalizeRenderUrl = (url: string) => {
+    if (!url) return '';
+    let clean = url.trim();
+    try {
+      const u = new URL(clean, 'http://localhost');
+      if (u.searchParams.has('url')) {
+        clean = u.searchParams.get('url') || clean;
+      } else {
+        clean = u.pathname;
+      }
+    } catch {}
+    return (clean.split('?')[0].split('/').pop() || clean).toLowerCase().replace(/^fashn-/, '').replace(/-\d+\.[^.]+$/, '');
+  };
 
   /* Reply Drawer / Modal State */
   const [selectedRequest, setSelectedRequest] = useState<CustomRequest | null>(null);
@@ -6528,11 +6543,11 @@ ${log.stack || 'None'}
                   const seenRenderKeys = new Set<string>();
                   const uniqueRenders = filteredGens.filter((g) => {
                     const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
-                    if (!targetUrl) return false;
-                    const filename = targetUrl.split('?')[0].split('/').pop() || targetUrl;
-                    if (seenRenderKeys.has(targetUrl) || seenRenderKeys.has(filename)) return false;
+                    if (!targetUrl || failedRenderIds.has(g.id)) return false;
+                    const norm = normalizeRenderUrl(targetUrl);
+                    if (seenRenderKeys.has(targetUrl) || (norm && norm.length > 5 && seenRenderKeys.has(norm))) return false;
                     seenRenderKeys.add(targetUrl);
-                    if (filename) seenRenderKeys.add(filename);
+                    if (norm && norm.length > 5) seenRenderKeys.add(norm);
                     return true;
                   });
 
@@ -6545,7 +6560,12 @@ ${log.stack || 'None'}
                         selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
                       } bg-black/40`}>
                         <div className="aspect-[3/4] relative overflow-hidden">
-                          <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                          <img
+                            src={targetUrl}
+                            alt={g.prompt || 'Render'}
+                            onError={() => setFailedRenderIds((prev) => new Set(prev).add(g.id))}
+                            className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                          />
                           
                           {/* Checkbox */}
                           <div
@@ -7125,29 +7145,47 @@ ${log.stack || 'None'}
                 <div className="py-16 text-center opacity-50 text-xs">No completed renders found.</div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {filteredGens.map((g) => {
-                    const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
-                    if (!targetUrl) return null;
-                    const checked = isSelected(targetUrl);
-                    return (
-                      <div
-                        key={g.id}
-                        onClick={() => toggleSelect({ url: targetUrl, name: `render_${g.id}.png`, userId: g.userId, userEmail: g.userEmail })}
-                        className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border cursor-pointer transition flex flex-col ${
-                          checked ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
-                        }`}
-                      >
-                        <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover" />
-                        <div className="absolute top-2 left-2">
-                          <input type="checkbox" checked={checked} readOnly className="rounded text-[#e5373f]" />
+                  {(() => {
+                    const seenPickerKeys = new Set<string>();
+                    const uniquePickerRenders = filteredGens.filter((g) => {
+                      const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                      if (!targetUrl || failedRenderIds.has(g.id)) return false;
+                      const norm = normalizeRenderUrl(targetUrl);
+                      if (seenPickerKeys.has(targetUrl) || (norm && norm.length > 5 && seenPickerKeys.has(norm))) return false;
+                      seenPickerKeys.add(targetUrl);
+                      if (norm && norm.length > 5) seenPickerKeys.add(norm);
+                      return true;
+                    });
+
+                    return uniquePickerRenders.map((g) => {
+                      const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                      if (!targetUrl) return null;
+                      const checked = isSelected(targetUrl);
+                      return (
+                        <div
+                          key={g.id}
+                          onClick={() => toggleSelect({ url: targetUrl, name: `render_${g.id}.png`, userId: g.userId, userEmail: g.userEmail })}
+                          className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border cursor-pointer transition flex flex-col ${
+                            checked ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                          }`}
+                        >
+                          <img
+                            src={targetUrl}
+                            alt={g.prompt || 'Render'}
+                            onError={() => setFailedRenderIds((prev) => new Set(prev).add(g.id))}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2 left-2">
+                            <input type="checkbox" checked={checked} readOnly className="rounded text-[#e5373f]" />
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 text-white">
+                            <p className="text-[10px] font-bold truncate">{g.userEmail ? g.userEmail.split('@')[0] : 'User'}</p>
+                            <p className="text-[9px] opacity-70 truncate">{g.prompt || 'Fashion Render'}</p>
+                          </div>
                         </div>
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 text-white">
-                          <p className="text-[10px] font-bold truncate">{g.userEmail ? g.userEmail.split('@')[0] : 'User'}</p>
-                          <p className="text-[9px] opacity-70 truncate">{g.prompt || 'Fashion Render'}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               )
             )}
