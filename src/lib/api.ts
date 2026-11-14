@@ -79,6 +79,17 @@ export type UploadSet = {
   createdAt: number;
 };
 
+export type PhotoshootOffer = {
+  newQuota: number;
+  oldQuota: number;
+  note?: string;
+  offeredAt: number;
+  status: 'pending' | 'agreed' | 'queried';
+  userQuery?: string;
+  agreedAt?: number;
+  queriedAt?: number;
+};
+
 export type User = {
   id: string;
   email: string;
@@ -97,6 +108,7 @@ export type User = {
   photoshoots?: number;
   maxModels?: number;
   modelsGenerated?: number;
+  photoshootOffer?: PhotoshootOffer | null;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
@@ -221,6 +233,7 @@ export type AdminUser = {
   maxGenerations?: number;
   videosGenerated?: number;
   modelsGenerated?: number;
+  photoshootOffer?: PhotoshootOffer | null;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
@@ -534,6 +547,10 @@ export const api = {
     request<{ ok: boolean; id: string; tier: string }>(`/api/admin/users/${id}/tier`, json({ tier })),
   updateUserVideoLimit: (id: string, maxVideos: number) =>
     request<{ ok: boolean; id: string; maxVideos: number }>(`/api/admin/users/${id}/video-limit`, json({ maxVideos })),
+  updateUserPhotoshoots: (id: string, photoshoots: number, note?: string) =>
+    request<{ ok: boolean; id: string; photoshootOffer: PhotoshootOffer }>(`/api/admin/users/${id}/photoshoots`, json({ photoshoots, note })),
+  respondPhotoshootOffer: (action: 'agree' | 'query', queryText?: string) =>
+    request<{ ok: boolean; status: string; photoshoots?: number; userQuery?: string }>('/api/user/photoshoot-response', json({ action, queryText })),
   deleteUser: (id: string) =>
     request<{ ok: boolean; id: string }>(`/api/admin/users/${id}`, { method: 'DELETE' }),
 

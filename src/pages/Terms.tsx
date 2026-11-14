@@ -153,6 +153,20 @@ export default function Terms() {
               Our administrative team validates transaction records and activates account credit balances and video quotas manually <strong>within 30 minutes</strong> of submission during operational hours.
             </p>
           </section>
+
+          {/* Section 7: Client Verification & Responsibility */}
+          <section className="space-y-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+            <h2 className="text-lg font-bold tracking-tight text-amber-500 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              <span>7. Client Verification &amp; Responsibility</span>
+            </h2>
+            <p className="opacity-90 font-medium">
+              All files, photos, videos, and zip files sent by Admin must be checked and approved by the user before use or printing. Shiv-Naresh is not responsible for any printing, fabric, or business loss if the user uses the files without checking. Any correction must be reported within 24 hours of delivery.
+            </p>
+            <p className="text-[11px] opacity-75 leading-relaxed">
+              Upon the expiration of the 24-hour review window from asset dispatch, all delivered files are deemed definitively accepted, verified, and approved by the client. The studio disclaims all liability for downstream manufacturing, printing, garment fabrication, or marketing costs incurred from unverified file usage.
+            </p>
+          </section>
         </div>
 
         {/* Acceptance Callout Box */}

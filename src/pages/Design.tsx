@@ -18,11 +18,13 @@ import {
   RotateCcw,
   RotateCw,
   Send,
+  ShieldCheck,
   Sliders,
   Trash2,
   User as UserIcon,
   X,
   ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { useTheme, ThemeToggle } from '../lib/theme';
 import {
@@ -2260,6 +2262,7 @@ function CustomRequestsPanel({
   isLight = false,
   onUnreadCleared,
   initialTab = 'send',
+  onUseAsset,
 }: {
   requests: CustomRequest[];
   loading: boolean;
@@ -2269,11 +2272,17 @@ function CustomRequestsPanel({
   isLight?: boolean;
   onUnreadCleared?: () => void;
   initialTab?: 'send' | 'receive';
+  onUseAsset?: (url: string, role?: 'cloth' | 'model') => void;
 }) {
   const [panelTab, setPanelTab] = useState<'send' | 'receive'>(initialTab);
   const [deliveries, setDeliveries] = useState<AdminDelivery[]>([]);
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
   const [unreadDeliveriesCount, setUnreadDeliveriesCount] = useState(0);
+
+  const [selectedMediaUrls, setSelectedMediaUrls] = useState<Array<{ url: string; name: string }>>([]);
+  const [batchDownloading, setBatchDownloading] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomRotation, setZoomRotation] = useState(0);
 
   const loadDeliveries = useCallback(async () => {
     setDeliveriesLoading(true);
@@ -2452,17 +2461,139 @@ function CustomRequestsPanel({
     <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
       {lightboxImg && (
         <div
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
-          onClick={() => setLightboxImg(null)}
+          className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/95 p-3 sm:p-6 backdrop-blur-md"
+          onClick={() => {
+            setLightboxImg(null);
+            setZoomScale(1);
+            setZoomRotation(0);
+          }}
         >
-          <div className="relative max-h-[90vh] max-w-[90vw]">
-            <img src={lightboxImg} alt="Preview" className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain shadow-2xl" />
+          {/* Top Control Bar */}
+          <div
+            className="flex items-center justify-between w-full max-w-4xl px-4 py-2.5 mb-2 rounded-2xl bg-black/75 border border-white/10 text-white z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#e5373f] text-white">
+                Studio HD 1807 × 3000
+              </span>
+              <span className="text-xs opacity-60 font-mono">
+                {Math.round(zoomScale * 100)}%
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setZoomScale((s) => Math.min(4, Number((s + 0.25).toFixed(2))))}
+                className="p-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomScale((s) => Math.max(0.5, Number((s - 0.25).toFixed(2))))}
+                className="p-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomRotation((r) => (r + 90) % 360)}
+                className="p-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition cursor-pointer"
+                title="Rotate 90° Clockwise"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoomScale(1);
+                  setZoomRotation(0);
+                }}
+                className="px-2 py-1 text-[11px] rounded-lg border border-white/10 hover:bg-white/10 transition cursor-pointer"
+                title="Reset Zoom"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxImg(null);
+                  setZoomScale(1);
+                  setZoomRotation(0);
+                }}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition cursor-pointer ml-2"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Central Image Canvas with Sharp Rendering */}
+          <div
+            className="relative flex-1 flex items-center justify-center overflow-hidden w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImg}
+              alt="Preview"
+              style={{
+                transform: `scale(${zoomScale}) rotate(${zoomRotation}deg)`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.15s ease-out',
+                imageRendering: 'auto',
+                maxHeight: '75vh',
+                maxWidth: '85vw',
+                objectFit: 'contain',
+              }}
+              className="rounded-2xl shadow-2xl select-none"
+            />
+          </div>
+
+          {/* Bottom Action Footer */}
+          <div
+            className="flex items-center justify-center gap-3 w-full max-w-4xl px-4 py-3 mt-2 rounded-2xl bg-black/75 border border-white/10 text-white z-10 flex-wrap"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {onUseAsset && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUseAsset(lightboxImg, 'cloth');
+                    setLightboxImg(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Use in Try-On / Generate</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUseAsset(lightboxImg, 'model');
+                    setLightboxImg(null);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Use as Model Pose</span>
+                </button>
+              </>
+            )}
+
             <button
               type="button"
-              onClick={() => setLightboxImg(null)}
-              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black flex items-center justify-center font-bold shadow-lg"
+              onClick={() => void downloadDirectFile(lightboxImg, 'shivnaresh-1807x3000.png')}
+              className="px-4 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
             >
-              <X className="h-4 w-4" />
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Ultra-HD (1807 × 3000)</span>
             </button>
           </div>
         </div>
@@ -3045,6 +3176,79 @@ function CustomRequestsPanel({
       ) : (
         /* ============= RECEIVE DELIVERIES VIEW ============= */
         <div className="mt-6 space-y-6">
+          {/* 24-Hour Review Window Notice & Disclaimer */}
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 flex items-start gap-3 text-xs shadow-sm">
+            <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-amber-500 text-xs">
+                Client Verification &amp; Responsibility Notice (24-Hour Review Window)
+              </p>
+              <p className="text-[11px] opacity-80 leading-relaxed">
+                All files, photos, videos, and zip files sent by Admin must be checked and approved by the user before use or printing. Shiv-Naresh is not responsible for any printing, fabric, or business loss if the user uses the files without checking. Any correction must be reported within 24 hours of delivery.
+              </p>
+            </div>
+          </div>
+
+          {/* Batch Selection Action Bar */}
+          {selectedMediaUrls.length > 0 && (
+            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-emerald-400">
+                  {selectedMediaUrls.length} {selectedMediaUrls.length === 1 ? 'file' : 'files'} selected
+                </span>
+                <span className="opacity-50">&middot;</span>
+                <span className="text-[11px] opacity-75">Click below to bundle into a single ZIP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={batchDownloading}
+                  onClick={async () => {
+                    setBatchDownloading(true);
+                    try {
+                      const JSZip = (await import('jszip')).default;
+                      const zip = new JSZip();
+                      for (let i = 0; i < selectedMediaUrls.length; i++) {
+                        const it = selectedMediaUrls[i];
+                        try {
+                          const resp = await fetch(it.url);
+                          if (resp.ok) {
+                            const blob = await resp.blob();
+                            zip.file(it.name || `received-photo-${i + 1}.png`, blob);
+                          }
+                        } catch {}
+                      }
+                      const zipBlob = await zip.generateAsync({ type: 'blob' });
+                      const blobUrl = URL.createObjectURL(zipBlob);
+                      const link = document.createElement('a');
+                      link.href = blobUrl;
+                      link.download = `shivnaresh-deliveries-${Date.now()}.zip`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                    } catch (err) {
+                      console.error('Batch ZIP creation failed:', err);
+                    } finally {
+                      setBatchDownloading(false);
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 transition shadow cursor-pointer text-xs"
+                >
+                  <FileArchive className="w-3.5 h-3.5" />
+                  <span>{batchDownloading ? 'Bundling ZIP…' : 'Download All as ZIP'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMediaUrls([])}
+                  className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs transition cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <h2 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
@@ -3170,26 +3374,71 @@ function CustomRequestsPanel({
                           {/* Multi-photo grid when mediaUrls has photos */}
                           {delivery.mediaUrls && delivery.mediaUrls.length > 1 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {delivery.mediaUrls.map((url, uIdx) => (
-                                <div
-                                  key={uIdx}
-                                  className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black cursor-pointer"
-                                  onClick={() => setLightboxImg(url)}
-                                >
-                                  <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
-                                    <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold">View</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); void downloadDirectFile(url, `photo-${uIdx + 1}.jpg`); }}
-                                    className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded-lg bg-black/70 text-white transition"
-                                    title="Download"
+                              {delivery.mediaUrls.map((url, uIdx) => {
+                                const selected = selectedMediaUrls.some((a) => a.url === url);
+                                return (
+                                  <div
+                                    key={uIdx}
+                                    className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${
+                                      selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
+                                    } bg-black`}
+                                    onClick={() => setLightboxImg(url)}
                                   >
-                                    <Download className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))}
+                                    <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                                    
+                                    {/* Selection Checkbox */}
+                                    <div
+                                      className="absolute top-2 left-2 z-10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedMediaUrls((prev) =>
+                                          prev.some((a) => a.url === url)
+                                            ? prev.filter((a) => a.url !== url)
+                                            : [...prev, { url, name: `photo-${delivery.id}-${uIdx + 1}.png` }]
+                                        );
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selected}
+                                        onChange={() => {}}
+                                        className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                                      />
+                                    </div>
+
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition flex items-center justify-center">
+                                      <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold flex items-center gap-1 bg-black/60 px-2 py-1 rounded-lg">
+                                        <ZoomIn className="w-3.5 h-3.5" /> Inspect
+                                      </span>
+                                    </div>
+
+                                    {/* Quick Actions */}
+                                    <div className="absolute bottom-1.5 inset-x-1.5 opacity-0 group-hover:opacity-100 flex items-center justify-between gap-1 transition">
+                                      {onUseAsset && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onUseAsset(url, 'cloth');
+                                          }}
+                                          className="px-2 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold shadow cursor-pointer"
+                                          title="Use in Try-On Studio"
+                                        >
+                                          Use in Studio
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); void downloadDirectFile(url, `photo-${uIdx + 1}.jpg`); }}
+                                        className="p-1 rounded-lg bg-black/70 hover:bg-black text-white transition ml-auto"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : delivery.fileUrl ? (
                             <div className={`relative group max-w-md rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'
@@ -3202,14 +3451,26 @@ function CustomRequestsPanel({
                               />
                               <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
                                 <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
-                                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>Download Photo</span>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  {onUseAsset && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onUseAsset(delivery.fileUrl || '', 'cloth')}
+                                      className="px-3 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+                                    >
+                                      <Send className="w-3 h-3" />
+                                      <span>Use in Studio</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
+                                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Download</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ) : null}
@@ -4007,7 +4268,47 @@ function VideoStudioPanel({
    Main Design page
    ================================================================ */
 export default function Design() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('cached_current_user');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  });
+  const [showPhotoshootQueryBox, setShowPhotoshootQueryBox] = useState(false);
+  const [photoshootQueryText, setPhotoshootQueryText] = useState('');
+  const [photoshootResponding, setPhotoshootResponding] = useState(false);
+
+  const handlePhotoshootResponse = async (action: 'agree' | 'query') => {
+    if (action === 'query' && !photoshootQueryText.trim()) {
+      alert('Please enter your query or question before sending.');
+      return;
+    }
+    setPhotoshootResponding(true);
+    try {
+      const res = await api.respondPhotoshootOffer(action, photoshootQueryText);
+      if (action === 'agree') {
+        setUser((prev) => prev ? {
+          ...prev,
+          photoshoots: res.photoshoots || prev.photoshoots,
+          photoshootOffer: prev.photoshootOffer ? { ...prev.photoshootOffer, status: 'agreed' } : null,
+        } : null);
+        alert('Photoshoot quota agreed and applied successfully!');
+      } else {
+        setUser((prev) => prev ? {
+          ...prev,
+          photoshootOffer: prev.photoshootOffer ? { ...prev.photoshootOffer, status: 'queried', userQuery: photoshootQueryText } : null,
+        } : null);
+        setShowPhotoshootQueryBox(false);
+        setPhotoshootQueryText('');
+        alert('Your query has been submitted to the admin team.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit response.');
+    } finally {
+      setPhotoshootResponding(false);
+    }
+  };
   const [settings, setSettings] = useState<Studio | null>(null);
   const [categories, setCategories] = useState<ModelCategory[]>(() => {
     try {
@@ -4569,6 +4870,9 @@ export default function Design() {
 
       setError('');
       setUser(me);
+      try {
+        localStorage.setItem('cached_current_user', JSON.stringify(me));
+      } catch {}
       void api.unlockUser().catch(() => { });
 
       if (me.tier && me.tier !== 'free') {
@@ -5340,13 +5644,28 @@ export default function Design() {
             {/* Theme Toggle */}
             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
+            {/* Photoshoot Counter Pill */}
+            {user && (
+              <span
+                className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
+                }`}
+                title="Your allocated photoshoot quota (5 poses per photoshoot)"
+              >
+                <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
+                <span>
+                  {Math.floor((user.modelsGenerated || 0) / 5)} / {user.photoshoots || user.maxModels || 20} Photoshoots
+                </span>
+              </span>
+            )}
+
             {/* Top Right Credit Status Pill — Visible Across ALL Tabs */}
             <a
               href="/pricing"
               className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
               title={user?.tier === 'ultra' ? 'Ultra Active Plan' : 'Click to view pricing & upgrade credits'}
             >
-              <span>{user ? user.credits : 10} credits</span>
+              <span>{user ? `${user.credits} credits` : '...'}</span>
               {user?.tier && (
                 <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
                     ? 'bg-purple-500/30 text-purple-400'
@@ -5486,6 +5805,72 @@ export default function Design() {
         </div>
       )}
 
+      {/* Photoshoot Quota Offer Notification */}
+      {user?.photoshootOffer && user.photoshootOffer.status === 'pending' && (
+        <div className="border-b border-amber-500/40 bg-amber-500/15 py-3.5">
+          <div className="mx-auto max-w-6xl px-5 sm:px-8 space-y-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <Camera className="w-5 h-5 text-amber-400 shrink-0" />
+                <div>
+                  <p className="font-bold text-amber-400 text-sm">
+                    Photoshoot Quota Offer from Studio Director
+                  </p>
+                  <p className="opacity-90 text-[11px] mt-0.5">
+                    The studio administrator has proposed updating your photoshoot quota from <strong>{user.photoshootOffer.oldQuota}</strong> to <strong>{user.photoshootOffer.newQuota} photoshoots</strong>.
+                    {user.photoshootOffer.note && <span className="block mt-0.5 italic opacity-80">Note: "{user.photoshootOffer.note}"</span>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={photoshootResponding}
+                  onClick={() => handlePhotoshootResponse('agree')}
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer text-xs"
+                >
+                  Agree &amp; Apply
+                </button>
+                <button
+                  type="button"
+                  disabled={photoshootResponding}
+                  onClick={() => setShowPhotoshootQueryBox(!showPhotoshootQueryBox)}
+                  className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold transition cursor-pointer text-xs"
+                >
+                  {showPhotoshootQueryBox ? 'Cancel' : 'Ask Query'}
+                </button>
+              </div>
+            </div>
+
+            {showPhotoshootQueryBox && (
+              <div className="rounded-2xl border border-white/10 bg-black/60 p-3.5 space-y-2 mt-2">
+                <label className="text-xs font-semibold text-slate-300">
+                  Have a question or request regarding this photoshoot quota increment?
+                </label>
+                <textarea
+                  value={photoshootQueryText}
+                  onChange={(e) => setPhotoshootQueryText(e.target.value)}
+                  placeholder="Type your question or proposal for the admin..."
+                  rows={2}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-xs text-white placeholder:text-white/40 focus:outline-none"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={photoshootResponding}
+                    onClick={() => handlePhotoshootResponse('query')}
+                    className="px-4 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Submit Query to Admin
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ============= MY SETS VIEW ============= */}
       {pageView === 'my-sets' && (
         <MySetsPanel
@@ -5524,6 +5909,14 @@ export default function Design() {
           }
           isLight={isLight}
           onUnreadCleared={() => setDeliveriesUnreadCount(0)}
+          onUseAsset={(url, role) => {
+            if (role === 'model') {
+              setModel({ url, name: 'Received Model Asset' });
+            } else {
+              setCloth({ url, name: 'Received Garment Asset' });
+            }
+            setPageView('studio');
+          }}
         />
       )}
 

@@ -396,6 +396,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         photoshoots: typeof user.photoshoots === 'number' ? user.photoshoots : (typeof user.maxModels === 'number' ? user.maxModels : (user.tier === 'ultra' ? 100 : user.tier === 'pro' ? 60 : user.tier === 'ondemand' ? 20 : 3)),
         maxModels: typeof user.maxModels === 'number' ? user.maxModels : (typeof user.photoshoots === 'number' ? user.photoshoots : (user.tier === 'ultra' ? 100 : user.tier === 'pro' ? 60 : user.tier === 'ondemand' ? 20 : 3)),
         modelsGenerated: typeof user.modelsGenerated === 'number' ? user.modelsGenerated : 0,
+        photoshootOffer: user.photoshootOffer || null,
         admin2fa: Boolean(user.admin2fa),
         features: {
           hd2k: Boolean(user.features?.hd2k || user.tier === 'ultra'),

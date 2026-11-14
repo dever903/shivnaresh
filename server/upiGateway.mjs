@@ -314,6 +314,18 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       const planExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30-day billing cycle
       const assignedTier = plan.tier || (order.plan_id === 'starter' ? 'free' : order.plan_id);
 
+      order.previousCredits = currentCredits;
+      order.provisionedCredits = addedCredits;
+      try {
+        const allOrders = await readOrders();
+        const oIdx = allOrders.findIndex((o) => o.order_no === order.order_no);
+        if (oIdx !== -1) {
+          allOrders[oIdx].previousCredits = currentCredits;
+          allOrders[oIdx].provisionedCredits = addedCredits;
+          await writeOrders(allOrders);
+        }
+      } catch {}
+
       const patch = {
         tier: assignedTier,
         credits: newCredits,
@@ -372,11 +384,21 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         user = all.find((u) => (email && String(u.email || '').trim().toLowerCase() === email) || (order.user_id && (u._id === order.user_id || u.id === order.user_id)));
       }
       if (!user) return false;
+
+      const state = await getState();
+      const basePlan = PLAN_DEFINITIONS[order.plan_id] || PLAN_DEFINITIONS.pro;
+      const customPlan = state.plans?.[order.plan_id];
+      const planCredits = (customPlan?.credits !== undefined ? Number(customPlan.credits) : basePlan.credits) || 0;
+      const provisioned = order.provisionedCredits || planCredits;
+      const currentBalance = typeof user.credits === 'number' ? user.credits : 10;
+      const targetCredits = typeof order.previousCredits === 'number' ? order.previousCredits : Math.max(0, currentBalance - provisioned);
+
       await auth.patchUser(user._id || user.id, {
         tier: 'free',
+        credits: targetCredits,
         planExpiresAt: null,
       });
-      console.log(`[gateway] Revoked active plan for ${email || user.email} (Order ${order.order_no} status changed)`);
+      console.log(`[gateway] Revoked active plan for ${email || user.email} (Order ${order.order_no} status changed, credits restored to ${targetCredits})`);
       return true;
     } catch (err) {
       console.error(`[gateway] Exception revoking order ${order.order_no}:`, err);
@@ -831,8 +853,13 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       }
 
       const order = orders[orderIndex];
+      const wasPaid = order.status === 'paid';
       order.status = 'expired';
       order.review_note = req.body?.reason || 'Invalid UTR or payment not received.';
+
+      if (wasPaid) {
+        await revokePaidOrder(order);
+      }
 
       orders[orderIndex] = order;
       await writeOrders(orders);

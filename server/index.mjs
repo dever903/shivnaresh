@@ -454,6 +454,27 @@ const writeSystemLogs = async (logs) => {
   } catch {}
 };
 
+function deduplicateGenerations(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenUrls = new Set();
+  const result = [];
+
+  for (const item of list) {
+    if (!item) continue;
+    const itemId = String(item.id || '').trim();
+    const itemUrl = String(item.url || item.outputUrl || item.remoteUrl || item.highResUrl || '').trim();
+
+    if (itemId && seenIds.has(itemId)) continue;
+    if (itemUrl && seenUrls.has(itemUrl)) continue;
+
+    if (itemId) seenIds.add(itemId);
+    if (itemUrl) seenUrls.add(itemUrl);
+    result.push(item);
+  }
+  return result;
+}
+
 const readGenerations = async () => {
   try {
     const db = await getMongoDb();
@@ -465,18 +486,21 @@ const readGenerations = async () => {
           delete clean._id;
           return clean;
         });
-        void writeJson(GENERATIONS_FILE, cleanItems).catch(() => {});
-        return cleanItems;
+        const deduped = deduplicateGenerations(cleanItems);
+        void writeJson(GENERATIONS_FILE, deduped).catch(() => {});
+        return deduped;
       }
     }
   } catch (err) {
     console.warn('[generations] MongoDB read error, falling back to local file:', err.message);
   }
-  return readJson(GENERATIONS_FILE, []);
+  const fileItems = await readJson(GENERATIONS_FILE, []);
+  return deduplicateGenerations(fileItems);
 };
 
 const writeGenerations = async (list) => {
-  const safeList = Array.isArray(list) ? list.slice(0, 1000) : [];
+  const deduped = deduplicateGenerations(list);
+  const safeList = Array.isArray(deduped) ? deduped.slice(0, 1000) : [];
   await writeJson(GENERATIONS_FILE, safeList);
   try {
     const db = await getMongoDb();
@@ -587,7 +611,21 @@ async function saveLocalAsset(dataUrl, subfolder = 'sets', prefix = 'asset') {
   const fname = `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}${ext}`;
   const filePath = path.join(dir, fname);
   await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
-  return `/hosted/${subfolder}/${fname}`;
+  const localUrl = `/hosted/${subfolder}/${fname}`;
+
+  // Persist to MongoDB hosted_assets collection for permanent cloud survival
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      await db.collection('hosted_assets').updateOne(
+        { id: fname },
+        { $set: { id: fname, url: localUrl, subfolder, dataUrl, createdAt: Date.now() } },
+        { upsert: true }
+      ).catch(() => {});
+    }
+  } catch {}
+
+  return localUrl;
 }
 
 /** Upload an image to Cloudinary; gracefully falls back to local high-speed storage if unconfigured or API error */
@@ -1085,6 +1123,40 @@ app.use('/models', async (req, res, next) => {
 
 app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d' }));
 app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
+app.use('/hosted', async (req, res, next) => {
+  try {
+    const filename = path.basename(decodeURIComponent(req.path));
+    const subfolder = req.path.includes('/sets/') ? 'sets' : 'misc';
+    const candidate1 = path.join(PUBLIC_DIR, 'hosted', subfolder, filename);
+    if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
+      return res.sendFile(candidate1);
+    }
+    const candidate2 = path.join(ROOT, 'public', 'hosted', subfolder, filename);
+    if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
+      return res.sendFile(candidate2);
+    }
+
+    // Fallback: lookup persistent MongoDB hosted_assets
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const doc = await db.collection('hosted_assets').findOne({
+          $or: [{ id: filename }, { url: `/hosted/${subfolder}/${filename}` }]
+        });
+        if (doc && doc.dataUrl) {
+          const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
+          if (m) {
+            const buf = Buffer.from(m[2], 'base64');
+            res.set('Content-Type', m[1]);
+            res.set('Cache-Control', 'public, max-age=604800, immutable');
+            return res.send(buf);
+          }
+        }
+      }
+    } catch {}
+  } catch {}
+  next();
+});
 app.use('/guidelines', express.static(path.join(PUBLIC_DIR, 'guidelines'), { maxAge: '7d' }));
 app.use('/guidelines', express.static(path.join(ROOT, 'public', 'guidelines'), { maxAge: '7d' }));
 
@@ -3777,10 +3849,37 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       } catch {}
     }
 
+    const targetId = req.body.id || req.body.jobId;
+    const list = await readGenerations();
+
+    // Check if an existing generation record matches this id or url:
+    let existing = null;
+    if (targetId) {
+      existing = list.find((g) => g.id === targetId);
+    }
+    if (!existing && url) {
+      existing = list.find((g) => g.url === url || g.outputUrl === url || g.highResUrl === url || g.remoteUrl === url);
+    }
+
+    if (existing) {
+      // Update in place, do NOT duplicate!
+      existing.url = url || existing.url;
+      existing.highResUrl = highResUrl || resolvedRemoteUrl || existing.highResUrl || url;
+      existing.remoteUrl = resolvedRemoteUrl || existing.remoteUrl || '';
+      existing.status = 'completed';
+      if (prompt) existing.prompt = String(prompt).slice(0, 600);
+      if (title) existing.title = title;
+      if (color) existing.color = color;
+      if (colorName) existing.colorName = colorName;
+      await writeGenerations(list);
+      return res.json(existing);
+    }
+
     const item = {
-      id: crypto.randomUUID(),
+      id: targetId || crypto.randomUUID(),
       userId: req.user._id,
       userEmail: req.user.email || '',
+      userName: req.user.name || '',
       type: type === 'video' ? 'video' : 'image',
       url,
       highResUrl: highResUrl || resolvedRemoteUrl || url,
@@ -3792,10 +3891,10 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       duration: Number(duration) || 5,
       aspectRatio: String(aspectRatio || '9:16'),
       title: String(title || (type === 'video' ? `Fashion Video (${duration}s)` : `Studio Pose (${resolution})`)),
+      status: 'completed',
       createdAt: Date.now(),
     };
 
-    const list = await readGenerations();
     list.unshift(item);
     await writeGenerations(list);
 
@@ -4773,6 +4872,7 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
         video: Boolean(u.features?.video || u.tier !== 'free'),
         customRequests: Boolean(u.features?.customRequests || ['pro', 'ultra'].includes(u.tier)),
       },
+      photoshootOffer: u.photoshootOffer || null,
       planExpiresAt: u.planExpiresAt || null,
       createdAt: u.createdAt || null,
     }));
@@ -4816,6 +4916,81 @@ app.post('/api/admin/users/:id/credits', requireAdmin, async (req, res) => {
     res.json({ ok: true, id, credits: newBalance });
   } catch (error) {
     res.status(500).json({ error: 'update_credits_failed', message: String(error.message || error) });
+  }
+});
+
+app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { photoshoots, note } = req.body || {};
+    const user = await auth.findUserById(id);
+    if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
+
+    const newQuota = typeof photoshoots === 'number' ? Math.max(0, Math.floor(photoshoots)) : 20;
+    const oldQuota = typeof user.photoshoots === 'number' ? user.photoshoots : (user.maxModels || 20);
+
+    const offer = {
+      newQuota,
+      oldQuota,
+      note: String(note || '').slice(0, 300),
+      offeredAt: Date.now(),
+      status: 'pending', // 'pending' | 'agreed' | 'queried'
+      userQuery: '',
+    };
+
+    await auth.patchUser(id, {
+      photoshootOffer: offer,
+    });
+
+    res.json({ ok: true, id, photoshootOffer: offer });
+  } catch (error) {
+    res.status(500).json({ error: 'update_photoshoots_failed', message: error.message });
+  }
+});
+
+app.post('/api/user/photoshoot-response', auth.requireUser, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await auth.findUserById(userId);
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    const { action, queryText } = req.body || {};
+    const offer = user.photoshootOffer;
+    if (!offer) {
+      return res.status(400).json({ error: 'no_active_offer', message: 'No active photoshoot offer found.' });
+    }
+
+    if (action === 'agree') {
+      const newLimit = typeof offer.newQuota === 'number' ? offer.newQuota : 20;
+      await auth.patchUser(userId, {
+        photoshoots: newLimit,
+        maxModels: newLimit,
+        photoshootOffer: {
+          ...offer,
+          status: 'agreed',
+          agreedAt: Date.now(),
+        },
+      });
+      return res.json({ ok: true, status: 'agreed', photoshoots: newLimit });
+    } else if (action === 'query') {
+      const qText = String(queryText || '').trim();
+      if (!qText) {
+        return res.status(400).json({ error: 'query_empty', message: 'Please write your query before sending.' });
+      }
+      await auth.patchUser(userId, {
+        photoshootOffer: {
+          ...offer,
+          status: 'queried',
+          userQuery: qText,
+          queriedAt: Date.now(),
+        },
+      });
+      return res.json({ ok: true, status: 'queried', userQuery: qText });
+    }
+
+    res.status(400).json({ error: 'invalid_action' });
+  } catch (error) {
+    res.status(500).json({ error: 'response_failed', message: error.message });
   }
 });
 

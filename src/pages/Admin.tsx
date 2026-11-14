@@ -83,8 +83,15 @@ export default function Admin() {
 
   /* Tab Navigation */
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'requests' | 'user-sets' | 'users' | 'generations' | 'gateway' | 'settings' | 'models' | 'problems'
+    'overview' | 'requests' | 'user-sets' | 'photoshoots' | 'users' | 'generations' | 'gateway' | 'settings' | 'models' | 'problems'
   >('overview');
+
+  /* Photoshoot Quota Offer & Query State */
+  const [photoshootFilter, setPhotoshootFilter] = useState<'all' | 'queries' | 'pending' | 'agreed'>('all');
+  const [quotaEditUserId, setQuotaEditUserId] = useState<string | null>(null);
+  const [quotaEditValue, setQuotaEditValue] = useState<number>(20);
+  const [quotaEditNote, setQuotaEditNote] = useState<string>('');
+  const [quotaUpdating, setQuotaUpdating] = useState(false);
 
   /* UPI Gateway Admin State */
   const [gatewayOrders, setGatewayOrders] = useState<GatewayOrder[]>([]);
@@ -1721,6 +1728,12 @@ ${log.stack || 'None'}
                   label: 'User Sets & Renders',
                   icon: Package,
                   count: adminUploadSetsList.length,
+                },
+                {
+                  id: 'photoshoots',
+                  label: 'Photoshoots & Quotas',
+                  icon: Camera,
+                  badge: usersList.filter((u) => u.photoshootOffer?.status === 'queried').length || undefined,
                 },
                 { id: 'users', label: 'Users & Credits', icon: Users, count: usersList.length },
                 {
@@ -6170,6 +6183,58 @@ ${log.stack || 'None'}
           </div>
         </div>
 
+        {/* Batch Actions Bar for User Sets / Renders */}
+        {selectedAssetUrls.length > 0 && (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-emerald-400">
+                {selectedAssetUrls.length} {selectedAssetUrls.length === 1 ? 'asset' : 'assets'} selected
+              </span>
+              <span className="opacity-50">&middot;</span>
+              <span className="text-[11px] opacity-75">Selected across sets / renders</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDispatchType('photo');
+                  setDispatchFiles(selectedAssetUrls.map((a) => ({
+                    dataUrl: a.url,
+                    name: a.name,
+                    size: 500000,
+                    type: 'image/png'
+                  })));
+                  if (selectedAssetUrls[0]?.userId) setDispatchRecipientId(selectedAssetUrls[0].userId);
+                  setAdminRequestsTab('send');
+                  setActiveTab('requests');
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 transition shadow cursor-pointer text-xs"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send to User ({selectedAssetUrls.length})</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={bundlingZip}
+                onClick={() => void handleBundleAssetsToZip(selectedAssetUrls, selectedAssetUrls[0]?.userId, selectedAssetUrls[0]?.userEmail)}
+                className="px-3.5 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white font-bold flex items-center gap-1.5 transition shadow cursor-pointer text-xs"
+              >
+                <FileArchive className="w-3.5 h-3.5" />
+                <span>{bundlingZip ? 'Compressing…' : `Bundle ZIP (${selectedAssetUrls.length})`}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedAssetUrls([])}
+                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs transition cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tab 1: User Sets Grid */}
         {userSetsSubTab === 'sets' && (
           <div className="space-y-4">
@@ -6196,6 +6261,24 @@ ${log.stack || 'None'}
                         {s.clothUrl ? (
                           <>
                             <img src={s.clothUrl} alt={s.clothName} className="w-full h-full object-cover" />
+                            <div
+                              className="absolute top-1.5 left-1.5 z-10"
+                              onClick={() => {
+                                const url = s.clothUrl;
+                                setSelectedAssetUrls((prev) =>
+                                  prev.some((a) => a.url === url)
+                                    ? prev.filter((a) => a.url !== url)
+                                    : [...prev, { url, name: s.clothName || `garment-set-${s.setNumber}.png`, userId: s.userId, userEmail: s.userEmail }]
+                                );
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedAssetUrls.some((a) => a.url === s.clothUrl)}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                              />
+                            </div>
                             <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[9px] text-white truncate text-center">
                               {s.clothName || 'Garment'}
                             </span>
@@ -6218,6 +6301,24 @@ ${log.stack || 'None'}
                         {s.modelUrl ? (
                           <>
                             <img src={s.modelUrl} alt={s.modelName} className="w-full h-full object-cover" />
+                            <div
+                              className="absolute top-1.5 left-1.5 z-10"
+                              onClick={() => {
+                                const url = s.modelUrl;
+                                setSelectedAssetUrls((prev) =>
+                                  prev.some((a) => a.url === url)
+                                    ? prev.filter((a) => a.url !== url)
+                                    : [...prev, { url, name: s.modelName || `model-set-${s.setNumber}.png`, userId: s.userId, userEmail: s.userEmail }]
+                                );
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedAssetUrls.some((a) => a.url === s.modelUrl)}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                              />
+                            </div>
                             <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[9px] text-white truncate text-center">
                               {s.modelName || 'Model'}
                             </span>
@@ -6282,10 +6383,33 @@ ${log.stack || 'None'}
                 {filteredGens.map((g) => {
                   const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
                   if (!targetUrl) return null;
+                  const selected = selectedAssetUrls.some((a) => a.url === targetUrl);
                   return (
-                    <div key={g.id} className="group relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 flex flex-col">
+                    <div key={g.id} className={`group relative rounded-2xl overflow-hidden border transition flex flex-col ${
+                      selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
+                    } bg-black/40`}>
                       <div className="aspect-[3/4] relative overflow-hidden">
                         <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                        
+                        {/* Checkbox */}
+                        <div
+                          className="absolute top-1.5 right-1.5 z-10"
+                          onClick={() => {
+                            setSelectedAssetUrls((prev) =>
+                              prev.some((a) => a.url === targetUrl)
+                                ? prev.filter((a) => a.url !== targetUrl)
+                                : [...prev, { url: targetUrl, name: `render-${g.id}.png`, userId: g.userId, userEmail: g.userEmail }]
+                            );
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                          />
+                        </div>
+
                         <span className="absolute top-1.5 left-1.5 rounded-full bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white truncate max-w-[120px]">
                           {g.userEmail ? g.userEmail.split('@')[0] : 'User'}
                         </span>
@@ -6320,6 +6444,216 @@ ${log.stack || 'None'}
                 })}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPhotoshootsTab = () => {
+    const queriedUsers = usersList.filter((u) => u.photoshootOffer?.status === 'queried');
+    const filteredUsers = usersList.filter((u) => {
+      if (photoshootFilter === 'queries') return u.photoshootOffer?.status === 'queried';
+      if (photoshootFilter === 'pending') return u.photoshootOffer?.status === 'pending';
+      if (photoshootFilter === 'agreed') return u.photoshootOffer?.status === 'agreed';
+      return true;
+    });
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+              <Camera className="w-5 h-5 text-[#e5373f]" />
+              <span>Photoshoot Quotas &amp; Client Inquiries</span>
+            </h2>
+            <p className="text-xs opacity-60 mt-0.5">
+              Review and edit photoshoot limits (5 poses per photoshoot) per user account. Propose increments; users receive a notification to agree or submit a query.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {(['all', 'queries', 'pending', 'agreed'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setPhotoshootFilter(f)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition cursor-pointer ${
+                  photoshootFilter === f
+                    ? 'bg-[#e5373f] text-white shadow'
+                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {f === 'queries' ? `Queries (${queriedUsers.length})` : f}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => void loadUsers()}
+              className="p-1.5 rounded-xl border border-white/10 hover:bg-white/10 transition cursor-pointer"
+              title="Refresh Users"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* User Quotas Cards */}
+        {filteredUsers.length === 0 ? (
+          <div className="text-center py-16 opacity-50 text-xs">
+            No clients match the selected filter.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredUsers.map((u) => {
+              const currentQuota = u.photoshoots || u.maxModels || 20;
+              const usedPhotoshoots = Math.floor((u.modelsGenerated || 0) / 5);
+              const offer = u.photoshootOffer;
+              const isEditing = quotaEditUserId === u.id;
+
+              return (
+                <div key={u.id} className={`${cardClass} space-y-3 flex flex-col justify-between`}>
+                  <div>
+                    {/* Header: User & Tier */}
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+                      <div className="truncate max-w-[190px]">
+                        <p className="font-bold truncate text-white">{u.email}</p>
+                        <p className="text-[10px] opacity-60 truncate">{u.name || 'Client'}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                        u.tier === 'ultra' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                        u.tier === 'pro' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                        u.tier === 'ondemand' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        'bg-white/10 text-white/60'
+                      }`}>
+                        {u.tier || 'free'}
+                      </span>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                        <span className="text-[10px] opacity-50 block">Photoshoots</span>
+                        <span className="font-bold text-sm text-[#e5373f]">
+                          {usedPhotoshoots} / {currentQuota}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                        <span className="text-[10px] opacity-50 block">Poses Generated</span>
+                        <span className="font-bold text-sm text-slate-200">
+                          {u.modelsGenerated || 0} / {currentQuota * 5}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Offer Status & Client Query */}
+                    {offer && (
+                      <div className="mt-3 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="opacity-60">Offer Status:</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            offer.status === 'queried' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
+                            offer.status === 'agreed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                            'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          }`}>
+                            {offer.status === 'queried' ? 'Client Question' : offer.status}
+                          </span>
+                        </div>
+
+                        {offer.status === 'queried' && offer.userQuery && (
+                          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-200">
+                            <p className="font-bold text-[10px] uppercase text-red-400">Client Inquired:</p>
+                            <p className="text-[11px] mt-0.5 opacity-90 italic">"{offer.userQuery}"</p>
+                          </div>
+                        )}
+                        {offer.status === 'pending' && (
+                          <p className="text-[10px] opacity-60">
+                            Proposed quota: <strong>{offer.newQuota}</strong> (waiting for client response)
+                          </p>
+                        )}
+                        {offer.status === 'agreed' && (
+                          <p className="text-[10px] text-emerald-400 font-medium">
+                            ✓ Client agreed to {offer.newQuota} photoshoots.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Inline Editor or Action Button */}
+                  <div className="pt-2 border-t border-white/10">
+                    {isEditing ? (
+                      <div className="space-y-2 p-2.5 rounded-xl bg-black/40 border border-white/10 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="text-[10px] opacity-60">New Quota:</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            value={quotaEditValue}
+                            onChange={(e) => setQuotaEditValue(Number(e.target.value))}
+                            className="w-20 rounded-lg border border-white/20 bg-black/60 px-2 py-1 text-xs text-white text-right"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Optional note for client..."
+                          value={quotaEditNote}
+                          onChange={(e) => setQuotaEditNote(e.target.value)}
+                          className="w-full rounded-lg border border-white/20 bg-black/60 px-2 py-1 text-[11px] text-white placeholder:text-white/40"
+                        />
+                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setQuotaEditUserId(null)}
+                            className="px-2.5 py-1 rounded-lg border border-white/20 hover:bg-white/10 text-[10px] transition cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={quotaUpdating}
+                            onClick={async () => {
+                              setQuotaUpdating(true);
+                              try {
+                                const res = await api.updateUserPhotoshoots(u.id, quotaEditValue, quotaEditNote);
+                                setUsersList((prev) =>
+                                  prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootOffer: res.photoshootOffer } : usr))
+                                );
+                                setQuotaEditUserId(null);
+                                setQuotaEditNote('');
+                                alert(`Photoshoot quota offer of ${quotaEditValue} sent to user.`);
+                              } catch (err: any) {
+                                alert(err.message || 'Failed to update photoshoot quota.');
+                              } finally {
+                                setQuotaUpdating(false);
+                              }
+                            }}
+                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition cursor-pointer"
+                          >
+                            {quotaUpdating ? 'Sending…' : 'Send Offer'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuotaEditUserId(u.id);
+                          setQuotaEditValue(currentQuota);
+                          setQuotaEditNote('');
+                        }}
+                        className="w-full py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
+                        <span>Edit / Offer Quota</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -6600,6 +6934,7 @@ ${log.stack || 'None'}
       {activeTab === 'generations' && renderGenerations()}
       {activeTab === 'settings' && renderSettings()}
       {activeTab === 'models' && renderModels()}
+      {activeTab === 'photoshoots' && renderPhotoshootsTab()}
       {activeTab === 'problems' && renderProblems()}
       {showAssetPickerModal && renderAssetPickerModal()}
     </div>,
