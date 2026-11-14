@@ -20,6 +20,8 @@ export type PlanConfig = {
   maxVideos?: number;
   maxModels?: number;
   photoshoots?: number;
+  photoshootsDone?: number;
+  photoshootsLeft?: number;
   photoshootRule?: string;
   active?: boolean;
   deleted?: boolean;
@@ -106,6 +108,8 @@ export type User = {
   maxVideos?: number;
   videosGenerated?: number;
   photoshoots?: number;
+  photoshootsDone?: number;
+  photoshootsLeft?: number;
   maxModels?: number;
   modelsGenerated?: number;
   photoshootOffer?: PhotoshootOffer | null;
@@ -167,6 +171,7 @@ export type AdminDelivery = {
 
 export type UserGeneration = {
   id: string;
+  jobId?: string;
   userId: string;
   userEmail: string;
   type: 'image' | 'video';
@@ -181,11 +186,13 @@ export type UserGeneration = {
   duration?: number;
   aspectRatio?: string;
   title: string;
+  isManualUpload?: boolean;
   createdAt: number;
 };
 
 export type AdminGeneration = {
   id: string;
+  jobId?: string;
   userId: string;
   userEmail: string;
   userName?: string;
@@ -204,6 +211,7 @@ export type AdminGeneration = {
   url?: string;
   remoteUrl?: string;
   highResUrl?: string;
+  isManualUpload?: boolean;
   createdAt: number;
   completedAt?: number;
 };
@@ -230,6 +238,8 @@ export type AdminUser = {
   maxVideos?: number;
   maxModels?: number;
   photoshoots?: number;
+  photoshootsDone?: number;
+  photoshootsLeft?: number;
   maxGenerations?: number;
   videosGenerated?: number;
   modelsGenerated?: number;
@@ -549,6 +559,8 @@ export const api = {
     request<{ ok: boolean; id: string; maxVideos: number }>(`/api/admin/users/${id}/video-limit`, json({ maxVideos })),
   updateUserPhotoshoots: (id: string, photoshoots: number, note?: string) =>
     request<{ ok: boolean; id: string; photoshootOffer: PhotoshootOffer }>(`/api/admin/users/${id}/photoshoots`, json({ photoshoots, note })),
+  updateUserPhotoshootsProgress: (id: string, photoshootsDone: number, photoshoots?: number) =>
+    request<{ ok: boolean; id: string; photoshootsDone: number; photoshoots: number; photoshootsLeft: number }>(`/api/admin/users/${id}/photoshoots-progress`, json({ photoshootsDone, photoshoots })),
   respondPhotoshootOffer: (action: 'agree' | 'query', queryText?: string) =>
     request<{ ok: boolean; status: string; photoshoots?: number; userQuery?: string }>('/api/user/photoshoot-response', json({ action, queryText })),
   deleteUser: (id: string) =>

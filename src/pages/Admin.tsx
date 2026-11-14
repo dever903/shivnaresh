@@ -5064,14 +5064,26 @@ ${log.stack || 'None'}
                 </tr>
               </thead>
               <tbody className={`divide-y ${isLight ? 'divide-[#78a48b]/40' : 'divide-white/5'}`}>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className={`py-12 text-center ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                      {generationsList.length === 0 ? 'No generations logged yet.' : 'No generations match the filter criteria.'}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((g) => {
+                {(() => {
+                  const seenKeys = new Set<string>();
+                  const uniqueFiltered = filtered.filter((g) => {
+                    const targetUrl = g.outputUrl || g.url || g.highResUrl || g.remoteUrl;
+                    if (!targetUrl) return true;
+                    const filename = targetUrl.split('?')[0].split('/').pop() || targetUrl;
+                    if (seenKeys.has(targetUrl) || (filename && filename.length > 5 && seenKeys.has(filename))) return false;
+                    seenKeys.add(targetUrl);
+                    if (filename && filename.length > 5) seenKeys.add(filename);
+                    return true;
+                  });
+
+                  return uniqueFiltered.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className={`py-12 text-center ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                        {generationsList.length === 0 ? 'No generations logged yet.' : 'No generations match the filter criteria.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    uniqueFiltered.map((g) => {
                     const isSuccess = g.status === 'completed' || (!g.status && (g.url || g.outputUrl));
                     const isFailed = g.status === 'failed';
                     const isRefunded = g.status === 'refunded';
@@ -5201,7 +5213,8 @@ ${log.stack || 'None'}
                       </tr>
                     );
                   })
-                )}
+                );
+              })()}
               </tbody>
             </table>
           </div>
@@ -6380,68 +6393,86 @@ ${log.stack || 'None'}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {filteredGens.map((g) => {
-                  const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
-                  if (!targetUrl) return null;
-                  const selected = selectedAssetUrls.some((a) => a.url === targetUrl);
-                  return (
-                    <div key={g.id} className={`group relative rounded-2xl overflow-hidden border transition flex flex-col ${
-                      selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
-                    } bg-black/40`}>
-                      <div className="aspect-[3/4] relative overflow-hidden">
-                        <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
-                        
-                        {/* Checkbox */}
-                        <div
-                          className="absolute top-1.5 right-1.5 z-10"
-                          onClick={() => {
-                            setSelectedAssetUrls((prev) =>
-                              prev.some((a) => a.url === targetUrl)
-                                ? prev.filter((a) => a.url !== targetUrl)
-                                : [...prev, { url: targetUrl, name: `render-${g.id}.png`, userId: g.userId, userEmail: g.userEmail }]
-                            );
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => {}}
-                            className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
-                          />
-                        </div>
+                {(() => {
+                  const seenRenderKeys = new Set<string>();
+                  const uniqueRenders = filteredGens.filter((g) => {
+                    const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                    if (!targetUrl) return false;
+                    const filename = targetUrl.split('?')[0].split('/').pop() || targetUrl;
+                    if (seenRenderKeys.has(targetUrl) || seenRenderKeys.has(filename)) return false;
+                    seenRenderKeys.add(targetUrl);
+                    if (filename) seenRenderKeys.add(filename);
+                    return true;
+                  });
 
-                        <span className="absolute top-1.5 left-1.5 rounded-full bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white truncate max-w-[120px]">
-                          {g.userEmail ? g.userEmail.split('@')[0] : 'User'}
-                        </span>
-                      </div>
-                      <div className="p-2 space-y-1 bg-black/60 text-xs flex-1 flex flex-col justify-between">
-                        <div>
-                          <p className="text-[10px] font-medium text-white/90 truncate">{g.prompt || 'Studio Pose Render'}</p>
-                          <p className="text-[9px] text-white/50">{new Date(g.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleUseAssetInDelivery(targetUrl, g.prompt || 'Fashion Studio Render', g.userId, g.userEmail)}
-                            className="flex-1 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-                            title="Dispatch this render to client"
+                  return uniqueRenders.map((g) => {
+                    const targetUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl;
+                    if (!targetUrl) return null;
+                    const selected = selectedAssetUrls.some((a) => a.url === targetUrl);
+                    return (
+                      <div key={g.id} className={`group relative rounded-2xl overflow-hidden border transition flex flex-col ${
+                        selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
+                      } bg-black/40`}>
+                        <div className="aspect-[3/4] relative overflow-hidden">
+                          <img src={targetUrl} alt={g.prompt || 'Render'} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                          
+                          {/* Checkbox */}
+                          <div
+                            className="absolute top-1.5 right-1.5 z-10"
+                            onClick={() => {
+                              setSelectedAssetUrls((prev) =>
+                                prev.some((a) => a.url === targetUrl)
+                                  ? prev.filter((a) => a.url !== targetUrl)
+                                  : [...prev, { url: targetUrl, name: `render-${g.id}.png`, userId: g.userId, userEmail: g.userEmail }]
+                              );
+                            }}
                           >
-                            <Send className="w-2.5 h-2.5" />
-                            <span>Send</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void downloadDirectFile(targetUrl, `shivnaresh-${g.id}.png`)}
-                            className="p-1 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-                            title="Download render"
-                          >
-                            <Download className="w-3 h-3" />
-                          </button>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => {}}
+                              className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                            />
+                          </div>
+
+                          <span className="absolute top-1.5 left-1.5 rounded-full bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white truncate max-w-[120px]">
+                            {g.userEmail ? g.userEmail.split('@')[0] : 'User'}
+                          </span>
+                        </div>
+                        <div className="p-2 space-y-1 bg-black/60 text-xs flex-1 flex flex-col justify-between">
+                          <div>
+                            {g.isManualUpload && (
+                              <span className="inline-block px-1.5 py-0.5 mb-1 rounded text-[9px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                                Uploaded Asset
+                              </span>
+                            )}
+                            <p className="text-[10px] font-medium text-white/90 truncate">{g.prompt || 'Studio Pose Render'}</p>
+                            <p className="text-[9px] text-white/50">{new Date(g.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleUseAssetInDelivery(targetUrl, g.prompt || 'Fashion Studio Render', g.userId, g.userEmail)}
+                              className="flex-1 py-1 rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                              title="Dispatch this render to client"
+                            >
+                              <Send className="w-2.5 h-2.5" />
+                              <span>Send</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void downloadDirectFile(targetUrl, `shivnaresh-${g.id}.png`)}
+                              className="p-1 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                              title="Download render"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -6508,7 +6539,8 @@ ${log.stack || 'None'}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredUsers.map((u) => {
               const currentQuota = u.photoshoots || u.maxModels || 20;
-              const usedPhotoshoots = Math.floor((u.modelsGenerated || 0) / 5);
+              const usedPhotoshoots = typeof u.photoshootsDone === 'number' ? u.photoshootsDone : Math.floor((u.modelsGenerated || 0) / 5);
+              const leftPhotoshoots = Math.max(0, currentQuota - usedPhotoshoots);
               const offer = u.photoshootOffer;
               const isEditing = quotaEditUserId === u.id;
 
@@ -6531,19 +6563,64 @@ ${log.stack || 'None'}
                       </span>
                     </div>
 
-                    {/* Stats */}
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                        <span className="text-[10px] opacity-50 block">Photoshoots</span>
-                        <span className="font-bold text-sm text-[#e5373f]">
-                          {usedPhotoshoots} / {currentQuota}
-                        </span>
+                    {/* Stats & Progress Controls */}
+                    <div className="mt-3 p-3 rounded-2xl bg-white/5 border border-white/5 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[11px] font-semibold text-slate-300">Delivered Photoshoots:</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const next = Math.max(0, usedPhotoshoots - 1);
+                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
+                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            }}
+                            className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition"
+                            title="Decrease delivered count"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            max={currentQuota}
+                            value={usedPhotoshoots}
+                            onChange={async (e) => {
+                              const next = Math.max(0, Number(e.target.value));
+                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
+                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            }}
+                            className="w-12 text-center rounded-md bg-black/60 border border-white/20 text-xs font-bold text-emerald-400 py-0.5"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const next = usedPhotoshoots + 1;
+                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
+                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            }}
+                            className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition"
+                            title="Increase delivered count"
+                          >
+                            +
+                          </button>
+                          <span className="text-xs font-bold text-[#e5373f]">/ {currentQuota}</span>
+                        </div>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                        <span className="text-[10px] opacity-50 block">Poses Generated</span>
-                        <span className="font-bold text-sm text-slate-200">
-                          {u.modelsGenerated || 0} / {currentQuota * 5}
-                        </span>
+
+                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-white/5">
+                        <span className="text-emerald-400 font-bold">{leftPhotoshoots} photoshoots remaining</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const next = usedPhotoshoots + 1;
+                            await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
+                            setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600/30 border border-emerald-500/50 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold cursor-pointer transition"
+                        >
+                          +1 Delivered Today
+                        </button>
                       </div>
                     </div>
 

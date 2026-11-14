@@ -454,24 +454,82 @@ const writeSystemLogs = async (logs) => {
   } catch {}
 };
 
+function getGenerationKeys(g) {
+  const keys = new Set();
+  if (g.id) keys.add(String(g.id).trim());
+  if (g.jobId) keys.add(String(g.jobId).trim());
+
+  for (const field of ['url', 'outputUrl', 'remoteUrl', 'highResUrl']) {
+    const val = typeof g[field] === 'string' ? g[field].trim() : '';
+    if (val) {
+      keys.add(val);
+      try {
+        const u = new URL(val, 'http://localhost');
+        keys.add(u.pathname);
+        const base = path.basename(u.pathname);
+        if (base && base.length > 5) keys.add(base);
+      } catch {}
+    }
+  }
+  return keys;
+}
+
 function deduplicateGenerations(list) {
   if (!Array.isArray(list)) return [];
-  const seenIds = new Set();
-  const seenUrls = new Set();
+  const seenKeys = new Set();
   const result = [];
+  const duplicateIdsToDelete = [];
 
   for (const item of list) {
     if (!item) continue;
-    const itemId = String(item.id || '').trim();
-    const itemUrl = String(item.url || item.outputUrl || item.remoteUrl || item.highResUrl || '').trim();
+    const keys = getGenerationKeys(item);
 
-    if (itemId && seenIds.has(itemId)) continue;
-    if (itemUrl && seenUrls.has(itemUrl)) continue;
+    let matchedIndex = -1;
+    for (const key of keys) {
+      if (seenKeys.has(key)) {
+        matchedIndex = result.findIndex((r) => {
+          const rKeys = getGenerationKeys(r);
+          for (const k of keys) {
+            if (rKeys.has(k)) return true;
+          }
+          return false;
+        });
+        break;
+      }
+    }
 
-    if (itemId) seenIds.add(itemId);
-    if (itemUrl) seenUrls.add(itemUrl);
+    if (matchedIndex >= 0) {
+      const existing = result[matchedIndex];
+      const itemPrompt = typeof item.prompt === 'string' ? item.prompt.trim() : '';
+      const existingPrompt = typeof existing.prompt === 'string' ? existing.prompt.trim() : '';
+      // Prefer meaningful user prompt over internal Fashn AI multi-angle system prompts
+      if (itemPrompt && !itemPrompt.startsWith('Multi-Angle Garment Synthesis') && existingPrompt.startsWith('Multi-Angle Garment Synthesis')) {
+        existing.prompt = itemPrompt;
+      }
+      if (!existing.remoteUrl && item.remoteUrl) existing.remoteUrl = item.remoteUrl;
+      if (!existing.highResUrl && item.highResUrl) existing.highResUrl = item.highResUrl;
+      if (!existing.url && item.url) existing.url = item.url;
+      if (item.id && item.id !== existing.id) {
+        duplicateIdsToDelete.push(item.id);
+      }
+      for (const k of keys) seenKeys.add(k);
+      continue;
+    }
+
+    for (const k of keys) seenKeys.add(k);
     result.push(item);
   }
+
+  // Asynchronously purge duplicate docs from MongoDB if any
+  if (duplicateIdsToDelete.length > 0) {
+    void (async () => {
+      try {
+        const db = await getMongoDb();
+        if (db) await db.collection('generations').deleteMany({ id: { $in: duplicateIdsToDelete } });
+      } catch {}
+    })();
+  }
+
   return result;
 }
 
@@ -3260,7 +3318,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           creditsUsed: creditsNeeded,
           status: 'processing',
           error: null,
-          prompt: agentPrompt,
+          prompt: (body.prompt && body.prompt.trim()) ? body.prompt.trim() : (body.clothName ? `Sportswear Render · ${body.clothName}` : 'Studio Sportswear Render'),
+          systemPrompt: agentPrompt,
           cloth: isSwap ? 'Model Swap Persona' : (isOutfit ? 'Full Outfit (Top + Bottom)' : 'Athletic Garment'),
           model: typeof body.model === 'string' ? (body.model.startsWith('data:') ? 'Custom Model' : body.model) : (body.sourceModel || ''),
           outputUrl: null,
@@ -3855,10 +3914,24 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     // Check if an existing generation record matches this id or url:
     let existing = null;
     if (targetId) {
-      existing = list.find((g) => g.id === targetId);
+      existing = list.find((g) => g.id === targetId || g.jobId === targetId);
     }
-    if (!existing && url) {
-      existing = list.find((g) => g.url === url || g.outputUrl === url || g.highResUrl === url || g.remoteUrl === url);
+    if (!existing) {
+      const incomingKeys = new Set([url, resolvedRemoteUrl, highResUrl, targetId].filter(Boolean));
+      try {
+        const u = new URL(url, 'http://localhost');
+        incomingKeys.add(u.pathname);
+        const base = path.basename(u.pathname);
+        if (base && base.length > 5) incomingKeys.add(base);
+      } catch {}
+
+      existing = list.find((g) => {
+        const gKeys = getGenerationKeys(g);
+        for (const k of incomingKeys) {
+          if (gKeys.has(k)) return true;
+        }
+        return false;
+      });
     }
 
     if (existing) {
@@ -3867,10 +3940,11 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       existing.highResUrl = highResUrl || resolvedRemoteUrl || existing.highResUrl || url;
       existing.remoteUrl = resolvedRemoteUrl || existing.remoteUrl || '';
       existing.status = 'completed';
-      if (prompt) existing.prompt = String(prompt).slice(0, 600);
+      if (prompt && !prompt.startsWith('Multi-Angle Garment Synthesis')) existing.prompt = String(prompt).slice(0, 600);
       if (title) existing.title = title;
       if (color) existing.color = color;
       if (colorName) existing.colorName = colorName;
+      if (req.body.isManualUpload) existing.isManualUpload = true;
       await writeGenerations(list);
       return res.json(existing);
     }
@@ -3892,6 +3966,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       aspectRatio: String(aspectRatio || '9:16'),
       title: String(title || (type === 'video' ? `Fashion Video (${duration}s)` : `Studio Pose (${resolution})`)),
       status: 'completed',
+      isManualUpload: Boolean(req.body.isManualUpload),
       createdAt: Date.now(),
     };
 
@@ -4534,20 +4609,47 @@ app.put('/api/admin/custom-requests/:id', requireAdmin, async (req, res) => {
 /* ---------------------------------------------------- Custom Studio Deliveries & Dispatch */
 app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
   try {
-    const all = await readAdminDeliveries();
     const userId = String(req.user._id || req.user.id || '');
     const userEmail = String(req.user.email || '').trim().toLowerCase();
 
-    const items = all.filter((d) => {
-      if (d.deleted) return false;
-      const matchId = d.recipientUserId && d.recipientUserId === userId;
-      const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
-      return matchId || matchEmail;
-    });
+    let items = [];
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const query = {
+          $and: [
+            { deleted: { $ne: true } },
+            {
+              $or: [
+                { recipientUserId: userId },
+                { recipientEmail: { $regex: `^${userEmail}$`, $options: 'i' } }
+              ]
+            }
+          ]
+        };
+        const raw = await db.collection('admin_deliveries').find(query).sort({ createdAt: -1 }).limit(100).toArray();
+        if (raw && raw.length > 0) {
+          items = raw.map((it) => {
+            const clean = { ...it };
+            delete clean._id;
+            return clean;
+          });
+        }
+      }
+    } catch {}
 
-    items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    if (items.length === 0) {
+      const all = await readAdminDeliveries();
+      items = all.filter((d) => {
+        if (d.deleted) return false;
+        const matchId = d.recipientUserId && d.recipientUserId === userId;
+        const matchEmail = d.recipientEmail && d.recipientEmail.toLowerCase() === userEmail;
+        return matchId || matchEmail;
+      });
+      items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
     const unreadCount = items.filter((d) => d.readByUser === false).length;
-
     res.json({ items, unreadCount });
   } catch (err) {
     res.status(500).json({ error: 'fetch_deliveries_failed', message: err.message });
@@ -4861,6 +4963,8 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
       maxVideos: typeof u.maxVideos === 'number' ? u.maxVideos : 15,
       videosGenerated: typeof u.videosGenerated === 'number' ? u.videosGenerated : 0,
       photoshoots: typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3)),
+      photoshootsDone: typeof u.photoshootsDone === 'number' ? u.photoshootsDone : Math.floor((u.modelsGenerated || 0) / 5),
+      photoshootsLeft: Math.max(0, (typeof u.photoshoots === 'number' ? u.photoshoots : (u.maxModels || 20)) - (typeof u.photoshootsDone === 'number' ? u.photoshootsDone : Math.floor((u.modelsGenerated || 0) / 5))),
       maxModels: typeof u.maxModels === 'number' ? u.maxModels : (typeof u.photoshoots === 'number' ? u.photoshoots : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3)),
       maxGenerations: (typeof u.photoshoots === 'number' ? u.photoshoots : (typeof u.maxModels === 'number' ? u.maxModels : (u.tier === 'ultra' ? 100 : u.tier === 'pro' ? 60 : u.tier === 'ondemand' ? 20 : 3))) * 6,
       modelsGenerated: typeof u.modelsGenerated === 'number' ? u.modelsGenerated : 0,
@@ -4945,6 +5049,39 @@ app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
     res.json({ ok: true, id, photoshootOffer: offer });
   } catch (error) {
     res.status(500).json({ error: 'update_photoshoots_failed', message: error.message });
+  }
+});
+
+app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { photoshootsDone, photoshoots } = req.body || {};
+    const user = await auth.findUserById(id);
+    if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
+
+    const patch = {};
+    if (typeof photoshootsDone === 'number') {
+      patch.photoshootsDone = Math.max(0, Math.floor(photoshootsDone));
+    }
+    if (typeof photoshoots === 'number') {
+      const val = Math.max(0, Math.floor(photoshoots));
+      patch.photoshoots = val;
+      patch.maxModels = val;
+    }
+
+    await auth.patchUser(id, patch);
+    const updated = await auth.findUserById(id);
+    const total = updated.photoshoots || updated.maxModels || 20;
+    const done = typeof updated.photoshootsDone === 'number' ? updated.photoshootsDone : Math.floor((updated.modelsGenerated || 0) / 5);
+    res.json({
+      ok: true,
+      id,
+      photoshootsDone: done,
+      photoshoots: total,
+      photoshootsLeft: Math.max(0, total - done),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'update_photoshoots_progress_failed', message: error.message });
   }
 });
 
@@ -5065,6 +5202,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
       patch.photoshoots = val;
       patch.maxModels = val;
     }
+    if (typeof body.photoshootsDone === 'number') patch.photoshootsDone = Math.max(0, Math.floor(body.photoshootsDone));
     if (typeof body.modelsGenerated === 'number') patch.modelsGenerated = Math.max(0, Math.floor(body.modelsGenerated));
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;

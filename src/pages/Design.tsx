@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Bookmark,
   Camera,
   Clock,
+  Columns,
   Download,
   ExternalLink,
   FileArchive,
@@ -21,6 +23,8 @@ import {
   ShieldCheck,
   Sliders,
   Trash2,
+  Unlock,
+  Upload,
   User as UserIcon,
   X,
   ZoomIn,
@@ -1563,6 +1567,53 @@ function MySetsPanel({
   const [pendingModel, setPendingModel] = useState<{ file: File; preview: string } | null>(null);
   const [confirming, setConfirming] = useState<{ kind: 'cloth' | 'model'; file: File; preview: string } | null>(null);
   const [setPromptText, setSetPromptText] = useState('');
+  const batchUploadMySetsRef = useRef<HTMLInputElement>(null);
+  const [mySetsUploading, setMySetsUploading] = useState(false);
+  const [mySetsUploadProgress, setMySetsUploadProgress] = useState<{ current: number; total: number } | null>(null);
+
+  const handleBatchUploadToMySets = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArr = Array.from(files);
+    e.target.value = '';
+
+    setMySetsUploading(true);
+    setMySetsUploadProgress({ current: 0, total: fileArr.length });
+
+    try {
+      let completed = 0;
+      const processOne = async (file: File) => {
+        const standardized = await prepareAndStandardizeImage(file);
+        const uploaded = await api.upload(standardized.dataUrl, 'cloth', file.name);
+        await api.saveUserGeneration({
+          type: 'image',
+          url: uploaded.url,
+          title: file.name,
+          prompt: `Manual Upload · ${file.name}`,
+          resolution: '2k',
+          isManualUpload: true,
+        });
+        completed++;
+        setMySetsUploadProgress({ current: completed, total: fileArr.length });
+      };
+
+      let index = 0;
+      const workers = Array(Math.min(3, fileArr.length)).fill(0).map(async () => {
+        while (index < fileArr.length) {
+          const i = index++;
+          await processOne(fileArr[i]);
+        }
+      });
+      await Promise.all(workers);
+      refreshGenerations();
+      refreshSets();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload images to My Sets');
+    } finally {
+      setMySetsUploading(false);
+      setMySetsUploadProgress(null);
+    }
+  };
 
   async function handleDownloadZip() {
     if (selectedGenIds.length === 0) return;
@@ -1735,6 +1786,24 @@ function MySetsPanel({
         </div>
 
         <div className="flex items-center gap-3">
+          <input
+            ref={batchUploadMySetsRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleBatchUploadToMySets}
+          />
+          <button
+            type="button"
+            disabled={mySetsUploading}
+            onClick={() => batchUploadMySetsRef.current?.click()}
+            className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Upload any number of images simultaneously to your My Sets library"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>{mySetsUploading ? 'Uploading…' : '+ Upload to My Sets'}</span>
+          </button>
           <button
             type="button"
             onClick={() => { refreshSets(); refreshGenerations(); }}
@@ -1756,6 +1825,25 @@ function MySetsPanel({
           </button>
         </div>
       </div>
+
+      {/* Real-time Simultaneous Upload Progress Bar */}
+      {mySetsUploadProgress && (
+        <div className="mt-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-emerald-400">Uploading photos to My Sets simultaneously…</span>
+            <span className="font-bold text-white">
+              {Math.round((mySetsUploadProgress.current / (mySetsUploadProgress.total || 1)) * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="bg-emerald-500 h-full transition-all duration-300"
+              style={{ width: `${Math.round((mySetsUploadProgress.current / (mySetsUploadProgress.total || 1)) * 100)}%` }}
+            />
+          </div>
+          <p className="text-[10px] opacity-60">Uploaded {mySetsUploadProgress.current} of {mySetsUploadProgress.total} photos</p>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="mt-6 flex flex-wrap items-center gap-2 border-b pb-4 border-white/10">
@@ -2001,6 +2089,11 @@ function MySetsPanel({
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
+                        {gen.isManualUpload && (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                            Uploaded Asset
+                          </span>
+                        )}
                         {gen.color && (
                           <span className="flex items-center gap-1 font-medium text-emerald-400">
                             <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: gen.color }} />
@@ -2275,7 +2368,14 @@ function CustomRequestsPanel({
   onUseAsset?: (url: string, role?: 'cloth' | 'model') => void;
 }) {
   const [panelTab, setPanelTab] = useState<'send' | 'receive'>(initialTab);
-  const [deliveries, setDeliveries] = useState<AdminDelivery[]>([]);
+  const [deliveries, setDeliveries] = useState<AdminDelivery[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_user_deliveries');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
   const [unreadDeliveriesCount, setUnreadDeliveriesCount] = useState(0);
 
@@ -2283,6 +2383,9 @@ function CustomRequestsPanel({
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [zoomRotation, setZoomRotation] = useState(0);
+  const [uploadProgressState, setUploadProgressState] = useState<{ current: number; total: number } | null>(null);
+  const [savingToMySets, setSavingToMySets] = useState(false);
+  const [saveToSetsNotice, setSaveToSetsNotice] = useState('');
 
   const loadDeliveries = useCallback(async () => {
     setDeliveriesLoading(true);
@@ -2290,6 +2393,9 @@ function CustomRequestsPanel({
       const res = await api.getUserDeliveries();
       setDeliveries(res.items || []);
       setUnreadDeliveriesCount(res.unreadCount || 0);
+      try {
+        localStorage.setItem('cached_user_deliveries', JSON.stringify(res.items || []));
+      } catch {}
     } catch (e) {
       console.warn('Failed to load user deliveries:', e);
     } finally {
@@ -2426,9 +2532,35 @@ function CustomRequestsPanel({
     setSubmitting(true);
     setError('');
     try {
-      // Compress and convert all garment and model images in parallel for blazing-fast reliable upload
-      const clothImages = await Promise.all(pendingClothes.map((c) => compressForUpload(c.file)));
-      const modelImages = await Promise.all(pendingModels.map((m) => compressForUpload(m.file)));
+      const allItems = [
+        ...pendingClothes.map((c) => ({ file: c.file, kind: 'cloth' as const })),
+        ...pendingModels.map((m) => ({ file: m.file, kind: 'model' as const })),
+      ];
+      const totalFiles = allItems.length;
+      let completedCount = 0;
+      setUploadProgressState({ current: 0, total: totalFiles });
+
+      const uploadSingle = async (item: { file: File; kind: 'cloth' | 'model' }) => {
+        const compressed = await compressForUpload(item.file);
+        const upRes = await api.upload(compressed, item.kind, item.file.name);
+        completedCount++;
+        setUploadProgressState({ current: completedCount, total: totalFiles });
+        return upRes.url || compressed;
+      };
+
+      // Concurrency pool of 3
+      const results: string[] = [];
+      let workerIdx = 0;
+      const workers = Array(Math.min(3, allItems.length || 1)).fill(0).map(async () => {
+        while (workerIdx < allItems.length) {
+          const i = workerIdx++;
+          results[i] = await uploadSingle(allItems[i]);
+        }
+      });
+      await Promise.all(workers);
+
+      const clothImages = results.slice(0, pendingClothes.length);
+      const modelImages = results.slice(pendingClothes.length);
 
       await api.createCustomRequest({
         cloth: clothImages[0] || undefined,
@@ -2454,6 +2586,7 @@ function CustomRequestsPanel({
       setError(err instanceof Error ? err.message : 'Submission failed');
     } finally {
       setSubmitting(false);
+      setUploadProgressState(null);
     }
   }
 
@@ -2586,6 +2719,33 @@ function CustomRequestsPanel({
                 </button>
               </>
             )}
+
+            <button
+              type="button"
+              disabled={savingToMySets}
+              onClick={async () => {
+                setSavingToMySets(true);
+                try {
+                  await api.saveUserGeneration({
+                    type: 'image',
+                    url: lightboxImg,
+                    prompt: 'Saved from Delivery',
+                    resolution: '2k',
+                    isManualUpload: true,
+                  });
+                  setSaveToSetsNotice('✓ Saved to My Sets!');
+                  setTimeout(() => setSaveToSetsNotice(''), 3000);
+                } catch (err: any) {
+                  alert(err.message || 'Failed to save to My Sets');
+                } finally {
+                  setSavingToMySets(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>{savingToMySets ? 'Saving…' : saveToSetsNotice || 'Save to My Sets'}</span>
+            </button>
 
             <button
               type="button"
@@ -2948,6 +3108,24 @@ function CustomRequestsPanel({
                 />
               </div>
 
+              {uploadProgressState && (
+                <div className="mt-4 p-3 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-emerald-400">Uploading photos simultaneously…</span>
+                    <span className="font-bold text-white">
+                      {Math.round((uploadProgressState.current / (uploadProgressState.total || 1)) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-[#e5373f] h-full transition-all duration-300"
+                      style={{ width: `${Math.round((uploadProgressState.current / (uploadProgressState.total || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] opacity-60">Uploaded {uploadProgressState.current} of {uploadProgressState.total} photos</p>
+                </div>
+              )}
+
               {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
 
               <div className="mt-6 flex justify-end gap-3">
@@ -3268,7 +3446,7 @@ function CustomRequestsPanel({
             </button>
           </div>
 
-          {deliveriesLoading ? (
+          {deliveriesLoading && deliveries.length === 0 ? (
             <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
               <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mb-2" />
               Loading your deliveries...
@@ -4265,6 +4443,631 @@ function VideoStudioPanel({
 }
 
 /* ================================================================
+   Split Compare Studio (Synchronized Dual 1807×3000 Viewer)
+   ================================================================ */
+function CompareStudio({
+  cloth,
+  selectedClothes,
+  classifiedGarments,
+  userGenerations,
+  fivePoseItems,
+  isLight,
+  onClose,
+  onSetCloth,
+}: {
+  cloth: Pick;
+  selectedClothes: Array<{ url: string; preview?: string; name: string }>;
+  classifiedGarments: ClassifiedGarment[];
+  userGenerations: UserGeneration[];
+  fivePoseItems: PoseItem[];
+  isLight: boolean;
+  onClose: () => void;
+  onSetCloth?: (c: Pick) => void;
+}) {
+  const refCandidates: Array<{ url: string; name: string; label: string }> = [];
+  if (cloth?.url) {
+    refCandidates.push({ url: cloth.preview || cloth.url, name: cloth.name || 'Active Garment', label: 'Active Reference' });
+  }
+  selectedClothes.forEach((c, idx) => {
+    const u = c.preview || c.url;
+    if (u && !refCandidates.some((r) => r.url === u)) {
+      refCandidates.push({ url: u, name: c.name || `Garment ${idx + 1}`, label: `Garment ${idx + 1}` });
+    }
+  });
+  classifiedGarments.forEach((g) => {
+    const u = g.preview || g.url;
+    if (u && !refCandidates.some((r) => r.url === u)) {
+      refCandidates.push({ url: u, name: g.name || g.role, label: `${g.role}` });
+    }
+  });
+
+  const renderCandidates: Array<{ url: string; name: string; label: string }> = [];
+  fivePoseItems.filter((p) => p.status === 'completed' && p.url).forEach((p, idx) => {
+    renderCandidates.push({ url: p.url!, name: p.id || `Studio Render ${idx + 1}`, label: `Pose #${idx + 1}` });
+  });
+  userGenerations.forEach((g, idx) => {
+    const targetUrl = g.outputUrl || g.url || g.highResUrl;
+    if (targetUrl && !renderCandidates.some((r) => r.url === targetUrl)) {
+      renderCandidates.push({
+        url: targetUrl,
+        name: g.title || g.prompt || `My Set #${idx + 1}`,
+        label: g.isManualUpload ? 'Uploaded Asset' : (g.prompt ? g.prompt.slice(0, 24) : `My Set #${idx + 1}`),
+      });
+    }
+  });
+
+  const [leftUrl, setLeftUrl] = useState<string>(() => refCandidates[0]?.url || (userGenerations[0]?.url || ''));
+  const [leftName, setLeftName] = useState<string>(() => refCandidates[0]?.name || 'Reference Garment');
+  const [rightUrl, setRightUrl] = useState<string>(() => renderCandidates[0]?.url || (refCandidates[1]?.url || ''));
+  const [rightName, setRightName] = useState<string>(() => renderCandidates[0]?.name || 'Generated Render');
+
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isSynced, setIsSynced] = useState<boolean>(true);
+
+  const [leftPan, setLeftPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [rightPan, setRightPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [leftZoom, setLeftZoom] = useState<number>(1.0);
+  const [rightZoom, setRightZoom] = useState<number>(1.0);
+
+  const [leftRotation, setLeftRotation] = useState<number>(0);
+  const [rightRotation, setRightRotation] = useState<number>(0);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const refUploadInputRef = useRef<HTMLInputElement>(null);
+  const renderUploadInputRef = useRef<HTMLInputElement>(null);
+
+  const isDraggingRef = useRef<boolean>(false);
+  const dragPaneRef = useRef<'left' | 'right' | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const activeLeftZoom = isSynced ? zoom : leftZoom;
+  const activeRightZoom = isSynced ? zoom : rightZoom;
+  const activeLeftPan = isSynced ? pan : leftPan;
+  const activeRightPan = isSynced ? pan : rightPan;
+
+  const handleMouseDown = (e: React.MouseEvent, pane: 'left' | 'right') => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragPaneRef.current = pane;
+    const basePan = isSynced ? pan : (pane === 'left' ? leftPan : rightPan);
+    dragStartRef.current = { x: e.clientX, y: e.clientY, panX: basePan.x, panY: basePan.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    const nextPan = { x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy };
+
+    if (isSynced) {
+      setPan(nextPan);
+    } else if (dragPaneRef.current === 'left') {
+      setLeftPan(nextPan);
+    } else if (dragPaneRef.current === 'right') {
+      setRightPan(nextPan);
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    dragPaneRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent, pane: 'left' | 'right') => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.88;
+    if (isSynced) {
+      setZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
+    } else if (pane === 'left') {
+      setLeftZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
+    } else {
+      setRightZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, pane: 'left' | 'right') => {
+    if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragPaneRef.current = pane;
+      const basePan = isSynced ? pan : (pane === 'left' ? leftPan : rightPan);
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: basePan.x, panY: basePan.y };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDraggingRef.current || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.x;
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    const nextPan = { x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy };
+    if (isSynced) {
+      setPan(nextPan);
+    } else if (dragPaneRef.current === 'left') {
+      setLeftPan(nextPan);
+    } else if (dragPaneRef.current === 'right') {
+      setRightPan(nextPan);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+    dragPaneRef.current = null;
+  };
+
+  const handleManualRefUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const standardized = await prepareAndStandardizeImage(file);
+      setLeftUrl(standardized.dataUrl);
+      setLeftName(`Upload: ${file.name}`);
+      if (onSetCloth) {
+        onSetCloth({ url: standardized.dataUrl, preview: standardized.dataUrl, name: file.name });
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (typeof evt.target?.result === 'string') {
+          setLeftUrl(evt.target.result);
+          setLeftName(`Upload: ${file.name}`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleManualRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const standardized = await prepareAndStandardizeImage(file);
+      setRightUrl(standardized.dataUrl);
+      setRightName(`Upload: ${file.name}`);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (typeof evt.target?.result === 'string') {
+          setRightUrl(evt.target.result);
+          setRightName(`Upload: ${file.name}`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetZoomPan = () => {
+    setZoom(1.0);
+    setPan({ x: 0, y: 0 });
+    setLeftZoom(1.0);
+    setRightZoom(1.0);
+    setLeftPan({ x: 0, y: 0 });
+    setRightPan({ x: 0, y: 0 });
+  };
+
+  const handleExportComparison = async () => {
+    if (!leftUrl && !rightUrl) return;
+    setIsExporting(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 3614;
+      canvas.height = 3000;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D unavailable');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 3614, 3000);
+
+      const loadImage = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Image load failed'));
+          img.src = src;
+        });
+
+      if (leftUrl) {
+        try {
+          const imgL = await loadImage(leftUrl);
+          ctx.drawImage(imgL, 0, 0, 1807, 3000);
+        } catch {}
+      }
+      if (rightUrl) {
+        try {
+          const imgR = await loadImage(rightUrl);
+          ctx.drawImage(imgR, 1807, 0, 1807, 3000);
+        } catch {}
+      }
+
+      ctx.strokeStyle = '#e5373f';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(1807, 0);
+      ctx.lineTo(1807, 3000);
+      ctx.stroke();
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shivnaresh-split-comparison-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }, 'image/png');
+    } catch (err: any) {
+      alert(err?.message || 'Export comparison failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div
+      className="mx-auto max-w-6xl px-4 sm:px-6 py-6 space-y-5"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Header Bar */}
+      <div className={`p-4 rounded-2xl border transition shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
+      }`}>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-[#e5373f]/15 text-[#e5373f]">
+              <Columns className="w-4 h-4" />
+            </span>
+            <h2 className={`text-base font-bold tracking-tight ${isLight ? 'text-gray-900' : 'text-white'}`}>
+              Split Compare Studio
+            </h2>
+            <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+              1807×3000 Ultra-HD
+            </span>
+          </div>
+          <p className={`text-xs mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/60'}`}>
+            Dual-viewport fabric texture, seam stitching, and leaping athlete logo fidelity inspection with synchronized zoom &amp; pan.
+          </p>
+        </div>
+
+        {/* Global Toolbar Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sync Lock Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsSynced((s) => !s)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+              isSynced
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                : isLight
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                  : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+            }`}
+            title={isSynced ? 'Simultaneous zoom & pan enabled across both viewports' : 'Independent zoom & pan enabled'}
+          >
+            {isSynced ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Unlock className="w-3.5 h-3.5 text-amber-400" />}
+            <span>{isSynced ? 'Synced Zoom' : 'Independent'}</span>
+          </button>
+
+          {/* Zoom Controls */}
+          <div className={`flex items-center rounded-xl border px-2 py-1 gap-1.5 ${
+            isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
+          }`}>
+            <button
+              type="button"
+              onClick={() => {
+                if (isSynced) setZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
+                else {
+                  setLeftZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
+                  setRightZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
+                }
+              }}
+              className="p-1 rounded text-white/70 hover:text-white transition cursor-pointer"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="font-mono text-xs font-bold w-12 text-center text-emerald-400">
+              {Math.round(activeLeftZoom * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (isSynced) setZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
+                else {
+                  setLeftZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
+                  setRightZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
+                }
+              }}
+              className="p-1 rounded text-white/70 hover:text-white transition cursor-pointer"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleResetZoomPan}
+              className="p-1 rounded text-white/50 hover:text-white transition cursor-pointer ml-1"
+              title="Reset Zoom & Pan to 100%"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Export Comparison Button */}
+          <button
+            type="button"
+            disabled={isExporting}
+            onClick={handleExportComparison}
+            className="px-3.5 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer disabled:opacity-50"
+            title="Download full 3614×3000 side-by-side comparison proof sheet"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>{isExporting ? 'Exporting…' : 'Export Comparison'}</span>
+          </button>
+
+          {/* Close Studio Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className={`p-2 rounded-xl border transition cursor-pointer ${
+              isLight ? 'border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+            }`}
+            title="Return to Studio Canvas"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Dual Split Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* LEFT PANEL: Reference Garment */}
+        <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${
+          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        }`}>
+          {/* Panel Top Selector Bar */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                1. Reference Garment / Input
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={refUploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleManualRefUpload}
+              />
+              <button
+                type="button"
+                onClick={() => refUploadInputRef.current?.click()}
+                className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
+                title="Upload manual reference image from your device"
+              >
+                <Upload className="w-3 h-3 text-[#e5373f]" />
+                <span className="text-[11px] font-semibold">Upload Photo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLeftRotation((r) => (r + 90) % 360)}
+                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
+                title="Rotate 90° clockwise"
+              >
+                <RotateCw className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Selector Pills */}
+          {refCandidates.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+              {refCandidates.map((c, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => { setLeftUrl(c.url); setLeftName(c.name); }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold truncate max-w-[140px] transition cursor-pointer border ${
+                    leftUrl === c.url
+                      ? 'bg-purple-600 border-purple-500 text-white'
+                      : isLight ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'
+                  }`}
+                  title={c.name}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Viewport 1807×3000 */}
+          <div
+            className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+            onMouseDown={(e) => handleMouseDown(e, 'left')}
+            onTouchStart={(e) => handleTouchStart(e, 'left')}
+            onWheel={(e) => handleWheel(e, 'left')}
+          >
+            {leftUrl ? (
+              <img
+                src={leftUrl}
+                alt={leftName}
+                draggable={false}
+                style={{
+                  transform: `translate(${activeLeftPan.x}px, ${activeLeftPan.y}px) scale(${activeLeftZoom}) rotate(${leftRotation}deg)`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <div className="text-center p-6 space-y-2 opacity-50">
+                <Camera className="w-8 h-8 mx-auto" />
+                <p className="text-xs">No reference image selected.</p>
+                <button
+                  type="button"
+                  onClick={() => refUploadInputRef.current?.click()}
+                  className="rounded-lg bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+                >
+                  Upload Reference
+                </button>
+              </div>
+            )}
+
+            {/* Badges */}
+            <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
+                {leftName}
+              </span>
+              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
+                {Math.round(activeLeftZoom * 100)}%
+              </span>
+            </div>
+
+            <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
+              1807 × 3000
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: AI Render / My Set */}
+        <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${
+          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        }`}>
+          {/* Panel Top Selector Bar */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                2. AI Render / My Sets Asset
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={renderUploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleManualRenderUpload}
+              />
+              <button
+                type="button"
+                onClick={() => renderUploadInputRef.current?.click()}
+                className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
+                title="Upload manual render or comparison photo from your device"
+              >
+                <Upload className="w-3 h-3 text-[#e5373f]" />
+                <span className="text-[11px] font-semibold">Upload Photo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRightRotation((r) => (r + 90) % 360)}
+                className={`p-1.5 rounded-lg border text-xs transition cursor-pointer ${
+                  isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
+                title="Rotate 90° clockwise"
+              >
+                <RotateCw className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Selector Pills */}
+          {renderCandidates.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+              {renderCandidates.map((c, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => { setRightUrl(c.url); setRightName(c.name); }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold truncate max-w-[140px] transition cursor-pointer border ${
+                    rightUrl === c.url
+                      ? 'bg-emerald-600 border-emerald-500 text-white'
+                      : isLight ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'
+                  }`}
+                  title={c.name}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Viewport 1807×3000 */}
+          <div
+            className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+            onMouseDown={(e) => handleMouseDown(e, 'right')}
+            onTouchStart={(e) => handleTouchStart(e, 'right')}
+            onWheel={(e) => handleWheel(e, 'right')}
+          >
+            {rightUrl ? (
+              <img
+                src={rightUrl}
+                alt={rightName}
+                draggable={false}
+                style={{
+                  transform: `translate(${activeRightPan.x}px, ${activeRightPan.y}px) scale(${activeRightZoom}) rotate(${rightRotation}deg)`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <div className="text-center p-6 space-y-2 opacity-50">
+                <Film className="w-8 h-8 mx-auto" />
+                <p className="text-xs">No render or My Sets asset selected.</p>
+                <button
+                  type="button"
+                  onClick={() => renderUploadInputRef.current?.click()}
+                  className="rounded-lg bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+                >
+                  Upload Render
+                </button>
+              </div>
+            )}
+
+            {/* Badges */}
+            <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
+                {rightName}
+              </span>
+              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
+                {Math.round(activeRightZoom * 100)}%
+              </span>
+            </div>
+
+            <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
+              1807 × 3000
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
    Main Design page
    ================================================================ */
 export default function Design() {
@@ -4334,7 +5137,7 @@ export default function Design() {
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
-  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video'>('studio');
+  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'compare'>('studio');
 
   const [mode, setMode] = useState<ModeId>('tryon');
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
@@ -4937,12 +5740,14 @@ export default function Design() {
             setResult(imgUrl);
             setSelectedPoseIndex(currentIdx);
             void api.saveUserGeneration({
+              id: next.id,
+              jobId: next.id,
               type: 'image',
               url: imgUrl,
               prompt: prompt.trim() || `${currentItem?.name || 'Studio Render'} (${currentIdx + 1}/${batchCtx.total})`,
               resolution: quality,
             }).then((res) => {
-              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
+              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
             }).catch(() => { });
 
             // Find next uncancelled pending item in batch sequence
@@ -5036,12 +5841,14 @@ export default function Design() {
             setIsEditingRender(false);
             sendDesktopNotification('Render Complete', 'Your virtual try-on render is ready.', imgUrl);
             void api.saveUserGeneration({
+              id: next.id,
+              jobId: next.id,
               type: 'image',
               url: imgUrl,
               prompt: prompt.trim() || (mode === 'swap' ? 'Model Swap' : 'Virtual Try-On'),
               resolution: quality,
             }).then((res) => {
-              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id)]);
+              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
             }).catch(() => { });
           }
         }
@@ -5095,11 +5902,12 @@ export default function Design() {
       setUploading(true);
       setUploadProgress({ current: 0, total: fileArr.length, kind });
 
-      for (let i = 0; i < fileArr.length; i++) {
-        const file = fileArr[i];
-        setUploadProgress({ current: i + 1, total: fileArr.length, kind });
+      let completed = 0;
+      const processOne = async (file: File, i: number) => {
         const standardized = await prepareAndStandardizeImage(file);
         const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
+        completed++;
+        setUploadProgress({ current: completed, total: fileArr.length, kind });
         const pick = {
           url: uploaded.url,
           preview: standardized.dataUrl || uploaded.preview || uploaded.url,
@@ -5143,7 +5951,16 @@ export default function Design() {
           // Set as active model
           setModel(pick);
         }
-      }
+      };
+
+      let workerIdx = 0;
+      const workers = Array(Math.min(3, fileArr.length)).fill(0).map(async () => {
+        while (workerIdx < fileArr.length) {
+          const idx = workerIdx++;
+          await processOne(fileArr[idx], idx);
+        }
+      });
+      await Promise.all(workers);
 
       if (kind === 'model') {
         setTab('uploads');
@@ -5645,19 +6462,24 @@ export default function Design() {
             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
             {/* Photoshoot Counter Pill */}
-            {user && (
-              <span
-                className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                  isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
-                }`}
-                title="Your allocated photoshoot quota (5 poses per photoshoot)"
-              >
-                <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
-                <span>
-                  {Math.floor((user.modelsGenerated || 0) / 5)} / {user.photoshoots || user.maxModels || 20} Photoshoots
+            {user && (() => {
+              const totalQuota = user.photoshoots || user.maxModels || 20;
+              const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
+              const leftCount = Math.max(0, totalQuota - doneCount);
+              return (
+                <span
+                  className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
+                  }`}
+                  title={`${doneCount} delivered by studio, ${leftCount} remaining out of ${totalQuota}`}
+                >
+                  <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
+                  <span>
+                    📸 {doneCount} / {totalQuota} Photoshoots Done ({leftCount} Left)
+                  </span>
                 </span>
-              </span>
-            )}
+              );
+            })()}
 
             {/* Top Right Credit Status Pill — Visible Across ALL Tabs */}
             <a
@@ -5749,6 +6571,7 @@ export default function Design() {
                 unread: deliveriesUnreadCount,
               },
               { id: 'video', label: 'Video Studio' },
+              { id: 'compare', label: 'Split Compare' },
             ].map((v) => (
               <button
                 key={v.id}
@@ -5929,6 +6752,20 @@ export default function Design() {
           isGlobalBusy={isGlobalBusy}
           setIsGlobalBusy={setVideoBusy}
           onGenerationSaved={(gen) => setUserGenerations((prev) => [gen, ...prev.filter((g) => g.id !== gen.id)])}
+        />
+      )}
+
+      {/* ============= SPLIT COMPARE VIEW ============= */}
+      {pageView === 'compare' && (
+        <CompareStudio
+          cloth={cloth}
+          selectedClothes={selectedClothes}
+          classifiedGarments={classifiedGarments}
+          userGenerations={userGenerations}
+          fivePoseItems={fivePoseItems}
+          isLight={isLight}
+          onClose={() => setPageView('studio')}
+          onSetCloth={setCloth}
         />
       )}
 
@@ -7498,6 +8335,30 @@ export default function Design() {
           </aside>
         </div>
       )}
+
+      {/* Floating Direct Access Button for Split Compare (Bottom Left) */}
+      <div className="fixed bottom-6 left-6 z-40">
+        <button
+          type="button"
+          onClick={() => setPageView((curr) => (curr === 'compare' ? 'studio' : 'compare'))}
+          className={`flex items-center gap-2 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all border text-xs font-semibold cursor-pointer ${
+            pageView === 'compare'
+              ? 'bg-[#e5373f] text-white border-[#e5373f] ring-2 ring-[#e5373f]/30'
+              : isLight
+                ? 'bg-white/95 text-gray-900 border-gray-300 hover:border-gray-400 hover:shadow-lg'
+                : 'bg-black/90 text-white border-white/20 hover:border-white/40 hover:bg-black'
+          }`}
+          title="Open Split Compare Studio (Dual synchronized 1807×3000 comparison)"
+        >
+          <Columns className="w-4 h-4 text-[#e5373f]" />
+          <span>Split Compare</span>
+          {userGenerations.length > 0 && (
+            <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-bold">
+              {userGenerations.length}
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
