@@ -68,17 +68,14 @@ function numberToWordsINR(amount: number): string {
   return `${parts.join(' ')} Rupees Only`;
 }
 
-function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _clientName: string, inrFallback: number, _upiId: string, bankDetailsOverride?: any) {
+function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _clientName: string, _inrFallback: number, _upiId: string, bankDetailsOverride?: any) {
   const invoiceNo = order?.invoice_no || '1450903';
   const invoiceDate = order?.invoice_date
     ? new Date(order.invoice_date).toLocaleDateString('en-GB')
     : new Date().toLocaleDateString('en-GB');
-  const amount = order?.amount || inrFallback || 0;
-  const formattedAmount = amount.toLocaleString('en-IN');
-  const amountWords = numberToWordsINR(amount);
 
   // Extract clean numerical counts without any expiry text
-  let photoshootsCount = 20;
+  let photoshootsCount = 100;
   if (plan?.id === 'ultra') photoshootsCount = 100;
   else if (plan?.id === 'pro') photoshootsCount = 60;
   else if (plan?.id === 'ondemand') photoshootsCount = 20;
@@ -87,7 +84,7 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
     if (m) photoshootsCount = parseInt(m[1], 10);
   }
 
-  let videosCount = 2;
+  let videosCount = 6;
   if (plan?.id === 'ultra') videosCount = 6;
   else if (plan?.id === 'pro') videosCount = 4;
   else if (plan?.id === 'ondemand') videosCount = 2;
@@ -95,6 +92,17 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
     const m = plan.specs.videos.match(/(\d+)/);
     if (m) videosCount = parseInt(m[1], 10);
   }
+
+  // Unit rate 199.99 per photoshoot & video as requested for Shiv-Naresh
+  const photoRate = 199.99;
+  const videoRate = 199.99;
+  const photoAmount = photoshootsCount * photoRate;
+  const videoAmount = videosCount * videoRate;
+  const computedSubtotal = photoAmount + videoAmount;
+  const finalTotal = Math.round(computedSubtotal);
+  const roundOff = finalTotal - computedSubtotal;
+  const formattedTotal = finalTotal.toLocaleString('en-IN');
+  const amountWords = numberToWordsINR(finalTotal);
 
   const bankName = bankDetailsOverride?.bankName || 'State Bank of India';
   const beneficiaryName = bankDetailsOverride?.accountHolder || 'PAWAN KUMAR';
@@ -280,32 +288,44 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
     <table>
       <thead>
         <tr>
-          <th style="width: 36px; text-align: center;">#</th>
+          <th style="width: 32px; text-align: center;">#</th>
           <th style="text-align: left;">Description</th>
           <th style="width: 48px; text-align: center;">Qty</th>
-          <th style="width: 130px; text-align: right;">Amount (INR)</th>
+          <th style="width: 85px; text-align: right;">Rate (INR)</th>
+          <th style="width: 120px; text-align: right;">Amount (INR)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td style="text-align: center; font-weight: 600;">1</td>
           <td>
-            <div style="font-weight: 700; color: #111827; margin-bottom: 3px;">Photo &amp; Video Shoot Services</div>
-            <div style="color: #4b5563; margin-bottom: 2px;">- ${photoshootsCount} photo shoots (each shoot = 5 poses)</div>
-            <div style="color: #4b5563;">- ${videosCount} videos in 1080p, each 5 to 10 seconds long</div>
+            <div style="font-weight: 700; color: #111827; margin-bottom: 2px;">Photo Shoot Services</div>
+            <div style="color: #4b5563; font-size: 10.5px;">- ${photoshootsCount} photo shoots (each shoot = 5 poses, 1807×3000 Ultra-HD, high fidelity athletic sportswear styling)</div>
           </td>
-          <td style="text-align: center;">1</td>
-          <td style="text-align: right; font-family: monospace; font-weight: 600;">${formattedAmount}.00</td>
+          <td style="text-align: center; font-weight: 600;">${photoshootsCount}</td>
+          <td style="text-align: right; font-family: monospace;">199.99</td>
+          <td style="text-align: right; font-family: monospace; font-weight: 600;">${photoAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>
+        <tr>
+          <td style="text-align: center; font-weight: 600;">2</td>
+          <td>
+            <div style="font-weight: 700; color: #111827; margin-bottom: 2px;">Video Shoot Services</div>
+            <div style="color: #4b5563; font-size: 10.5px;">- ${videosCount} videos in 1080p Full-HD, each 5 to 10 seconds long</div>
+          </td>
+          <td style="text-align: center; font-weight: 600;">${videosCount}</td>
+          <td style="text-align: right; font-family: monospace;">199.99</td>
+          <td style="text-align: right; font-family: monospace; font-weight: 600;">${videoAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         </tr>
       </tbody>
     </table>
 
     <div class="totals-wrap">
       <div class="totals-box">
-        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
+        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR ${computedSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+        <div class="totals-row"><span>Round off</span><span style="font-family: monospace;">(+) INR ${roundOff.toFixed(2)}</span></div>
         <div class="totals-row"><span>GST</span><span>Not applicable</span></div>
-        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
-        <div class="totals-row"><span>Amount Paid</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
+        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR ${formattedTotal}.00</span></div>
+        <div class="totals-row"><span>Amount Paid</span><span style="font-family: monospace;">INR ${formattedTotal}.00</span></div>
         <div class="totals-row" style="font-weight: 700; color: #111827;"><span>Balance Due</span><span style="font-family: monospace;">INR 0.00</span></div>
       </div>
     </div>
@@ -1280,64 +1300,95 @@ export default function Pricing() {
                     </div>
 
                     {/* Table with #1F3A5F Header & 1px borders */}
-                    <div className="mt-2 overflow-hidden rounded border border-[#bbbbbb]">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-[#1F3A5F] text-white">
-                          <tr>
-                            <th className="py-2.5 px-3 w-10 text-center border border-[#bbbbbb] font-bold">#</th>
-                            <th className="py-2.5 px-4 border border-[#bbbbbb] font-bold">Description</th>
-                            <th className="py-2.5 px-3 text-center w-14 border border-[#bbbbbb] font-bold">Qty</th>
-                            <th className="py-2.5 px-4 text-right w-36 border border-[#bbbbbb] font-bold">Amount (INR)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="py-3.5 px-3 text-center font-bold text-gray-700 align-top border border-[#bbbbbb]">1</td>
-                            <td className="py-3.5 px-4 align-top border border-[#bbbbbb]">
-                              <p className="font-bold text-gray-900">Photo & Video Shoot Services</p>
-                              <p className="text-gray-600 mt-1">- {selectedPlan.id === 'ultra' ? 100 : selectedPlan.id === 'pro' ? 60 : 20} photo shoots (each shoot = 5 poses)</p>
-                              <p className="text-gray-600">- {selectedPlan.id === 'ultra' ? 6 : selectedPlan.id === 'pro' ? 4 : 2} videos in 1080p, each 5 to 10 seconds long</p>
-                            </td>
-                            <td className="py-3.5 px-3 text-center font-medium text-gray-700 align-top border border-[#bbbbbb]">1</td>
-                            <td className="py-3.5 px-4 text-right font-mono font-semibold text-gray-900 align-top border border-[#bbbbbb]">
-                              {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                    {(() => {
+                      const modalPhotosCount = selectedPlan.id === 'ultra' ? 100 : selectedPlan.id === 'pro' ? 60 : 20;
+                      const modalVidsCount = selectedPlan.id === 'ultra' ? 6 : selectedPlan.id === 'pro' ? 4 : 2;
+                      const modalPhotoAmt = modalPhotosCount * 199.99;
+                      const modalVidAmt = modalVidsCount * 199.99;
+                      const modalSubtotal = modalPhotoAmt + modalVidAmt;
+                      const modalTotal = Math.round(modalSubtotal);
+                      const modalRound = modalTotal - modalSubtotal;
 
-                    {/* Totals */}
-                    <div className="flex justify-end mt-4">
-                      <div className="w-full sm:w-64 text-xs space-y-1">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Subtotal</span>
-                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>GST</span>
-                          <span>Not applicable</span>
-                        </div>
-                        <div className="flex justify-between py-1 px-2 bg-[#EEF2F8] rounded font-bold text-gray-900 border-t-[1.5px] border-[#1F3A5F]">
-                          <span>Total</span>
-                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600 px-2">
-                          <span>Amount Paid</span>
-                          <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
-                        </div>
-                        <div className="flex justify-between font-semibold text-gray-900 px-2">
-                          <span>Balance Due</span>
-                          <span className="font-mono">INR 0.00</span>
-                        </div>
-                      </div>
-                    </div>
+                      return (
+                        <>
+                          <div className="mt-2 overflow-hidden rounded border border-[#bbbbbb]">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-[#1F3A5F] text-white">
+                                <tr>
+                                  <th className="py-2.5 px-3 w-10 text-center border border-[#bbbbbb] font-bold">#</th>
+                                  <th className="py-2.5 px-4 border border-[#bbbbbb] font-bold">Description</th>
+                                  <th className="py-2.5 px-3 text-center w-14 border border-[#bbbbbb] font-bold">Qty</th>
+                                  <th className="py-2.5 px-3 text-right w-24 border border-[#bbbbbb] font-bold">Rate (INR)</th>
+                                  <th className="py-2.5 px-4 text-right w-32 border border-[#bbbbbb] font-bold">Amount (INR)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="py-3 px-3 text-center font-bold text-gray-700 align-top border border-[#bbbbbb]">1</td>
+                                  <td className="py-3 px-4 align-top border border-[#bbbbbb]">
+                                    <p className="font-bold text-gray-900">Photo Shoot Services</p>
+                                    <p className="text-gray-600 mt-0.5 text-[11px]">- {modalPhotosCount} photo shoots (each shoot = 5 poses, 1807×3000 Ultra-HD)</p>
+                                  </td>
+                                  <td className="py-3 px-3 text-center font-semibold text-gray-800 align-top border border-[#bbbbbb]">{modalPhotosCount}</td>
+                                  <td className="py-3 px-3 text-right font-mono text-gray-700 align-top border border-[#bbbbbb]">199.99</td>
+                                  <td className="py-3 px-4 text-right font-mono font-semibold text-gray-900 align-top border border-[#bbbbbb]">
+                                    {modalPhotoAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="py-3 px-3 text-center font-bold text-gray-700 align-top border border-[#bbbbbb]">2</td>
+                                  <td className="py-3 px-4 align-top border border-[#bbbbbb]">
+                                    <p className="font-bold text-gray-900">Video Shoot Services</p>
+                                    <p className="text-gray-600 mt-0.5 text-[11px]">- {modalVidsCount} videos in 1080p Full-HD, each 5 to 10 seconds long</p>
+                                  </td>
+                                  <td className="py-3 px-3 text-center font-semibold text-gray-800 align-top border border-[#bbbbbb]">{modalVidsCount}</td>
+                                  <td className="py-3 px-3 text-right font-mono text-gray-700 align-top border border-[#bbbbbb]">199.99</td>
+                                  <td className="py-3 px-4 text-right font-mono font-semibold text-gray-900 align-top border border-[#bbbbbb]">
+                                    {modalVidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
 
-                    {/* Amount in words */}
-                    <div className="mt-3 pt-2.5 border-t border-gray-200 text-xs">
-                      <span className="font-bold text-gray-900">Amount in words:</span>{' '}
-                      <span className="text-gray-700 italic">{numberToWordsINR(activeOrder?.amount || inrAmount)}</span>
-                    </div>
+                          {/* Totals */}
+                          <div className="flex justify-end mt-4">
+                            <div className="w-full sm:w-64 text-xs space-y-1">
+                              <div className="flex justify-between text-gray-600">
+                                <span>Subtotal</span>
+                                <span className="font-mono">INR {modalSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-600">
+                                <span>Round off</span>
+                                <span className="font-mono">(+) INR {modalRound.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-600">
+                                <span>GST</span>
+                                <span>Not applicable</span>
+                              </div>
+                              <div className="flex justify-between py-1 px-2 bg-[#EEF2F8] rounded font-bold text-gray-900 border-t-[1.5px] border-[#1F3A5F]">
+                                <span>Total</span>
+                                <span className="font-mono">INR {modalTotal.toLocaleString('en-IN')}.00</span>
+                              </div>
+                              <div className="flex justify-between text-gray-600 px-2">
+                                <span>Amount Paid</span>
+                                <span className="font-mono">INR {modalTotal.toLocaleString('en-IN')}.00</span>
+                              </div>
+                              <div className="flex justify-between font-semibold text-gray-900 px-2">
+                                <span>Balance Due</span>
+                                <span className="font-mono">INR 0.00</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Amount in words */}
+                          <div className="mt-3 pt-2.5 border-t border-gray-200 text-xs">
+                            <span className="font-bold text-gray-900">Amount in words:</span>{' '}
+                            <span className="text-gray-700 italic">{numberToWordsINR(modalTotal)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
 
                     {/* Payment details Box */}
                     <div className="mt-4 rounded border border-[#bbbbbb] overflow-hidden text-xs">
