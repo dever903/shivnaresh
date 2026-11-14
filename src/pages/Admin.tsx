@@ -645,6 +645,18 @@ export default function Admin() {
     return () => clearInterval(timer);
   }, [access?.admin]);
 
+  // Auto-mark received requests as read when admin is viewing them
+  useEffect(() => {
+    if (activeTab === 'requests' && adminRequestsTab === 'receive') {
+      const hasUnread = customRequests.some((r) => r.readByAdmin === false);
+      if (hasUnread) {
+        void api.markAdminRequestsRead().then(() => {
+          setCustomRequests((prev) => prev.map((r) => ({ ...r, readByAdmin: true })));
+        }).catch(() => {});
+      }
+    }
+  }, [activeTab, adminRequestsTab, customRequests]);
+
   useEffect(() => {
     if (!host?.running) return;
     const timer = setInterval(() => void loadHost(), 2000);
@@ -1607,7 +1619,7 @@ ${log.stack || 'None'}
                   id: 'requests',
                   label: 'Custom Orders',
                   icon: Inbox,
-                  badge: unreadClientRequestsCount > 0 ? unreadClientRequestsCount : pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+                  badge: unreadClientRequestsCount > 0 ? unreadClientRequestsCount : undefined,
                 },
                 { id: 'users', label: 'Users & Credits', icon: Users, count: usersList.length },
                 {

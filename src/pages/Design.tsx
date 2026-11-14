@@ -16,6 +16,7 @@ import {
   Paperclip,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   Send,
   Sliders,
   Trash2,
@@ -638,6 +639,8 @@ function ZoomCropDownloadModal({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isExporting, setIsExporting] = useState(false);
+  const [currentImage, setCurrentImage] = useState<string | null>(imageUrl);
+  const [rotating, setRotating] = useState(false);
 
   const imgRef = useRef<HTMLImageElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -650,6 +653,7 @@ function ZoomCropDownloadModal({
       setZoom(1);
       setPan({ x: 0, y: 0 });
       setIsExporting(false);
+      setCurrentImage(imageUrl);
     }
   }, [isOpen, imageUrl]);
 
@@ -697,7 +701,8 @@ function ZoomCropDownloadModal({
   };
 
   const handleExportCrop = async () => {
-    if (!imageUrl || !imgRef.current || !viewportRef.current) return;
+    const activeImg = currentImage || imageUrl;
+    if (!activeImg || !imgRef.current || !viewportRef.current) return;
     setIsExporting(true);
     try {
       const img = imgRef.current;
@@ -737,7 +742,7 @@ function ZoomCropDownloadModal({
       await new Promise<void>((resolve, reject) => {
         tempImg.onload = () => resolve();
         tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-        tempImg.src = imageUrl;
+        tempImg.src = activeImg;
       });
 
       // Draw exact visible cropped rectangle onto 1807x3000 canvas
@@ -831,7 +836,7 @@ function ZoomCropDownloadModal({
               {/* Scaled & Panned Image */}
               <img
                 ref={imgRef}
-                src={imageUrl}
+                src={currentImage || imageUrl}
                 alt="Zoom Preview"
                 crossOrigin="anonymous"
                 draggable={false}
@@ -936,6 +941,35 @@ function ZoomCropDownloadModal({
                   <span>Reset</span>
                 </button>
               </div>
+            </div>
+
+            {/* Rotate Image Control */}
+            <div className={`rounded-xl border p-3 flex items-center justify-between ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800 bg-zinc-900/40'}`}>
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <RotateCw size={13} className="text-zinc-400" />
+                <span>Orientation</span>
+              </span>
+              <button
+                type="button"
+                disabled={rotating}
+                onClick={async () => {
+                  const targetImg = currentImage || imageUrl;
+                  if (!targetImg) return;
+                  setRotating(true);
+                  try {
+                    const rot = await rotateImage(targetImg, 90);
+                    setCurrentImage(rot.dataUrl);
+                  } finally {
+                    setRotating(false);
+                  }
+                }}
+                className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${isLight ? 'border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                  }`}
+                title="Rotate 90° clockwise"
+              >
+                <RotateCw size={11} className={rotating ? 'animate-spin' : ''} />
+                <span>{rotating ? 'Rotating…' : 'Rotate 90°'}</span>
+              </button>
             </div>
 
             {/* Export Specifications Box */}
@@ -2128,6 +2162,92 @@ function MySetsPanel({
   );
 }
 
+/* Fast client-side image compression helper to ensure instant, reliable uploads */
+async function compressForUpload(file: File, maxDim = 1600, quality = 0.85): Promise<string> {
+  if (!file.type.startsWith('image/') || file.size < 250 * 1024) {
+    return fileToDataUrl(file);
+  }
+  return new Promise<string>((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        fileToDataUrl(file).then(resolve);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      fileToDataUrl(file).then(resolve);
+    };
+    img.src = url;
+  });
+}
+
+/** Universal client-side image rotator: rotates any image URL, Data URL, or File by degrees (default 90 deg) and returns new dataUrl + File */
+async function rotateImage(imageSource: string | File, degrees = 90): Promise<{ dataUrl: string; file: File }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const srcUrl = typeof imageSource === 'string' ? imageSource : URL.createObjectURL(imageSource);
+
+    img.onload = () => {
+      if (typeof imageSource !== 'string') URL.revokeObjectURL(srcUrl);
+      const normDeg = ((degrees % 360) + 360) % 360;
+      const rad = (normDeg * Math.PI) / 180;
+      const isSwapped = normDeg === 90 || normDeg === 270;
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+      const w = isSwapped ? origH : origW;
+      const h = isSwapped ? origW : origH;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Canvas 2D context not available'));
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(rad);
+      ctx.drawImage(img, -origW / 2, -origH / 2);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      canvas.toBlob((blob) => {
+        const file = new File([blob || ''], `rotated-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        resolve({ dataUrl, file });
+      }, 'image/jpeg', 0.95);
+    };
+
+    img.onerror = (err) => {
+      if (typeof imageSource !== 'string') URL.revokeObjectURL(srcUrl);
+      reject(err);
+    };
+
+    img.src = srcUrl;
+  });
+}
+
 /* ----------------------------------------------------------------
    Custom Requests Tab Component (24-48h SLA & Admin Replies)
    ---------------------------------------------------------------- */
@@ -2139,6 +2259,7 @@ function CustomRequestsPanel({
   customRequestsLocked: _customRequestsLocked,
   isLight = false,
   onUnreadCleared,
+  initialTab = 'send',
 }: {
   requests: CustomRequest[];
   loading: boolean;
@@ -2147,8 +2268,9 @@ function CustomRequestsPanel({
   customRequestsLocked?: boolean;
   isLight?: boolean;
   onUnreadCleared?: () => void;
+  initialTab?: 'send' | 'receive';
 }) {
-  const [panelTab, setPanelTab] = useState<'send' | 'receive'>('send');
+  const [panelTab, setPanelTab] = useState<'send' | 'receive'>(initialTab);
   const [deliveries, setDeliveries] = useState<AdminDelivery[]>([]);
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
   const [unreadDeliveriesCount, setUnreadDeliveriesCount] = useState(0);
@@ -2170,19 +2292,26 @@ function CustomRequestsPanel({
     void loadDeliveries();
   }, [loadDeliveries]);
 
-  const handleSelectReceiveTab = async () => {
+  const handleSelectReceiveTab = useCallback(async () => {
     setPanelTab('receive');
-    if (unreadDeliveriesCount > 0) {
-      try {
-        await api.markUserDeliveriesRead();
-        setUnreadDeliveriesCount(0);
-        setDeliveries((prev) => prev.map((d) => ({ ...d, readByUser: true })));
-        onUnreadCleared?.();
-      } catch (e) {
-        console.warn('Error marking deliveries read:', e);
+    try {
+      await api.markUserDeliveriesRead();
+      setUnreadDeliveriesCount(0);
+      setDeliveries((prev) => prev.map((d) => ({ ...d, readByUser: true })));
+      onUnreadCleared?.();
+    } catch (e) {
+      console.warn('Error marking deliveries read:', e);
+    }
+  }, [onUnreadCleared]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setPanelTab(initialTab);
+      if (initialTab === 'receive') {
+        void handleSelectReceiveTab();
       }
     }
-  };
+  }, [initialTab, handleSelectReceiveTab]);
 
   const handleDeleteRequest = async (id: string) => {
     if (!window.confirm('Delete this custom request? It will be moved to the studio recycle bin.')) return;
@@ -2288,14 +2417,9 @@ function CustomRequestsPanel({
     setSubmitting(true);
     setError('');
     try {
-      const clothImages: string[] = [];
-      for (const c of pendingClothes) {
-        clothImages.push(await fileToDataUrl(c.file));
-      }
-      const modelImages: string[] = [];
-      for (const m of pendingModels) {
-        modelImages.push(await fileToDataUrl(m.file));
-      }
+      // Compress and convert all garment and model images in parallel for blazing-fast reliable upload
+      const clothImages = await Promise.all(pendingClothes.map((c) => compressForUpload(c.file)));
+      const modelImages = await Promise.all(pendingModels.map((m) => compressForUpload(m.file)));
 
       await api.createCustomRequest({
         cloth: clothImages[0] || undefined,
@@ -2512,14 +2636,30 @@ function CustomRequestsPanel({
                           <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
                             Garment {idx + 1}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => removeCloth(idx)}
-                            className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Remove garment"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
+                          <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const rot = await rotateImage(c.file, 90);
+                                setPendingClothes((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, file: rot.file, preview: rot.dataUrl } : item))
+                                );
+                              }}
+                              className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                              title="Rotate 90° clockwise"
+                            >
+                              <RotateCw className="h-2.5 w-2.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeCloth(idx)}
+                              className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                              title="Remove garment"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                       <button
@@ -2615,14 +2755,30 @@ function CustomRequestsPanel({
                         <span className="absolute top-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
                           Pose {idx + 1}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => removeModel(idx)}
-                          className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remove pose"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
+                        <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const rot = await rotateImage(m.file, 90);
+                              setPendingModels((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, file: rot.file, preview: rot.dataUrl } : item))
+                              );
+                            }}
+                            className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                            title="Rotate 90° clockwise"
+                          >
+                            <RotateCw className="h-2.5 w-2.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeModel(idx)}
+                            className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                            title="Remove pose"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
 
@@ -3877,7 +4033,7 @@ export default function Design() {
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
-  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'video'>('studio');
+  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video'>('studio');
 
   const [mode, setMode] = useState<ModeId>('tryon');
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
@@ -4329,10 +4485,13 @@ export default function Design() {
     }
   }, []);
 
+  const [userDeliveriesCount, setUserDeliveriesCount] = useState<number>(0);
+
   const loadDeliveriesUnread = useCallback(async () => {
     try {
       const res = await api.getUserDeliveries();
       setDeliveriesUnreadCount(res.unreadCount || 0);
+      setUserDeliveriesCount((res.items || []).length);
     } catch {
       /* non-fatal */
     }
@@ -4432,6 +4591,14 @@ export default function Design() {
       cancelled = true;
     };
   }, [loadUploadSets, loadCustomRequests, loadDeliveriesUnread, loadUserGenerations, loadUploads]);
+
+  /* Poll unread deliveries in background every 15s */
+  useEffect(() => {
+    const pollTimer = setInterval(() => {
+      void loadDeliveriesUnread();
+    }, 15000);
+    return () => clearInterval(pollTimer);
+  }, [loadDeliveriesUnread]);
 
   /* Poll job */
   useEffect(() => {
@@ -5255,7 +5422,11 @@ export default function Design() {
               { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
               {
                 id: 'custom-requests',
-                label: 'Custom Requests' + (customRequests.length ? ` (${customRequests.length})` : ''),
+                label: 'Send Request',
+              },
+              {
+                id: 'deliveries',
+                label: 'Receive Deliveries' + (userDeliveriesCount ? ` (${userDeliveriesCount})` : ''),
                 unread: deliveriesUnreadCount,
               },
               { id: 'video', label: 'Video Studio' },
@@ -5268,6 +5439,12 @@ export default function Design() {
                   if (v.id === 'custom-requests') {
                     void loadCustomRequests();
                     void loadDeliveriesUnread();
+                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
+                  } else if (v.id === 'deliveries') {
+                    void loadCustomRequests();
+                    void loadDeliveriesUnread();
+                    void api.markUserDeliveriesRead().catch(() => {});
+                    setDeliveriesUnreadCount(0);
                     api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
                   }
                 }}
@@ -5330,11 +5507,12 @@ export default function Design() {
         />
       )}
 
-      {/* ============= CUSTOM REQUESTS VIEW ============= */}
-      {pageView === 'custom-requests' && (
+      {/* ============= CUSTOM REQUESTS & DELIVERIES VIEW ============= */}
+      {(pageView === 'custom-requests' || pageView === 'deliveries') && (
         <CustomRequestsPanel
           requests={customRequests}
           loading={loadingRequests}
+          initialTab={pageView === 'deliveries' ? 'receive' : 'send'}
           onRefresh={() => {
             void loadCustomRequests();
             void loadDeliveriesUnread();
@@ -5820,14 +5998,34 @@ export default function Design() {
                               }`}>
                               <div className="aspect-[3/4] relative">
                                 <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-cover" />
-                                <button
-                                  type="button"
-                                  onClick={() => removeClassifiedGarment(garment.url)}
-                                  className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Remove"
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
+                                <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const rot = await rotateImage(garment.preview ?? garment.url, 90);
+                                      setClassifiedGarments((prev) =>
+                                        prev.map((g) => (g.url === garment.url ? { ...g, url: rot.dataUrl, preview: rot.dataUrl } : g))
+                                      );
+                                      setSelectedClothes((prev) =>
+                                        prev.map((c) => (c.url === garment.url ? { ...c, url: rot.dataUrl, preview: rot.dataUrl } : c))
+                                      );
+                                      setCloth((prev) => (prev && prev.url === garment.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
+                                    }}
+                                    className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                    title="Rotate 90° clockwise"
+                                  >
+                                    <RotateCw className="h-2.5 w-2.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeClassifiedGarment(garment.url)}
+                                    className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                                    title="Remove"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
                               </div>
                               {/* Role badge + dropdown */}
                               <div className="p-1.5">
@@ -6220,17 +6418,34 @@ export default function Design() {
                                 }`}>
                                 {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
                               </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeSelectedModel(idx);
-                                }}
-                                className="absolute top-1.5 right-1.5 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Remove model"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
+                              <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const rot = await rotateImage(item.preview ?? item.url, 90);
+                                    setSelectedModels((prev) =>
+                                      prev.map((m, i) => (i === idx ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
+                                    );
+                                    setModel((prev) => (prev && prev.url === item.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
+                                  }}
+                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                  title="Rotate 90° clockwise"
+                                >
+                                  <RotateCw className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeSelectedModel(idx);
+                                  }}
+                                  className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                                  title="Remove model"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
                               <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
                                 {item.name}
                               </p>
@@ -6262,17 +6477,33 @@ export default function Design() {
                           <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModel(null);
-                          setSelectedModels([]);
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors"
-                        title="Deselect model"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const rot = await rotateImage(model.preview ?? model.url, 90);
+                            setModel((prev) => (prev ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : null));
+                            setSelectedModels((prev) =>
+                              prev.map((m) => (m.url === model.url ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
+                            );
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
+                          title="Rotate 90° clockwise"
+                        >
+                          <RotateCw className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModel(null);
+                            setSelectedModels([]);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors"
+                          title="Deselect model"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : null}
 
@@ -6652,6 +6883,25 @@ export default function Design() {
 
               {result && (
                 <div className={`flex flex-wrap gap-2 border-t p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10'}`}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!result) return;
+                      const rot = await rotateImage(result, 90);
+                      setResult(rot.dataUrl);
+                      setFivePoseItems((prev) =>
+                        prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: rot.dataUrl } : p))
+                      );
+                    }}
+                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold flex items-center gap-1.5 cursor-pointer ${isLight
+                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      }`}
+                    title="Rotate 90° clockwise"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" />
+                    <span>Rotate 90°</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}

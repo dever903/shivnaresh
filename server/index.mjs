@@ -3910,7 +3910,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
     const uploadedCloths = [];
     const uploadedModels = [];
 
-    /* Process all uploaded garments */
+    /* Process all uploaded garments quickly using instant local storage */
     const rawClothList = [];
     if (Array.isArray(clothImages) && clothImages.length > 0) {
       rawClothList.push(...clothImages);
@@ -3923,16 +3923,10 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
       if (!img) continue;
       if (typeof img === 'string' && img.startsWith('data:')) {
         try {
-          const r = await uploadToCloudinary(img, userId, `req-cloth-${i + 1}`);
-          if (r && (r.secure_url || r.url)) {
-            uploadedCloths.push(r.secure_url || r.url);
-          } else {
-            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-cloth-${i + 1}`);
-            uploadedCloths.push(loc);
-          }
-        } catch {
-          const loc = await saveLocalAsset(img, 'sets', `${userId}-req-cloth-${i + 1}`).catch(() => img);
+          const loc = await saveLocalAsset(img, 'sets', `${userId}-req-cloth-${Date.now()}-${i + 1}`);
           uploadedCloths.push(loc);
+        } catch {
+          uploadedCloths.push(img);
         }
       } else if (typeof img === 'string' && img.trim()) {
         uploadedCloths.push(img.trim());
@@ -3943,7 +3937,7 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
     }
     const finalClothImages = uploadedCloths.length > 0 ? uploadedCloths : (clothUrl ? [clothUrl] : []);
 
-    /* Process all uploaded model poses individually */
+    /* Process all uploaded model poses quickly */
     const rawModelList = [];
     if (Array.isArray(modelImages) && modelImages.length > 0) {
       rawModelList.push(...modelImages);
@@ -3956,20 +3950,10 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
       if (!img) continue;
       if (typeof img === 'string' && img.startsWith('data:')) {
         try {
-          const r = await uploadToCloudinary(img, userId, `req-model-${i + 1}`);
-          if (r && (r.secure_url || r.url)) {
-            uploadedModels.push(r.secure_url || r.url);
-          } else {
-            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-model-${i + 1}`);
-            uploadedModels.push(loc);
-          }
-        } catch (mErr) {
-          try {
-            const loc = await saveLocalAsset(img, 'sets', `${userId}-req-model-${i + 1}`);
-            uploadedModels.push(loc);
-          } catch {
-            uploadedModels.push(img);
-          }
+          const loc = await saveLocalAsset(img, 'sets', `${userId}-req-model-${Date.now()}-${i + 1}`);
+          uploadedModels.push(loc);
+        } catch {
+          uploadedModels.push(img);
         }
       } else if (typeof img === 'string' && img.trim()) {
         uploadedModels.push(img.trim());
@@ -4006,6 +3990,50 @@ app.post('/api/custom-requests', auth.requireUser, async (req, res) => {
     const all = await readCustomRequests();
     all.unshift(newRequest);
     await writeCustomRequests(all);
+
+    // Background permanent CDN backup without blocking client response
+    (async () => {
+      try {
+        let needsUpdate = false;
+        const cdnCloths = await Promise.all(
+          rawClothList.map(async (img, idx) => {
+            if (typeof img === 'string' && img.startsWith('data:')) {
+              const r = await uploadToCloudinary(img, userId, `req-cloth-${Date.now()}-${idx + 1}`).catch(() => null);
+              if (r && (r.secure_url || r.url)) {
+                needsUpdate = true;
+                return r.secure_url || r.url;
+              }
+            }
+            return uploadedCloths[idx] || img;
+          })
+        );
+        const cdnModels = await Promise.all(
+          rawModelList.map(async (img, idx) => {
+            if (typeof img === 'string' && img.startsWith('data:')) {
+              const r = await uploadToCloudinary(img, userId, `req-model-${Date.now()}-${idx + 1}`).catch(() => null);
+              if (r && (r.secure_url || r.url)) {
+                needsUpdate = true;
+                return r.secure_url || r.url;
+              }
+            }
+            return uploadedModels[idx] || img;
+          })
+        );
+        if (needsUpdate) {
+          const curAll = await readCustomRequests();
+          const target = curAll.find((r) => r.id === newRequest.id);
+          if (target) {
+            target.clothImages = cdnCloths;
+            target.clothUrl = cdnCloths[0] || target.clothUrl;
+            target.modelImages = cdnModels;
+            target.modelUrl = cdnModels[0] || target.modelUrl;
+            await writeCustomRequests(curAll);
+          }
+        }
+      } catch (bgErr) {
+        console.warn('[custom-request] Background CDN upload note:', bgErr);
+      }
+    })();
 
     res.json(newRequest);
   } catch (error) {

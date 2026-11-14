@@ -68,6 +68,277 @@ function numberToWordsINR(amount: number): string {
   return `${parts.join(' ')} Rupees Only`;
 }
 
+function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, clientName: string, inrFallback: number, upiId: string) {
+  const invoiceNo = order?.invoice_no || '1450903';
+  const invoiceDate = order?.invoice_date
+    ? new Date(order.invoice_date).toLocaleDateString('en-GB')
+    : new Date().toLocaleDateString('en-GB');
+  const amount = order?.amount || inrFallback || 0;
+  const formattedAmount = amount.toLocaleString('en-IN');
+  const amountWords = numberToWordsINR(amount);
+  const photoshoots = plan?.specs?.photoshoots || (plan?.id === 'ultra' ? 100 : plan?.id === 'pro' ? 60 : 20);
+  const videos = plan?.specs?.videos || (plan?.id === 'ultra' ? 6 : plan?.id === 'pro' ? 4 : 1);
+  const billToName = clientName.trim() || 'Shiv-Naresh Sports Private Limited';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Invoice_${invoiceNo}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 16mm 14mm 16mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 11.5px;
+      line-height: 1.4;
+    }
+    .invoice-card {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .two-col {
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .header-rule {
+      border-bottom: 2px solid #1F3A5F;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #1F3A5F;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .col-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #1F3A5F;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .party-name {
+      font-weight: 700;
+      font-size: 13px;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+    .party-detail {
+      color: #4b5563;
+      font-size: 11.5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 14px 0;
+      border: 1px solid #bbbbbb;
+    }
+    thead tr {
+      background-color: #1F3A5F;
+      color: #ffffff;
+    }
+    th {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #bbbbbb;
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 11.5px;
+      border: 1px solid #bbbbbb;
+      vertical-align: top;
+    }
+    .totals-wrap {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    .totals-box {
+      width: 250px;
+      font-size: 11.5px;
+      line-height: 1.65;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      color: #4b5563;
+    }
+    .totals-highlight {
+      display: flex;
+      justify-content: space-between;
+      background: #EEF2F8;
+      padding: 2.5px 6px;
+      font-weight: 700;
+      color: #111827;
+      border-top: 1.5px solid #1F3A5F;
+      margin: 2px 0;
+    }
+    .words-box {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+      margin-bottom: 16px;
+      font-size: 11.5px;
+    }
+    .payment-box {
+      border: 1px solid #bbbbbb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      font-size: 11.5px;
+    }
+    .payment-header {
+      background-color: #EEF2F8;
+      padding: 5px 10px;
+      font-size: 10px;
+      font-weight: 800;
+      color: #1F3A5F;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #bbbbbb;
+    }
+    .payment-body {
+      padding: 7px 10px;
+      line-height: 1.55;
+      color: #374151;
+    }
+    .footer-notes {
+      font-size: 10px;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-card">
+    <div class="two-col header-rule" style="align-items: flex-end;">
+      <div>
+        <h1 class="brand-title">INVOICE</h1>
+      </div>
+      <div style="text-align: right; line-height: 1.55;">
+        <div><strong style="color: #4b5563;">Invoice No:</strong> <span style="font-family: monospace; font-weight: 700; color: #111827;">${invoiceNo}</span></div>
+        <div><strong style="color: #4b5563;">Date:</strong> <span style="color: #111827;">${invoiceDate}</span></div>
+        <div><strong style="color: #4b5563;">Status:</strong> <span style="color: #1B7F3B; font-weight: 800;">PAID</span></div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-bottom: 14px;">
+      <div>
+        <div class="col-title">FROM (SELLER)</div>
+        <div class="party-name">Pawan Kumar</div>
+        <div class="party-detail">Photo &amp; Video Shoot Services</div>
+        <div class="party-detail">256, Gali No. 5, Tukmirpur Ext,</div>
+        <div class="party-detail">Karawal Nagar, Delhi - 110094</div>
+      </div>
+      <div>
+        <div class="col-title">BILL TO</div>
+        <div class="party-name">${billToName}</div>
+        <div class="party-detail">E-23, Karampura,</div>
+        <div class="party-detail">New Delhi - 110015</div>
+        <div class="party-detail" style="font-family: monospace; font-size: 10.5px; margin-top: 2px;">CIN: U18109DL1998PTC097659</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 36px; text-align: center;">#</th>
+          <th style="text-align: left;">Description</th>
+          <th style="width: 48px; text-align: center;">Qty</th>
+          <th style="width: 130px; text-align: right;">Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align: center; font-weight: 600;">1</td>
+          <td>
+            <div style="font-weight: 700; color: #111827; margin-bottom: 3px;">Photo &amp; Video Shoot Services</div>
+            <div style="color: #4b5563; margin-bottom: 2px;">- ${photoshoots} photo shoots (each shoot = 5 poses)</div>
+            <div style="color: #4b5563;">- ${videos} videos in 1080p, each 5 to 10 seconds long</div>
+          </td>
+          <td style="text-align: center;">1</td>
+          <td style="text-align: right; font-family: monospace; font-weight: 600;">${formattedAmount}.00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals-wrap">
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
+        <div class="totals-row"><span>GST</span><span>Not applicable</span></div>
+        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
+        <div class="totals-row"><span>Amount Paid</span><span style="font-family: monospace;">INR ${formattedAmount}.00</span></div>
+        <div class="totals-row" style="font-weight: 700; color: #111827;"><span>Balance Due</span><span style="font-family: monospace;">INR 0.00</span></div>
+      </div>
+    </div>
+
+    <div class="words-box">
+      <strong style="color: #111827;">Amount in words:</strong> <span style="font-style: italic; color: #374151;">${amountWords}</span>
+    </div>
+
+    <div class="payment-box">
+      <div class="payment-header">PAYMENT DETAILS</div>
+      <div class="payment-body">
+        <div><strong>Payment method:</strong> UPI</div>
+        <div><strong>UPI ID:</strong> <span style="font-family: monospace;">${upiId}</span></div>
+        <div><strong>Status:</strong> Received in full</div>
+      </div>
+    </div>
+
+    <div class="footer-notes">
+      <div><strong>Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</div>
+      <div style="text-align: center; margin-top: 12px; font-weight: 500; color: #4b5563;">Thank you for your business.</div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 100);
+    };
+  </script>
+</body>
+</html>`;
+
+  let frame = document.getElementById('sn-invoice-print-frame') as HTMLIFrameElement;
+  if (!frame) {
+    frame = document.createElement('iframe');
+    frame.id = 'sn-invoice-print-frame';
+    frame.style.position = 'fixed';
+    frame.style.top = '-9999px';
+    frame.style.left = '-9999px';
+    frame.style.width = '0px';
+    frame.style.height = '0px';
+    frame.style.border = 'none';
+    document.body.appendChild(frame);
+  }
+
+  const doc = frame.contentWindow?.document || frame.contentDocument;
+  if (doc) {
+    doc.open();
+    doc.write(html);
+    doc.close();
+  }
+}
+
 interface Plan {
   id: string;
   name: string;
@@ -477,13 +748,19 @@ export default function Pricing() {
     }`}>
       <style>{`
         @page {
-          size: A4;
-          margin: 0.8cm;
+          size: A4 portrait;
+          margin: 12mm 15mm;
         }
         @media print {
           html, body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           body * {
             visibility: hidden !important;
@@ -492,18 +769,19 @@ export default function Pricing() {
             visibility: visible !important;
           }
           #printable-invoice {
-            position: fixed !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
-            padding: 20px !important;
-            border: none !important;
+            padding: 16px !important;
+            border: 1px solid #bbbbbb !important;
             box-shadow: none !important;
             background: #ffffff !important;
             color: #111827 !important;
-            z-index: 999999 !important;
-            border-radius: 0 !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .no-print {
             display: none !important;
@@ -939,11 +1217,11 @@ export default function Pricing() {
                   </div>
 
                   {/* Printable Invoice Container Matching Official PDF */}
-                  <div id="printable-invoice" className="bg-white text-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto font-sans border border-gray-200">
+                  <div id="printable-invoice" className="bg-white text-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto font-sans border border-[#bbbbbb]">
                     {/* Header */}
-                    <div className="flex justify-between items-start border-b border-gray-200 pb-5">
+                    <div className="flex justify-between items-end border-b-2 border-[#1F3A5F] pb-4">
                       <div>
-                        <h1 className="text-3xl font-black tracking-tight text-[#162f4d]">INVOICE</h1>
+                        <h1 className="text-3xl font-black tracking-tight text-[#1F3A5F]">INVOICE</h1>
                       </div>
                       <div className="text-right text-xs space-y-1">
                         <div>
@@ -960,22 +1238,22 @@ export default function Pricing() {
                         </div>
                         <div>
                           <span className="font-semibold text-gray-500">Status:</span>{' '}
-                          <span className="font-bold text-emerald-600 uppercase tracking-wide">PAID</span>
+                          <span className="font-bold text-[#1B7F3B] uppercase tracking-wide">PAID</span>
                         </div>
                       </div>
                     </div>
 
                     {/* From / Bill To */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-5 text-xs border-b border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-5 text-xs">
                       <div>
-                        <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">FROM (SELLER)</p>
+                        <p className="font-bold uppercase tracking-wider text-[#1F3A5F] text-[11px] mb-2">FROM (SELLER)</p>
                         <p className="font-bold text-sm text-gray-900">Pawan Kumar</p>
                         <p className="text-gray-600">Photo & Video Shoot Services</p>
                         <p className="text-gray-600">256, Gali No. 5, Tukmirpur Ext,</p>
                         <p className="text-gray-600">Karawal Nagar, Delhi - 110094</p>
                       </div>
                       <div>
-                        <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">BILL TO</p>
+                        <p className="font-bold uppercase tracking-wider text-[#1F3A5F] text-[11px] mb-2">BILL TO</p>
                         <p className="font-bold text-sm text-gray-900">{userName.trim() || 'Shiv-Naresh Sports Private Limited'}</p>
                         <p className="text-gray-600">E-23, Karampura,</p>
                         <p className="text-gray-600">New Delhi - 110015</p>
@@ -983,27 +1261,27 @@ export default function Pricing() {
                       </div>
                     </div>
 
-                    {/* Table */}
-                    <div className="mt-5 overflow-hidden rounded-lg border border-gray-200">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-[#162f4d] text-white">
+                    {/* Table with #1F3A5F Header & 1px borders */}
+                    <div className="mt-2 overflow-hidden rounded border border-[#bbbbbb]">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-[#1F3A5F] text-white">
                           <tr>
-                            <th className="py-2.5 px-3 w-10 text-center">#</th>
-                            <th className="py-2.5 px-4">Description</th>
-                            <th className="py-2.5 px-3 text-center w-14">Qty</th>
-                            <th className="py-2.5 px-4 text-right w-36">Amount (INR)</th>
+                            <th className="py-2.5 px-3 w-10 text-center border border-[#bbbbbb] font-bold">#</th>
+                            <th className="py-2.5 px-4 border border-[#bbbbbb] font-bold">Description</th>
+                            <th className="py-2.5 px-3 text-center w-14 border border-[#bbbbbb] font-bold">Qty</th>
+                            <th className="py-2.5 px-4 text-right w-36 border border-[#bbbbbb] font-bold">Amount (INR)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody>
                           <tr>
-                            <td className="py-4 px-3 text-center font-bold text-gray-700 align-top">1</td>
-                            <td className="py-4 px-4 align-top">
+                            <td className="py-3.5 px-3 text-center font-bold text-gray-700 align-top border border-[#bbbbbb]">1</td>
+                            <td className="py-3.5 px-4 align-top border border-[#bbbbbb]">
                               <p className="font-bold text-gray-900">Photo & Video Shoot Services</p>
                               <p className="text-gray-600 mt-1">- {selectedPlan.specs.photoshoots} photo shoots (each shoot = 5 poses)</p>
                               <p className="text-gray-600">- {selectedPlan.specs.videos} in 1080p, each 5 to 10 seconds long</p>
                             </td>
-                            <td className="py-4 px-3 text-center font-medium text-gray-700 align-top">1</td>
-                            <td className="py-4 px-4 text-right font-mono font-semibold text-gray-900 align-top">
+                            <td className="py-3.5 px-3 text-center font-medium text-gray-700 align-top border border-[#bbbbbb]">1</td>
+                            <td className="py-3.5 px-4 text-right font-mono font-semibold text-gray-900 align-top border border-[#bbbbbb]">
                               {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00
                             </td>
                           </tr>
@@ -1013,7 +1291,7 @@ export default function Pricing() {
 
                     {/* Totals */}
                     <div className="flex justify-end mt-4">
-                      <div className="w-full sm:w-64 text-xs space-y-1.5">
+                      <div className="w-full sm:w-64 text-xs space-y-1">
                         <div className="flex justify-between text-gray-600">
                           <span>Subtotal</span>
                           <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
@@ -1022,15 +1300,15 @@ export default function Pricing() {
                           <span>GST</span>
                           <span>Not applicable</span>
                         </div>
-                        <div className="flex justify-between py-1.5 px-2 bg-gray-100 rounded font-bold text-gray-900 border-t border-gray-300">
+                        <div className="flex justify-between py-1 px-2 bg-[#EEF2F8] rounded font-bold text-gray-900 border-t-[1.5px] border-[#1F3A5F]">
                           <span>Total</span>
                           <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
                         </div>
-                        <div className="flex justify-between text-gray-600">
+                        <div className="flex justify-between text-gray-600 px-2">
                           <span>Amount Paid</span>
                           <span className="font-mono">INR {(activeOrder?.amount || inrAmount).toLocaleString('en-IN')}.00</span>
                         </div>
-                        <div className="flex justify-between font-semibold text-gray-900">
+                        <div className="flex justify-between font-semibold text-gray-900 px-2">
                           <span>Balance Due</span>
                           <span className="font-mono">INR 0.00</span>
                         </div>
@@ -1038,15 +1316,17 @@ export default function Pricing() {
                     </div>
 
                     {/* Amount in words */}
-                    <div className="mt-4 pt-3 border-t border-gray-200 text-xs">
+                    <div className="mt-3 pt-2.5 border-t border-gray-200 text-xs">
                       <span className="font-bold text-gray-900">Amount in words:</span>{' '}
                       <span className="text-gray-700 italic">{numberToWordsINR(activeOrder?.amount || inrAmount)}</span>
                     </div>
 
-                    {/* Payment details */}
-                    <div className="mt-5 rounded-lg bg-blue-50/70 border border-blue-200/60 p-4 text-xs">
-                      <p className="font-bold uppercase tracking-wider text-blue-900 mb-1.5">PAYMENT DETAILS</p>
-                      <div className="space-y-0.5 text-gray-700">
+                    {/* Payment details Box */}
+                    <div className="mt-4 rounded border border-[#bbbbbb] overflow-hidden text-xs">
+                      <div className="bg-[#EEF2F8] border-b border-[#bbbbbb] py-1.5 px-3">
+                        <p className="font-bold uppercase tracking-wider text-[#1F3A5F] text-[10.5px]">PAYMENT DETAILS</p>
+                      </div>
+                      <div className="p-3 space-y-0.5 text-gray-700">
                         <p><span className="font-semibold text-gray-900">Payment method:</span> UPI</p>
                         <p><span className="font-semibold text-gray-900">UPI ID:</span> <span className="font-mono">{upiId}</span></p>
                         <p><span className="font-semibold text-gray-900">Status:</span> Received in full</p>
@@ -1054,9 +1334,9 @@ export default function Pricing() {
                     </div>
 
                     {/* Footer notes */}
-                    <div className="mt-5 text-[11px] text-gray-500 space-y-1 text-center sm:text-left">
+                    <div className="mt-4 text-[11px] text-gray-500 space-y-1 text-center sm:text-left">
                       <p><strong className="text-gray-700">Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</p>
-                      <p className="text-center font-medium text-gray-600 mt-4">Thank you for your business.</p>
+                      <p className="text-center font-medium text-gray-600 mt-3">Thank you for your business.</p>
                     </div>
                   </div>
 
@@ -1064,18 +1344,13 @@ export default function Pricing() {
                   <div className="space-y-2 pt-2 no-print">
                     <button
                       type="button"
-                      onClick={() => {
-                        const prev = document.title;
-                        document.title = `Invoice ${activeOrder?.invoice_no ?? ''}`;
-                        window.print();
-                        document.title = prev;
-                      }}
+                      onClick={() => printInvoiceDocument(activeOrder, selectedPlan, userName, inrAmount, upiId)}
                       className={`w-full py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                         isLight ? 'border-gray-300 hover:bg-gray-100 text-gray-800' : 'border-white/15 hover:bg-white/10 text-white'
                       }`}
                     >
                       <Printer className="w-4 h-4" />
-                      <span>Print / Save PDF Invoice</span>
+                      <span>Print / Save PDF Invoice (1 Page A4)</span>
                     </button>
                     <a
                       href="/design"
