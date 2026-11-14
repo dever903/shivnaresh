@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice_1450903_Shiv-Naresh_Sports</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 16mm 14mm 16mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 11.5px;
+      line-height: 1.4;
+    }
+    .invoice-card {
+      width: 100%;
+      max-width: 680px;
+      margin: 20px auto;
+      padding: 24px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+    }
+    .two-col {
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .header-rule {
+      border-bottom: 2px solid #1F3A5F;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #1F3A5F;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .col-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #1F3A5F;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .party-name {
+      font-weight: 700;
+      font-size: 13px;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+    .party-detail {
+      color: #4b5563;
+      font-size: 11.5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 14px 0;
+      border: 1px solid #bbbbbb;
+    }
+    thead tr {
+      background-color: #1F3A5F;
+      color: #ffffff;
+    }
+    th {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #bbbbbb;
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 11.5px;
+      border: 1px solid #bbbbbb;
+      vertical-align: top;
+    }
+    .totals-wrap {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    .totals-box {
+      width: 250px;
+      font-size: 11.5px;
+      line-height: 1.65;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      color: #4b5563;
+    }
+    .totals-highlight {
+      display: flex;
+      justify-content: space-between;
+      background: #EEF2F8;
+      padding: 2.5px 6px;
+      font-weight: 700;
+      color: #111827;
+      border-top: 1.5px solid #1F3A5F;
+      margin: 2px 0;
+    }
+    .words-box {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+      margin-bottom: 16px;
+      font-size: 11.5px;
+    }
+    .payment-box {
+      border: 1px solid #bbbbbb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      font-size: 11.5px;
+    }
+    .payment-header {
+      background-color: #EEF2F8;
+      padding: 5px 10px;
+      font-size: 10px;
+      font-weight: 800;
+      color: #1F3A5F;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #bbbbbb;
+    }
+    .payment-body {
+      padding: 7px 10px;
+      line-height: 1.55;
+      color: #374151;
+    }
+    .footer-notes {
+      font-size: 10px;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+    .action-bar {
+      max-width: 680px;
+      margin: 16px auto;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .btn-print {
+      background: #1F3A5F;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    @media print {
+      .action-bar {
+        display: none;
+      }
+      .invoice-card {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="action-bar">
+    <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <div class="invoice-card">
+    <div class="two-col header-rule" style="align-items: flex-end;">
+      <div>
+        <h1 class="brand-title">INVOICE</h1>
+      </div>
+      <div style="text-align: right; line-height: 1.55;">
+        <div><strong style="color: #4b5563;">Invoice No:</strong> <span style="font-family: monospace; font-weight: 700; color: #111827;">1450903</span></div>
+        <div><strong style="color: #4b5563;">Date:</strong> <span style="color: #111827;">14/11/2026</span></div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-bottom: 14px;">
+      <div>
+        <div class="col-title">FROM (SELLER)</div>
+        <div class="party-name">Pawan Kumar</div>
+        <div class="party-detail">Photo &amp; Video Shoot Services</div>
+        <div class="party-detail">256, Gali No. 5, Tukmirpur Ext,</div>
+        <div class="party-detail">Karawal Nagar, Delhi - 110094</div>
+      </div>
+      <div>
+        <div class="col-title">BILL TO</div>
+        <div class="party-name">Shiv-Naresh Sports Private Limited</div>
+        <div class="party-detail">E-23, Karampura,</div>
+        <div class="party-detail">New Delhi - 110015</div>
+        <div class="party-detail" style="font-family: monospace; font-size: 10.5px; margin-top: 2px;">CIN: U18109DL1998PTC097659</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 32px; text-align: center;">#</th>
+          <th style="text-align: left;">Description</th>
+          <th style="width: 48px; text-align: center;">Qty</th>
+          <th style="width: 85px; text-align: right;">Rate (INR)</th>
+          <th style="width: 120px; text-align: right;">Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align: center; font-weight: 600;">1</td>
+          <td>
+            <div style="font-weight: 700; color: #111827; margin-bottom: 2px;">Photo Shoot Services</div>
+            <div style="color: #4b5563; font-size: 10.5px;">- 150 photo shoots (each shoot = 5 poses, 1807×3000 Ultra-HD, high fidelity athletic sportswear styling)</div>
+          </td>
+          <td style="text-align: center; font-weight: 600;">150</td>
+          <td style="text-align: right; font-family: monospace;">199.99</td>
+          <td style="text-align: right; font-family: monospace; font-weight: 600;">29,998.50</td>
+        </tr>
+        <tr>
+          <td style="text-align: center; font-weight: 600;">2</td>
+          <td>
+            <div style="font-weight: 700; color: #111827; margin-bottom: 2px;">Video Shoot Services</div>
+            <div style="color: #4b5563; font-size: 10.5px;">- 6 videos in 1080p Full-HD, each 5 to 10 seconds long</div>
+          </td>
+          <td style="text-align: center; font-weight: 600;">6</td>
+          <td style="text-align: right; font-family: monospace;">199.99</td>
+          <td style="text-align: right; font-family: monospace; font-weight: 600;">1,199.94</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals-wrap">
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span style="font-family: monospace;">INR 31,198.44</span></div>
+        <div class="totals-row"><span>Round off</span><span style="font-family: monospace;">(+) INR 0.56</span></div>
+        <div class="totals-row"><span>GST</span><span>Not applicable</span></div>
+        <div class="totals-highlight"><span>Total</span><span style="font-family: monospace;">INR 31,199.00</span></div>
+        <div class="totals-row"><span>Amount Paid</span><span style="font-family: monospace;">INR 31,199.00</span></div>
+        <div class="totals-row" style="font-weight: 700; color: #111827;"><span>Balance Due</span><span style="font-family: monospace;">INR 0.00</span></div>
+      </div>
+    </div>
+
+    <div class="words-box">
+      <strong style="color: #111827;">Amount in words:</strong> <span style="font-style: italic; color: #374151;">Thirty-One Thousand One Hundred Ninety-Nine Rupees Only</span>
+    </div>
+
+    <div class="payment-box">
+      <div class="payment-header">PAYMENT DETAILS</div>
+      <div class="payment-body">
+        <div><strong>Payment method:</strong> Bank Transfer (NEFT / RTGS / IMPS)</div>
+        <div><strong>Bank Name:</strong> State Bank of India</div>
+        <div><strong>Beneficiary / Account Name:</strong> PAWAN KUMAR</div>
+        <div><strong>Account Number:</strong> <span style="font-family: monospace; font-weight: 700;">41614259248</span></div>
+        <div><strong>IFSC Code:</strong> <span style="font-family: monospace; font-weight: 700;">SBIN0011558</span></div>
+      </div>
+    </div>
+
+    <div class="footer-notes">
+      <div><strong>Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</div>
+      <div style="text-align: center; margin-top: 12px; font-weight: 500; color: #4b5563;">Thank you for your business.</div>
+    </div>
+  </div>
+</body>
+</html>

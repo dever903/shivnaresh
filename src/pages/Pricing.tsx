@@ -75,8 +75,8 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
     : new Date().toLocaleDateString('en-GB');
 
   // Extract clean numerical counts without any expiry text
-  let photoshootsCount = 100;
-  if (plan?.id === 'ultra') photoshootsCount = 100;
+  let photoshootsCount = 150;
+  if (plan?.id === 'ultra') photoshootsCount = 150;
   else if (plan?.id === 'pro') photoshootsCount = 60;
   else if (plan?.id === 'ondemand') photoshootsCount = 20;
   else if (typeof plan?.specs?.photoshoots === 'string') {
@@ -1301,7 +1301,7 @@ export default function Pricing() {
 
                     {/* Table with #1F3A5F Header & 1px borders */}
                     {(() => {
-                      const modalPhotosCount = selectedPlan.id === 'ultra' ? 100 : selectedPlan.id === 'pro' ? 60 : 20;
+                      const modalPhotosCount = selectedPlan.id === 'ultra' ? 150 : selectedPlan.id === 'pro' ? 60 : 20;
                       const modalVidsCount = selectedPlan.id === 'ultra' ? 6 : selectedPlan.id === 'pro' ? 4 : 2;
                       const modalPhotoAmt = modalPhotosCount * 199.99;
                       const modalVidAmt = modalVidsCount * 199.99;
