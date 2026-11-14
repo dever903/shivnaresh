@@ -12,6 +12,26 @@ import path from 'node:path';
 import https from 'node:https';
 import express from 'express';
 import { Resend } from 'resend';
+import { ObjectId } from 'mongodb';
+
+function toMongoId(id) {
+  if (!id) return null;
+  if (typeof id === 'object' && id._bsontype === 'ObjectID') return id;
+  if (typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id.trim())) {
+    try { return new ObjectId(id.trim()); } catch {}
+  }
+  return null;
+}
+
+function buildUserFilter(id) {
+  if (!id) return { _id: '__none__' };
+  const rawId = String(id).trim();
+  const oid = toMongoId(rawId);
+  const clauses = [{ _id: rawId }, { id: rawId }];
+  if (oid) clauses.push({ _id: oid });
+  if (EMAIL_RE.test(rawId)) clauses.push({ email: rawId.toLowerCase() });
+  return clauses.length === 1 ? clauses[0] : { $or: clauses };
+}
 
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MIN_PASSWORD = 8;
@@ -206,9 +226,10 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
 
   async function findUserById(id) {
     if (!id) return null;
+    const rawId = String(id).trim();
 
     // Check high-speed in-memory cache first (valid for 5s)
-    const mem = userMemoryCache.get(id);
+    const mem = userMemoryCache.get(rawId);
     if (mem && Date.now() - mem.time < 5000) {
       return mem.user;
     }
@@ -217,10 +238,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     const db = await getDb().catch(() => null);
     if (db) {
       try {
-        const user = await db.collection('users').findOne({ _id: id });
+        const user = await db.collection('users').findOne(buildUserFilter(rawId));
         if (user) {
-          userMemoryCache.set(id, { user, time: Date.now() });
-          if (user.email) emailToIdMap.set(normalise(user.email), id);
+          const strId = String(user._id || rawId);
+          userMemoryCache.set(rawId, { user, time: Date.now() });
+          userMemoryCache.set(strId, { user, time: Date.now() });
+          if (user.email) emailToIdMap.set(normalise(user.email), strId);
           return user;
         }
       } catch {}
@@ -229,10 +252,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     // Return in-memory object if MongoDB timed out rather than reading disk synchronously
     if (mem?.user) return mem.user;
 
-    const local = (await readLocal()).find((u) => u._id === id);
+    const local = (await readLocal()).find((u) => String(u._id) === rawId || String(u.id) === rawId || (u.email && normalise(u.email) === normalise(rawId)));
     if (local) {
-      userMemoryCache.set(id, { user: local, time: Date.now() });
-      if (local.email) emailToIdMap.set(normalise(local.email), id);
+      const strId = String(local._id || rawId);
+      userMemoryCache.set(rawId, { user: local, time: Date.now() });
+      userMemoryCache.set(strId, { user: local, time: Date.now() });
+      if (local.email) emailToIdMap.set(normalise(local.email), strId);
     }
     return local || null;
   }
@@ -260,19 +285,22 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   }
 
   async function patchUser(id, patch) {
+    if (!id) return;
+    const rawId = String(id).trim();
+
     // 1. Instantly update memory cache so user/admin see updated credits with 0ms delay
-    const mem = userMemoryCache.get(id);
+    const mem = userMemoryCache.get(rawId);
     if (mem?.user) {
       mem.user = { ...mem.user, ...patch };
       mem.time = Date.now();
-      if (mem.user.email) emailToIdMap.set(normalise(mem.user.email), id);
+      if (mem.user.email) emailToIdMap.set(normalise(mem.user.email), rawId);
     }
 
     // 2. Persist to MongoDB as durable source of truth
     const db = await getDb().catch(() => null);
     if (db) {
       try {
-        await db.collection('users').updateOne({ _id: id }, { $set: patch });
+        await db.collection('users').updateOne(buildUserFilter(rawId), { $set: patch });
       } catch {
         /* retried on the next successful write */
       }
@@ -281,7 +309,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     // 3. Persist to local disk file
     try {
       const list = await readLocal();
-      const index = list.findIndex((u) => u._id === id);
+      const index = list.findIndex((u) => String(u._id) === rawId || String(u.id) === rawId || (u.email && normalise(u.email) === normalise(rawId)));
       if (index !== -1) {
         list[index] = { ...list[index], ...patch };
         await writeLocal(list);

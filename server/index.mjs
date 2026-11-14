@@ -4753,49 +4753,52 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
     let finalFileName = fileName || '';
     let finalFileSize = fileSize || 0;
 
+    // Fast parallel disk write for base64 file payloads
     if (typeof file === 'string' && file.startsWith('data:')) {
       const match = /^data:([^;]+);base64,(.+)$/.exec(file);
       if (match) {
         const mime = match[1];
         const rawBuf = Buffer.from(match[2], 'base64');
+        const ext = mime.includes('png') ? '.png' : mime.includes('webp') ? '.webp' : mime.includes('zip') ? '.zip' : mime.includes('mp4') ? '.mp4' : '.jpg';
         const safeName = (fileName || `delivery-${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filename = `dispatch-${Date.now()}-${safeName}`;
+        const filename = `dispatch-${Date.now()}-${safeName}${safeName.includes('.') ? '' : ext}`;
         await fs.writeFile(path.join(UPLOADS, filename), rawBuf);
         finalFileUrl = `/uploads/${filename}`;
         finalFileName = fileName || safeName;
         finalFileSize = rawBuf.length;
-
-        // Try CDN backup if image
-        if (mime.startsWith('image/')) {
-          try {
-            const cdn = await uploadToCloudinary(file, recipientUserId || 'delivery', `del-${Date.now()}`);
-            if (cdn?.url) finalFileUrl = cdn.url;
-          } catch {}
-        }
       }
     } else if (typeof file === 'string' && file.trim()) {
       finalFileUrl = file.trim();
     }
 
     const allMedia = Array.isArray(mediaUrls) ? mediaUrls.filter(Boolean) : [];
-
-    // Upload any additional mediaUrls that are data URIs to Cloudinary
+    const mediaToBackup = [];
     const hostedMedia = [];
-    for (const mUrl of allMedia) {
-      if (typeof mUrl === 'string' && mUrl.startsWith('data:image/')) {
-        try {
-          const cdn = await uploadToCloudinary(mUrl, recipientUserId || 'delivery', `media-${Date.now()}-${hostedMedia.length}`);
-          hostedMedia.push(cdn?.url || mUrl);
-        } catch {
-          hostedMedia.push(mUrl); // keep raw as fallback
-        }
-      } else if (mUrl) {
-        hostedMedia.push(mUrl);
-      }
-    }
 
-    if (finalFileUrl && !hostedMedia.includes(finalFileUrl)) {
-      hostedMedia.unshift(finalFileUrl);
+    // Process all mediaUrls in parallel without blocking on slow cloud uploads
+    await Promise.all(
+      allMedia.map(async (mUrl, idx) => {
+        if (typeof mUrl === 'string' && mUrl.startsWith('data:')) {
+          const match = /^data:([^;]+);base64,(.+)$/.exec(mUrl);
+          if (match) {
+            const mime = match[1];
+            const ext = mime.includes('png') ? '.png' : mime.includes('webp') ? '.webp' : '.jpg';
+            const filename = `dispatch-media-${Date.now()}-${idx + 1}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+            const filepath = path.join(UPLOADS, filename);
+            await fs.writeFile(filepath, Buffer.from(match[2], 'base64'));
+            const localUrl = `/uploads/${filename}`;
+            hostedMedia[idx] = localUrl;
+            mediaToBackup.push({ localUrl, filepath, dataUrl: mUrl, idx });
+            return;
+          }
+        }
+        hostedMedia[idx] = mUrl;
+      })
+    );
+
+    const cleanHosted = hostedMedia.filter(Boolean);
+    if (finalFileUrl && !cleanHosted.includes(finalFileUrl)) {
+      cleanHosted.unshift(finalFileUrl);
     }
 
     const newDelivery = {
@@ -4810,7 +4813,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       fileUrl: finalFileUrl,
       fileName: finalFileName,
       fileSize: finalFileSize,
-      mediaUrls: hostedMedia,
+      mediaUrls: cleanHosted,
       readByUser: false,
       createdAt: Date.now(),
     };
@@ -4819,7 +4822,33 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
     all.unshift(newDelivery);
     await writeAdminDeliveries(all);
 
+    // Return immediate response to Admin (completes in < 200ms instead of 10 minutes)
     res.status(201).json(newDelivery);
+
+    // Non-blocking background Cloudinary sync if configured
+    if (mediaToBackup.length > 0) {
+      (async () => {
+        try {
+          const s = await getSettings().catch(() => ({}));
+          if (s.cloudinaryCloudName && s.cloudinaryApiKey && /^\d+$/.test(s.cloudinaryApiKey)) {
+            for (const item of mediaToBackup) {
+              try {
+                const cdn = await uploadToCloudinary(item.dataUrl, recipientUserId || 'delivery', `media-${Date.now()}`);
+                if (cdn?.url) {
+                  const freshAll = await readAdminDeliveries();
+                  const target = freshAll.find((d) => d.id === newDelivery.id);
+                  if (target) {
+                    target.mediaUrls = (target.mediaUrls || []).map((u) => (u === item.localUrl ? cdn.url : u));
+                    if (target.fileUrl === item.localUrl) target.fileUrl = cdn.url;
+                    await writeAdminDeliveries(freshAll);
+                  }
+                }
+              } catch {}
+            }
+          }
+        } catch {}
+      })();
+    }
   } catch (err) {
     console.error('[admin-deliveries] Dispatch error:', err);
     res.status(500).json({ error: 'dispatch_failed', message: err.message });
@@ -5061,7 +5090,9 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
 
     const patch = {};
     if (typeof photoshootsDone === 'number') {
-      patch.photoshootsDone = Math.max(0, Math.floor(photoshootsDone));
+      const doneVal = Math.max(0, Math.floor(photoshootsDone));
+      patch.photoshootsDone = doneVal;
+      patch.modelsGenerated = doneVal * 5;
     }
     if (typeof photoshoots === 'number') {
       const val = Math.max(0, Math.floor(photoshoots));

@@ -92,6 +92,9 @@ export default function Admin() {
   const [quotaEditValue, setQuotaEditValue] = useState<number>(20);
   const [quotaEditNote, setQuotaEditNote] = useState<string>('');
   const [quotaUpdating, setQuotaUpdating] = useState(false);
+  const [photoshootDrafts, setPhotoshootDrafts] = useState<Record<string, { done: number; quota: number }>>({});
+  const [savingPhotoshootUserId, setSavingPhotoshootUserId] = useState<string | null>(null);
+  const [savedPhotoshootUserId, setSavedPhotoshootUserId] = useState<string | null>(null);
 
   /* UPI Gateway Admin State */
   const [gatewayOrders, setGatewayOrders] = useState<GatewayOrder[]>([]);
@@ -1321,35 +1324,70 @@ ${log.stack || 'None'}
     }
   }
 
-  function handleDispatchFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    if (dispatchType === 'photo' && files.length > 1) {
-      // Multi-photo: read all files into dispatchFiles array
-      const pending: { dataUrl: string; name: string; size: number; type: string }[] = [];
-      let loaded = 0;
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          pending.push({ dataUrl: String(reader.result), name: file.name, size: file.size, type: file.type || 'image/jpeg' });
-          loaded++;
-          if (loaded === files.length) {
-            setDispatchFiles((prev) => [...prev, ...pending]);
-            if (!dispatchTitle.trim()) setDispatchTitle('Photo Delivery');
-          }
-        };
-        reader.readAsDataURL(file);
+  async function compressImageForDispatch(file: File, maxDim = 2048, quality = 0.85): Promise<{ dataUrl: string; size: number }> {
+    if (!file.type.startsWith('image/')) {
+      return new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = () => resolve({ dataUrl: String(r.result), size: file.size });
+        r.readAsDataURL(file);
       });
-    } else {
-      // Single file (or non-photo types)
-      const file = files[0];
+    }
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        setDispatchFile({ dataUrl: String(reader.result), name: file.name, size: file.size, type: file.type || 'application/octet-stream' });
-        if (!dispatchTitle.trim()) setDispatchTitle(file.name.replace(/\.[^/.]+$/, ''));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ dataUrl: String(e.target?.result), size: file.size });
+            return;
+          }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve({ dataUrl, size: Math.round(dataUrl.length * 0.75) });
+        };
+        img.onerror = () => resolve({ dataUrl: String(e.target?.result), size: file.size });
+        img.src = String(e.target?.result);
       };
       reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleDispatchFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArr = Array.from(files);
+
+    if (dispatchType === 'photo') {
+      const processed = await Promise.all(
+        fileArr.map(async (file) => {
+          const comp = await compressImageForDispatch(file);
+          return { dataUrl: comp.dataUrl, name: file.name, size: comp.size, type: 'image/jpeg' };
+        })
+      );
+      setDispatchFiles((prev) => [...prev, ...processed]);
+      if (!dispatchTitle.trim()) setDispatchTitle('Photo Delivery');
+    } else {
+      const file = fileArr[0];
+      const comp = await compressImageForDispatch(file);
+      setDispatchFile({ dataUrl: comp.dataUrl, name: file.name, size: comp.size, type: file.type || 'application/octet-stream' });
+      if (!dispatchTitle.trim()) setDispatchTitle(file.name.replace(/\.[^/.]+$/, ''));
     }
   }
 
@@ -6540,7 +6578,6 @@ ${log.stack || 'None'}
             {filteredUsers.map((u) => {
               const currentQuota = u.photoshoots || u.maxModels || 20;
               const usedPhotoshoots = typeof u.photoshootsDone === 'number' ? u.photoshootsDone : Math.floor((u.modelsGenerated || 0) / 5);
-              const leftPhotoshoots = Math.max(0, currentQuota - usedPhotoshoots);
               const offer = u.photoshootOffer;
               const isEditing = quotaEditUserId === u.id;
 
@@ -6564,18 +6601,19 @@ ${log.stack || 'None'}
                     </div>
 
                     {/* Stats & Progress Controls */}
-                    <div className="mt-3 p-3 rounded-2xl bg-white/5 border border-white/5 space-y-2.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[11px] font-semibold text-slate-300">Delivered Photoshoots:</span>
+                    <div className="mt-3 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                      {/* Delivered Photoshoots Stepper & Input */}
+                      <div className="flex items-center justify-between text-xs gap-2">
+                        <span className="text-[11px] font-semibold text-slate-300">Delivered (Done):</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={async () => {
-                              const next = Math.max(0, usedPhotoshoots - 1);
-                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
-                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            onClick={() => {
+                              const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
+                              const nextDone = Math.max(0, draft.done - 1);
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: nextDone } }));
                             }}
-                            className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition"
+                            className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm"
                             title="Decrease delivered count"
                           >
                             -
@@ -6583,45 +6621,131 @@ ${log.stack || 'None'}
                           <input
                             type="number"
                             min="0"
-                            max={currentQuota}
-                            value={usedPhotoshoots}
-                            onChange={async (e) => {
-                              const next = Math.max(0, Number(e.target.value));
-                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
-                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            value={photoshootDrafts[u.id]?.done ?? usedPhotoshoots}
+                            onChange={(e) => {
+                              const val = Math.max(0, Number(e.target.value));
+                              const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: val } }));
                             }}
-                            className="w-12 text-center rounded-md bg-black/60 border border-white/20 text-xs font-bold text-emerald-400 py-0.5"
+                            className="w-14 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-emerald-400 py-1 focus:outline-none focus:border-emerald-500"
                           />
                           <button
                             type="button"
-                            onClick={async () => {
-                              const next = usedPhotoshoots + 1;
-                              await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
-                              setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
+                            onClick={() => {
+                              const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
+                              const nextDone = draft.done + 1;
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: nextDone } }));
                             }}
-                            className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition"
+                            className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm"
                             title="Increase delivered count"
                           >
                             +
                           </button>
-                          <span className="text-xs font-bold text-[#e5373f]">/ {currentQuota}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-white/5">
-                        <span className="text-emerald-400 font-bold">{leftPhotoshoots} photoshoots remaining</span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const next = usedPhotoshoots + 1;
-                            await api.updateUserPhotoshootsProgress(u.id, next, currentQuota);
-                            setUsersList((prev) => prev.map((usr) => (usr.id === u.id ? { ...usr, photoshootsDone: next, photoshootsLeft: Math.max(0, currentQuota - next) } : usr)));
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600/30 border border-emerald-500/50 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold cursor-pointer transition"
-                        >
-                          +1 Delivered Today
-                        </button>
+                      {/* Total Plan Quota Input */}
+                      <div className="flex items-center justify-between text-xs gap-2 pt-1 border-t border-white/5">
+                        <span className="text-[11px] font-semibold text-slate-300">Total Quota:</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            value={photoshootDrafts[u.id]?.quota ?? currentQuota}
+                            onChange={(e) => {
+                              const val = Math.max(1, Number(e.target.value));
+                              const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, quota: val } }));
+                            }}
+                            className="w-20 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-amber-300 py-1 focus:outline-none focus:border-amber-500"
+                          />
+                          <span className="text-[10px] text-white/50">shoots</span>
+                        </div>
                       </div>
+
+                      {/* Remaining Calculation Badge & Quick Steppers */}
+                      {(() => {
+                        const activeDone = photoshootDrafts[u.id]?.done ?? usedPhotoshoots;
+                        const activeQuota = photoshootDrafts[u.id]?.quota ?? currentQuota;
+                        const activeLeft = Math.max(0, activeQuota - activeDone);
+                        const isSaving = savingPhotoshootUserId === u.id;
+                        const isSaved = savedPhotoshootUserId === u.id;
+                        const isDirty = photoshootDrafts[u.id] !== undefined && (photoshootDrafts[u.id].done !== usedPhotoshoots || photoshootDrafts[u.id].quota !== currentQuota);
+
+                        return (
+                          <div className="space-y-2 pt-1 border-t border-white/5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-emerald-400 font-bold">
+                                {activeLeft} photoshoots remaining
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextDone = activeDone + 1;
+                                    setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: nextDone, quota: activeQuota } }));
+                                  }}
+                                  className="px-2 py-0.5 rounded bg-emerald-600/30 border border-emerald-500/40 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold cursor-pointer transition"
+                                  title="Quick +1"
+                                >
+                                  +1 Today
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextDone = activeDone + 2;
+                                    setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: nextDone, quota: activeQuota } }));
+                                  }}
+                                  className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer transition"
+                                  title="Quick +2"
+                                >
+                                  +2
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Prominent Save Button */}
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              onClick={async () => {
+                                setSavingPhotoshootUserId(u.id);
+                                try {
+                                  const res = await api.updateUserPhotoshootsProgress(u.id, activeDone, activeQuota);
+                                  setUsersList((prev) =>
+                                    prev.map((usr) =>
+                                      usr.id === u.id || (usr as any)._id === u.id
+                                        ? { ...usr, photoshootsDone: res.photoshootsDone ?? activeDone, photoshoots: res.photoshoots ?? activeQuota, photoshootsLeft: res.photoshootsLeft ?? activeLeft }
+                                        : usr
+                                    )
+                                  );
+                                  setSavedPhotoshootUserId(u.id);
+                                  setTimeout(() => setSavedPhotoshootUserId((curr) => (curr === u.id ? null : curr)), 3500);
+                                } catch (err: any) {
+                                  alert(err?.message || 'Failed to update photoshoot progress');
+                                } finally {
+                                  setSavingPhotoshootUserId(null);
+                                }
+                              }}
+                              className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow cursor-pointer ${
+                                isSaved
+                                  ? 'bg-emerald-600 text-white'
+                                  : isDirty
+                                    ? 'bg-[#e5373f] hover:bg-[#d42d35] text-white ring-2 ring-[#e5373f]/40'
+                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                              }`}
+                            >
+                              {isSaving ? (
+                                <span>Saving…</span>
+                              ) : isSaved ? (
+                                <span>✓ Saved Successfully!</span>
+                              ) : (
+                                <span>Save Changes (Done &amp; Quota)</span>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Offer Status & Client Query */}

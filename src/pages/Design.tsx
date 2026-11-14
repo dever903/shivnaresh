@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bookmark,
   Camera,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Columns,
   Download,
@@ -437,10 +439,10 @@ function GarmentPhotoTourModal({
               type="button"
               onClick={() => setStep(idx)}
               className={`h-1.5 rounded-full transition-colors duration-150 cursor-pointer ${idx === step
-                  ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/30'
-                  : idx < step
-                    ? 'bg-emerald-500'
-                    : isLight ? 'bg-zinc-200' : 'bg-zinc-800'
+                ? 'bg-[#e5373f] ring-2 ring-[#e5373f]/30'
+                : idx < step
+                  ? 'bg-emerald-500'
+                  : isLight ? 'bg-zinc-200' : 'bg-zinc-800'
                 }`}
               title={`Step ${s.step}: ${s.title}`}
             />
@@ -468,8 +470,8 @@ function GarmentPhotoTourModal({
                   {/* DO Card */}
                   <div
                     className={`rounded-xl border p-3.5 flex flex-col ${isLight
-                        ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
-                        : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
+                      ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950'
+                      : 'border-emerald-500/25 bg-emerald-950/20 text-emerald-100'
                       }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -502,8 +504,8 @@ function GarmentPhotoTourModal({
                   {/* DON'T Card */}
                   <div
                     className={`rounded-xl border p-3.5 flex flex-col ${isLight
-                        ? 'border-rose-300 bg-rose-50/40 text-rose-950'
-                        : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
+                      ? 'border-rose-300 bg-rose-50/40 text-rose-950'
+                      : 'border-rose-500/25 bg-rose-950/20 text-rose-100'
                       }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -537,8 +539,8 @@ function GarmentPhotoTourModal({
                 {/* Technical Reason Callout */}
                 <div
                   className={`rounded-xl border p-3 min-h-[52px] ${isLight
-                      ? 'border-amber-200 bg-amber-50/80 text-amber-950'
-                      : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
+                    ? 'border-amber-200 bg-amber-50/80 text-amber-950'
+                    : 'border-amber-500/20 bg-amber-950/30 text-amber-200/90'
                     }`}
                 >
                   <div className="flex items-start gap-2.5">
@@ -591,8 +593,8 @@ function GarmentPhotoTourModal({
                 type="button"
                 onClick={() => setStep((prev) => Math.max(0, prev - 1))}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight
-                    ? 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100'
-                    : 'border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                  ? 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100'
+                  : 'border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                   }`}
               >
                 &larr; Back
@@ -905,10 +907,10 @@ function ZoomCropDownloadModal({
                     type="button"
                     onClick={() => setZoom(preset.val)}
                     className={`py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer ${Math.abs(zoom - preset.val) < 0.1
-                        ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
-                        : isLight
-                          ? 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
-                          : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
+                      : isLight
+                        ? 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
+                        : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                       }`}
                   >
                     {preset.label}
@@ -1456,8 +1458,8 @@ function UserProfileModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ravi Jaatshab"
               className={`w-full rounded-xl border p-2.5 focus:outline-none transition-colors ${isLight
-                  ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
-                  : 'border-white/10 bg-black/50 text-white focus:border-white/40'
+                ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
+                : 'border-white/10 bg-black/50 text-white focus:border-white/40'
                 }`}
             />
           </div>
@@ -1488,8 +1490,8 @@ function UserProfileModal({
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="9876543210"
                 className={`w-full rounded-xl border p-2.5 pl-12 focus:outline-none transition-colors ${isLight
-                    ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
-                    : 'border-white/10 bg-black/50 text-white focus:border-white/40'
+                  ? 'border-gray-300 bg-gray-50 text-gray-900 focus:bg-white focus:border-gray-500'
+                  : 'border-white/10 bg-black/50 text-white focus:border-white/40'
                   }`}
               />
             </div>
@@ -1858,10 +1860,10 @@ function MySetsPanel({
             type="button"
             onClick={() => setFilter(tab.id as typeof filter)}
             className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${filter === tab.id
-                ? 'bg-[#e5373f] text-white shadow-md'
-                : isLight
-                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+              ? 'bg-[#e5373f] text-white shadow-md'
+              : isLight
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
               }`}
           >
             {tab.label}
@@ -2121,8 +2123,8 @@ function MySetsPanel({
                           type="button"
                           onClick={() => onZoomCrop(gen.remoteUrl || gen.highResUrl || gen.url, `studio-${gen.id.slice(0, 6)}`)}
                           className={`rounded-full border p-2 text-xs transition cursor-pointer ${isLight
-                              ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
-                              : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+                            ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
+                            : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
                             }`}
                           title="Zoom & Macro Crop Download (1807×3000 px)"
                         >
@@ -2386,6 +2388,19 @@ function CustomRequestsPanel({
   const [uploadProgressState, setUploadProgressState] = useState<{ current: number; total: number } | null>(null);
   const [savingToMySets, setSavingToMySets] = useState(false);
   const [saveToSetsNotice, setSaveToSetsNotice] = useState('');
+  const [expandedDeliveryIds, setExpandedDeliveryIds] = useState<Set<string>>(new Set());
+
+  const toggleDeliveryExpand = (id: string) => {
+    setExpandedDeliveryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const loadDeliveries = useCallback(async () => {
     setDeliveriesLoading(true);
@@ -2395,7 +2410,7 @@ function CustomRequestsPanel({
       setUnreadDeliveriesCount(res.unreadCount || 0);
       try {
         localStorage.setItem('cached_user_deliveries', JSON.stringify(res.items || []));
-      } catch {}
+      } catch { }
     } catch (e) {
       console.warn('Failed to load user deliveries:', e);
     } finally {
@@ -2813,12 +2828,12 @@ function CustomRequestsPanel({
           type="button"
           onClick={() => setPanelTab('send')}
           className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${panelTab === 'send'
-              ? isLight
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
-              : isLight
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            ? isLight
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-900 shadow-sm'
+            : isLight
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
             }`}
         >
           <Send className="w-3.5 h-3.5" />
@@ -2830,12 +2845,12 @@ function CustomRequestsPanel({
           type="button"
           onClick={handleSelectReceiveTab}
           className={`relative flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${panelTab === 'receive'
-              ? isLight
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
-              : isLight
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            ? isLight
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-900 shadow-sm'
+            : isLight
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
             }`}
         >
           <Inbox className="w-3.5 h-3.5" />
@@ -2853,8 +2868,8 @@ function CustomRequestsPanel({
       {panelTab === 'send' ? (
         <>
 
-      {/* Submission Form */}
-      {formOpen && (
+          {/* Submission Form */}
+          {formOpen && (
             <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
               }`}>
               <div className="flex items-center justify-between">
@@ -2881,10 +2896,10 @@ function CustomRequestsPanel({
                       type="button"
                       onClick={() => setRequestType(t.id as 'stills' | 'video' | 'both')}
                       className={`rounded-2xl border p-3 text-left transition-all ${requestType === t.id
-                          ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
-                          : isLight
-                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                            : 'border-white/10 bg-black/40 hover:border-white/20'
+                        ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                        : isLight
+                          ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                          : 'border-white/10 bg-black/40 hover:border-white/20'
                         }`}
                     >
                       <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{t.label}</p>
@@ -2957,8 +2972,8 @@ function CustomRequestsPanel({
                         type="button"
                         onClick={() => clothRef.current?.click()}
                         className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
-                            ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                            : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                          : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
                           }`}
                       >
                         <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
@@ -2995,8 +3010,8 @@ function CustomRequestsPanel({
                         onChange={(e) => setGarmentColor(e.target.value)}
                         placeholder="e.g. #E5373F or Crimson Red, Deep Navy..."
                         className={`flex-1 rounded-lg border px-2.5 py-1 text-xs focus:outline-none ${isLight
-                            ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                            : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+                          ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                          : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
                           }`}
                       />
                     </div>
@@ -3077,8 +3092,8 @@ function CustomRequestsPanel({
                       type="button"
                       onClick={() => multiModelRef.current?.click()}
                       className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
-                          ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                          : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                        ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                        : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
                         }`}
                     >
                       <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
@@ -3102,8 +3117,8 @@ function CustomRequestsPanel({
                   rows={3}
                   placeholder="e.g. Ensure the athletic logo sits precisely 2 inches below the collar. We need athletic poses with dynamic running motion. Keep jersey color exact."
                   className={`mt-2 w-full rounded-2xl border p-3.5 text-xs focus:outline-none ${isLight
-                      ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                      : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
+                    ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                    : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
                     }`}
                 />
               </div>
@@ -3170,10 +3185,10 @@ function CustomRequestsPanel({
                     <div className="flex items-center gap-3">
                       <span
                         className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
-                            ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
-                            : req.status === 'in_progress'
-                              ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
-                              : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
+                          ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                          : req.status === 'in_progress'
+                            ? isLight ? 'bg-blue-100 text-blue-950 border border-blue-300' : 'bg-blue-950 text-blue-300 border border-blue-800/40'
+                            : isLight ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-800/40'
                           }`}
                       >
                         {req.status === 'delivered'
@@ -3394,7 +3409,7 @@ function CustomRequestsPanel({
                             const blob = await resp.blob();
                             zip.file(it.name || `received-photo-${i + 1}.png`, blob);
                           }
-                        } catch {}
+                        } catch { }
                       }
                       const zipBlob = await zip.generateAsync({ type: 'blob' });
                       const blobUrl = URL.createObjectURL(zipBlob);
@@ -3480,14 +3495,14 @@ function CustomRequestsPanel({
                       }`}>
                       <div className="flex items-center gap-3">
                         <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isPhoto
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                            : isVideo
-                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                              : isZip
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : isFolder
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          : isVideo
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : isZip
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : isFolder
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                           }`}>
                           {isPhoto && <Camera className="w-4 h-4" />}
                           {isVideo && <Film className="w-4 h-4" />}
@@ -3507,7 +3522,7 @@ function CustomRequestsPanel({
                             )}
                           </div>
                           <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'opacity-60'}`}>
-                            Sent by {delivery.senderEmail || 'Studio Admin'} &middot;{' '}
+                            Sent by Shiv-Naresh Tailoring Studio &middot;{' '}
                             {new Date(delivery.createdAt).toLocaleDateString('en-IN', {
                               day: 'numeric',
                               month: 'short',
@@ -3519,9 +3534,13 @@ function CustomRequestsPanel({
                         </div>
                       </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
-                        isPhoto
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isPhoto && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">
+                            📷 {delivery.mediaUrls?.length || (delivery.fileUrl ? 1 : 0)} Photos
+                          </span>
+                        )}
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPhoto
                           ? 'bg-purple-500/20 text-purple-300'
                           : isVideo
                             ? 'bg-blue-500/20 text-blue-300'
@@ -3530,21 +3549,86 @@ function CustomRequestsPanel({
                               : isFolder
                                 ? 'bg-emerald-500/20 text-emerald-300'
                                 : 'bg-slate-500/20 text-slate-300'
-                      }`}>
-                        {delivery.type}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteDelivery(delivery.id)}
-                        className="p-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer"
-                        title="Delete delivery (moves to recycle bin)"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                          }`}>
+                          {delivery.type}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleDeliveryExpand(delivery.id)}
+                          className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+                            expandedDeliveryIds.has(delivery.id)
+                              ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-sm'
+                              : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300' : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
+                          }`}
+                        >
+                          <span>{expandedDeliveryIds.has(delivery.id) ? 'Collapse' : 'View Photos'}</span>
+                          {expandedDeliveryIds.has(delivery.id) ? (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteDelivery(delivery.id)}
+                          className="p-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer"
+                          title="Delete delivery (moves to recycle bin)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                    {/* Media / File Content */}
+                    {/* Collapsed State: Neat Compact Strip */}
+                    {!expandedDeliveryIds.has(delivery.id) ? (
+                      <div className="mt-3 pt-3 flex items-center justify-between gap-3 flex-wrap">
+                        {isPhoto && delivery.mediaUrls && delivery.mediaUrls.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            {delivery.mediaUrls.slice(0, 4).map((url, uIdx) => (
+                              <img
+                                key={uIdx}
+                                src={url}
+                                alt="Thumb"
+                                className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black cursor-pointer hover:opacity-80 transition"
+                                onClick={() => {
+                                  toggleDeliveryExpand(delivery.id);
+                                  setLightboxImg(url);
+                                }}
+                              />
+                            ))}
+                            {delivery.mediaUrls.length > 4 && (
+                              <span className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white/70">
+                                +{delivery.mediaUrls.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        ) : delivery.fileUrl && isPhoto ? (
+                          <img
+                            src={delivery.fileUrl}
+                            alt="Thumb"
+                            className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black cursor-pointer hover:opacity-80 transition"
+                            onClick={() => {
+                              toggleDeliveryExpand(delivery.id);
+                              setLightboxImg(delivery.fileUrl || null);
+                            }}
+                          />
+                        ) : (
+                          <p className="text-xs opacity-60 italic">
+                            {isZip ? '📦 ZIP archive package ready for download' : isVideo ? '🎬 Video render file ready' : 'Assets received from studio atelier'}
+                          </p>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => toggleDeliveryExpand(delivery.id)}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ml-auto"
+                        >
+                          <span>Open &amp; Inspect Photos</span>
+                          <ChevronDown className="w-3.5 h-3.5 text-[#e5373f]" />
+                        </button>
+                      </div>
+                    ) : (
+                    /* Media / File Content */
                     <div className="mt-4">
                       {/* Photo / Images */}
                       {isPhoto && (
@@ -3557,13 +3641,12 @@ function CustomRequestsPanel({
                                 return (
                                   <div
                                     key={uIdx}
-                                    className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${
-                                      selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
-                                    } bg-black`}
+                                    className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
+                                      } bg-black`}
                                     onClick={() => setLightboxImg(url)}
                                   >
                                     <img src={url} alt={`Photo ${uIdx + 1}`} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
-                                    
+
                                     {/* Selection Checkbox */}
                                     <div
                                       className="absolute top-2 left-2 z-10"
@@ -3579,7 +3662,7 @@ function CustomRequestsPanel({
                                       <input
                                         type="checkbox"
                                         checked={selected}
-                                        onChange={() => {}}
+                                        onChange={() => { }}
                                         className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
                                       />
                                     </div>
@@ -3749,6 +3832,7 @@ function CustomRequestsPanel({
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                 );
               })}
@@ -4034,8 +4118,8 @@ function VideoStudioPanel({
 
       {/* Banner */}
       <div className={`relative overflow-hidden rounded-3xl border p-8 ${isLight
-          ? 'border-red-200 bg-red-50/50 shadow-sm'
-          : 'border-[#e5373f]/30 bg-[#e5373f]/10'
+        ? 'border-red-200 bg-red-50/50 shadow-sm'
+        : 'border-[#e5373f]/30 bg-[#e5373f]/10'
         }`}>
         <div className="max-w-2xl">
           <span className="inline-block rounded-full bg-[#e5373f] px-3.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
@@ -4053,8 +4137,8 @@ function VideoStudioPanel({
 
       {/* Monthly Video Quota Banner */}
       <div className={`mt-6 rounded-2xl border p-5 transition-all ${isLimitReached
-          ? isLight ? 'border-red-300 bg-red-50 text-red-950' : 'border-rose-500/40 bg-rose-950/20 text-rose-200'
-          : isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'
+        ? isLight ? 'border-red-300 bg-red-50 text-red-950' : 'border-rose-500/40 bg-rose-950/20 text-rose-200'
+        : isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'
         }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -4062,8 +4146,8 @@ function VideoStudioPanel({
               <Film className="h-4 w-4 text-current/70" />
               <h3 className="text-sm font-semibold">Monthly Video Quota</h3>
               <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${isLimitReached
-                  ? 'bg-rose-500 text-white'
-                  : isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/10 text-white/70'
+                ? 'bg-rose-500 text-white'
+                : isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/10 text-white/70'
                 }`}>
                 {videosGenerated} of {maxVideos > 0 ? maxVideos : 'Unlimited'} Videos Used
               </span>
@@ -4114,8 +4198,8 @@ function VideoStudioPanel({
               type="button"
               onClick={() => fileRef.current?.click()}
               className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${isLight
-                  ? 'border-gray-300 bg-gray-50 hover:border-gray-400'
-                  : 'border-white/20 bg-black/40 hover:border-white/40'
+                ? 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                : 'border-white/20 bg-black/40 hover:border-white/40'
                 }`}
             >
               {videoImg ? (
@@ -4141,8 +4225,8 @@ function VideoStudioPanel({
               rows={3}
               placeholder="e.g. Model walks briskly down an asphalt track, dynamic camera tracking shot, zoom in on jersey logo"
               className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight
-                  ? 'border-gray-300 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-400'
-                  : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
+                ? 'border-gray-300 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-400'
+                : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
                 }`}
             />
           </div>
@@ -4161,12 +4245,12 @@ function VideoStudioPanel({
                     type="button"
                     onClick={() => setAspectRatio(item.id as typeof aspectRatio)}
                     className={`rounded-2xl border p-3 text-left transition-all ${active
-                        ? isLight
-                          ? 'border-[#e5373f] bg-red-50/60 ring-2 ring-[#e5373f]/20'
-                          : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/30'
-                        : isLight
-                          ? 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                          : 'border-white/10 bg-black/40 hover:border-white/25'
+                      ? isLight
+                        ? 'border-[#e5373f] bg-red-50/60 ring-2 ring-[#e5373f]/20'
+                        : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/30'
+                      : isLight
+                        ? 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                        : 'border-white/10 bg-black/40 hover:border-white/25'
                       }`}
                   >
                     <div className="flex items-center justify-between">
@@ -4194,8 +4278,8 @@ function VideoStudioPanel({
                 type="button"
                 onClick={() => setDuration(5)}
                 className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 5
-                    ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
-                    : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
+                  ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
+                  : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
                   }`}
               >
                 <span className="block text-xs font-bold">5 Seconds</span>
@@ -4207,8 +4291,8 @@ function VideoStudioPanel({
                 type="button"
                 onClick={() => setDuration(10)}
                 className={`rounded-xl py-2.5 px-3 text-xs font-semibold transition-all text-center ${duration === 10
-                    ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
-                    : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
+                  ? isLight ? 'bg-white text-gray-900 shadow-sm font-bold ring-1 ring-gray-300' : 'bg-white text-gray-900 font-bold'
+                  : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
                   }`}
               >
                 <span className="block text-xs font-bold">10 Seconds</span>
@@ -4239,14 +4323,14 @@ function VideoStudioPanel({
             onClick={() => handleInitiateClick(false)}
             disabled={isBusy || isLocked || isLimitReached || !hasEnoughCredits}
             className={`w-full rounded-full py-3 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isBusy
-                ? isLight ? 'cursor-wait bg-gray-300 text-gray-700' : 'cursor-wait bg-gray-700 text-white opacity-80'
-                : isLocked
-                  ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/30 text-rose-300 border border-rose-500/30'
-                  : isLimitReached
-                    ? isLight ? 'cursor-not-allowed bg-purple-100 text-purple-700 border border-purple-300' : 'cursor-not-allowed bg-purple-600/30 text-purple-300 border border-purple-500/30'
-                    : !hasEnoughCredits
-                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
+              ? isLight ? 'cursor-wait bg-gray-300 text-gray-700' : 'cursor-wait bg-gray-700 text-white opacity-80'
+              : isLocked
+                ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/30 text-rose-300 border border-rose-500/30'
+                : isLimitReached
+                  ? isLight ? 'cursor-not-allowed bg-purple-100 text-purple-700 border border-purple-300' : 'cursor-not-allowed bg-purple-600/30 text-purple-300 border border-purple-500/30'
+                  : !hasEnoughCredits
+                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
               }`}
           >
             {isBusy
@@ -4294,10 +4378,10 @@ function VideoStudioPanel({
                   type="button"
                   onClick={() => setIsVideoEditOpen(!isVideoEditOpen)}
                   className={`inline-flex items-center justify-center gap-2 rounded-full border px-6 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isVideoEditOpen
-                      ? 'bg-[#e5373f] text-white border-[#e5373f]'
-                      : isLight
-                        ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
-                        : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
+                    ? 'bg-[#e5373f] text-white border-[#e5373f]'
+                    : isLight
+                      ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
+                      : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
                     }`}
                 >
                   {isVideoEditOpen ? 'Close video edit' : 'Edit this video'}
@@ -4347,8 +4431,8 @@ function VideoStudioPanel({
                       rows={2}
                       placeholder="e.g. Add subtle camera orbit, enhance stadium lighting on track, highlight brand insignia"
                       className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
-                          ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-gray-500'
-                          : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
+                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-gray-500'
+                        : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
                         }`}
                     />
                   </div>
@@ -4443,12 +4527,13 @@ function VideoStudioPanel({
 }
 
 /* ================================================================
-   Split Compare Studio (Synchronized Dual 1807×3000 Viewer)
+   Split Compare Studio (Synchronized Dual 1807×3000 Viewer & Curtain Slider)
    ================================================================ */
 function CompareStudio({
   cloth,
   selectedClothes,
   classifiedGarments,
+  previousGarments = [],
   userGenerations,
   fivePoseItems,
   isLight,
@@ -4458,6 +4543,7 @@ function CompareStudio({
   cloth: Pick;
   selectedClothes: Array<{ url: string; preview?: string; name: string }>;
   classifiedGarments: ClassifiedGarment[];
+  previousGarments?: Array<{ url: string; name: string }>;
   userGenerations: UserGeneration[];
   fivePoseItems: PoseItem[];
   isLight: boolean;
@@ -4480,6 +4566,17 @@ function CompareStudio({
       refCandidates.push({ url: u, name: g.name || g.role, label: `${g.role}` });
     }
   });
+  if (Array.isArray(previousGarments)) {
+    previousGarments.forEach((pg, idx) => {
+      if (pg.url && !refCandidates.some((r) => r.url === pg.url)) {
+        refCandidates.push({
+          url: pg.url,
+          name: pg.name || `Garment Library #${idx + 1}`,
+          label: pg.name ? pg.name.slice(0, 20) : `Library #${idx + 1}`,
+        });
+      }
+    });
+  }
 
   const renderCandidates: Array<{ url: string; name: string; label: string }> = [];
   fivePoseItems.filter((p) => p.status === 'completed' && p.url).forEach((p, idx) => {
@@ -4501,6 +4598,9 @@ function CompareStudio({
   const [rightUrl, setRightUrl] = useState<string>(() => renderCandidates[0]?.url || (refCandidates[1]?.url || ''));
   const [rightName, setRightName] = useState<string>(() => renderCandidates[0]?.name || 'Generated Render');
 
+  const [compareMode, setCompareMode] = useState<'split' | 'curtain'>('split');
+  const [curtainPos, setCurtainPos] = useState<number>(50); // percentage 0-100%
+
   const [zoom, setZoom] = useState<number>(1.0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isSynced, setIsSynced] = useState<boolean>(true);
@@ -4516,9 +4616,10 @@ function CompareStudio({
 
   const refUploadInputRef = useRef<HTMLInputElement>(null);
   const renderUploadInputRef = useRef<HTMLInputElement>(null);
+  const curtainContainerRef = useRef<HTMLDivElement>(null);
 
   const isDraggingRef = useRef<boolean>(false);
-  const dragPaneRef = useRef<'left' | 'right' | null>(null);
+  const dragPaneRef = useRef<'left' | 'right' | 'curtain' | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({ x: 0, y: 0, panX: 0, panY: 0 });
 
   const activeLeftZoom = isSynced ? zoom : leftZoom;
@@ -4526,11 +4627,18 @@ function CompareStudio({
   const activeLeftPan = isSynced ? pan : leftPan;
   const activeRightPan = isSynced ? pan : rightPan;
 
-  const handleMouseDown = (e: React.MouseEvent, pane: 'left' | 'right') => {
+  const setSynchronizedZoom = (val: number) => {
+    const bounded = Math.min(5.0, Math.max(1.0, Number(val.toFixed(2))));
+    setZoom(bounded);
+    setLeftZoom(bounded);
+    setRightZoom(bounded);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, pane: 'left' | 'right' | 'curtain') => {
     e.preventDefault();
     isDraggingRef.current = true;
     dragPaneRef.current = pane;
-    const basePan = isSynced ? pan : (pane === 'left' ? leftPan : rightPan);
+    const basePan = isSynced || pane === 'curtain' ? pan : (pane === 'left' ? leftPan : rightPan);
     dragStartRef.current = { x: e.clientX, y: e.clientY, panX: basePan.x, panY: basePan.y };
   };
 
@@ -4540,8 +4648,10 @@ function CompareStudio({
     const dy = e.clientY - dragStartRef.current.y;
     const nextPan = { x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy };
 
-    if (isSynced) {
+    if (isSynced || dragPaneRef.current === 'curtain') {
       setPan(nextPan);
+      setLeftPan(nextPan);
+      setRightPan(nextPan);
     } else if (dragPaneRef.current === 'left') {
       setLeftPan(nextPan);
     } else if (dragPaneRef.current === 'right') {
@@ -4554,11 +4664,16 @@ function CompareStudio({
     dragPaneRef.current = null;
   };
 
-  const handleWheel = (e: React.WheelEvent, pane: 'left' | 'right') => {
+  const handleWheel = (e: React.WheelEvent, pane?: 'left' | 'right') => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.15 : 0.88;
-    if (isSynced) {
-      setZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
+    if (isSynced || !pane) {
+      setZoom((prev) => {
+        const next = Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2))));
+        setLeftZoom(next);
+        setRightZoom(next);
+        return next;
+      });
     } else if (pane === 'left') {
       setLeftZoom((prev) => Math.min(5.0, Math.max(1.0, Number((prev * factor).toFixed(2)))));
     } else {
@@ -4566,11 +4681,11 @@ function CompareStudio({
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent, pane: 'left' | 'right') => {
+  const handleTouchStart = (e: React.TouchEvent, pane: 'left' | 'right' | 'curtain') => {
     if (e.touches.length === 1) {
       isDraggingRef.current = true;
       dragPaneRef.current = pane;
-      const basePan = isSynced ? pan : (pane === 'left' ? leftPan : rightPan);
+      const basePan = isSynced || pane === 'curtain' ? pan : (pane === 'left' ? leftPan : rightPan);
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: basePan.x, panY: basePan.y };
     }
   };
@@ -4580,8 +4695,10 @@ function CompareStudio({
     const dx = e.touches[0].clientX - dragStartRef.current.x;
     const dy = e.touches[0].clientY - dragStartRef.current.y;
     const nextPan = { x: dragStartRef.current.panX + dx, y: dragStartRef.current.panY + dy };
-    if (isSynced) {
+    if (isSynced || dragPaneRef.current === 'curtain') {
       setPan(nextPan);
+      setLeftPan(nextPan);
+      setRightPan(nextPan);
     } else if (dragPaneRef.current === 'left') {
       setLeftPan(nextPan);
     } else if (dragPaneRef.current === 'right') {
@@ -4644,6 +4761,9 @@ function CompareStudio({
     setRightZoom(1.0);
     setLeftPan({ x: 0, y: 0 });
     setRightPan({ x: 0, y: 0 });
+    setLeftRotation(0);
+    setRightRotation(0);
+    setCurtainPos(50);
   };
 
   const handleExportComparison = async () => {
@@ -4672,13 +4792,13 @@ function CompareStudio({
         try {
           const imgL = await loadImage(leftUrl);
           ctx.drawImage(imgL, 0, 0, 1807, 3000);
-        } catch {}
+        } catch { }
       }
       if (rightUrl) {
         try {
           const imgR = await loadImage(rightUrl);
           ctx.drawImage(imgR, 1807, 0, 1807, 3000);
-        } catch {}
+        } catch { }
       }
 
       ctx.strokeStyle = '#e5373f';
@@ -4715,7 +4835,7 @@ function CompareStudio({
       onTouchEnd={handleTouchEnd}
     >
       {/* Header Bar */}
-      <div className={`p-4 rounded-2xl border transition shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+      <div className={`p-4 rounded-3xl border transition shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${
         isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
       }`}>
         <div>
@@ -4724,19 +4844,43 @@ function CompareStudio({
               <Columns className="w-4 h-4" />
             </span>
             <h2 className={`text-base font-bold tracking-tight ${isLight ? 'text-gray-900' : 'text-white'}`}>
-              Split Compare Studio
+              Compare Studio &middot; Precision Inspection
             </h2>
             <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
               1807×3000 Ultra-HD
             </span>
           </div>
           <p className={`text-xs mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/60'}`}>
-            Dual-viewport fabric texture, seam stitching, and leaping athlete logo fidelity inspection with synchronized zoom &amp; pan.
+            Dual fabric texture, seam stitching, and leaping athlete logo fidelity inspection with synchronized zoom &amp; pan.
           </p>
         </div>
 
         {/* Global Toolbar Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
+          {/* Comparison Mode Selector */}
+          <div className="flex items-center rounded-xl border p-0.5 border-white/10 bg-white/5">
+            <button
+              type="button"
+              onClick={() => setCompareMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                compareMode === 'split' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
+              }`}
+              title="Side-by-Side Dual 1807×3000 Viewports"
+            >
+              Dual Split View
+            </button>
+            <button
+              type="button"
+              onClick={() => setCompareMode('curtain')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                compareMode === 'curtain' ? 'bg-[#e5373f] text-white shadow' : 'text-white/60 hover:text-white'
+              }`}
+              title="Before / After Sliding Curtain Divider"
+            >
+              Curtain Slider
+            </button>
+          </div>
+
           {/* Sync Lock Toggle */}
           <button
             type="button"
@@ -4754,36 +4898,34 @@ function CompareStudio({
             <span>{isSynced ? 'Synced Zoom' : 'Independent'}</span>
           </button>
 
-          {/* Zoom Controls */}
-          <div className={`flex items-center rounded-xl border px-2 py-1 gap-1.5 ${
+          {/* Synchronized Zoom Slider & Controls */}
+          <div className={`flex items-center rounded-xl border px-2.5 py-1 gap-2 ${
             isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
           }`}>
             <button
               type="button"
-              onClick={() => {
-                if (isSynced) setZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
-                else {
-                  setLeftZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
-                  setRightZoom((z) => Math.max(1.0, Number((z - 0.25).toFixed(2))));
-                }
-              }}
+              onClick={() => setSynchronizedZoom(activeLeftZoom - 0.25)}
               className="p-1 rounded text-white/70 hover:text-white transition cursor-pointer"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
+            <input
+              type="range"
+              min="100"
+              max="500"
+              step="10"
+              value={Math.round(activeLeftZoom * 100)}
+              onChange={(e) => setSynchronizedZoom(Number(e.target.value) / 100)}
+              className="w-20 sm:w-28 accent-[#e5373f] cursor-pointer"
+              title="Simultaneous Zoom Slider (100% to 500%)"
+            />
             <span className="font-mono text-xs font-bold w-12 text-center text-emerald-400">
               {Math.round(activeLeftZoom * 100)}%
             </span>
             <button
               type="button"
-              onClick={() => {
-                if (isSynced) setZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
-                else {
-                  setLeftZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
-                  setRightZoom((z) => Math.min(5.0, Number((z + 0.25).toFixed(2))));
-                }
-              }}
+              onClick={() => setSynchronizedZoom(activeLeftZoom + 0.25)}
               className="p-1 rounded text-white/70 hover:text-white transition cursor-pointer"
               title="Zoom In"
             >
@@ -4792,11 +4934,29 @@ function CompareStudio({
             <button
               type="button"
               onClick={handleResetZoomPan}
-              className="p-1 rounded text-white/50 hover:text-white transition cursor-pointer ml-1"
+              className="p-1 rounded text-white/50 hover:text-white transition cursor-pointer ml-0.5"
               title="Reset Zoom & Pan to 100%"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
+          </div>
+
+          {/* Zoom Presets */}
+          <div className="hidden sm:flex items-center gap-1">
+            {[1, 1.5, 2, 3].map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setSynchronizedZoom(val)}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                  Math.abs(activeLeftZoom - val) < 0.05
+                    ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                    : 'border-white/10 text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {val * 100}%
+              </button>
+            ))}
           </div>
 
           {/* Export Comparison Button */}
@@ -4808,7 +4968,7 @@ function CompareStudio({
             title="Download full 3614×3000 side-by-side comparison proof sheet"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? 'Exporting…' : 'Export Comparison'}</span>
+            <span>{isExporting ? 'Exporting…' : 'Export'}</span>
           </button>
 
           {/* Close Studio Button */}
@@ -4825,21 +4985,19 @@ function CompareStudio({
         </div>
       </div>
 
-      {/* Dual Split Panels */}
+      {/* Candidate Selectors: Visual Thumbnail Strips */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* LEFT PANEL: Reference Garment */}
-        <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${
+        {/* LEFT SELECTOR: Reference Garments (Visual Thumbnails) */}
+        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${
           isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
         }`}>
-          {/* Panel Top Selector Bar */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                1. Reference Garment / Input
+                1. Reference Garment ({refCandidates.length})
               </span>
             </div>
-
             <div className="flex items-center gap-1.5">
               <input
                 ref={refUploadInputRef}
@@ -4851,15 +5009,14 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => refUploadInputRef.current?.click()}
-                className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
                   isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
                 }`}
-                title="Upload manual reference image from your device"
+                title="Upload manual reference photo"
               >
                 <Upload className="w-3 h-3 text-[#e5373f]" />
-                <span className="text-[11px] font-semibold">Upload Photo</span>
+                <span className="text-[10px] font-semibold">+ Upload Photo</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => setLeftRotation((r) => (r + 90) % 360)}
@@ -4873,91 +5030,45 @@ function CompareStudio({
             </div>
           </div>
 
-          {/* Quick Selector Pills */}
-          {refCandidates.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-              {refCandidates.map((c, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => { setLeftUrl(c.url); setLeftName(c.name); }}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold truncate max-w-[140px] transition cursor-pointer border ${
-                    leftUrl === c.url
-                      ? 'bg-purple-600 border-purple-500 text-white'
-                      : isLight ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'
-                  }`}
-                  title={c.name}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Viewport 1807×3000 */}
-          <div
-            className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
-            onMouseDown={(e) => handleMouseDown(e, 'left')}
-            onTouchStart={(e) => handleTouchStart(e, 'left')}
-            onWheel={(e) => handleWheel(e, 'left')}
-          >
-            {leftUrl ? (
-              <img
-                src={leftUrl}
-                alt={leftName}
-                draggable={false}
-                style={{
-                  transform: `translate(${activeLeftPan.x}px, ${activeLeftPan.y}px) scale(${activeLeftZoom}) rotate(${leftRotation}deg)`,
-                  transformOrigin: 'center center',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <div className="text-center p-6 space-y-2 opacity-50">
-                <Camera className="w-8 h-8 mx-auto" />
-                <p className="text-xs">No reference image selected.</p>
-                <button
-                  type="button"
-                  onClick={() => refUploadInputRef.current?.click()}
-                  className="rounded-lg bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
-                >
-                  Upload Reference
-                </button>
-              </div>
-            )}
-
-            {/* Badges */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
-              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
-                {leftName}
-              </span>
-              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
-                {Math.round(activeLeftZoom * 100)}%
-              </span>
-            </div>
-
-            <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
-              1807 × 3000
-            </div>
+          {/* Visual Cards Strip */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            {refCandidates.map((c, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => { setLeftUrl(c.url); setLeftName(c.name); }}
+                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${
+                  leftUrl === c.url
+                    ? 'border-purple-500 ring-2 ring-purple-500/60 shadow-lg scale-105'
+                    : isLight ? 'border-gray-200 bg-white hover:border-purple-400' : 'border-white/10 bg-black/40 hover:border-white/30'
+                }`}
+                title={c.name}
+              >
+                <img src={c.url} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
+                  <p className="text-[9px] font-bold text-white truncate leading-tight text-center">{c.label}</p>
+                </div>
+                {leftUrl === c.url && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-bold shadow">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* RIGHT PANEL: AI Render / My Set */}
-        <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${
+        {/* RIGHT SELECTOR: AI Renders / My Sets (Visual Thumbnails) */}
+        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${
           isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
         }`}>
-          {/* Panel Top Selector Bar */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                2. AI Render / My Sets Asset
+                2. AI Render / My Sets ({renderCandidates.length})
               </span>
             </div>
-
             <div className="flex items-center gap-1.5">
               <input
                 ref={renderUploadInputRef}
@@ -4969,15 +5080,14 @@ function CompareStudio({
               <button
                 type="button"
                 onClick={() => renderUploadInputRef.current?.click()}
-                className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1 transition cursor-pointer ${
                   isLight ? 'border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
                 }`}
-                title="Upload manual render or comparison photo from your device"
+                title="Upload manual render photo"
               >
                 <Upload className="w-3 h-3 text-[#e5373f]" />
-                <span className="text-[11px] font-semibold">Upload Photo</span>
+                <span className="text-[10px] font-semibold">+ Upload Photo</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => setRightRotation((r) => (r + 90) % 360)}
@@ -4991,78 +5101,234 @@ function CompareStudio({
             </div>
           </div>
 
-          {/* Quick Selector Pills */}
-          {renderCandidates.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-              {renderCandidates.map((c, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => { setRightUrl(c.url); setRightName(c.name); }}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold truncate max-w-[140px] transition cursor-pointer border ${
-                    rightUrl === c.url
-                      ? 'bg-emerald-600 border-emerald-500 text-white'
-                      : isLight ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10'
-                  }`}
-                  title={c.name}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Viewport 1807×3000 */}
-          <div
-            className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
-            onMouseDown={(e) => handleMouseDown(e, 'right')}
-            onTouchStart={(e) => handleTouchStart(e, 'right')}
-            onWheel={(e) => handleWheel(e, 'right')}
-          >
-            {rightUrl ? (
-              <img
-                src={rightUrl}
-                alt={rightName}
-                draggable={false}
-                style={{
-                  transform: `translate(${activeRightPan.x}px, ${activeRightPan.y}px) scale(${activeRightZoom}) rotate(${rightRotation}deg)`,
-                  transformOrigin: 'center center',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <div className="text-center p-6 space-y-2 opacity-50">
-                <Film className="w-8 h-8 mx-auto" />
-                <p className="text-xs">No render or My Sets asset selected.</p>
-                <button
-                  type="button"
-                  onClick={() => renderUploadInputRef.current?.click()}
-                  className="rounded-lg bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
-                >
-                  Upload Render
-                </button>
-              </div>
-            )}
-
-            {/* Badges */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
-              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
-                {rightName}
-              </span>
-              <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
-                {Math.round(activeRightZoom * 100)}%
-              </span>
-            </div>
-
-            <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
-              1807 × 3000
-            </div>
+          {/* Visual Cards Strip */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            {renderCandidates.map((c, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => { setRightUrl(c.url); setRightName(c.name); }}
+                className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${
+                  rightUrl === c.url
+                    ? 'border-emerald-500 ring-2 ring-emerald-500/60 shadow-lg scale-105'
+                    : isLight ? 'border-gray-200 bg-white hover:border-emerald-400' : 'border-white/10 bg-black/40 hover:border-white/30'
+                }`}
+                title={c.name}
+              >
+                <img src={c.url} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-1 pt-3">
+                  <p className="text-[9px] font-bold text-white truncate leading-tight text-center">{c.label}</p>
+                </div>
+                {rightUrl === c.url && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* Main Comparison Viewport */}
+      {compareMode === 'split' ? (
+        /* DUAL SPLIT VIEWPORTS (Side by Side 1807×3000) */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* LEFT VIEWPORT: Reference Garment */}
+          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${
+            isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-400">Reference: {leftName}</span>
+              <span className="text-[10px] font-mono opacity-60">Scale: {Math.round(activeLeftZoom * 100)}%</span>
+            </div>
+            <div
+              className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => handleMouseDown(e, 'left')}
+              onTouchStart={(e) => handleTouchStart(e, 'left')}
+              onWheel={(e) => handleWheel(e, 'left')}
+            >
+              {leftUrl ? (
+                <img
+                  src={leftUrl}
+                  alt={leftName}
+                  draggable={false}
+                  style={{
+                    transform: `translate(${activeLeftPan.x}px, ${activeLeftPan.y}px) scale(${activeLeftZoom}) rotate(${leftRotation}deg)`,
+                    transformOrigin: 'center center',
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              ) : (
+                <div className="text-center p-6 space-y-2 opacity-50">
+                  <Camera className="w-8 h-8 mx-auto" />
+                  <p className="text-xs">No reference image selected.</p>
+                </div>
+              )}
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+                <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
+                  {leftName}
+                </span>
+                <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
+                  {Math.round(activeLeftZoom * 100)}%
+                </span>
+              </div>
+              <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
+                1807 × 3000
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT VIEWPORT: Generated Render */}
+          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${
+            isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400">Render: {rightName}</span>
+              <span className="text-[10px] font-mono opacity-60">Scale: {Math.round(activeRightZoom * 100)}%</span>
+            </div>
+            <div
+              className="relative w-full aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => handleMouseDown(e, 'right')}
+              onTouchStart={(e) => handleTouchStart(e, 'right')}
+              onWheel={(e) => handleWheel(e, 'right')}
+            >
+              {rightUrl ? (
+                <img
+                  src={rightUrl}
+                  alt={rightName}
+                  draggable={false}
+                  style={{
+                    transform: `translate(${activeRightPan.x}px, ${activeRightPan.y}px) scale(${activeRightZoom}) rotate(${rightRotation}deg)`,
+                    transformOrigin: 'center center',
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              ) : (
+                <div className="text-center p-6 space-y-2 opacity-50">
+                  <Film className="w-8 h-8 mx-auto" />
+                  <p className="text-xs">No render image selected.</p>
+                </div>
+              )}
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+                <span className="rounded-full bg-black/75 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white truncate max-w-[200px]">
+                  {rightName}
+                </span>
+                <span className="rounded-full bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-mono text-white/80">
+                  {Math.round(activeRightZoom * 100)}%
+                </span>
+              </div>
+              <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-mono text-white/60 pointer-events-none">
+                1807 × 3000
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* BEFORE / AFTER SPLIT CURTAIN SLIDER VIEW (Synchronized Overlay) */
+        <div className={`p-5 rounded-3xl border transition shadow-sm space-y-3 ${
+          isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-purple-400">&larr; Drag Left for Reference Garment</span>
+            <span className="text-white/60 font-mono">Curtain: {Math.round(curtainPos)}% &middot; Zoom: {Math.round(activeLeftZoom * 100)}%</span>
+            <span className="text-emerald-400">Drag Right for AI Render &rarr;</span>
+          </div>
+
+          <div
+            ref={curtainContainerRef}
+            className="relative w-full max-w-lg mx-auto aspect-[1807/3000] rounded-3xl overflow-hidden border border-white/20 bg-black/80 flex items-center justify-center select-none cursor-grab active:cursor-grabbing shadow-2xl"
+            onMouseDown={(e) => handleMouseDown(e, 'curtain')}
+            onTouchStart={(e) => handleTouchStart(e, 'curtain')}
+            onWheel={(e) => handleWheel(e)}
+          >
+            {/* Bottom Layer: AI Render (Right Image) */}
+            {rightUrl && (
+              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                <img
+                  src={rightUrl}
+                  alt={rightName}
+                  draggable={false}
+                  style={{
+                    transform: `translate(${activeRightPan.x}px, ${activeRightPan.y}px) scale(${activeRightZoom}) rotate(${rightRotation}deg)`,
+                    transformOrigin: 'center center',
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Top Layer: Reference Garment (Left Image, Clipped) */}
+            {leftUrl && (
+              <div
+                className="absolute inset-0 flex items-center justify-center overflow-hidden"
+                style={{
+                  clipPath: `polygon(0 0, ${curtainPos}% 0, ${curtainPos}% 100%, 0 100%)`,
+                }}
+              >
+                <img
+                  src={leftUrl}
+                  alt={leftName}
+                  draggable={false}
+                  style={{
+                    transform: `translate(${activeLeftPan.x}px, ${activeLeftPan.y}px) scale(${activeLeftZoom}) rotate(${leftRotation}deg)`,
+                    transformOrigin: 'center center',
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Interactive Draggable Curtain Handle */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-[#e5373f] shadow-[0_0_12px_rgba(229,55,63,0.9)] cursor-ew-resize z-20 flex items-center justify-center"
+              style={{ left: `${curtainPos}%` }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                const handleMove = (ev: MouseEvent) => {
+                  if (!curtainContainerRef.current) return;
+                  const rect = curtainContainerRef.current.getBoundingClientRect();
+                  const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+                  setCurtainPos(pct);
+                };
+                const handleUp = () => {
+                  window.removeEventListener('mousemove', handleMove);
+                  window.removeEventListener('mouseup', handleUp);
+                };
+                window.addEventListener('mousemove', handleMove);
+                window.addEventListener('mouseup', handleUp);
+              }}
+            >
+              <div className="w-8 h-8 rounded-full bg-[#e5373f] text-white flex items-center justify-center shadow-2xl border-2 border-white text-xs font-bold cursor-ew-resize select-none">
+                &harr;
+              </div>
+            </div>
+
+            {/* Floating Labels */}
+            <div className="absolute top-3 left-3 rounded-full bg-black/80 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-purple-300 pointer-events-none">
+              Reference: {leftName}
+            </div>
+            <div className="absolute top-3 right-3 rounded-full bg-black/80 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-emerald-300 pointer-events-none">
+              Render: {rightName}
+            </div>
+            <div className="absolute bottom-3 right-3 rounded-full bg-black/80 px-2.5 py-0.5 text-[9px] font-mono text-white/70 pointer-events-none">
+              1807 × 3000 Ultra-HD
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5075,12 +5341,14 @@ export default function Design() {
     try {
       const cached = localStorage.getItem('cached_current_user');
       if (cached) return JSON.parse(cached);
-    } catch {}
+    } catch { }
     return null;
   });
   const [showPhotoshootQueryBox, setShowPhotoshootQueryBox] = useState(false);
   const [photoshootQueryText, setPhotoshootQueryText] = useState('');
   const [photoshootResponding, setPhotoshootResponding] = useState(false);
+  const [showAllGarmentsModal, setShowAllGarmentsModal] = useState(false);
+  const [garmentSearchQuery, setGarmentSearchQuery] = useState('');
 
   const handlePhotoshootResponse = async (action: 'agree' | 'query') => {
     if (action === 'query' && !photoshootQueryText.trim()) {
@@ -5675,7 +5943,7 @@ export default function Design() {
       setUser(me);
       try {
         localStorage.setItem('cached_current_user', JSON.stringify(me));
-      } catch {}
+      } catch { }
       void api.unlockUser().catch(() => { });
 
       if (me.tier && me.tier !== 'free') {
@@ -6468,9 +6736,8 @@ export default function Design() {
               const leftCount = Math.max(0, totalQuota - doneCount);
               return (
                 <span
-                  className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
-                  }`}
+                  className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
+                    }`}
                   title={`${doneCount} delivered by studio, ${leftCount} remaining out of ${totalQuota}`}
                 >
                   <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
@@ -6490,10 +6757,10 @@ export default function Design() {
               <span>{user ? `${user.credits} credits` : '...'}</span>
               {user?.tier && (
                 <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
-                    ? 'bg-purple-500/30 text-purple-400'
-                    : user.tier === 'pro'
-                      ? 'bg-blue-500/30 text-blue-400'
-                      : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
+                  ? 'bg-purple-500/30 text-purple-400'
+                  : user.tier === 'pro'
+                    ? 'bg-blue-500/30 text-blue-400'
+                    : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
                   }`}>
                   {user.tier}
                 </span>
@@ -6511,8 +6778,8 @@ export default function Design() {
                 type="button"
                 onClick={() => setShowProfileModal(true)}
                 className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${isLight
-                    ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
-                    : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
+                  ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
+                  : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
                   }`}
                 title="View & Edit Profile"
               >
@@ -6540,8 +6807,8 @@ export default function Design() {
                 window.location.replace('/login');
               }}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
-                  ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
-                  : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
+                ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
+                : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
                 }`}
               title="Sign out of your account"
             >
@@ -6585,14 +6852,14 @@ export default function Design() {
                   } else if (v.id === 'deliveries') {
                     void loadCustomRequests();
                     void loadDeliveriesUnread();
-                    void api.markUserDeliveriesRead().catch(() => {});
+                    void api.markUserDeliveriesRead().catch(() => { });
                     setDeliveriesUnreadCount(0);
                     api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
                   }
                 }}
                 className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap flex items-center gap-1.5 ${pageView === v.id
-                    ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
-                    : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
+                  ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
+                  : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
                   }`}
               >
                 <span>{v.label}</span>
@@ -6761,6 +7028,7 @@ export default function Design() {
           cloth={cloth}
           selectedClothes={selectedClothes}
           classifiedGarments={classifiedGarments}
+          previousGarments={previousGarmentsList}
           userGenerations={userGenerations}
           fivePoseItems={fivePoseItems}
           isLight={isLight}
@@ -6791,12 +7059,12 @@ export default function Design() {
                     type="button"
                     onClick={() => setMode(m.id)}
                     className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${active
-                        ? isLight
-                          ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
-                          : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
-                        : isLight
-                          ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-                          : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
+                      ? isLight
+                        ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
+                        : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
+                      : isLight
+                        ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                        : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
                       }`}
                   >
                     {m.label}
@@ -6817,8 +7085,8 @@ export default function Design() {
                     type="button"
                     onClick={() => setQuality('1k')}
                     className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${quality === '1k'
-                        ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                        : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
                       }`}
                   >
                     1K Standard
@@ -6828,8 +7096,8 @@ export default function Design() {
                       type="button"
                       onClick={() => setQuality('2k')}
                       className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
-                          ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                          : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                        ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                        : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
                         }`}
                       title="Switch to 2K Ultra HD (Exclusive Ultra Plan Feature)"
                     >
@@ -6854,8 +7122,8 @@ export default function Design() {
                         Model Swap Drafts (Up to 5 Simultaneous Swaps)
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${validSwapDrafts.length > 0
-                          ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
+                        ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
                         }`}>
                         {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
                       </span>
@@ -6880,10 +7148,10 @@ export default function Design() {
                         <div
                           key={draft.id}
                           className={`inline-flex items-center rounded-xl border p-1 transition-all ${isActive
-                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
-                              : isComplete
-                                ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
-                                : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                            ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                            : isComplete
+                              ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
+                              : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
                             }`}
                         >
                           <button
@@ -6955,8 +7223,8 @@ export default function Design() {
                     type="button"
                     onClick={() => swapSourceInput.current?.click()}
                     className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${isLight
-                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/15 hover:border-white/35'
+                      ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                      : 'border-white/15 hover:border-white/35'
                       }`}
                   >
                     {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
@@ -7068,8 +7336,8 @@ export default function Design() {
                                 type="button"
                                 onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
                                 className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                    ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
-                                    : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                  ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                  : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                                   }`}
                               >
                                 <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
@@ -7088,8 +7356,8 @@ export default function Design() {
                               type="button"
                               onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
                               className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                  : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                                 }`}
                             >
                               <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
@@ -7120,8 +7388,8 @@ export default function Design() {
                     rows={3}
                     placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
                     className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
-                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                        : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
+                      ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                      : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                       }`}
                   />
                 </div>
@@ -7166,8 +7434,8 @@ export default function Design() {
                           onClick={() => setTryOnTarget(opt.id)}
                           title={opt.hint}
                           className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${tryOnTarget === opt.id
-                              ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
-                              : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
+                            ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
+                            : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
                             }`}
                         >
                           {opt.label}
@@ -7435,16 +7703,21 @@ export default function Design() {
                   {/* Quick Pick from Previous Clothes */}
                   {previousGarmentsList.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
                           ⚡ Previous Garments Library ({previousGarmentsList.length})
                         </span>
-                        <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
-                          Click to add view
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllGarmentsModal(true)}
+                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Browse Full Library ({previousGarmentsList.length})</span>
+                          <span>&rarr;</span>
+                        </button>
                       </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {previousGarmentsList.slice(0, 25).map((item, idx) => {
+                      <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+                        {previousGarmentsList.map((item, idx) => {
                           const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
                           return (
                             <button
@@ -7455,20 +7728,105 @@ export default function Design() {
                                 addClassifiedGarment(pick);
                                 setCloth(pick);
                               }}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60'
-                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                              className={`shrink-0 w-20 h-28 sm:w-24 sm:h-32 rounded-2xl border overflow-hidden relative group transition-all text-left cursor-pointer ${isSelected
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-105'
+                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
                                 }`}
-                              title={`Add ${item.name} to garment views`}
+                              title={`Select ${item.name}`}
                             >
-                              <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                              <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold transition-opacity ${isSelected ? 'bg-black/40 text-emerald-400 opacity-100' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
-                                }`}>
+                              <img src={item.url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
+                                <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
+                              </div>
+                              <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${
+                                isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
+                              }`}>
                                 {isSelected ? '✓' : '+'}
                               </span>
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Full Garments Library Modal */}
+                  {showAllGarmentsModal && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+                      onClick={() => setShowAllGarmentsModal(false)}
+                    >
+                      <div
+                        className={`w-full max-w-4xl max-h-[85vh] rounded-3xl border p-6 flex flex-col shadow-2xl ${
+                          isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121316] border-white/10 text-white'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                          <div className="flex items-center gap-2.5">
+                            <span className="p-2 rounded-xl bg-[#e5373f]/15 text-[#e5373f]">
+                              <Layers className="w-5 h-5" />
+                            </span>
+                            <div>
+                              <h3 className="text-base font-bold">Garments Library ({previousGarmentsList.length} Items)</h3>
+                              <p className="text-xs opacity-60">Browse and select any studio garment for your photoshoot render</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowAllGarmentsModal(false)}
+                            className="p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="py-3">
+                          <input
+                            type="text"
+                            value={garmentSearchQuery}
+                            onChange={(e) => setGarmentSearchQuery(e.target.value)}
+                            placeholder="Search garment by name or keyword..."
+                            className={`w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none ${
+                              isLight ? 'bg-gray-100 border-gray-300 text-gray-900 focus:bg-white' : 'bg-black/40 border-white/10 text-white focus:border-white/30'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 py-2">
+                          {previousGarmentsList
+                            .filter((g) => !garmentSearchQuery.trim() || g.name.toLowerCase().includes(garmentSearchQuery.toLowerCase()))
+                            .map((item, idx) => {
+                              const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
+                              return (
+                                <button
+                                  key={item.url || idx}
+                                  type="button"
+                                  onClick={() => {
+                                    const pick = { url: item.url, preview: item.url, name: item.name };
+                                    addClassifiedGarment(pick);
+                                    setCloth(pick);
+                                    setShowAllGarmentsModal(false);
+                                  }}
+                                  className={`relative aspect-[3/4] rounded-2xl border overflow-hidden group transition text-left cursor-pointer ${
+                                    isSelected
+                                      ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-[1.02]'
+                                      : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                  }`}
+                                >
+                                  <img src={item.url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2 pt-4">
+                                    <p className="text-[11px] font-bold text-white truncate text-center">{item.name}</p>
+                                  </div>
+                                  {isSelected && (
+                                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow">
+                                      ✓
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -7507,8 +7865,8 @@ export default function Design() {
                       onChange={(e) => setGarmentColor(e.target.value)}
                       placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
                       className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight
-                          ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                          : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
+                        ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                        : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
                         }`}
                     />
                   </div>
@@ -7529,10 +7887,10 @@ export default function Design() {
                         type="button"
                         onClick={() => setGarmentColor(`${sw.name} (${sw.hex})`)}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${garmentColor.includes(sw.hex)
-                            ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
-                            : isLight
-                              ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
-                              : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
+                          ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
+                          : isLight
+                            ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                            : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
                           }`}
                       >
                         <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: sw.hex }} />
@@ -7637,10 +7995,10 @@ export default function Design() {
                               key={idx}
                               onClick={() => setModel(item)}
                               className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${isCurrent
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
-                                  : isLight
-                                    ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
-                                    : 'border-white/15 bg-black/40 hover:border-white/30'
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
+                                : isLight
+                                  ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
+                                  : 'border-white/15 bg-black/40 hover:border-white/30'
                                 }`}
                             >
                               <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
@@ -7688,8 +8046,8 @@ export default function Design() {
                           onClick={() => modelInput.current?.click()}
                           disabled={uploading}
                           className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
-                              ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                              : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                            : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
                             }`}
                         >
                           <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
@@ -7759,8 +8117,8 @@ export default function Design() {
                               type="button"
                               onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
                               className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
                                 }`}
                               title={`Select ${item.name}`}
                             >
@@ -7807,10 +8165,10 @@ export default function Design() {
                                   type="button"
                                   onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
                                   className={`group relative overflow-hidden rounded-md border transition ${isSelected
-                                      ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                      : isLight
-                                        ? 'border-gray-200 hover:border-gray-400'
-                                        : 'border-transparent hover:border-white/30'
+                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                    : isLight
+                                      ? 'border-gray-200 hover:border-gray-400'
+                                      : 'border-transparent hover:border-white/30'
                                     }`}
                                 >
                                   <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
@@ -7839,10 +8197,10 @@ export default function Design() {
                                 type="button"
                                 onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
                                 className={`group relative overflow-hidden rounded-md border transition ${isSelected
-                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                    : isLight
-                                      ? 'border-gray-200 hover:border-gray-400'
-                                      : 'border-transparent hover:border-white/30'
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                  : isLight
+                                    ? 'border-gray-200 hover:border-gray-400'
+                                    : 'border-transparent hover:border-white/30'
                                   }`}
                               >
                                 <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
@@ -7881,8 +8239,8 @@ export default function Design() {
                     rows={3}
                     placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
                     className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
-                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                        : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
+                      ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                      : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                       }`}
                   />
                 </div>
@@ -7906,16 +8264,16 @@ export default function Design() {
                 }}
                 disabled={!canRun || isGlobalBusy}
                 className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
-                    ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
-                    : isGlobalBusy
-                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : canRun
-                        ? isLight
-                          ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
-                          : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
-                        : isLight
-                          ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                          : 'cursor-not-allowed bg-white/20 text-white/40'
+                  ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
+                  : isGlobalBusy
+                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : canRun
+                      ? isLight
+                        ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                        : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
+                      : isLight
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                        : 'cursor-not-allowed bg-white/20 text-white/40'
                   }`}
               >
                 {isLocked
@@ -8026,10 +8384,10 @@ export default function Design() {
                               if (pose.url) setResult(pose.url);
                             }}
                             className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
-                                ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
-                                : isLight
-                                  ? 'border-gray-300 bg-white hover:bg-gray-50'
-                                  : 'border-white/10 bg-black/40 hover:border-white/20'
+                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
+                              : isLight
+                                ? 'border-gray-300 bg-white hover:bg-gray-50'
+                                : 'border-white/10 bg-black/40 hover:border-white/20'
                               }`}
                           >
                             {pose.url ? (
@@ -8124,8 +8482,8 @@ export default function Design() {
                       );
                     }}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold flex items-center gap-1.5 cursor-pointer ${isLight
-                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                       }`}
                     title="Rotate 90° clockwise"
                   >
@@ -8136,8 +8494,8 @@ export default function Design() {
                     type="button"
                     onClick={() => void downloadDirectFile(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${isLight
-                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                       }`}
                   >
                     ⬇️ Download {fivePoseItems.length > 1 ? 'Selected Pose' : 'Render'}
@@ -8150,8 +8508,8 @@ export default function Design() {
                       setShowZoomCropModal(true);
                     }}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${isLight
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/60'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                      : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/60'
                       }`}
                     title="Pan, zoom, and export exact 1807×3000 crop"
                   >
@@ -8180,8 +8538,8 @@ export default function Design() {
                     target="_blank"
                     rel="noreferrer"
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${isLight
-                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                       }`}
                   >
                     Open New Tab
@@ -8190,10 +8548,10 @@ export default function Design() {
                     type="button"
                     onClick={() => setIsEditOpen((prev) => !prev)}
                     className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${isEditOpen
-                        ? 'bg-[#e5373f] text-white border-[#e5373f]'
-                        : isLight
-                          ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
-                          : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
+                      ? 'bg-[#e5373f] text-white border-[#e5373f]'
+                      : isLight
+                        ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
+                        : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
                       }`}
                   >
                     {isEditOpen ? 'Close edit' : 'Edit render'}
@@ -8205,8 +8563,8 @@ export default function Design() {
                       setFivePoseItems([]);
                     }}
                     className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${isLight
-                        ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
-                        : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
+                      ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
+                      : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
                       }`}
                     title="Clear this preview from canvas"
                   >
@@ -8302,8 +8660,8 @@ export default function Design() {
                         rows={2}
                         placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
                         className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
-                            ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                            : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
+                          ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                          : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
                           }`}
                       />
                     </div>
@@ -8341,13 +8699,12 @@ export default function Design() {
         <button
           type="button"
           onClick={() => setPageView((curr) => (curr === 'compare' ? 'studio' : 'compare'))}
-          className={`flex items-center gap-2 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all border text-xs font-semibold cursor-pointer ${
-            pageView === 'compare'
-              ? 'bg-[#e5373f] text-white border-[#e5373f] ring-2 ring-[#e5373f]/30'
-              : isLight
-                ? 'bg-white/95 text-gray-900 border-gray-300 hover:border-gray-400 hover:shadow-lg'
-                : 'bg-black/90 text-white border-white/20 hover:border-white/40 hover:bg-black'
-          }`}
+          className={`flex items-center gap-2 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all border text-xs font-semibold cursor-pointer ${pageView === 'compare'
+            ? 'bg-[#e5373f] text-white border-[#e5373f] ring-2 ring-[#e5373f]/30'
+            : isLight
+              ? 'bg-white/95 text-gray-900 border-gray-300 hover:border-gray-400 hover:shadow-lg'
+              : 'bg-black/90 text-white border-white/20 hover:border-white/40 hover:bg-black'
+            }`}
           title="Open Split Compare Studio (Dual synchronized 1807×3000 comparison)"
         >
           <Columns className="w-4 h-4 text-[#e5373f]" />
