@@ -343,7 +343,6 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
     </div>
 
     <div class="footer-notes">
-      <div><strong>Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</div>
       <div style="text-align: center; margin-top: 12px; font-weight: 500; color: #4b5563;">Thank you for your business.</div>
     </div>
   </div>
@@ -1385,8 +1384,7 @@ export default function Pricing() {
 
                     {/* Footer notes */}
                     <div className="mt-4 text-[11px] text-gray-500 space-y-1 text-center sm:text-left">
-                      <p><strong className="text-gray-700">Notes:</strong> The seller is not registered under GST; no GST has been charged on this invoice.</p>
-                      <p className="text-center font-medium text-gray-600 mt-3">Thank you for your business.</p>
+                      <p className="text-center font-medium text-gray-600 mt-2">Thank you for your business.</p>
                     </div>
                   </div>
 
