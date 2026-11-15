@@ -159,6 +159,94 @@ export const BRAND_COLOR_PRESETS = [
   { name: 'Silver Grey', hex: '#94a3b8' },
 ];
 
+export interface HoodPairFormat {
+  id: string;
+  name: string;
+  badge: string;
+  icon: string;
+  tagline: string;
+  frontTitle: string;
+  frontDesc: string;
+  backTitle: string;
+  backDesc: string;
+  frontPrompt: string;
+  backPrompt: string;
+  recommendedFor: string;
+}
+
+export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
+  {
+    id: 'pair-1',
+    name: 'Format 1: Tracksuit Draped Hood',
+    badge: '90% Catalog Standard',
+    icon: '🧥',
+    tagline: 'High-Zip Front + Tapered Triangular Back Hood',
+    frontTitle: 'Front: High-Zip Stand Collar + Hood Behind Neck',
+    frontDesc: 'Clean high athletic stand collar with hood neatly folded resting behind the neck.',
+    backTitle: 'Back: Tapered Triangular Hood Down Spine',
+    backDesc: 'Soft triangular hood hanging neatly along center spine between shoulder blades.',
+    frontPrompt: 'ATHLETIC HOODED TRACKSUIT (FRONT VIEW): Athletic high-zip stand collar with hood neatly resting behind the neck; clean frontal sportswear catalog presentation. ',
+    backPrompt: 'ATHLETIC HOODED TRACKSUIT (BACK VIEW): Soft tapered triangular hood draped neatly down the center spine between shoulder blades, hanging flat along the upper back. The back of the hood and nape attachment must be crisp and clearly visible. ',
+    recommendedFor: 'Standard Shiv-Naresh tracksuits & jackets with hoods',
+  },
+  {
+    id: 'pair-2',
+    name: 'Format 2: Classic Stand Collar (No Hood)',
+    badge: '100% Hoodless',
+    icon: '👔',
+    tagline: 'Clean Stand Collar Front + Smooth Nape Collar Back',
+    frontTitle: 'Front: Athletic Stand Collar (No Hood)',
+    frontDesc: 'High-zip stand collar, sleek zipper closure, completely collar-only with NO hood.',
+    backTitle: 'Back: Smooth Nape Collar (No Hood)',
+    backDesc: 'Crisp stand-up collar across nape of neck, completely smooth upper back with zero hood.',
+    frontPrompt: 'CLASSIC ZIP JACKET (FRONT VIEW): Clean athletic high-neck stand collar, sleek zipper closure, completely collar-only with NO hood attachment. ',
+    backPrompt: 'CLASSIC ZIP JACKET (BACK VIEW): Clean athletic stand collar sitting crisp across the nape of the neck, smooth upper back panel, 100% hoodless with zero hood or draped fabric. ',
+    recommendedFor: 'Classic zippered tracksuits & warmup jackets without hoods',
+  },
+  {
+    id: 'pair-3',
+    name: 'Format 3: Active Training (Hood Worn UP)',
+    badge: 'Sports / Training',
+    icon: '🏃‍♂️',
+    tagline: 'Hood Up Framing Face + Full Hood Covering Head',
+    frontTitle: 'Front: Hood Up Framing Face',
+    frontDesc: 'Model wears hood up over head, neatly framing face in an active training stance.',
+    backTitle: 'Back: Full Hood Covering Head',
+    backDesc: 'Full athletic hood worn up covering head from behind with crisp fabric folds.',
+    frontPrompt: 'ACTIVE SPORTS (HOOD UP - FRONT VIEW): Model wearing the hood up over the head, neatly framing the face in an active athletic warm-up pose. ',
+    backPrompt: 'ACTIVE SPORTS (HOOD UP - BACK VIEW): Full hood worn up completely covering the head from behind, showing the natural athletic fabric contours of the hood across the back of the head. ',
+    recommendedFor: 'Running, outdoor training & athletic workout poses',
+  },
+  {
+    id: 'pair-4',
+    name: 'Format 4: Windcheater Wide Draped Hood',
+    badge: 'Cape Draped',
+    icon: '🌧️',
+    tagline: 'Weather Collar Front + Wide Draped Cape Hood Back',
+    frontTitle: 'Front: Weather Collar with Relaxed Hood',
+    frontDesc: 'Full-zip technical windcheater collar with wide hood resting relaxed across neck.',
+    backTitle: 'Back: Wide Cape Hood on Upper Back',
+    backDesc: 'Wide athletic hood draped flat across the upper back and shoulder blades.',
+    frontPrompt: 'WINDCHEATER JACKET (FRONT VIEW): High-neck weather-resistant collar with wide hood resting relaxed behind the neck and shoulders. ',
+    backPrompt: 'WINDCHEATER JACKET (BACK VIEW): Wide athletic hood draped flat across the upper back and shoulder blades in a relaxed windcheater drape. ',
+    recommendedFor: 'Nylon windcheaters, rainwear & relaxed travel tracksuits',
+  },
+  {
+    id: 'pair-5',
+    name: 'Format 5: Pullover Hoodie (Chest Drawstrings)',
+    badge: 'Casual Sports',
+    icon: '🎽',
+    tagline: 'Pullover Drawstrings Front + Soft Gathered Fleece Back',
+    frontTitle: 'Front: Pullover Neck + Hanging Drawstrings',
+    frontDesc: 'Classic hoodie neckline with dual drawstrings hanging down over the chest.',
+    backTitle: 'Back: Soft Gathered Fleece Hood',
+    backDesc: 'Soft gathered fleece hood draped naturally across upper back between shoulders.',
+    frontPrompt: 'PULLOVER HOODIE (FRONT VIEW): Classic hoodie neckline with dual drawstrings hanging down over the chest, soft relaxed collar fit. ',
+    backPrompt: 'PULLOVER HOODIE (BACK VIEW): Soft gathered fleece hood draped naturally across the upper back between shoulders. ',
+    recommendedFor: 'Cotton/fleece pullover hoodies & sweatshirts',
+  },
+];
+
 export const HOOD_STYLE_OPTIONS = [
   {
     id: 'auto' as const,
@@ -5782,6 +5870,23 @@ export default function Design() {
     return '1k';
   });
   const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
+  const [hoodPairStyle, setHoodPairStyle] = useState<string>(() => {
+    try {
+      return localStorage.getItem('shivnaresh_hood_pair_format') || 'pair-1';
+    } catch {
+      return 'pair-1';
+    }
+  });
+
+  const handleSelectHoodPair = (pairId: string) => {
+    setHoodPairStyle(pairId);
+    try {
+      localStorage.setItem('shivnaresh_hood_pair_format', pairId);
+    } catch { }
+    if (pairId === 'pair-2') setHoodStyle('none');
+    else if (pairId === 'pair-3') setHoodStyle('on-head');
+    else setHoodStyle('draped');
+  };
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(true);
   const [showPantLogo, setShowPantLogo] = useState(true);
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
@@ -6470,12 +6575,18 @@ export default function Design() {
               }
 
               try {
+                const nextIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${nextItem.model?.name || ''} ${nextItem.model?.url || ''} ${nextItem.promptSuffix || ''}`);
+                const activePairForNext = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
+                const nextHoodPrompt = nextIsBack ? activePairForNext.backPrompt : activePairForNext.frontPrompt;
+
                 const nextPayload: Record<string, unknown> = {
                   ...batchCtx.payload,
+                  poseAngle: nextIsBack ? 'back' : 'front',
+                  hoodPairStyle,
                   ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
                   ...(tryOnTarget === 'both' ? {
                     mode: 'outfit',
-                    topCloth: topFrontGarment?.url || cloth?.url,
+                    topCloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
                     bottomCloth: bottomGarment?.url,
                   } : {
                     ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
@@ -6483,9 +6594,7 @@ export default function Design() {
                   ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
                   ...(nextItem.targetModel?.url ? { targetModel: nextItem.targetModel.url, model: nextItem.targetModel.url } : {}),
                 };
-                if (nextItem.promptSuffix) {
-                  nextPayload.prompt = `${batchCtx.basePrompt} · ${nextItem.promptSuffix}`.trim();
-                }
+                nextPayload.prompt = `${batchCtx.basePrompt} · ${nextHoodPrompt} ${nextItem.promptSuffix || ''}`.trim();
                 const nextRes = await api.generate(nextPayload);
                 if (typeof nextRes.credits === 'number') {
                   setUser((prev) => (prev ? { ...prev, credits: nextRes.credits! } : null));
@@ -6825,6 +6934,7 @@ export default function Design() {
         color: garmentColor.trim(),
         tryOnTarget,
         hoodStyle,
+        hoodPairStyle,
       };
 
       if (isEditingRender) {
@@ -6918,13 +7028,16 @@ export default function Design() {
           // Multi-model/pose batch: generate images equal to the number of uploaded/selected models (up to 10)
           const targetModels = effectiveModels.slice(0, 10);
           batchItems = targetModels.map((m, i) => {
+            const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${m?.name || ''} ${m?.url || ''}`);
+            const angleLabel = isBack ? `Back Pose ${i + 1} of ${targetModels.length}` : `Front Pose ${i + 1} of ${targetModels.length}`;
             return {
               id: `pose-${i + 1}`,
               name: m?.name || `Pose ${i + 1}`,
-              angle: tryOnTarget === 'both' ? `Full Outfit on Pose ${i + 1} of ${targetModels.length}` : `Pose ${i + 1} of ${targetModels.length}`,
-              icon: `#${i + 1}`,
+              angle: tryOnTarget === 'both' ? `Full Outfit on ${angleLabel}` : angleLabel,
+              icon: isBack ? '🔄' : '👕',
               model: m,
-              cloth: topFrontGarment || cloth,
+              cloth: isBack && topBackGarment ? topBackGarment : (topFrontGarment || cloth),
+              promptSuffix: isBack ? 'Back angle view' : 'Front angle view',
             };
           });
         }
@@ -6958,12 +7071,18 @@ export default function Design() {
             : `Starting Pose 1 of ${batchItems.length} (${firstItem.name})…`
         );
 
+        const firstIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${firstItem.model?.name || ''} ${firstItem.model?.url || ''} ${firstItem.promptSuffix || ''}`);
+        const activePairForFirst = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
+        const firstHoodPrompt = firstIsBack ? activePairForFirst.backPrompt : activePairForFirst.frontPrompt;
+
         const firstPayload: Record<string, unknown> = {
           ...payload,
+          poseAngle: firstIsBack ? 'back' : 'front',
+          hoodPairStyle,
           ...(firstItem.model?.url ? { model: firstItem.model.url } : {}),
           ...(tryOnTarget === 'both' ? {
             mode: 'outfit',
-            topCloth: topFrontGarment?.url || cloth?.url,
+            topCloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
             bottomCloth: bottomGarment?.url,
           } : {
             ...(firstItem.cloth?.url ? { cloth: firstItem.cloth.url, source: firstItem.cloth.url } : {}),
@@ -6971,9 +7090,7 @@ export default function Design() {
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
           ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        if (firstItem.promptSuffix) {
-          firstPayload.prompt = `${effectivePrompt} · ${firstItem.promptSuffix}`.trim();
-        }
+        firstPayload.prompt = `${effectivePrompt} · ${firstHoodPrompt} ${firstItem.promptSuffix || ''}`.trim();
 
         const res1 = await api.generate(firstPayload);
         if (res1.credits !== undefined && user) {
@@ -6988,6 +7105,13 @@ export default function Design() {
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
         const singlePayload: Record<string, unknown> = { ...payload };
+        const singleIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${model?.name || ''} ${model?.url || ''} ${prompt}`);
+        const activePairForSingle = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
+        const singleHoodPrompt = singleIsBack ? activePairForSingle.backPrompt : activePairForSingle.frontPrompt;
+        singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
+        singlePayload.hoodPairStyle = hoodPairStyle;
+        singlePayload.prompt = `${effectivePrompt} · ${singleHoodPrompt}`.trim();
+
         if (mode === 'swap') {
           const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
           if (activeDraft.source?.url) {
@@ -7655,61 +7779,94 @@ export default function Design() {
                 </div>
               </div>
 
-              {/* Hood & Collar Styling (Visual Guide & Selector) */}
+              {/* 5 Hood & Collar Paired Formats (Front & Back Paired Presets) */}
               <div className="w-full mt-3 pt-3 border-t border-white/10">
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      <span>🧢 Hood / Collar Styling (Photoshoot Visual Mode)</span>
+                      <span>🧢 Hood / Collar Presets (5 Paired Front & Back Formats)</span>
                     </span>
-                    <span className="rounded-full px-2 py-0.2 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                      Visual Guide
+                    <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                      Saved for All 10 Poses
                     </span>
                   </div>
                   <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                    Click a card to choose how model wears hood/jacket
+                    Select 1 pair · Automatically applies Front & Back rules across all renders
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {HOOD_STYLE_OPTIONS.map((opt) => {
-                    const isSelected = hoodStyle === opt.id;
+                <div className="space-y-2">
+                  {HOOD_PAIR_FORMATS.map((pair) => {
+                    const isSelected = hoodPairStyle === pair.id;
                     return (
                       <button
-                        key={opt.id}
+                        key={pair.id}
                         type="button"
-                        onClick={() => setHoodStyle(opt.id)}
-                        className={`text-left rounded-xl p-2.5 border transition-all cursor-pointer relative overflow-hidden ${
+                        onClick={() => handleSelectHoodPair(pair.id)}
+                        className={`w-full text-left rounded-xl p-3 border transition-all cursor-pointer relative overflow-hidden ${
                           isSelected
                             ? isLight
-                              ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/50 shadow-sm'
+                              ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/50 shadow-md'
                               : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-lg'
                             : isLight
                             ? 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
                             : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-1.5 mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-lg">{opt.icon}</span>
-                            <span className={`text-xs font-bold ${isSelected ? 'text-emerald-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
-                              {opt.name}
-                            </span>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl shrink-0">{pair.icon}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold ${isSelected ? 'text-emerald-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
+                                  {pair.name}
+                                </span>
+                                {isSelected && (
+                                  <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                                    ✓ Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-[10px] font-medium leading-tight ${isSelected ? 'text-emerald-400' : isLight ? 'text-slate-600' : 'text-white/60'}`}>
+                                {pair.tagline}
+                              </p>
+                            </div>
                           </div>
-                          <span className={`text-[8px] font-semibold px-1.5 py-0.2 rounded-full border ${
+                          <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
                             isSelected
                               ? 'bg-emerald-500 text-white border-emerald-400'
                               : isLight ? 'bg-gray-200 text-gray-700 border-gray-300' : 'bg-white/10 text-white/60 border-white/10'
                           }`}>
-                            {opt.badge}
+                            {pair.badge}
                           </span>
                         </div>
-                        <p className={`text-[9px] font-medium leading-snug mb-0.5 ${isSelected ? 'text-emerald-400' : isLight ? 'text-slate-800' : 'text-white/80'}`}>
-                          {opt.tagline}
-                        </p>
-                        <p className={`text-[9px] leading-tight ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                          {opt.description}
-                        </p>
+
+                        {/* Front & Back Paired Specifications Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5 text-[10px]">
+                          <div className={`p-2 rounded-lg border ${isSelected ? 'bg-emerald-950/20 border-emerald-500/20' : isLight ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5'}`}>
+                            <div className="flex items-center gap-1 font-bold text-blue-400 mb-0.5">
+                              <span>👕</span>
+                              <span>{pair.frontTitle}</span>
+                            </div>
+                            <p className={`text-[9px] leading-tight ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
+                              {pair.frontDesc}
+                            </p>
+                          </div>
+
+                          <div className={`p-2 rounded-lg border ${isSelected ? 'bg-emerald-950/20 border-emerald-500/20' : isLight ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5'}`}>
+                            <div className="flex items-center gap-1 font-bold text-amber-400 mb-0.5">
+                              <span>🔄</span>
+                              <span>{pair.backTitle}</span>
+                            </div>
+                            <p className={`text-[9px] leading-tight ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
+                              {pair.backDesc}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className={`mt-1.5 text-[8.5px] ${isSelected ? 'text-emerald-400/80 font-medium' : isLight ? 'text-slate-500 italic' : 'text-white/40 italic'}`}>
+                          Recommended: {pair.recommendedFor}
+                        </div>
                       </button>
                     );
                   })}
@@ -9355,6 +9512,11 @@ export default function Design() {
                               <span className="text-sm">{pose.icon}</span>
                             )}
                             <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
+                            <div className="flex items-center gap-1 justify-center my-0.5">
+                              <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}`}>
+                                {/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? '🔄 Back View' : '👕 Front View'}
+                              </span>
+                            </div>
                             <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
                             <div className="mt-1">
                               {pose.status === 'completed' && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}

@@ -3320,13 +3320,14 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ';
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
-        const viewsToUse = garmentViews.slice(0, 4); // Leave slot for master logo reference (max 6 images total)
+        const viewsToUse = garmentViews.slice(0, 5); // Allow up to 5 reference views (model + 5 = 6 max total)
         const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
         images = [modelUri, ...garmentUris];
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the model in Image 1 with the authentic garment shown across the reference photos (${viewLabels}). ` +
-          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, hood/collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture. ';
+          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, hood/collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture. ' +
+          'HIGH-FIDELITY ZOOMED GRAPHICS & PATTERN SYNTHESIS: Any close-up or zoomed reference views provide micro-detail for logos, university/team typography, crests, sleeve prints, and dot gradient textures. You MUST faithfully synthesize these high-resolution details onto the garment on the model at exact scale, perspective, and placement without blurring or dropping letters. ';
 
         if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
           agentPrompt += 'Target: Lower body. Dress the model’s legs with the bottom garment from the reference views, matching its exact silhouette, length, waistband, and side details. Keep top shirt, face, shoes, and posture intact. ';
@@ -3375,13 +3376,37 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         } catch {}
       }
 
-      // Determine Hood / Cap styling instruction
-      let hoodInstruction = 'HOOD & CAP PRESERVATION: Inspect the upper garment in reference photos carefully. If an attached or detachable hood/cap or drawstrings are present (common in tracksuits, windbreakers, and hoodies), you MUST faithfully include the hood on the model. Style the hood draped naturally resting around the back of the neck and across the upper shoulders with drawstrings hanging symmetrically on the chest, matching premium athletic sportswear catalog photography. Do NOT omit the hood, do NOT clip it off at the collar, and do NOT substitute it with a plain stand-up collar. The full hood structure must be clearly visible and styled on the athlete model. ';
-      if (body.hoodStyle === 'on-head' || (typeof body.prompt === 'string' && /hood\s*(on|up|over)|cap\s*(on|up|pehni)/i.test(body.prompt))) {
-        hoodInstruction = 'HOOD & CAP STYLING: The model must wear the hood/cap up over their head in an athletic training/warm-up posture, neatly framing the face while keeping facial features sharp and unobscured. ';
-      } else if (body.hoodStyle === 'none') {
-        hoodInstruction = 'NECKLINE: Style the jacket with a clean athletic stand collar, no hood. ';
-      }
+      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog
+      const HOOD_PAIRED_RULES = {
+        'pair-1': {
+          front: 'ATHLETIC HOODED TRACKSUIT (FRONT VIEW): Athletic high-zip stand collar with hood neatly resting behind the neck; clean frontal sportswear catalog presentation. ',
+          back: 'ATHLETIC HOODED TRACKSUIT (BACK VIEW): Soft tapered triangular hood draped neatly down the center spine between shoulder blades, hanging flat along the upper back. The back of the hood and nape attachment must be crisp and clearly visible. ',
+        },
+        'pair-2': {
+          front: 'CLASSIC ZIP JACKET (FRONT VIEW): Clean athletic high-neck stand collar, sleek zipper closure, completely collar-only with NO hood attachment. ',
+          back: 'CLASSIC ZIP JACKET (BACK VIEW): Clean athletic stand collar sitting crisp across the nape of the neck, smooth upper back panel, 100% hoodless with zero hood or draped fabric. ',
+        },
+        'pair-3': {
+          front: 'ACTIVE SPORTS (HOOD UP - FRONT VIEW): Model wearing the hood up over the head, neatly framing the face in an active athletic warm-up pose. ',
+          back: 'ACTIVE SPORTS (HOOD UP - BACK VIEW): Full hood worn up completely covering the head from behind, showing the natural athletic fabric contours of the hood across the back of the head. ',
+        },
+        'pair-4': {
+          front: 'WINDCHEATER JACKET (FRONT VIEW): High-neck weather-resistant collar with wide hood resting relaxed behind the neck and shoulders. ',
+          back: 'WINDCHEATER JACKET (BACK VIEW): Wide athletic hood draped flat across the upper back and shoulder blades in a relaxed windcheater drape. ',
+        },
+        'pair-5': {
+          front: 'PULLOVER HOODIE (FRONT VIEW): Classic hoodie neckline with dual drawstrings hanging down over the chest, soft relaxed collar fit. ',
+          back: 'PULLOVER HOODIE (BACK VIEW): Soft gathered fleece hood draped naturally across the upper back between shoulders. ',
+        },
+      };
+
+      // Detect if this specific angle is Front or Back
+      const isBackPose = body.poseAngle === 'back' ||
+        /back|rear|behind|reverse|peche|dorsal/i.test(`${body.poseAngle || ''} ${body.prompt || ''} ${body.model || ''} ${body.targetModel || ''}`);
+
+      const selectedPairKey = body.hoodPairStyle || (body.hoodStyle === 'none' ? 'pair-2' : (body.hoodStyle === 'on-head' ? 'pair-3' : 'pair-1'));
+      const activePairRule = HOOD_PAIRED_RULES[selectedPairKey] || HOOD_PAIRED_RULES['pair-1'];
+      const hoodInstruction = isBackPose ? activePairRule.back : activePairRule.front;
 
       // Universal dynamic fidelity rules: 3D realism, true fabric drape, hood preservation, and logo fidelity
       const dynamicFidelityRules =
@@ -3392,8 +3417,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         'GRAPHIC & LOGO CENTERING: Any central chest graphics, badges, or brand text must remain aligned with the chest midline, wrapping smoothly across the 3D torso with natural perspective matching the model’s angle. ' +
         'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
         (masterLogoIndex > 0
-          ? `OFFICIAL SHIV-NARESH BRAND LOGO & LETTERING: Image ${masterLogoIndex} is the official master high-resolution SHIV-NARESH brand logo reference (leaping athlete mark and bold sans-serif capital text "SHIV-NARESH" underneath). You MUST precisely replicate this exact brand emblem and sharp legible lettering onto the left chest of the upper garment and left thigh of the track pants. The text must cleanly and distinctly spell "SHIV-NARESH" in bold, high-contrast capital letters without blurring, distortion, or missing characters. `
-          : 'SHIV-NARESH BRAND LOGO FIDELITY: Replicate the official SHIV-NARESH brand logo (leaping athletic silhouette with "SHIV-NARESH" bold capital brand lettering) with sharp clarity on the left chest and left thigh. The lettering must cleanly spell "SHIV-NARESH". ');
+          ? `OFFICIAL SHIV-NARESH BRAND LOGO REFERENCE: Image ${masterLogoIndex} is the official master high-resolution SHIV-NARESH brand logo reference (leaping athlete mark and bold sans-serif capital text "SHIV-NARESH" underneath). Replicate this emblem and lettering with high fidelity on the left chest and left thigh when present. `
+          : 'GARMENT BRANDING & PATTERNS: Replicate all logos, typography, numbers, and graphic elements exactly as shown in the reference images. ');
 
       agentPrompt += dynamicFidelityRules;
 
