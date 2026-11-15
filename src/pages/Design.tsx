@@ -172,6 +172,8 @@ export interface HoodPairFormat {
   frontPrompt: string;
   backPrompt: string;
   recommendedFor: string;
+  frontThumb: string;
+  backThumb: string;
 }
 
 export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
@@ -180,6 +182,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     name: 'Format 1: Tracksuit Draped Hood',
     badge: '90% Catalog Standard',
     icon: '🧥',
+    frontThumb: '/hood-presets/pair1-front.webp',
+    backThumb: '/hood-presets/pair1-back.webp',
     tagline: 'High-Zip Front + Tapered Triangular Back Hood',
     frontTitle: 'Front: High-Zip Stand Collar + Hood Behind Neck',
     frontDesc: 'Clean high athletic stand collar with hood neatly folded resting behind the neck.',
@@ -194,6 +198,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     name: 'Format 2: Classic Stand Collar (No Hood)',
     badge: '100% Hoodless',
     icon: '👔',
+    frontThumb: '/hood-presets/pair2-front.webp',
+    backThumb: '/hood-presets/pair2-back.webp',
     tagline: 'Clean Stand Collar Front + Smooth Nape Collar Back',
     frontTitle: 'Front: Athletic Stand Collar (No Hood)',
     frontDesc: 'High-zip stand collar, sleek zipper closure, completely collar-only with NO hood.',
@@ -208,6 +214,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     name: 'Format 3: Active Training (Hood Worn UP)',
     badge: 'Sports / Training',
     icon: '🏃‍♂️',
+    frontThumb: '/hood-presets/pair3-front.webp',
+    backThumb: '/hood-presets/pair3-back.webp',
     tagline: 'Hood Up Framing Face + Full Hood Covering Head',
     frontTitle: 'Front: Hood Up Framing Face',
     frontDesc: 'Model wears hood up over head, neatly framing face in an active training stance.',
@@ -222,6 +230,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     name: 'Format 4: Windcheater Wide Draped Hood',
     badge: 'Cape Draped',
     icon: '🌧️',
+    frontThumb: '/hood-presets/pair4-front.webp',
+    backThumb: '/hood-presets/pair4-back.webp',
     tagline: 'Weather Collar Front + Wide Draped Cape Hood Back',
     frontTitle: 'Front: Weather Collar with Relaxed Hood',
     frontDesc: 'Full-zip technical windcheater collar with wide hood resting relaxed across neck.',
@@ -236,6 +246,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     name: 'Format 5: Pullover Hoodie (Chest Drawstrings)',
     badge: 'Casual Sports',
     icon: '🎽',
+    frontThumb: '/hood-presets/pair5-front.webp',
+    backThumb: '/hood-presets/pair5-back.webp',
     tagline: 'Pullover Drawstrings Front + Soft Gathered Fleece Back',
     frontTitle: 'Front: Pullover Neck + Hanging Drawstrings',
     frontDesc: 'Classic hoodie neckline with dual drawstrings hanging down over the chest.',
@@ -6916,7 +6928,7 @@ export default function Design() {
 
   /* Helper: download rendered image with optional vector-sharp Shiv-Naresh brand logo stamp */
   async function downloadRenderWithBranding(imgUrl: string, fileName: string) {
-    if (!showHdLogoOverlay) {
+    if (!showHdLogoOverlay && !showPantLogo) {
       return downloadDirectFile(imgUrl, fileName);
     }
     try {
@@ -7829,15 +7841,14 @@ export default function Design() {
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {HOOD_PAIR_FORMATS.map((pair) => {
                     const isSelected = hoodPairStyle === pair.id;
                     return (
-                      <button
+                      <div
                         key={pair.id}
-                        type="button"
                         onClick={() => handleSelectHoodPair(pair.id)}
-                        className={`w-full text-left rounded-xl px-3 py-2 border transition-all flex items-center justify-between cursor-pointer ${
+                        className={`w-full text-left rounded-xl p-2.5 border transition-all cursor-pointer ${
                           isSelected
                             ? isLight
                               ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 text-gray-900 shadow-sm'
@@ -7847,30 +7858,59 @@ export default function Design() {
                             : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-base shrink-0">{pair.icon}</span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-semibold truncate ${isSelected ? (isLight ? 'text-gray-950 font-bold' : 'text-white font-bold') : ''}`}>
-                                {pair.name.replace(/^Format \d+:\s*/, '')}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base shrink-0">{pair.icon}</span>
+                            <span className={`text-xs font-semibold truncate ${isSelected ? (isLight ? 'text-gray-950 font-bold' : 'text-white font-bold') : ''}`}>
+                              {pair.name.replace(/^Format \d+:\s*/, '')}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] font-bold text-emerald-400 shrink-0">✓ Active</span>
+                            )}
+                          </div>
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full border shrink-0 ${
+                            isSelected
+                              ? isLight ? 'border-gray-900 text-gray-900 font-bold bg-gray-200' : 'border-emerald-500/50 text-emerald-300 font-bold bg-emerald-500/10'
+                              : isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                          }`}>
+                            {pair.badge}
+                          </span>
+                        </div>
+
+                        {/* Real catalog photo thumbnails (Front + Back pair) */}
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="relative rounded overflow-hidden border border-white/20 bg-black/40">
+                              <img
+                                src={pair.frontThumb}
+                                alt="Front Reference"
+                                className="w-11 h-14 object-contain"
+                              />
+                              <span className="absolute bottom-0 inset-x-0 text-[8px] font-bold text-center bg-black/80 text-white/90 py-0.5">
+                                Front
                               </span>
-                              {isSelected && (
-                                <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
-                              )}
                             </div>
-                            <p className={`text-[10px] truncate ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                            <div className="relative rounded overflow-hidden border border-white/20 bg-black/40">
+                              <img
+                                src={pair.backThumb}
+                                alt="Back Reference"
+                                className="w-11 h-14 object-contain"
+                              />
+                              <span className="absolute bottom-0 inset-x-0 text-[8px] font-bold text-center bg-black/80 text-white/90 py-0.5">
+                                Back
+                              </span>
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1 text-[10px]">
+                            <p className={`font-semibold line-clamp-1 ${isLight ? 'text-gray-900' : 'text-white/90'}`}>
                               {pair.tagline}
+                            </p>
+                            <p className={`mt-0.5 text-[9px] line-clamp-2 leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                              {pair.recommendedFor}
                             </p>
                           </div>
                         </div>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full border shrink-0 ${
-                          isSelected
-                            ? isLight ? 'border-gray-900 text-gray-900 font-bold bg-gray-200' : 'border-emerald-500/50 text-emerald-300 font-bold bg-emerald-500/10'
-                            : isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
-                        }`}>
-                          {pair.badge}
-                        </span>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -8038,87 +8078,298 @@ export default function Design() {
                     </div>
                   </div>
 
-                  {/* 2. Position Target Tabs & Presets */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                  {/* 2. Position Target Tabs & Flexible Placement Controls */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
-                        Active Logo Target:
+                        Logo Positioning & Calibration:
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setActiveLogoTarget('chest')}
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                            activeLogoTarget === 'chest'
-                              ? 'bg-emerald-500 text-white shadow-xs'
-                              : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
-                          }`}
-                        >
-                          👕 Chest Logo {showHdLogoOverlay ? '(Active)' : '(Off)'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveLogoTarget('pant')}
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                            activeLogoTarget === 'pant'
-                              ? 'bg-emerald-500 text-white shadow-xs'
-                              : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
-                          }`}
-                        >
-                          👖 Pant Logo {showPantLogo ? '(Active)' : '(Off)'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className={`inline-flex rounded-full border p-0.5 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/30'}`}>
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             setActiveLogoTarget('chest');
-                            setHdLogoX(43.5);
-                            setHdLogoY(20.5);
-                            setHdLogoScale(22);
                             setShowHdLogoOverlay(true);
                           }}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
-                            activeLogoTarget === 'chest' && hdLogoX === 43.5 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            activeLogoTarget === 'chest'
+                              ? 'bg-emerald-500 text-white shadow-xs'
+                              : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/60 hover:bg-white/15'
                           }`}
                         >
-                          👕 Chest (Avoids Zipper)
+                          👕 Chest Logo {showHdLogoOverlay ? '✓' : '(Off)'}
                         </button>
                         <button
                           type="button"
                           onClick={() => {
                             setActiveLogoTarget('pant');
-                            setPantLogoX(63);
-                            setPantLogoY(61);
-                            setPantLogoScale(18);
                             setShowPantLogo(true);
                           }}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
-                            activeLogoTarget === 'pant' && pantLogoX === 63 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            activeLogoTarget === 'pant'
+                              ? 'bg-emerald-500 text-white shadow-xs'
+                              : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/60 hover:bg-white/15'
                           }`}
                         >
-                          👖 Thigh (Left Leg)
+                          👖 Pant Logo {showPantLogo ? '✓' : '(Off)'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Horizontal Side Presets */}
+                    <div className="flex items-center gap-2 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                        Side:
+                      </span>
+                      {activeLogoTarget === 'chest' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { setHdLogoX(43.5); setShowHdLogoOverlay(true); }}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoX <= 45
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            👈 Left Chest
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setHdLogoX(50.0); setShowHdLogoOverlay(true); }}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoX > 45 && hdLogoX < 55
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            🎯 Center
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setHdLogoX(58.5); setShowHdLogoOverlay(true); }}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoX >= 55
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            👉 Right Chest
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { setPantLogoX(63.0); setShowPantLogo(true); }}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              pantLogoX >= 50
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            👈 Left Thigh
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setPantLogoX(37.0); setShowPantLogo(true); }}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              pantLogoX < 50
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            👉 Right Thigh
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Vertical Height Presets */}
+                    <div className="flex items-center gap-2 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                        Height:
+                      </span>
+                      {activeLogoTarget === 'chest' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setHdLogoY(17.0)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoY <= 18
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⬆️ High (Collar)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHdLogoY(21.5)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoY > 18 && hdLogoY < 24
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⏺️ Mid (Standard)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHdLogoY(26.0)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoY >= 24
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⬇️ Low (Lower Chest)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setPantLogoY(55.0)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              pantLogoY <= 57
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⬆️ High Thigh
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPantLogoY(61.0)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              pantLogoY > 57 && pantLogoY < 65
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⏺️ Mid Thigh (Standard)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPantLogoY(68.0)}
+                            className={`px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              pantLogoY >= 65
+                                ? 'bg-emerald-500 text-white border-emerald-500 font-bold'
+                                : isLight ? 'border-gray-200 bg-white text-gray-700' : 'border-white/10 bg-white/5 text-white/70'
+                            }`}
+                          >
+                            ⬇️ Lower Thigh
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Precision 1% Nudge Buttons + Size Controls */}
+                    <div className={`p-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 ${
+                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                          Nudge 1%:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeLogoTarget === 'chest') setHdLogoY((y) => Math.max(2, Math.round((y - 1) * 10) / 10));
+                            else setPantLogoY((y) => Math.max(2, Math.round((y - 1) * 10) / 10));
+                          }}
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          title="Move Up 1%"
+                        >
+                          ⬆️
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveLogoTarget('chest');
-                            setHdLogoX(28);
-                            setHdLogoY(58);
-                            setHdLogoScale(20);
-                            setShowHdLogoOverlay(true);
+                            if (activeLogoTarget === 'chest') setHdLogoY((y) => Math.min(98, Math.round((y + 1) * 10) / 10));
+                            else setPantLogoY((y) => Math.min(98, Math.round((y + 1) * 10) / 10));
                           }}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
-                            activeLogoTarget === 'chest' && hdLogoX === 28 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                           }`}
+                          title="Move Down 1%"
                         >
-                          💪 Sleeve
+                          ⬇️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeLogoTarget === 'chest') setHdLogoX((x) => Math.max(2, Math.round((x - 1) * 10) / 10));
+                            else setPantLogoX((x) => Math.max(2, Math.round((x - 1) * 10) / 10));
+                          }}
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          title="Move Left 1%"
+                        >
+                          ⬅️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeLogoTarget === 'chest') setHdLogoX((x) => Math.min(98, Math.round((x + 1) * 10) / 10));
+                            else setPantLogoX((x) => Math.min(98, Math.round((x + 1) * 10) / 10));
+                          }}
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          title="Move Right 1%"
+                        >
+                          ➡️
                         </button>
                       </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                          Size:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeLogoTarget === 'chest') setHdLogoScale((s) => Math.max(10, s - 2));
+                            else setPantLogoScale((s) => Math.max(10, s - 2));
+                          }}
+                          className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          title="Decrease size (-2px)"
+                        >
+                          ➖
+                        </button>
+                        <span className="text-[10px] font-mono font-bold text-emerald-400 min-w-8 text-center">
+                          {activeLogoTarget === 'chest' ? `${hdLogoScale}px` : `${pantLogoScale}px`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeLogoTarget === 'chest') setHdLogoScale((s) => Math.min(60, s + 2));
+                            else setPantLogoScale((s) => Math.min(60, s + 2));
+                          }}
+                          className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${
+                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          title="Increase size (+2px)"
+                        >
+                          ➕
+                        </button>
+                      </div>
+
+                      <div className="text-[9px] font-mono opacity-60">
+                        X: {activeLogoTarget === 'chest' ? hdLogoX : pantLogoX}% · Y: {activeLogoTarget === 'chest' ? hdLogoY : pantLogoY}%
+                      </div>
                     </div>
+
+                    <p className={`text-[9px] italic ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                      💡 Tip: Click anywhere directly on the generated image preview above to drop the active logo immediately.
+                    </p>
                   </div>
 
                   {/* 3. Live Vector Swatch Preview */}
@@ -8551,8 +8802,8 @@ export default function Design() {
                           return (
                             <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
                               }`}>
-                              <div className="aspect-[3/4] relative">
-                                <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-cover" />
+                              <div className="aspect-[3/4] relative bg-black/40 rounded-t-xl overflow-hidden">
+                                <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-contain p-1" />
                                 <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     type="button"
@@ -9116,7 +9367,7 @@ export default function Design() {
                                   : 'border-white/15 bg-black/40 hover:border-white/30'
                                 }`}
                             >
-                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-cover" />
+                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-contain p-1" />
                               <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
                                 }`}>
                                 {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
@@ -9174,7 +9425,7 @@ export default function Design() {
                   ) : model ? (
                     <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
                       <div className="flex items-center gap-3">
-                        <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-cover" />
+                        <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-contain bg-black/40 p-0.5" />
                         <div className="text-xs">
                           <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
                           <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
@@ -9584,7 +9835,7 @@ export default function Design() {
                       </div>
                       <div className="flex justify-center w-full">
                         <div
-                          className="relative w-fit max-h-[480px] overflow-hidden rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20 cursor-crosshair group"
+                          className="relative w-fit max-h-[700px] rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20 cursor-crosshair group"
                           onClick={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const clickX = Math.round(((e.clientX - rect.left) / rect.width) * 100 * 10) / 10;
@@ -9599,7 +9850,7 @@ export default function Design() {
                           }}
                           title={`Click anywhere to place ${activeLogoTarget === 'chest' ? '👕 Chest' : '👖 Pant'} logo`}
                         >
-                          <img src={result} alt="Generated" className="max-h-[480px] w-auto block object-contain pointer-events-none select-none" />
+                          <img src={result} alt="Generated" className="max-h-[700px] w-auto block object-contain pointer-events-none select-none rounded-xl" />
 
                           {/* 1. Chest Logo Overlay */}
                           {showHdLogoOverlay && (
@@ -9768,7 +10019,7 @@ export default function Design() {
                     onClick={async () => {
                       if (!result) return;
                       let imgForCrop = result;
-                      if (showHdLogoOverlay) {
+                      if (showHdLogoOverlay || showPantLogo) {
                         try {
                           imgForCrop = await stampHdLogoOntoImage(result);
                         } catch { }

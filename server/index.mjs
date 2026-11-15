@@ -3365,17 +3365,6 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
-      // Check if master brand logo reference should be attached (up to 6 images total)
-      let masterLogoIndex = -1;
-      if (images.length < 6) {
-        try {
-          const logoPath = path.join(process.cwd(), 'public', 'brand-logo-2k-white.png');
-          const logoBuf = await fs.readFile(logoPath);
-          images.push(`data:image/png;base64,${logoBuf.toString('base64')}`);
-          masterLogoIndex = images.length;
-        } catch {}
-      }
-
       // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog
       const HOOD_PAIRED_RULES = {
         'pair-1': {
@@ -3408,17 +3397,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       const activePairRule = HOOD_PAIRED_RULES[selectedPairKey] || HOOD_PAIRED_RULES['pair-1'];
       const hoodInstruction = isBackPose ? activePairRule.back : activePairRule.front;
 
-      // Universal dynamic fidelity rules: 3D realism, true fabric drape, hood preservation, and logo fidelity
+      // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, hood preservation, and all-over pattern synthesis
       const dynamicFidelityRules =
+        'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
         'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, hands, shoes, and props (balls, equipment) with 100% fidelity. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around the zipper seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. The geometric dot gradient grid and stripe patterns must wrap seamlessly following the anatomical 3D cylindrical curvature and perspective foreshortening of the athlete’s chest, torso, and ribcage. Render professional commercial sportswear studio lighting: crisp directional key lighting, soft natural contact shadows in fabric folds, realistic ambient occlusion, and subtle micro-specular sheen characteristic of performance moisture-wicking polyester/nylon sportswear fabric. ' +
         hoodInstruction +
-        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/hood style, closures (zipper with realistic zipper pull), textures, logos, and graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
-        'GRAPHIC & LOGO CENTERING: Any central chest graphics, badges, or brand text must remain aligned with the chest midline, wrapping smoothly across the 3D torso with natural perspective matching the model’s angle. ' +
+        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/hood style, closures (zipper with realistic zipper pull), textures, and printed graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
         'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
-        (masterLogoIndex > 0
-          ? `OFFICIAL SHIV-NARESH BRAND LOGO REFERENCE: Image ${masterLogoIndex} is the official master high-resolution SHIV-NARESH brand logo reference (leaping athlete mark and bold sans-serif capital text "SHIV-NARESH" underneath). Replicate this emblem and lettering with high fidelity on the left chest and left thigh when present. `
-          : 'GARMENT BRANDING & PATTERNS: Replicate all logos, typography, numbers, and graphic elements exactly as shown in the reference images. ');
+        'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ';
 
       agentPrompt += dynamicFidelityRules;
 
