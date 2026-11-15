@@ -25,6 +25,7 @@ import {
   Send,
   ShieldCheck,
   Sliders,
+  Sparkles,
   Trash2,
   Unlock,
   Upload,
@@ -190,8 +191,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: 'Zip to top, throat 3cm visible, hood bulk only behind neck. Natural athlete hair, no cap.',
     backTitle: 'Back: Pointed Kite Hood Between Shoulder Blades',
     backDesc: 'Pointed kite shape lying flat between blades, tip mid-blade, 3cm clean nape skin above collar.',
-    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR & HOOD: Front-facing sportswear catalogue pose. Model facing camera. 4 cm matte black stand collar zipped closed around throat. Attached jacket hood is folded away neatly resting behind the neck only (NOT on head, NOT on shoulders). Clean chest and front panel presentation with authentic Shiv-Naresh chest logo. ',
-    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Attached jacket hood hanging down flat in a pointed kite shape along the center spine between shoulder blades, tip ending at mid-shoulder-blade, no fabric bunching on shoulders. Short stand collar visible at nape with clean seam. Smooth plain black back panel with no front graphics bleeding onto the back. ',
+    frontPrompt: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. FRONT COLLAR & HOOD: Front-facing sportswear catalogue pose. Model facing camera. 4 cm matte black stand collar zipped closed around throat. Attached jacket hood is folded away neatly resting behind the neck only (NOT on head, NOT on shoulders). Clean chest and front panel presentation with authentic Shiv-Naresh chest logo. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. BACK COLLAR & HOOD: Attached jacket hood hanging down flat in a pointed kite shape along the center spine between shoulder blades, tip ending at mid-shoulder-blade, no fabric bunching on shoulders. Short stand collar visible at nape with clean seam. Smooth plain black back panel with no front graphics bleeding onto the back. ',
     recommendedFor: 'Windcheaters & tracksuits with foldable/draped hoods (7924 / 7925 style)',
   },
   {
@@ -206,8 +207,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: '5cm black stand collar upright, full zip closed, NO hood anywhere on garment, natural hair.',
     backTitle: 'Back: Smooth Nape Collar (No Hood)',
     backDesc: '5cm collar sitting low on nape, hairline 2cm above it, 100% hoodless with clean smooth back panel.',
-    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing sportswear pose. Model facing camera. 5 cm athletic stand collar standing upright around throat, full zipper closed to top of collar. Completely 100% hoodless with NO hood anywhere on this garment. Clean front neck presentation. ',
-    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR: Crisp 5 cm stand collar sitting low across nape of neck with clean center-back seam. 100% hoodless with completely smooth upper back panel and zero draped fabric. ',
+    frontPrompt: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. FRONT COLLAR: Front-facing sportswear pose. Model facing camera. 5 cm athletic stand collar standing upright around throat, full zipper closed to top of collar. Completely 100% hoodless with NO hood anywhere on this garment. Clean front neck presentation. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. BACK COLLAR: Crisp 5 cm stand collar sitting low across nape of neck with clean center-back seam. 100% hoodless with completely smooth upper back panel and zero draped fabric. ',
     recommendedFor: 'Classic zippered track jackets without hoods (8625 / 8628 style)',
   },
   {
@@ -222,8 +223,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: '7cm funnel collar zipped to top, touching underside of chin, throat covered, packable hood folded flat.',
     backTitle: 'Back: Packable Hood Folded Flat Down Upper Back',
     backDesc: 'Packable hood folded DOWN across upper back in soft pointed shape, 7cm funnel collar visible at nape.',
-    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing pose. Model facing camera. 7 cm tall funnel stand collar zipped completely to top touching underside of chin. Attached packable hood folded away flat behind neck only. ',
-    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Packable hood folded down flat across upper back in soft pointed shape between shoulder blades. Tall funnel collar visible at nape. Plain black back panel. ',
+    frontPrompt: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. FRONT COLLAR: Front-facing pose. Model facing camera. 7 cm tall funnel stand collar zipped completely to top touching underside of chin. Attached packable hood folded away flat behind neck only. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. BACK COLLAR & HOOD: Packable hood folded down flat across upper back in soft pointed shape between shoulder blades. Tall funnel collar visible at nape. Plain black back panel. ',
     recommendedFor: 'Technical windcheaters with tall funnel neck & packable hood (8776 / 8777 style)',
   },
   {
@@ -238,8 +239,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: '4.5cm royal blue stand collar upright, full blue zip to top, throat 3cm visible, hood folded behind.',
     backTitle: 'Back: Flat Pointed Hood Fold with Defined Center Line',
     backDesc: 'Hood flat across upper back, pointed tip at mid-blade, 4.5cm stand collar at nape, 2.5cm nape skin.',
-    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing pose. Model facing camera. 4.5 cm stand collar standing upright, full zipper closed to top, attached hood folded away neatly behind neck only. ',
-    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Attached hood folded down and lying flat across upper back with defined center fold between shoulder blades. Stand collar visible at nape with clean seam. Plain back panel. ',
+    frontPrompt: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. FRONT COLLAR: Front-facing pose. Model facing camera. 4.5 cm stand collar standing upright, full zipper closed to top, attached hood folded away neatly behind neck only. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. BACK COLLAR & HOOD: Attached hood folded down and lying flat across upper back with defined center fold between shoulder blades. Stand collar visible at nape with clean seam. Plain back panel. ',
     recommendedFor: 'Tonal lightweight polyester tracksuits (10365 / 10366 style)',
   },
   {
@@ -254,8 +255,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: 'Hood is DOWN, inner lining rolled into soft 3cm collar well, 2 black drawcords hanging straight down.',
     backTitle: 'Back: Thick Fleece Hood Roll at Nape',
     backDesc: 'Thick fleece roll at nape (raised 3cm ridge), rounded tip between blades.',
-    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT HOOD: Front-facing pose. Model facing camera. The hood is DOWN, inner lining rolled into soft 3 cm collar around neck forming visible well behind head, two drawcords hanging straight down onto chest. Hood is NOT worn on head. ',
-    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK HOOD: Thick fleece hood lying down across upper back with raised roll at nape, hood tip falling into soft rounded point between shoulder blades. Smooth plain fleece back panel. ',
+    frontPrompt: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. FRONT HOOD: Front-facing pose. Model facing camera. The hood is DOWN, inner lining rolled into soft 3 cm collar around neck forming visible well behind head, two drawcords hanging straight down onto chest. Hood is NOT worn on head. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. BACK HOOD: Thick fleece hood lying down across upper back with raised roll at nape, hood tip falling into soft rounded point between shoulder blades. Smooth plain fleece back panel. ',
     recommendedFor: 'Heavy cotton-fleece pullover hoodies & sweatshirts (10627 / 10628 style)',
   },
 ];
@@ -7275,7 +7276,9 @@ export default function Design() {
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
           ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        firstPayload.prompt = `${effectivePrompt} ${firstItem.promptSuffix || ''}`.trim();
+        const firstActivePair = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
+        const firstHoodPrompt = firstIsBack ? firstActivePair.backPrompt : firstActivePair.frontPrompt;
+        firstPayload.prompt = `${effectivePrompt} · ${firstHoodPrompt} ${firstItem.promptSuffix || ''}`.trim();
 
         const res1 = await api.generate(firstPayload);
         if (res1.credits !== undefined && user) {
@@ -7295,7 +7298,9 @@ export default function Design() {
         );
         singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
         singlePayload.hoodPairStyle = hoodPairStyle;
-        singlePayload.prompt = effectivePrompt;
+        const singleActivePair = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
+        const singleHoodPrompt = singleIsBack ? singleActivePair.backPrompt : singleActivePair.frontPrompt;
+        singlePayload.prompt = `${effectivePrompt} · ${singleHoodPrompt}`.trim();
 
         if (mode === 'swap') {
           const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
@@ -10107,6 +10112,64 @@ export default function Design() {
                   </div>
                 </div>
               )}
+
+              {/* Main Result Canvas Preview Area */}
+              <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center">
+                {result ? (
+                  <>
+                    <img
+                      id="rendered-main-img"
+                      src={activeRenderOption === 'b' ? result : (cleanResultBackup || result)}
+                      alt="Rendered result"
+                      className="h-full w-full object-contain select-none"
+                    />
+
+                    {/* Live HD Logo Overlays (Chest & Pant) for Option B Preview */}
+                    {activeRenderOption === 'b' && showHdLogoOverlay && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${hdLogoX}%`,
+                          top: `${hdLogoY}%`,
+                          transform: 'translate(-50%, -50%)',
+                          width: `${hdLogoScale}px`,
+                          pointerEvents: 'none',
+                          zIndex: 10,
+                        }}
+                      >
+                        <ShivNareshSvgLogo color={hdLogoColor} />
+                      </div>
+                    )}
+                    {activeRenderOption === 'b' && showPantLogo && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${pantLogoX}%`,
+                          top: `${pantLogoY}%`,
+                          transform: 'translate(-50%, -50%)',
+                          width: `${pantLogoScale}px`,
+                          pointerEvents: 'none',
+                          zIndex: 10,
+                        }}
+                      >
+                        <ShivNareshSvgLogo color={hdLogoColor} />
+                      </div>
+                    )}
+                  </>
+                ) : busy ? (
+                  <div className="flex flex-col items-center justify-center text-center p-6 text-white/40">
+                    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-3" />
+                    <p className="text-xs font-semibold text-emerald-400">Rendering sportswear model…</p>
+                    <p className="text-[10px] mt-1 opacity-60">Applying fabric, fidelity, and styling</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center p-6 text-white/30">
+                    <Sparkles className="h-10 w-10 mb-2 opacity-50" />
+                    <p className="text-xs font-semibold">Your generated high-res model render will appear here</p>
+                    <p className="text-[10px] mt-1 opacity-60">Upload clothing & model reference to start</p>
+                  </div>
+                )}
+              </div>
 
               {/* Action Buttons bar & Option A / Option B Selector */}
               {result && (
