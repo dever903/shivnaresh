@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Move,
   Paperclip,
+  Plus,
   RefreshCw,
   RotateCcw,
   RotateCw,
@@ -179,83 +180,83 @@ export interface HoodPairFormat {
 export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
   {
     id: 'pair-1',
-    name: 'Format 1: Tracksuit Draped Hood',
-    badge: '90% Catalog Standard',
+    name: 'Format 1: Black-Red Cricket Windcheater (Hood-Down + 4cm Stand Collar)',
+    badge: 'Cricket Windcheater',
     icon: '🧥',
     frontThumb: '/hood-presets/pair1-front.webp',
     backThumb: '/hood-presets/pair1-back.webp',
-    tagline: 'High-Zip Front + Tapered Triangular Back Hood',
-    frontTitle: 'Front: High-Zip Stand Collar + Hood Behind Neck',
-    frontDesc: 'Clean high athletic stand collar with hood neatly folded resting behind the neck.',
-    backTitle: 'Back: Tapered Triangular Hood Down Spine',
-    backDesc: 'Soft triangular hood hanging neatly along center spine between shoulder blades.',
-    frontPrompt: 'ATHLETIC HOODED TRACKSUIT (FRONT VIEW): Athletic high-zip stand collar with hood neatly resting behind the neck; clean frontal sportswear catalog presentation. ',
-    backPrompt: 'ATHLETIC HOODED TRACKSUIT (BACK VIEW): Soft tapered triangular hood draped neatly down the center spine between shoulder blades, hanging flat along the upper back. The back of the hood and nape attachment must be crisp and clearly visible. ',
-    recommendedFor: 'Standard Shiv-Naresh tracksuits & jackets with hoods',
+    tagline: '4cm Stand Collar + Pointed Kite Hood Back',
+    frontTitle: 'Front: 4cm Stand Collar + Hood Folded Behind Neck',
+    frontDesc: 'Zip to top, throat 3cm visible, hood bulk only behind neck. Cap crown keeps 2cm gap above collar.',
+    backTitle: 'Back: Pointed Kite Hood Between Shoulder Blades',
+    backDesc: 'Pointed kite shape lying flat between blades, tip mid-blade, 3cm clean nape skin above collar.',
+    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, 7 cm curved brim, tonal black stitching, small tonal embroidered chevron mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. COLLAR STATE: short matte black stand collar 4 cm tall around throat, full black zip closed to top, throat 3 cm visible, hood folded away flat behind neck only. Cap crown keeps 2 cm gap above collar. GARMENT: black lightweight windcheater, silver-white halftone dot chevron into centre V, dissolving into deep red gradient across lower third, raglan sleeves, elasticated cuffs, white SHIV NARESH wordmark on right chest. Black straight track pants with small white panther logo on left thigh. ',
+    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, strap opening and metal slider centred on nape. Band rests 2 cm above hairline leaving 3 cm clean nape skin above collar. COLLAR STATE: hood folded down flat into pointed kite shape lying between shoulder blades, tip ending at mid-shoulder-blade, no hood on shoulders. Short matte black stand collar at nape with clean seam, 3 cm bare nape skin between cap band and collar. GARMENT: plain black back panel with no print, raglan seams, black straight track pants plain from behind. ',
+    recommendedFor: 'Windcheaters & tracksuits with foldable/draped hoods (7924 / 7925 style)',
   },
   {
     id: 'pair-2',
-    name: 'Format 2: Classic Stand Collar (No Hood)',
+    name: 'Format 2: White Track Jacket Tape-Print (5cm Stand Collar, 100% Hoodless)',
     badge: '100% Hoodless',
     icon: '👔',
     frontThumb: '/hood-presets/pair2-front.webp',
     backThumb: '/hood-presets/pair2-back.webp',
-    tagline: 'Clean Stand Collar Front + Smooth Nape Collar Back',
-    frontTitle: 'Front: Athletic Stand Collar (No Hood)',
-    frontDesc: 'High-zip stand collar, sleek zipper closure, completely collar-only with NO hood.',
+    tagline: '5cm Black Stand Collar + Smooth Nape Back (NO Hood)',
+    frontTitle: 'Front: 5cm Athletic Stand Collar (No Hood)',
+    frontDesc: '5cm black stand collar upright, full zip closed, NO hood anywhere on garment, throat visible.',
     backTitle: 'Back: Smooth Nape Collar (No Hood)',
-    backDesc: 'Crisp stand-up collar across nape of neck, completely smooth upper back with zero hood.',
-    frontPrompt: 'CLASSIC ZIP JACKET (FRONT VIEW): Clean athletic high-neck stand collar, sleek zipper closure, completely collar-only with NO hood attachment. ',
-    backPrompt: 'CLASSIC ZIP JACKET (BACK VIEW): Clean athletic stand collar sitting crisp across the nape of the neck, smooth upper back panel, 100% hoodless with zero hood or draped fabric. ',
-    recommendedFor: 'Classic zippered tracksuits & warmup jackets without hoods',
+    backDesc: '5cm collar sitting low on nape, hairline 2cm above it, 100% hoodless with clean smooth back panel.',
+    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small white embroidered mark on front-left panel. COLLAR STATE: 5 cm black stand collar standing upright, full black zip closed to top, completely 100% hoodless with NO hood anywhere on this garment. 3 cm throat visible. Cap crown keeps 2 cm gap above collar. GARMENT: white matte lightweight track jacket body, black raglan shoulder yoke, geometric tape-line sleeves, white block lettering down right sleeve near cuff, dark charcoal track pants with white SHIV NARESH logo on left thigh. ',
+    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, slider centred on occiput, band rests 2 cm above hairline with 3 cm clean nape skin visible. COLLAR STATE: 5 cm black stand collar sitting low on nape, hairline 2 cm above it, NO hood on this garment, nape clean with zero fabric bunching. Cap band and collar never touch. GARMENT: plain white back panel, black raglan shoulder yoke, tape-line print continuing around sleeves, dark charcoal track pants plain from behind. ',
+    recommendedFor: 'Classic zippered track jackets without hoods (8625 / 8628 style)',
   },
   {
     id: 'pair-3',
-    name: 'Format 3: Active Training (Hood Worn UP)',
-    badge: 'Sports / Training',
+    name: 'Format 3: Funnel Collar Windcheater (7cm Tall Funnel + Packable Hood Flat)',
+    badge: 'Tall Funnel Collar',
     icon: '🏃‍♂️',
     frontThumb: '/hood-presets/pair3-front.webp',
     backThumb: '/hood-presets/pair3-back.webp',
-    tagline: 'Hood Up Framing Face + Full Hood Covering Head',
-    frontTitle: 'Front: Hood Up Framing Face',
-    frontDesc: 'Model wears hood up over head, neatly framing face in an active training stance.',
-    backTitle: 'Back: Full Hood Covering Head',
-    backDesc: 'Full athletic hood worn up covering head from behind with crisp fabric folds.',
-    frontPrompt: 'ACTIVE SPORTS (HOOD UP - FRONT VIEW): Model wearing the hood up over the head, neatly framing the face in an active athletic warm-up pose. ',
-    backPrompt: 'ACTIVE SPORTS (HOOD UP - BACK VIEW): Full hood worn up completely covering the head from behind, showing the natural athletic fabric contours of the hood across the back of the head. ',
-    recommendedFor: 'Running, outdoor training & athletic workout poses',
+    tagline: '7cm Chin Funnel Collar + Packable Hood Laid Flat Back',
+    frontTitle: 'Front: 7cm Tall Funnel Collar Touching Chin',
+    frontDesc: '7cm funnel collar zipped to top, touching underside of chin, throat covered, packable hood folded flat.',
+    backTitle: 'Back: Packable Hood Folded Flat Down Upper Back',
+    backDesc: 'Packable hood folded DOWN across upper back in soft pointed shape, 7cm funnel collar visible at nape.',
+    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, thin red embroidered arc on front-left panel. COLLAR STATE: 7 cm tall black funnel stand collar zipped completely to top touching underside of chin, throat fully covered, packable hood folded away flat behind neck. Only jaw, chin and 2 cm of neck visible. Cap crown stays 2 cm clear of funnel collar behind. GARMENT: black windcheater with silver-white dot chevron into red gradient, white SHIV NARESH wordmark on right chest, black straight track pants. ',
+    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap, strap slider centred on occiput. Band rests 2 cm above hairline leaving 3 cm clean nape skin. Cap worn OUTSIDE and ABOVE the hood, never tucked in. COLLAR / HOOD STATE: packable hood folded DOWN flat across upper back in soft pointed shape with two natural fold lines, tip landing between shoulder blades. 7 cm funnel collar visible at nape with clean centre seam. GARMENT: plain black back panel with no print, straight track pants plain from behind. ',
+    recommendedFor: 'Technical windcheaters with tall funnel neck & packable hood (8776 / 8777 style)',
   },
   {
     id: 'pair-4',
-    name: 'Format 4: Windcheater Wide Draped Hood',
-    badge: 'Cape Draped',
+    name: 'Format 4: Royal Blue Tracksuit (4.5cm Collar + Flat Pointed Hood Fold)',
+    badge: 'Tonal Tracksuit',
     icon: '🌧️',
     frontThumb: '/hood-presets/pair4-front.webp',
     backThumb: '/hood-presets/pair4-back.webp',
-    tagline: 'Weather Collar Front + Wide Draped Cape Hood Back',
-    frontTitle: 'Front: Weather Collar with Relaxed Hood',
-    frontDesc: 'Full-zip technical windcheater collar with wide hood resting relaxed across neck.',
-    backTitle: 'Back: Wide Cape Hood on Upper Back',
-    backDesc: 'Wide athletic hood draped flat across the upper back and shoulder blades.',
-    frontPrompt: 'WINDCHEATER JACKET (FRONT VIEW): High-neck weather-resistant collar with wide hood resting relaxed behind the neck and shoulders. ',
-    backPrompt: 'WINDCHEATER JACKET (BACK VIEW): Wide athletic hood draped flat across the upper back and shoulder blades in a relaxed windcheater drape. ',
-    recommendedFor: 'Nylon windcheaters, rainwear & relaxed travel tracksuits',
+    tagline: '4.5cm Blue Stand Collar + Flat Center-Fold Hood Back',
+    frontTitle: 'Front: 4.5cm Stand Collar + Hood Folded Behind Neck',
+    frontDesc: '4.5cm royal blue stand collar upright, full blue zip to top, throat 3cm visible, hood folded behind.',
+    backTitle: 'Back: Flat Pointed Hood Fold with Defined Center Line',
+    backDesc: 'Hood flat across upper back, pointed tip at mid-blade, 4.5cm stand collar at nape, 2.5cm nape skin.',
+    frontPrompt: 'CAP: royal blue matte 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small light-blue embroidered mark on front-left panel. COLLAR STATE: 4.5 cm royal blue stand collar upright, full blue zip closed to top with blue pull, throat 3 cm visible above zip, hood folded behind neck only. Cap crown keeps 2 cm gap above collar. GARMENT: royal blue matte lightweight tracksuit jacket, tonal light-blue topstitching, small tonal embroidered logo on left chest (viewer right), second small logo on upper left sleeve. Matching royal blue track pants with light-blue embroidery on left thigh. ',
+    backPrompt: 'CAP FROM BEHIND: royal blue matte 6-panel baseball cap seen from rear three-quarter, band rests on occipital bone 2 cm above hairline leaving 2.5 cm clean nape skin above collar. COLLAR / HOOD STATE: hood folded down flat across upper back in pointed shape with defined centre fold, tip at mid-shoulder-blade, no volume on shoulders. 4.5 cm stand collar visible at nape. Clear 2 cm gap between cap band and collar top. GARMENT: royal blue back panel plain with no print, tonal raglan seams, straight hem, royal blue track pants tonal from behind. ',
+    recommendedFor: 'Tonal lightweight polyester tracksuits (10365 / 10366 style)',
   },
   {
     id: 'pair-5',
-    name: 'Format 5: Pullover Hoodie (Chest Drawstrings)',
-    badge: 'Casual Sports',
+    name: 'Format 5: GLA University Fleece Hoodie (Thick Nape Hood Roll + Chest Drawstrings)',
+    badge: 'Fleece Hoodie',
     icon: '🎽',
     frontThumb: '/hood-presets/pair5-front.webp',
     backThumb: '/hood-presets/pair5-back.webp',
-    tagline: 'Pullover Drawstrings Front + Soft Gathered Fleece Back',
-    frontTitle: 'Front: Pullover Neck + Hanging Drawstrings',
-    frontDesc: 'Classic hoodie neckline with dual drawstrings hanging down over the chest.',
-    backTitle: 'Back: Soft Gathered Fleece Hood',
-    backDesc: 'Soft gathered fleece hood draped naturally across upper back between shoulders.',
-    frontPrompt: 'PULLOVER HOODIE (FRONT VIEW): Classic hoodie neckline with dual drawstrings hanging down over the chest, soft relaxed collar fit. ',
-    backPrompt: 'PULLOVER HOODIE (BACK VIEW): Soft gathered fleece hood draped naturally across the upper back between shoulders. ',
-    recommendedFor: 'Cotton/fleece pullover hoodies & sweatshirts',
+    tagline: 'Rolled Inner Collar & Drawstrings + Thick Nape Hood Roll Back',
+    frontTitle: 'Front: Soft Rolled Collar Well + Dual Chest Drawstrings',
+    frontDesc: 'Hood is DOWN, inner lining rolled into soft 3cm collar well, 2 black drawcords hanging straight down.',
+    backTitle: 'Back: Thick Fleece Hood Roll at Nape (Cap Sits Above)',
+    backDesc: 'Thick fleece roll at nape (raised 3cm ridge), rounded tip between blades. Cap rests ABOVE roll, strap clear.',
+    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small yellow embroidered mark on front-left panel. Cap band positioned 3 cm higher at back so crown does not sit inside hood opening. COLLAR STATE: hood is DOWN, inner lining rolled into soft 3 cm thick collar around neck forming visible well behind head, two black drawcords hanging straight down from eyelets onto chest, no hood on head, none on shoulders. GARMENT: black heavy cotton-fleece hoodie, dropped shoulder seams, ribbed cuffs and hem, large front print arched yellow "GLA", green and gold shield crest, arched yellow "UNIVERSITY" below. Khaki track pants with green and gold side stripe. ',
+    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear three-quarter, strap opening and metal slider clearly visible above hood roll. Band rests on occiput with 2.5 cm clean nape skin visible ABOVE fleece hood roll, cap sits fully OUTSIDE and ABOVE the hood, strap never disappears into fleece. HOOD STATE: thick black fleece hood lying down across upper back, inner lining rolled at nape forming raised 3 cm ridge, hood tip falling into soft rounded point between shoulder blades, one drawcord loop visible at right side of neck. Khaki track pants with green and gold side stripe, dark sneakers. ',
+    recommendedFor: 'Heavy cotton-fleece pullover hoodies & sweatshirts (10627 / 10628 style)',
   },
 ];
 
@@ -2432,6 +2433,25 @@ function MySetsPanel({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Empty state for Saved Sets */}
+          {filter === 'sets' && uploadSets.length === 0 && (
+            <div className={`rounded-2xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.01]'}`}>
+              <Folder className="h-8 w-8 mx-auto mb-2 text-current/30" />
+              <p className="text-sm font-semibold">No saved outfit sets found.</p>
+              <p className="text-xs opacity-50 mt-1 max-w-sm mx-auto mb-4">
+                Save your favorite paired combinations of garments and models for quick 1-click loading.
+              </p>
+              <button
+                type="button"
+                onClick={() => setFormOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#e5373f] text-white text-xs font-semibold hover:bg-[#d42d35] transition shadow-xs cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>+ Create First Outfit Set</span>
+              </button>
             </div>
           )}
 
@@ -5905,14 +5925,75 @@ export default function Design() {
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
   const customLogoUrl: string | null = null;
-  // Chest logo: realistic 22px width, x=43.5% (right on the chest pocket area, avoiding zipper at 50%), y=20.5%
-  const [hdLogoScale, setHdLogoScale] = useState<number>(22);
-  const [hdLogoX, setHdLogoX] = useState<number>(43.5);
-  const [hdLogoY, setHdLogoY] = useState<number>(20.5);
-  // Pant thigh logo: 18px width, x=63%, y=61%
-  const [pantLogoScale, setPantLogoScale] = useState<number>(18);
-  const [pantLogoX, setPantLogoX] = useState<number>(63);
-  const [pantLogoY, setPantLogoY] = useState<number>(61);
+  // Chest logo: realistic 24px width, x=43.5% (right on chest pocket area), y=20.5%
+  const [hdLogoScale, setHdLogoScale] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_chest_logo_scale');
+      if (v) return Number(v);
+    } catch { }
+    return 24;
+  });
+  const [hdLogoX, setHdLogoX] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_chest_logo_x');
+      if (v) return Number(v);
+    } catch { }
+    return 43.5;
+  });
+  const [hdLogoY, setHdLogoY] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_chest_logo_y');
+      if (v) return Number(v);
+    } catch { }
+    return 20.5;
+  });
+  // Pant thigh logo: 20px width, x=63%, y=61%
+  const [pantLogoScale, setPantLogoScale] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_pant_logo_scale');
+      if (v) return Number(v);
+    } catch { }
+    return 20;
+  });
+  const [pantLogoX, setPantLogoX] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_pant_logo_x');
+      if (v) return Number(v);
+    } catch { }
+    return 63;
+  });
+  const [pantLogoY, setPantLogoY] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_pant_logo_y');
+      if (v) return Number(v);
+    } catch { }
+    return 61;
+  });
+
+  const updateChestScale = (val: number) => {
+    setHdLogoScale(val);
+    try { localStorage.setItem('shivnaresh_chest_logo_scale', String(val)); } catch { }
+  };
+  const updateChestX = (val: number) => {
+    setHdLogoX(val);
+    try { localStorage.setItem('shivnaresh_chest_logo_x', String(val)); } catch { }
+  };
+  const updateChestY = (val: number) => {
+    setHdLogoY(val);
+    try { localStorage.setItem('shivnaresh_chest_logo_y', String(val)); } catch { }
+  };
+  const updatePantScale = (val: number) => {
+    setPantLogoScale(val);
+    try { localStorage.setItem('shivnaresh_pant_logo_scale', String(val)); } catch { }
+  };
+  const updatePantX = (val: number) => {
+    setPantLogoX(val);
+    try { localStorage.setItem('shivnaresh_pant_logo_x', String(val)); } catch { }
+  };
+  const updatePantY = (val: number) => {
+    setPantLogoY(val);
+    try { localStorage.setItem('shivnaresh_pant_logo_y', String(val)); } catch { }
+  };
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -6234,7 +6315,7 @@ export default function Design() {
   const [isEditingRender, setIsEditingRender] = useState(false);
   const editRefInput = useRef<HTMLInputElement>(null);
 
-  const [tab, setTab] = useState<'library' | 'uploads'>('library');
+  const [tab, setTab] = useState<'library' | 'uploads' | 'sets'>('library');
   const [job, setJob] = useState<Job | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -6833,6 +6914,8 @@ export default function Design() {
       pantX?: number;
       pantY?: number;
       pantScale?: number;
+      targetWidth?: number;
+      targetHeight?: number;
     }
   ): Promise<string> {
     const color = options?.color || hdLogoColor || '#ffffff';
@@ -6853,13 +6936,36 @@ export default function Design() {
       baseImg.src = baseImgUrl;
     });
 
+    // High-Resolution 1807x3000 Standard
+    const targetW = options?.targetWidth || Math.max(1807, baseImg.naturalWidth || 1024);
+    const targetH = options?.targetHeight || Math.max(3000, baseImg.naturalHeight || 1024);
+
     const canvas = document.createElement('canvas');
-    canvas.width = baseImg.naturalWidth || baseImg.width || 1024;
-    canvas.height = baseImg.naturalHeight || baseImg.height || 1024;
+    canvas.width = targetW;
+    canvas.height = targetH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return baseImgUrl;
 
-    ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Scale and center base image proportionally
+    const srcW = baseImg.naturalWidth || 1024;
+    const srcH = baseImg.naturalHeight || 1024;
+    const sRatio = Math.max(targetW / srcW, targetH / srcH);
+    const renderW = Math.round(srcW * sRatio);
+    const renderH = Math.round(srcH * sRatio);
+    const offX = Math.round((targetW - renderW) / 2);
+    const offY = Math.round((targetH - renderH) / 2);
+    ctx.drawImage(baseImg, offX, offY, renderW, renderH);
+
+    // Get displayed width of the preview image on screen to calculate exact physical scale
+    const imgElem = document.getElementById('rendered-main-img') as HTMLImageElement | null;
+    const dispW = imgElem?.clientWidth || 380;
+
+    // Direct proportional scale
+    const chestRatio = Math.max(0.02, Math.min(0.40, scale / (dispW || 380)));
+    const pantRatio = Math.max(0.02, Math.min(0.40, pScale / (dispW || 380)));
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
@@ -6869,7 +6975,7 @@ export default function Design() {
       logoImg.src = activeCustom;
     } else {
       const cleanColor = color.replace(/[<>"'&]/g, '');
-      const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1080" height="630">
+      const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
         <g transform="translate(14, 15) scale(1.0)">
           <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
         </g>
@@ -6897,19 +7003,19 @@ export default function Design() {
 
     // 1. Stamp Chest Logo (if enabled)
     if (showHdLogoOverlay) {
-      const logoW = (canvas.width * (scale * 1.5)) / 1000;
-      const logoH = (logoW * (logoImg.naturalHeight || 210)) / (logoImg.naturalWidth || 360);
-      const posX = (canvas.width * x) / 100 - logoW / 2;
-      const posY = (canvas.height * y) / 100 - logoH / 2;
+      const logoW = Math.round(canvas.width * chestRatio);
+      const logoH = Math.round((logoW * 210) / 360);
+      const posX = Math.round((canvas.width * x) / 100 - logoW / 2);
+      const posY = Math.round((canvas.height * y) / 100 - logoH / 2);
       ctx.drawImage(logoImg, posX, posY, logoW, logoH);
     }
 
     // 2. Stamp Pant Thigh Logo (if enabled)
     if (stampPant) {
-      const pLogoW = (canvas.width * (pScale * 1.5)) / 1000;
-      const pLogoH = (pLogoW * (logoImg.naturalHeight || 210)) / (logoImg.naturalWidth || 360);
-      const pPosX = (canvas.width * pX) / 100 - pLogoW / 2;
-      const pPosY = (canvas.height * pY) / 100 - pLogoH / 2;
+      const pLogoW = Math.round(canvas.width * pantRatio);
+      const pLogoH = Math.round((pLogoW * 210) / 360);
+      const pPosX = Math.round((canvas.width * pX) / 100 - pLogoW / 2);
+      const pPosY = Math.round((canvas.height * pY) / 100 - pLogoH / 2);
       ctx.drawImage(logoImg, pPosX, pPosY, pLogoW, pLogoH);
     }
 
@@ -9083,6 +9189,57 @@ export default function Design() {
                     </div>
                   )}
 
+                  {/* Saved Outfit Sets Archive */}
+                  {uploadSets.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
+                          <span>📁 Saved Sets Archive ({uploadSets.length})</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPageView('my-sets')}
+                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Manage Sets</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
+                      <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+                        {uploadSets.map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handleUseSet(s)}
+                            className={`shrink-0 w-32 rounded-xl border p-2 text-left transition-all cursor-pointer group ${isLight
+                              ? 'border-gray-200 bg-white hover:border-[#e5373f] hover:shadow-sm'
+                              : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                              }`}
+                            title={`Load Set #${s.setNumber}: ${s.clothName || 'Garment'} + ${s.modelName || 'Model'}`}
+                          >
+                            <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1">
+                              <span>Set #{s.setNumber}</span>
+                              <span className="text-[8px] opacity-60 font-normal">1-Click</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 rounded-lg overflow-hidden bg-black/40">
+                              {s.clothUrl ? (
+                                <img src={s.clothUrl} alt="" className="aspect-[3/4] w-full object-cover" />
+                              ) : (
+                                <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👕</div>
+                              )}
+                              {s.modelUrl ? (
+                                <img src={s.modelUrl} alt="" className="aspect-[3/4] w-full object-cover" />
+                              ) : (
+                                <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👤</div>
+                              )}
+                            </div>
+                            <p className="text-[9px] truncate opacity-70 mt-1 font-medium">{s.clothName || 'Garment'}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Quick Pick from Previous Clothes */}
                   {previousGarmentsList.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-white/10">
@@ -9341,6 +9498,13 @@ export default function Design() {
                         className={tab === 'uploads' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
                       >
                         Uploads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab('sets')}
+                        className={tab === 'sets' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                      >
+                        Saved Sets ({uploadSets.length})
                       </button>
                       <button
                         type="button"
@@ -9626,6 +9790,72 @@ export default function Design() {
                         </div>
                       ) : (
                         <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>
+                      ))}
+
+                    {tab === 'sets' &&
+                      (uploadSets.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {uploadSets.map((s) => {
+                            const isSelected =
+                              selectedModels.some((p) => p && p.url === s.modelUrl) ||
+                              model?.url === s.modelUrl;
+                            return (
+                              <div
+                                key={s.id}
+                                className={`rounded-xl border p-2.5 transition-all text-left ${isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 bg-[#e5373f]/5'
+                                  : isLight
+                                    ? 'border-gray-200 bg-white hover:border-[#e5373f]'
+                                    : 'border-white/10 bg-black/40 hover:border-[#e5373f]'
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1.5">
+                                  <span>Set #{s.setNumber}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUseSet(s)}
+                                    className="px-2 py-0.5 rounded bg-[#e5373f] text-white hover:bg-[#d42d35] text-[9px] font-bold shadow-xs cursor-pointer"
+                                    title="Load both garment and model into studio"
+                                  >
+                                    Load Set
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5 rounded-lg overflow-hidden bg-black/40 mb-1.5">
+                                  {s.clothUrl ? (
+                                    <div className="relative">
+                                      <img src={s.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                                      <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] text-white text-center py-0.5 truncate px-0.5">Cloth</span>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Cloth</div>
+                                  )}
+                                  {s.modelUrl ? (
+                                    <div
+                                      onClick={() => {
+                                        setModel({ url: s.modelUrl, name: s.modelName || 'Set Model' });
+                                        toggleModelSelection({ url: s.modelUrl, name: s.modelName || 'Set Model' });
+                                      }}
+                                      className="relative cursor-pointer hover:opacity-90 transition-opacity"
+                                      title="Click to select this model"
+                                    >
+                                      <img src={s.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                                      <span className="absolute bottom-0 inset-x-0 bg-[#e5373f]/80 text-[8px] text-white text-center py-0.5 font-bold">Pick Model</span>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Model</div>
+                                  )}
+                                </div>
+                                <p className="text-[10px] font-semibold truncate">{s.clothName || 'Garment'} + {s.modelName || 'Model'}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className={`py-8 text-center rounded-xl border border-dashed ${isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'}`}>
+                          <Folder className="h-6 w-6 mx-auto mb-1 opacity-40" />
+                          <p className="text-xs font-semibold">No saved outfit sets found.</p>
+                          <p className="text-[10px] opacity-70 mt-0.5">Go to "My Sets" tab at top or save an outfit to quickly access sets here.</p>
+                        </div>
                       ))}
                   </div>
                 </div>
@@ -10245,12 +10475,12 @@ export default function Design() {
                         type="button"
                         onClick={() => {
                           if (activeLogoTarget === 'chest') {
-                            setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22); setShowHdLogoOverlay(true);
+                            updateChestX(43.5); updateChestY(20.5); updateChestScale(22); setShowHdLogoOverlay(true);
                           } else {
-                            setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18); setShowPantLogo(true);
+                            updatePantX(63); updatePantY(61); updatePantScale(18); setShowPantLogo(true);
                           }
                         }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30"
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
                       >
                         🎯 Standard Spot
                       </button>
@@ -10259,10 +10489,10 @@ export default function Design() {
                         onClick={() => {
                           setShowHdLogoOverlay(true);
                           setShowPantLogo(true);
-                          setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
-                          setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
+                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                          updatePantX(63); updatePantY(61); updatePantScale(18);
                         }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/30 hover:bg-emerald-500/40 text-emerald-300"
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/30 hover:bg-emerald-500/40 text-emerald-300 cursor-pointer"
                         title="Position both Chest and Pant logos for full tracksuit"
                       >
                         🥋 Both Logos
@@ -10270,53 +10500,104 @@ export default function Design() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-3 text-[11px]">
                     <span className="text-[10px] font-bold text-emerald-400">
                       {activeLogoTarget === 'chest' ? '👕 Chest:' : '👖 Pant:'}
                     </span>
-                    <label className="flex items-center gap-1">
-                      <span>Size</span>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] opacity-75 font-medium">Size</span>
                       <input
                         type="range"
-                        min={12}
-                        max={50}
+                        min={10}
+                        max={60}
+                        step={1}
                         value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          if (activeLogoTarget === 'chest') setHdLogoScale(val);
-                          else setPantLogoScale(val);
+                          if (activeLogoTarget === 'chest') updateChestScale(val);
+                          else updatePantScale(val);
                         }}
-                        className="w-16 accent-emerald-500 cursor-pointer"
+                        className="w-14 accent-emerald-500 cursor-pointer"
+                      />
+                      <input
+                        type="number"
+                        min={10}
+                        max={60}
+                        step={1}
+                        value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) {
+                            if (activeLogoTarget === 'chest') updateChestScale(val);
+                            else updatePantScale(val);
+                          }
+                        }}
+                        className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                        title="Exact Size number"
                       />
                     </label>
-                    <label className="flex items-center gap-1">
-                      <span>X</span>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] opacity-75 font-medium">X %</span>
                       <input
                         type="range"
                         min={5}
                         max={95}
+                        step={0.5}
                         value={activeLogoTarget === 'chest' ? hdLogoX : pantLogoX}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          if (activeLogoTarget === 'chest') setHdLogoX(val);
-                          else setPantLogoX(val);
+                          if (activeLogoTarget === 'chest') updateChestX(val);
+                          else updatePantX(val);
                         }}
                         className="w-14 accent-emerald-500 cursor-pointer"
                       />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={activeLogoTarget === 'chest' ? hdLogoX : pantLogoX}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) {
+                            if (activeLogoTarget === 'chest') updateChestX(val);
+                            else updatePantX(val);
+                          }
+                        }}
+                        className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                        title="Exact X horizontal position in %"
+                      />
                     </label>
-                    <label className="flex items-center gap-1">
-                      <span>Y</span>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] opacity-75 font-medium">Y %</span>
                       <input
                         type="range"
                         min={5}
                         max={95}
+                        step={0.5}
                         value={activeLogoTarget === 'chest' ? hdLogoY : pantLogoY}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          if (activeLogoTarget === 'chest') setHdLogoY(val);
-                          else setPantLogoY(val);
+                          if (activeLogoTarget === 'chest') updateChestY(val);
+                          else updatePantY(val);
                         }}
                         className="w-14 accent-emerald-500 cursor-pointer"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={activeLogoTarget === 'chest' ? hdLogoY : pantLogoY}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) {
+                            if (activeLogoTarget === 'chest') updateChestY(val);
+                            else updatePantY(val);
+                          }
+                        }}
+                        className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                        title="Exact Y vertical position in %"
                       />
                     </label>
                     <button

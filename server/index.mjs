@@ -313,8 +313,7 @@ const readUploadSets = async () => {
     const db = await getMongoDb();
     if (db) {
       const doc = await db.collection('app_data').findOne({ _id: 'upload_sets' });
-      if (doc && Array.isArray(doc.sets) && doc.sets.length > 0) {
-        void writeJson(UPLOAD_SETS_FILE, doc.sets).catch(() => {});
+      if (doc && Array.isArray(doc.sets)) {
         return doc.sets;
       }
     }
@@ -3365,27 +3364,47 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
-      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog
+      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog (Engineered from Cap & Collar Prompt Pack)
       const HOOD_PAIRED_RULES = {
         'pair-1': {
-          front: 'ATHLETIC HOODED TRACKSUIT (FRONT VIEW): Athletic high-zip stand collar with hood neatly resting behind the neck; clean frontal sportswear catalog presentation. ',
-          back: 'ATHLETIC HOODED TRACKSUIT (BACK VIEW): Soft tapered triangular hood draped neatly down the center spine between shoulder blades, hanging flat along the upper back. The back of the hood and nape attachment must be crisp and clearly visible. ',
+          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown (front height 9 cm), 7 cm curved brim, tonal black stitching, small tonal embroidered chevron mark on front-left panel, self-fabric covered top button, metal strap slider. Fit: cap band 1.5 cm above eyebrows level, brim 15 degrees down. ' +
+                 'COLLAR STATE: short matte black stand collar 4 cm tall standing up around throat, full black zip closed to very top of collar, throat 3 cm visible, hood folded flat behind neck only in pointed kite shape on upper back, never on shoulders. Cap crown keeps 2 cm gap above collar. ' +
+                 'GARMENT: black lightweight windcheater, silver-white halftone dot chevron running from both shoulders into deep V at centre chest, dots dissolving into deep red gradient across lower third, dark red side panels, raglan sleeves, elasticated cuffs, white SHIV NARESH wordmark with sprinting panther icon on right chest. Black straight track pants with small white panther logo on left thigh, white running shoes with coral-orange heel counters. ',
+          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, both rear panels, strap opening and metal slider clearly visible centred on nape, brim pointing away from camera. Cap band rests on occipital bone 2 cm above hairline leaving 3 cm clean nape skin above collar. ' +
+                'COLLAR STATE: hood folded down flat into pointed kite shape lying between shoulder blades, tip ending at mid-shoulder-blade, no hood on shoulders, no bunching at sides. Short matte black stand collar standing at nape with clean seam, 3 cm bare nape skin between cap band and collar. ' +
+                'GARMENT: plain black back panel with no print, raglan seams from collar to underarm, elasticated cuffs, black hem band, narrow red and white vertical stripe at left side seam. Black straight track pants plain from behind. Front chevron print must not bleed onto back panel. ',
         },
         'pair-2': {
-          front: 'CLASSIC ZIP JACKET (FRONT VIEW): Clean athletic high-neck stand collar, sleek zipper closure, completely collar-only with NO hood attachment. ',
-          back: 'CLASSIC ZIP JACKET (BACK VIEW): Clean athletic stand collar sitting crisp across the nape of the neck, smooth upper back panel, 100% hoodless with zero hood or draped fabric. ',
+          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal black stitching, small white embroidered mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. ' +
+                 'COLLAR STATE: 5 cm black stand collar standing upright, full black zip closed to top of collar, completely 100% hoodless with NO hood anywhere on this garment. 3 cm throat visible above zip. Cap crown keeps 2 cm gap above collar. ' +
+                 'GARMENT: white matte lightweight track jacket body, black raglan shoulder yoke panels, sleeves fully covered in all-over white/grey geometric tape line print, black underarm side panels, white vertical block lettering down right sleeve near cuff, small black print near right shoulder seam, black zip, elasticated cuffs and hem. Dark charcoal track pants with white SHIV NARESH logo on left thigh, pale blue/mint sneakers. ',
+          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, rear panels, strap opening, slider centred on occiput, band rests 2 cm above hairline with 3 cm clean nape skin visible. ' +
+                'COLLAR STATE: 5 cm black stand collar sitting low on nape, hairline 2 cm above it, NO hood on this garment, nape clean with zero fabric bunching. Cap band and collar never touch. ' +
+                'GARMENT: plain white back panel, black raglan shoulder yoke running along top of shoulders, tape line print continuing around back of both sleeves, elasticated white hem band, no back print or logo. Dark charcoal track pants plain from behind. ',
         },
         'pair-3': {
-          front: 'ACTIVE SPORTS (HOOD UP - FRONT VIEW): Model wearing the hood up over the head, neatly framing the face in an active athletic warm-up pose. ',
-          back: 'ACTIVE SPORTS (HOOD UP - BACK VIEW): Full hood worn up completely covering the head from behind, showing the natural athletic fabric contours of the hood across the back of the head. ',
+          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, single thin red embroidered arc on front-left panel. Fit: band 1.5 cm above brows level, brim 15 degrees down, cap back stays 2 cm clear of funnel collar behind. ' +
+                 'COLLAR STATE: 7 cm tall black funnel stand collar zipped completely to top, standing upright and touching underside of chin, throat fully covered, packable hood folded away flat behind neck. Only jaw, chin and 2 cm of neck visible. ' +
+                 'GARMENT: black lightweight windcheater with silver-white halftone dot chevron from shoulders into centre V, dissolving into deep red gradient across lower third, black raglan sleeves with elasticated cuffs, straight hem, full black zip, white SHIV NARESH wordmark with panther icon on right chest. Black straight track pants with small white logo on left thigh, black low-top sneakers. ',
+          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap, rear panels and metal slider centred on occiput. Band rests 2 cm above nape hairline leaving 3 cm clean nape skin. Cap worn OUTSIDE and ABOVE the hood, never tucked into it. ' +
+                'COLLAR STATE: packable hood folded DOWN and laid flat across upper back in soft pointed shape with two natural fold lines, tip landing between shoulder blades, no volume on shoulders. 7 cm funnel collar visible at nape with clean centre-back seam. Clear 2 cm gap between cap band and collar. ' +
+                'GARMENT: plain black back panel with no print, raglan sleeve seams from collar to underarm, elasticated cuffs, straight hem, narrow red panel edge at right side seam. Black straight track pants plain from behind. ',
         },
         'pair-4': {
-          front: 'WINDCHEATER JACKET (FRONT VIEW): High-neck weather-resistant collar with wide hood resting relaxed behind the neck and shoulders. ',
-          back: 'WINDCHEATER JACKET (BACK VIEW): Wide athletic hood draped flat across the upper back and shoulder blades in a relaxed windcheater drape. ',
+          front: 'CAP: royal blue matte 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal royal-blue stitching, small light-blue embroidered mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. ' +
+                 'COLLAR STATE: 4.5 cm royal blue stand collar standing upright, full blue zip closed to top with blue pull, throat 3 cm visible above zip, hood folded away behind neck only. Cap crown keeps 2 cm gap above collar. ' +
+                 'GARMENT: royal blue matte lightweight tracksuit jacket, tonal light-blue topstitching along raglan seams and side seams, small tonal embroidered logo on left chest (viewer right), second small tonal logo on upper left sleeve, elasticated cuffs, straight hem, full blue zip. Matching royal blue track pants with light-blue embroidery on left thigh, light blue/white mesh trainers. ',
+          back: 'CAP FROM BEHIND: royal blue matte 6-panel baseball cap seen from rear, rear panels, strap opening and slider visible on nape side. Band rests on occipital bone 2 cm above hairline leaving 2.5 cm clean nape skin above collar. ' +
+                'COLLAR STATE: hood folded down and lying flat across upper back in pointed shape with defined centre fold, tip at mid-shoulder-blade, no volume on shoulders. 4.5 cm stand collar visible at nape with clean centre-back seam. Clear 2 cm gap between cap band and collar top. ' +
+                'GARMENT: royal blue back panel plain with no print, tonal raglan seam from collar to underarm, self-colour topstitching, subtle tonal embossed tape pattern along right shoulder-back seam, elasticated cuffs, straight hem. Royal blue track pants tonal from behind. ',
         },
         'pair-5': {
-          front: 'PULLOVER HOODIE (FRONT VIEW): Classic hoodie neckline with dual drawstrings hanging down over the chest, soft relaxed collar fit. ',
-          back: 'PULLOVER HOODIE (BACK VIEW): Soft gathered fleece hood draped naturally across the upper back between shoulders. ',
+          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal black stitching, one small yellow embroidered mark on front-left panel. Fit: band 1.5 cm above brows level, brim 15 degrees down. Cap band positioned 3 cm higher at back so crown does not sit inside hood opening. ' +
+                 'COLLAR STATE: the hood is DOWN, inner lining rolled into soft 3 cm thick collar around neck forming visible well behind head, two black drawcords hanging straight down from eyelets onto chest, no hood on head, none on shoulders. ' +
+                 'GARMENT: black heavy cotton-fleece hoodie, dropped shoulder seams, ribbed black cuffs and hem, large front print arched yellow "GLA", green and gold split shield crest with navy knight silhouette, arched yellow "UNIVERSITY" below, small yellow print near each sleeve cuff. Khaki track pants with green and gold side stripe and small shield patch on left thigh. ',
+          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, rear panels, strap opening and metal slider clearly visible above hood roll. Band rests on occiput with 2.5 cm clean nape skin visible ABOVE fleece hood roll, cap sits fully OUTSIDE and ABOVE the hood, strap never disappears into fleece. ' +
+                'HOOD STATE: thick black fleece hood lying down across upper back, inner lining rolled at nape forming raised 3 cm ridge, hood tip falling into soft rounded point between shoulder blades, one drawcord loop visible at right side of neck, no hood on head, no bunching at sides. ' +
+                'GARMENT: plain black fleece back panel with no print, dropped shoulder seams, ribbed black cuffs and hem, visible fleece texture with soft sheen. Khaki track pants with green and gold vertical side stripe, dark sneakers. ',
         },
       };
 
@@ -3410,13 +3429,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, hood preservation, and all-over pattern synthesis
       const dynamicFidelityRules =
         'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
-        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, hands, shoes, and props (balls, equipment) with 100% fidelity. ' +
+        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, and shoes with 100% fidelity. ' +
+        'SPORTSWEAR PROPS NEGATIVE CONSTRAINT: Strictly NO balls (no basketball, soccer ball, cricket ball), no racquets, no sports equipment, no handheld props. Model hands must be completely free, natural, or in pockets. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around the zipper seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. The geometric dot gradient grid and stripe patterns must wrap seamlessly following the anatomical 3D cylindrical curvature and perspective foreshortening of the athlete’s chest, torso, and ribcage. Render professional commercial sportswear studio lighting: crisp directional key lighting, soft natural contact shadows in fabric folds, realistic ambient occlusion, and subtle micro-specular sheen characteristic of performance moisture-wicking polyester/nylon sportswear fabric. ' +
         hoodInstruction +
-        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/hood style, closures (zipper with realistic zipper pull), textures, and printed graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
+        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length, collar/hood style, closures (zipper with realistic zipper pull), textures, and printed graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
         'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
         'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ' +
-        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only the authentic brand logos present on the garment reference photos in their exact single position (one on the chest, one on the thigh). Do NOT invent duplicate or repeated second logos. ';
+        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only the authentic brand logos present on the garment reference photos in their exact single position (one on the chest, one on the thigh). Do NOT invent duplicate or repeated second logos. ' +
+        'UNIVERSAL NEGATIVE PROMPT: no bare head, no missing cap, no bucket hat, no beanie, no snapback flat brim, no trucker mesh, no visor, no cap floating above the head, no cap covering the collar, no hood worn up, no hood resting on the shoulders, no changed garment colour, no invented print, no extra logos, no mirrored logo, no ball, no props in hands, no extra fingers, no warped zipper, no melted collar, no different face, no plastic skin, no cartoon, no text artefacts, no watermark, no logo distortion. ';
 
       agentPrompt += dynamicFidelityRules;
 
@@ -4162,14 +4183,17 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
 /* --------------------------------------------------- upload sets */
 app.get('/api/upload-sets', auth.requireUser, async (req, res) => {
   try {
-    const currentUserId = String(req.user._id);
+    const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
-    const sets = (await readUploadSets()).filter((s) => {
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const allSets = await readUploadSets();
+    const sets = allSets.filter((s) => {
+      if (isAdmin) return true;
       const sUserId = s.userId ? String(s.userId) : '';
       const sEmail = (s.userEmail || '').toLowerCase().trim();
-      return (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
+      return (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail) || (!sUserId && !sEmail);
     });
-    sets.sort((a, b) => a.setNumber - b.setNumber);
+    sets.sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0));
     res.json({ items: sets });
   } catch (error) {
     res.status(500).json({ error: 'fetch_failed', message: String(error.message || error) });
@@ -4196,12 +4220,22 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
     let modelUrl = '';
 
     if (clothDataUrl) {
-      const r = await uploadToCloudinary(clothDataUrl, userId, `cloth-set${setNumber}`);
-      clothUrl = r.url;
+      try {
+        const r = await uploadToCloudinary(clothDataUrl, userId, `cloth-set${setNumber}`);
+        clothUrl = r.url;
+      } catch (cErr) {
+        console.warn('[upload-sets] Cloudinary cloth upload fallback:', cErr?.message || cErr);
+        clothUrl = clothDataUrl;
+      }
     }
     if (modelDataUrl) {
-      const r = await uploadToCloudinary(modelDataUrl, userId, `model-set${setNumber}`);
-      modelUrl = r.url;
+      try {
+        const r = await uploadToCloudinary(modelDataUrl, userId, `model-set${setNumber}`);
+        modelUrl = r.url;
+      } catch (mErr) {
+        console.warn('[upload-sets] Cloudinary model upload fallback:', mErr?.message || mErr);
+        modelUrl = modelDataUrl;
+      }
     }
 
     const newSet = {
