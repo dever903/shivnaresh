@@ -308,20 +308,31 @@ const writeCollections = async (items) => {
   } catch {}
 };
 
+let cachedUploadSets = { items: null, time: 0 };
+
 const readUploadSets = async () => {
+  if (cachedUploadSets.items && Date.now() - cachedUploadSets.time < 8000) {
+    return cachedUploadSets.items;
+  }
+  let sets = [];
   try {
     const db = await getMongoDb();
     if (db) {
       const doc = await db.collection('app_data').findOne({ _id: 'upload_sets' });
       if (doc && Array.isArray(doc.sets)) {
-        return doc.sets;
+        sets = doc.sets;
       }
     }
   } catch {}
-  return readJson(UPLOAD_SETS_FILE, []);
+  if (!sets || sets.length === 0) {
+    sets = await readJson(UPLOAD_SETS_FILE, []);
+  }
+  cachedUploadSets = { items: sets, time: Date.now() };
+  return sets;
 };
 
 const writeUploadSets = async (sets) => {
+  cachedUploadSets = { items: sets, time: Date.now() };
   await writeJson(UPLOAD_SETS_FILE, sets);
   try {
     const db = await getMongoDb();
@@ -604,11 +615,16 @@ function deduplicateGenerations(list) {
   return result;
 }
 
+let cachedGenerations = { items: null, time: 0 };
+
 const readGenerations = async () => {
+  if (cachedGenerations.items && Date.now() - cachedGenerations.time < 8000) {
+    return cachedGenerations.items;
+  }
   try {
     const db = await getMongoDb();
     if (db) {
-      const items = await db.collection('generations').find().sort({ createdAt: -1 }).limit(1000).toArray();
+      const items = await db.collection('generations').find().sort({ createdAt: -1 }).limit(150).toArray();
       if (items && items.length > 0) {
         const cleanItems = items.map((it) => {
           const clean = { ...it };
@@ -616,7 +632,7 @@ const readGenerations = async () => {
           return clean;
         });
         const deduped = deduplicateGenerations(cleanItems);
-        void writeJson(GENERATIONS_FILE, deduped).catch(() => {});
+        cachedGenerations = { items: deduped, time: Date.now() };
         return deduped;
       }
     }
@@ -624,12 +640,15 @@ const readGenerations = async () => {
     console.warn('[generations] MongoDB read error, falling back to local file:', err.message);
   }
   const fileItems = await readJson(GENERATIONS_FILE, []);
-  return deduplicateGenerations(fileItems);
+  const deduped = deduplicateGenerations(fileItems);
+  cachedGenerations = { items: deduped, time: Date.now() };
+  return deduped;
 };
 
 const writeGenerations = async (list) => {
   const deduped = deduplicateGenerations(list);
   const safeList = Array.isArray(deduped) ? deduped.slice(0, 1000) : [];
+  cachedGenerations = { items: safeList, time: Date.now() };
   await writeJson(GENERATIONS_FILE, safeList);
   try {
     const db = await getMongoDb();

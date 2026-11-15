@@ -43,6 +43,7 @@ import {
   getProxiedImageUrl,
   prepareAndStandardizeImage,
   scaleToEcommerceCatalog,
+  getToken,
   setToken,
   type AdminDelivery,
   type CustomRequest,
@@ -2093,6 +2094,12 @@ function MySetsPanel({
             {tab.label}
           </button>
         ))}
+        {(loadingSets || loadingGenerations) && (uploadSets.length > 0 || generations.length > 0) && (
+          <span className="text-[10px] opacity-60 flex items-center gap-1.5 ml-auto animate-pulse font-medium">
+            <RefreshCw className="h-3 w-3 animate-spin text-[#e5373f]" />
+            <span>Updating media…</span>
+          </span>
+        )}
       </div>
 
       {formOpen && (
@@ -2180,8 +2187,11 @@ function MySetsPanel({
       )}
 
       {/* Main Grid */}
-      {loadingSets || loadingGenerations ? (
-        <div className="py-24 text-center text-sm opacity-50">Loading archive media…</div>
+      {(loadingSets || loadingGenerations) && uploadSets.length === 0 && generations.length === 0 ? (
+        <div className="py-24 text-center text-sm opacity-50 flex flex-col items-center justify-center gap-3">
+          <RefreshCw className="h-6 w-6 animate-spin text-[#e5373f]" />
+          <span>Loading archive media…</span>
+        </div>
       ) : (
         <div className="mt-8 space-y-10">
           {/* Section A: Generated Videos */}
@@ -5921,9 +5931,27 @@ export default function Design() {
     return [];
   });
   const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
-  const [uploadSets, setUploadSets] = useState<UploadSet[]>([]);
+  const [uploadSets, setUploadSets] = useState<UploadSet[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_upload_sets');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return [];
+  });
   const [loadingSets, setLoadingSets] = useState(false);
-  const [userGenerations, setUserGenerations] = useState<UserGeneration[]>([]);
+  const [userGenerations, setUserGenerations] = useState<UserGeneration[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_user_generations');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return [];
+  });
   const [loadingGenerations, setLoadingGenerations] = useState(false);
 
   const [brokenImageUrls, setBrokenImageUrls] = useState<Set<string>>(() => {
@@ -6618,7 +6646,17 @@ export default function Design() {
   const loadUploadSets = useCallback(async () => {
     setLoadingSets(true);
     try {
-      setUploadSets((await api.uploadSets()).items);
+      const res = await api.uploadSets();
+      const items = res.items || [];
+      setUploadSets(items);
+      try {
+        const light = items.slice(0, 30).map((s) => ({
+          ...s,
+          clothUrl: s.clothUrl && s.clothUrl.length > 150000 ? '' : s.clothUrl,
+          modelUrl: s.modelUrl && s.modelUrl.length > 150000 ? '' : s.modelUrl,
+        }));
+        localStorage.setItem('cached_upload_sets', JSON.stringify(light));
+      } catch { }
     } catch {
       /* non-fatal */
     } finally {
@@ -6652,7 +6690,17 @@ export default function Design() {
   const loadUserGenerations = useCallback(async () => {
     setLoadingGenerations(true);
     try {
-      setUserGenerations((await api.userGenerations()).items);
+      const res = await api.userGenerations();
+      const items = res.items || [];
+      setUserGenerations(items);
+      try {
+        const light = items.slice(0, 50).map((g) => ({
+          ...g,
+          url: g.url && g.url.length > 150000 ? '' : g.url,
+          highResUrl: g.highResUrl && g.highResUrl.length > 150000 ? '' : g.highResUrl,
+        }));
+        localStorage.setItem('cached_user_generations', JSON.stringify(light));
+      } catch { }
     } catch {
       /* non-fatal */
     } finally {
@@ -6663,6 +6711,17 @@ export default function Design() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // 0. Pre-fetch archive media immediately in background if session token exists
+      if (getToken()) {
+        void Promise.allSettled([
+          loadUploadSets(),
+          loadUserGenerations(),
+          loadUploads(),
+          loadCustomRequests(),
+          loadDeliveriesUnread(),
+        ]);
+      }
+
       // 1. Immediately fetch models & studio settings in parallel
       void Promise.allSettled([
         api.studio().catch(() => null),
