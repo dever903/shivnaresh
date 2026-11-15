@@ -5958,16 +5958,8 @@ export default function Design() {
   const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'compare'>('studio');
 
   const [mode, setMode] = useState<ModeId>('tryon');
-  const [quality, setQuality] = useState<'1k' | '2k'>(() => {
-    try {
-      const cached = localStorage.getItem('cached_current_user');
-      if (cached) {
-        const u = JSON.parse(cached);
-        if (u.tier === 'ultra' || u.features?.hd2k) return '2k';
-      }
-    } catch { }
-    return '1k';
-  });
+  const [quality, setQuality] = useState<'1k' | '2k'>('1k');
+  const [show2kConfirmModal, setShow2kConfirmModal] = useState(false);
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
   const [showPantLogo, setShowPantLogo] = useState(false);
   const [cleanResultBackup, setCleanResultBackup] = useState<string | null>(null);
@@ -6734,11 +6726,8 @@ export default function Design() {
       } catch { }
       void api.unlockUser().catch(() => { });
 
-      if (me.tier && me.tier !== 'free') {
-        setQuality('2k');
-      } else {
-        setQuality('1k');
-      }
+      // Always default to 1K Standard across all plans (including Ultra)
+      setQuality('1k');
 
       // Secondary panels loaded concurrently
       void Promise.allSettled([
@@ -7513,6 +7502,67 @@ export default function Design() {
         </div>
       )}
 
+      {/* 2K Ultra HD Confirmation Modal */}
+      {show2kConfirmModal && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-150">
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-colors ${
+            isLight ? 'border-gray-200 bg-white text-gray-900' : 'border-purple-500/30 bg-[#121217] text-white'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                  Change to 2K Ultra HD?
+                </h3>
+                <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-purple-300/80'}`}>
+                  Ultra Plan High-Resolution Render Mode
+                </p>
+              </div>
+            </div>
+
+            <div className={`mt-4 rounded-xl border p-4 text-xs leading-relaxed space-y-2.5 ${
+              isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/50 text-white/70'
+            }`}>
+              <p>
+                Are you sure you want to change render quality from <strong className={isLight ? 'text-gray-900' : 'text-white'}>1K Standard</strong> to <strong className="text-purple-400">2K Ultra HD</strong>?
+              </p>
+              <div className={`rounded-lg p-2.5 flex items-start gap-2 text-xs border ${
+                isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              }`}>
+                <span className="font-bold">⚡ Notice:</span>
+                <span>2K Ultra HD consumes <strong className="underline">3 credits</strong> per generation photoshoot instead of 1 credit.</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShow2kConfirmModal(false)}
+                className={`flex-1 rounded-full border py-2.5 text-xs font-semibold transition-colors ${
+                  isLight
+                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    : 'border-white/20 bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                Cancel (Keep 1K)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuality('2k');
+                  setShow2kConfirmModal(false);
+                }}
+                className="flex-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 transition-all"
+              >
+                Yes, Change to 2K
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Garment Photography Guidelines Tour Modal */}
       <GarmentPhotoTourModal
         isOpen={showPhotoTour}
@@ -8054,20 +8104,39 @@ export default function Design() {
                   >
                     1K Standard
                   </button>
-                  {isUltraUser && (
+                  {isUltraUser ? (
                     <button
                       type="button"
-                      onClick={() => setQuality('2k')}
+                      onClick={() => {
+                        if (quality === '1k') {
+                          setShow2kConfirmModal(true);
+                        }
+                      }}
                       className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
                         ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
                         : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
                         }`}
-                      title="Switch to 2K Ultra HD (Exclusive Ultra Plan Feature)"
+                      title="Switch to 2K Ultra HD (3 Credits per generation)"
                     >
                       <span>2K Ultra HD</span>
                       <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
                         }`}>
                         Ultra
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowTierLockModal(true)}
+                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 opacity-60 hover:opacity-100 ${
+                        isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/50 hover:text-white'
+                      }`}
+                      title="2K Ultra HD locked (Requires Ultra Tier)"
+                    >
+                      <Lock className="h-3 w-3 text-amber-400" />
+                      <span>2K Ultra HD</span>
+                      <span className="rounded-full px-1.5 py-0.2 text-[9px] font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                        Locked
                       </span>
                     </button>
                   )}
