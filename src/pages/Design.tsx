@@ -7286,39 +7286,44 @@ export default function Design() {
           }));
           payload.garmentViews = garmentViews;
 
+          const activeModelItem = model || effectiveModels[0];
+          const activeClothItem = topFrontGarment || cloth || classifiedGarments[0];
+
           if (tryOnTarget === 'upper') {
             payload.mode = 'tryon';
-            payload.cloth = topFrontGarment?.url || cloth?.url;
-            if (model?.url) payload.model = model.url;
+            payload.cloth = activeClothItem?.url;
+            if (activeModelItem?.url) payload.model = activeModelItem.url;
             payload.source = payload.cloth;
             payload.category = 'tops';
           } else if (tryOnTarget === 'lower') {
             payload.mode = 'tryon';
-            payload.cloth = bottomGarment?.url || cloth?.url;
-            if (model?.url) payload.model = model.url;
+            payload.cloth = bottomGarment?.url || activeClothItem?.url;
+            if (activeModelItem?.url) payload.model = activeModelItem.url;
             payload.source = payload.cloth;
             payload.category = 'bottoms';
           } else {
             // Both = full outfit chaining when both top and bottom exist
-            if (bottomGarment?.url && (topFrontGarment?.url || cloth?.url)) {
+            if (bottomGarment?.url && activeClothItem?.url) {
               payload.mode = 'outfit';
-              payload.topCloth = topFrontGarment?.url || cloth?.url;
+              payload.topCloth = activeClothItem.url;
               payload.bottomCloth = bottomGarment.url;
-              if (model?.url) payload.model = model.url;
+              if (activeModelItem?.url) payload.model = activeModelItem.url;
             } else {
               // Single garment fallback (try on top without breaking)
               payload.mode = 'tryon';
-              payload.cloth = topFrontGarment?.url || cloth?.url;
-              if (model?.url) payload.model = model.url;
+              payload.cloth = activeClothItem?.url;
+              if (activeModelItem?.url) payload.model = activeModelItem.url;
               payload.source = payload.cloth;
               payload.category = 'tops';
             }
           }
         } else {
+          const activeModelItem = model || effectiveModels[0];
+          const activeClothItem = cloth || topFrontGarment || classifiedGarments[0];
           payload.mode = 'tryon';
-          if (cloth?.url) payload.cloth = cloth.url;
-          if (model?.url) payload.model = model.url;
-          payload.source = cloth?.url;
+          if (activeClothItem?.url) payload.cloth = activeClothItem.url;
+          if (activeModelItem?.url) payload.model = activeModelItem.url;
+          payload.source = activeClothItem?.url;
           payload.category = 'tops';
         }
       }
@@ -7436,9 +7441,15 @@ export default function Design() {
         setProgress(5);
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
-        const singlePayload: Record<string, unknown> = { ...payload };
+        const singleModel = model || effectiveModels[0];
+        const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
+        const singlePayload: Record<string, unknown> = {
+          ...payload,
+          ...(singleModel?.url ? { model: singleModel.url } : {}),
+          ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
+        };
         const singleIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
-          `${model?.name || ''} ${model?.url || ''}`
+          `${singleModel?.name || ''} ${singleModel?.url || ''}`
         );
         singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
         singlePayload.prompt = effectivePrompt;
@@ -7500,14 +7511,12 @@ export default function Design() {
   }
   const tryonMissing: string[] = [];
   if (mode === 'tryon') {
-    const hasGarment = hasClassifiedGarments || !!cloth;
-    const hasModel = effectiveModels.length > 0 || !!model;
-    const needsBottom = hasClassifiedGarments && tryOnTarget === 'lower' && !bottomGarment;
-    const needsBothBottom = hasClassifiedGarments && tryOnTarget === 'both' && !bottomGarment;
+    const hasGarment = hasClassifiedGarments || Boolean(cloth?.url);
+    const hasModel = effectiveModels.length > 0 || Boolean(model?.url);
+    const needsBottom = tryOnTarget === 'lower' && !bottomGarment && !cloth;
     if (!hasGarment) tryonMissing.push('garment');
     if (!hasModel) tryonMissing.push('model');
     if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
-    if (needsBothBottom) tryonMissing.push('bottom garment (upload pants or select Upper Only)');
   }
   const missing = isSwapMode ? swapMissing : tryonMissing;
   const isUltraUser = Boolean(user?.tier === 'ultra' || user?.features?.hd2k);
@@ -10262,6 +10271,7 @@ export default function Design() {
                   <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
                     {fivePoseItems.map((pose, idx) => {
                       const isSelected = selectedPoseIndex === idx;
+                      const thumbUrl = pose.url || pose.model?.preview || pose.model?.url;
                       return (
                         <div key={pose.id} className="relative group">
                           <button
@@ -10277,8 +10287,15 @@ export default function Design() {
                                 : 'border-white/10 bg-black/40 hover:border-white/20'
                               }`}
                           >
-                            {pose.url ? (
-                              <img src={pose.url} alt={pose.name} className="h-10 w-10 object-cover rounded-md mb-1 shadow-sm border border-white/20" />
+                            {thumbUrl ? (
+                              <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
+                                <img src={thumbUrl} alt={pose.name} className="h-full w-full object-cover" />
+                                {pose.status === 'completed' && (
+                                  <span className="absolute bottom-0 right-0 bg-emerald-600 text-white text-[7px] font-bold px-1 rounded-tl">
+                                    ✓
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-sm">{pose.icon}</span>
                             )}
@@ -10307,6 +10324,79 @@ export default function Design() {
                           >
                             ✕
                           </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Target Models for Generation Strip (shows photos of selected models above canvas) */}
+              {fivePoseItems.length === 0 && effectiveModels.length > 0 && (
+                <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                      <span>👤 Target Model{effectiveModels.length > 1 ? `s for Generation (${effectiveModels.length})` : ' for Generation'}</span>
+                    </span>
+                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${isLight ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                      {effectiveModels.length > 1 ? `Multi-Model Batch · ${effectiveModels.length} Photos` : 'Active Model Selected'}
+                    </span>
+                  </div>
+                  <div className={`grid gap-1.5 ${effectiveModels.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                    {effectiveModels.slice(0, 10).map((m, idx) => {
+                      const isChosen = (model?.url === m.url) || (idx === 0 && !model);
+                      const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(m.name || '');
+                      return (
+                        <div key={m.url || idx} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => setModel(m)}
+                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border cursor-pointer ${
+                              isChosen
+                                ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
+                                : isLight
+                                  ? 'border-gray-300 bg-white hover:bg-gray-100'
+                                  : 'border-white/10 bg-black/40 hover:border-white/20'
+                            }`}
+                            title={`Select ${m.name || `Model ${idx + 1}`} as active`}
+                          >
+                            <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
+                              <img src={m.preview || m.url} alt={m.name} className="h-full w-full object-cover" />
+                              {isChosen && (
+                                <span className="absolute top-0.5 right-0.5 bg-[#e5373f] text-white text-[8px] font-bold px-1 rounded">
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {m.name || `Model ${idx + 1}`}
+                            </span>
+                            <div className="flex items-center gap-1 justify-center my-0.5">
+                              <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${
+                                isBack
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              }`}>
+                                {isBack ? '🔄 Back View' : '👕 Front View'}
+                              </span>
+                            </div>
+                            <span className={`text-[8px] ${isChosen ? (isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400 font-bold') : (isLight ? 'text-slate-500' : 'text-white/40')}`}>
+                              {isChosen ? 'Active' : 'Click to Set'}
+                            </span>
+                          </button>
+                          {effectiveModels.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSelectedModel(idx);
+                              }}
+                              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              title="Remove this model"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       );
                     })}
