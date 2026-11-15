@@ -381,6 +381,17 @@ export class ApiError extends Error {
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
+export function resolveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  if (API_BASE && (url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets'))) {
+    return `${API_BASE}${url}`;
+  }
+  return url;
+}
+
 async function request<T>(url: string, init?: RequestInit, retries = 4): Promise<T> {
   const headers = new Headers(init?.headers);
   const token = getToken();

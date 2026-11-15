@@ -43,6 +43,7 @@ import {
   getProxiedImageUrl,
   prepareAndStandardizeImage,
   scaleToEcommerceCatalog,
+  resolveImageUrl,
   getToken,
   setToken,
   type AdminDelivery,
@@ -125,7 +126,7 @@ export interface PoseItem {
   name: string;
   angle: string;
   icon: string;
-  promptSuffix: string;
+  promptSuffix?: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';
   url?: string;
   jobId?: string;
@@ -904,7 +905,7 @@ function ZoomCropDownloadModal({
   };
 
   const handleExportCrop = async () => {
-    const activeImg = currentImage || imageUrl;
+    const activeImg = resolveImageUrl(currentImage || imageUrl);
     if (!activeImg || !imgRef.current || !viewportRef.current) return;
     setIsExporting(true);
     try {
@@ -1061,14 +1062,15 @@ function ZoomCropDownloadModal({
               {/* Scaled & Panned Image */}
               <img
                 ref={imgRef}
-                src={currentImage || imageUrl}
+                src={resolveImageUrl(currentImage || imageUrl)}
                 alt="Zoom Preview"
                 draggable={false}
+                crossOrigin="anonymous"
                 onError={(e) => {
                   const el = e.currentTarget;
                   if (el.crossOrigin) {
                     el.removeAttribute('crossorigin');
-                    el.src = currentImage || imageUrl || '';
+                    el.src = resolveImageUrl(currentImage || imageUrl);
                   }
                 }}
                 style={{
@@ -2303,7 +2305,7 @@ function MySetsPanel({
                         className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
                       >
                         <img
-                          src={gen.url}
+                          src={resolveImageUrl(gen.url || gen.outputUrl || gen.highResUrl)}
                           alt=""
                           className="h-full w-full object-cover"
                           onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
@@ -2313,6 +2315,8 @@ function MySetsPanel({
                               el.src = gen.remoteUrl;
                             } else if (gen.highResUrl && el.src !== gen.highResUrl) {
                               el.src = gen.highResUrl;
+                            } else if (gen.outputUrl && el.src !== gen.outputUrl) {
+                              el.src = gen.outputUrl;
                             }
                           }}
                         />
@@ -2367,7 +2371,7 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => {
-                          const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+                          const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
                           if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
                         }}
                         className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer"
@@ -2389,7 +2393,7 @@ function MySetsPanel({
                         <button
                           type="button"
                           onClick={() => {
-                            const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+                            const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
                             if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                           }}
                           className={`rounded-full border p-2 text-xs transition cursor-pointer ${isLight
@@ -6899,11 +6903,18 @@ export default function Design() {
                   ...batchCtx.payload,
                   poseAngle: nextIsBack ? 'back' : 'front',
                   ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
-                  ...(tryOnTarget === 'both' ? {
-                    mode: 'outfit',
-                    topCloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-                    bottomCloth: bottomGarment?.url,
-                  } : {
+                  ...(tryOnTarget === 'both' ? (
+                    bottomGarment?.url ? {
+                      mode: 'outfit',
+                      topCloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                      bottomCloth: bottomGarment.url,
+                    } : {
+                      mode: 'tryon',
+                      cloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                      source: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                      category: 'one-pieces',
+                    }
+                  ) : {
                     ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
                   }),
                   ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
@@ -6950,6 +6961,22 @@ export default function Design() {
             setShowHdLogoOverlay(true);
             setShowPantLogo(true);
             autoDetectContrastColor(imgUrl);
+            const activeSingleModel = model || effectiveModels[0];
+            setFivePoseItems((prev) =>
+              prev.length > 0
+                ? prev.map((p, idx) => (idx === 0 ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
+                : [{
+                    id: 'pose-1',
+                    name: activeSingleModel?.name || 'Model Pose 1',
+                    angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
+                    icon: '👕',
+                    promptSuffix: '',
+                    model: activeSingleModel,
+                    status: 'completed',
+                    url: imgUrl,
+                    jobId: next.id,
+                  }]
+            );
             setProgress(100);
             setProgressLabel('Complete!');
             setBusy(false);
@@ -7125,13 +7152,36 @@ export default function Design() {
     const pY = options?.pantY ?? pantLogoY;
     const pScale = options?.pantScale ?? pantLogoScale;
 
+    const resolvedBaseUrl = resolveImageUrl(baseImgUrl);
     const baseImg = new Image();
-    baseImg.crossOrigin = 'anonymous';
-    await new Promise<void>((resolve, reject) => {
-      baseImg.onload = () => resolve();
-      baseImg.onerror = () => reject(new Error('Failed to load base image'));
-      baseImg.src = baseImgUrl;
-    });
+    try {
+      baseImg.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        baseImg.onload = () => resolve();
+        baseImg.onerror = () => reject(new Error('CORS image load failed'));
+        baseImg.src = resolvedBaseUrl;
+      });
+    } catch {
+      try {
+        const res = await fetch(resolvedBaseUrl);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        baseImg.removeAttribute('crossorigin');
+        await new Promise<void>((resolve, reject) => {
+          baseImg.onload = () => resolve();
+          baseImg.onerror = () => reject(new Error('Failed to load base image from blob'));
+          baseImg.src = blobUrl;
+        });
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+      } catch {
+        baseImg.removeAttribute('crossorigin');
+        await new Promise<void>((resolve, reject) => {
+          baseImg.onload = () => resolve();
+          baseImg.onerror = () => reject(new Error('Failed to load base image'));
+          baseImg.src = resolvedBaseUrl;
+        });
+      }
+    }
 
     // High-Resolution 1807x3000 Standard
     const targetW = options?.targetWidth || Math.max(1807, baseImg.naturalWidth || 1024);
@@ -7435,13 +7485,23 @@ export default function Design() {
         }
         setJob({ id: res1.id, status: 'starting' });
       } else {
-        setFivePoseItems([]);
+        const singleModel = model || effectiveModels[0];
+        const singleInitialPose: PoseItem = {
+          id: 'pose-1',
+          name: singleModel?.name || 'Model Pose 1',
+          angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
+          icon: '👕',
+          promptSuffix: '',
+          model: singleModel,
+          status: 'generating',
+        };
+        setFivePoseItems([singleInitialPose]);
+        setSelectedPoseIndex(0);
         activePoseIndexRef.current = -1;
         batchPayloadRef.current = null;
         setProgress(5);
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
-        const singleModel = model || effectiveModels[0];
         const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
         const singlePayload: Record<string, unknown> = {
           ...payload,
@@ -10115,18 +10175,6 @@ export default function Design() {
                     >
                       ⚡ Zipped Upright
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setPrompt((p) => p.includes('resting flat behind neck') ? p : `${p.trim()} · Attached hood resting flat behind neck along upper back, bare head`.replace(/^ · /, ''))}
-                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                        prompt.includes('resting flat behind neck')
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                      }`}
-                      title="Hood draped behind neck without covering head"
-                    >
-                      🎒 Hood Behind Neck
-                    </button>
                   </div>
                 </div>
               </>
@@ -10271,14 +10319,19 @@ export default function Design() {
                   <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
                     {fivePoseItems.map((pose, idx) => {
                       const isSelected = selectedPoseIndex === idx;
-                      const thumbUrl = pose.url || pose.model?.preview || pose.model?.url;
+                      const thumbUrl = resolveImageUrl(pose.url || pose.model?.preview || pose.model?.url);
                       return (
                         <div key={pose.id} className="relative group">
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedPoseIndex(idx);
-                              if (pose.url) setResult(pose.url);
+                              if (pose.url) {
+                                setResult(pose.url);
+                                setCleanResultBackup(pose.url);
+                                setActiveRenderOption('b');
+                                autoDetectContrastColor(pose.url);
+                              }
                             }}
                             className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
                               ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
@@ -10361,7 +10414,7 @@ export default function Design() {
                             title={`Select ${m.name || `Model ${idx + 1}`} as active`}
                           >
                             <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
-                              <img src={m.preview || m.url} alt={m.name} className="h-full w-full object-cover" />
+                              <img src={resolveImageUrl(m.preview || m.url)} alt={m.name} className="h-full w-full object-cover" />
                               {isChosen && (
                                 <span className="absolute top-0.5 right-0.5 bg-[#e5373f] text-white text-[8px] font-bold px-1 rounded">
                                   ✓
@@ -10404,6 +10457,40 @@ export default function Design() {
                 </div>
               )}
 
+              {/* Before & After: Show Selected Model (Target Pose) directly above Generated Output */}
+              {(() => {
+                const activeSelectedModel =
+                  fivePoseItems[selectedPoseIndex]?.model?.url ||
+                  effectiveModels[selectedPoseIndex]?.url ||
+                  model?.url ||
+                  effectiveModels[0]?.url ||
+                  (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null);
+                return activeSelectedModel ? (
+                  <div className={`space-y-1.5 p-3 border-b ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/20'}`}>
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider opacity-70">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <span>🎯 Selected Model (Target Pose)</span>
+                      </span>
+                      <span className="text-[9px] font-normal truncate max-w-[200px]">
+                        {fivePoseItems[selectedPoseIndex]?.name || effectiveModels[selectedPoseIndex]?.name || model?.name || 'Model Reference'}
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-h-[220px] flex items-center justify-center">
+                      <img src={resolveImageUrl(activeSelectedModel)} alt="Target Pose" className="max-h-[220px] w-full object-contain" />
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {result && (
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500 px-4 pt-3 pb-1">
+                  <span>✨ Generated AI Studio Render</span>
+                  <span className={`text-[9px] font-normal ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                    {fivePoseItems[selectedPoseIndex]?.name ? `Pose: ${fivePoseItems[selectedPoseIndex]?.name}` : 'Ready for Brand / HD Download'}
+                  </span>
+                </div>
+              )}
+
               {/* Main Result Canvas Preview Area */}
               <div
                 ref={previewContainerRef}
@@ -10413,7 +10500,7 @@ export default function Design() {
                   <>
                     <img
                       id="rendered-main-img"
-                      src={activeRenderOption === 'b' ? result : (cleanResultBackup || result)}
+                      src={resolveImageUrl(activeRenderOption === 'b' ? result : (cleanResultBackup || result))}
                       alt="Rendered result"
                       className="h-full w-full object-contain select-none"
                     />
@@ -10545,11 +10632,17 @@ export default function Design() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        const targetUrl = activeRenderOption === 'b' ? result : (cleanResultBackup || result);
+                      onClick={async () => {
+                        const baseToUse = cleanResultBackup || result;
+                        let targetUrl = activeRenderOption === 'b' ? result : baseToUse;
                         if (!targetUrl) return;
-                        setZoomCropImage(targetUrl);
-                        setZoomCropTitle('render-zoom');
+                        if (activeRenderOption === 'b' && (showHdLogoOverlay || showPantLogo)) {
+                          try {
+                            targetUrl = await stampHdLogoOntoImage(baseToUse || result);
+                          } catch {}
+                        }
+                        setZoomCropImage(resolveImageUrl(targetUrl));
+                        setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.name || 'render-zoom');
                         setShowZoomCropModal(true);
                       }}
                       className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isLight

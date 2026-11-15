@@ -2778,8 +2778,10 @@ function buildRequest(mode, state, src, is2k = false) {
   const { cloth, model, prompt, color } = src;
   let text = (prompt || '').trim() || state.defaultPrompt || 'wear this clothing on model with perfect fit, realistic texture, professional athletic studio presentation';
 
-  // Mandatory brand name: SHIV-NARESH
-  if (!text.toLowerCase().includes('shiv-naresh')) {
+  const userWantsRemoveLogo = /remove.*(?:logo|brand|text|shiv-naresh|shiv naresh)|no.*logo|unbranded/i.test(prompt || '');
+
+  // Mandatory brand name: SHIV-NARESH (only if user did not request logo removal)
+  if (!userWantsRemoveLogo && !text.toLowerCase().includes('shiv-naresh')) {
     text = `SHIV-NARESH athletic sportswear: ${text}`.trim();
   }
 
@@ -3346,7 +3348,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ';
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
-        const viewsToUse = garmentViews.slice(0, 4);
+        const viewsToUse = garmentViews.slice(0, 5);
         const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
         images = [modelUri, ...garmentUris];
 
@@ -3390,16 +3392,37 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
+      const userPrompt = (body.prompt || '').trim();
+      const userWantsRemoveLogo = /remove.*(?:logo|brand|text|shiv-naresh|shiv naresh)|no.*logo|unbranded/i.test(userPrompt);
+
       // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, and natural styling matching model
-      const dynamicFidelityRules =
+      let dynamicFidelityRules =
         'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
         'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, natural hair, athletic physique, posture, and shoes with 100% fidelity. ' +
-        'AUTHENTIC COLLAR & HOOD FIDELITY: Faithfully duplicate the exact neckline cut, collar shape, zipper closure, and attached hood pattern directly from the uploaded reference model and clothing. If the reference shows the collar zipped and folded down around the neck, render that exact folded collar; if the jacket has an attached hood, drape it naturally resting behind the neck matching the reference model pose. Strictly mirror how the collar and hood are worn in the reference. ' +
+        'STRICT MODEL COLLAR & NECKLINE MATCH: Replicate the model’s exact neckline, stand-up collar height, throat closure, and neck styling as shown in Image 1. If the model is wearing an upright zippered stand collar or athletic funnel neck, reproduce that exact stand collar zipped to the throat. Do NOT add any hood, hood pouch, or bunched fabric behind the neck. Absolutely NO hood or headwear of any kind, whether on the head or resting behind the neck. ' +
+        'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all shoulder curved accent stripes, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. Preserve curved royal blue accent lines along both shoulder seams and the exact 1:1 dot grid across shoulder yoke and side panels without simplification. ' +
         'SPORTSWEAR PROPS NEGATIVE CONSTRAINT: Strictly NO balls (no basketball, soccer ball, cricket ball), no racquets, no sports equipment, no handheld props. Model hands must be completely free, natural, or in pockets. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
-        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ' +
-        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only authentic single brand logos present on the garment reference photos (one on chest, one on thigh). Do NOT invent duplicate or repeated second logos. ' +
-        'UNIVERSAL NEGATIVE PROMPT: no headgear, no baseball cap, no cap on head, no hat, no beanie, no helmet, no visor, no hood worn over head (attached hood must rest flat behind neck), no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no extra logos, no duplicate logos, no warped zipper, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark. ';
+        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ';
+
+      if (userWantsRemoveLogo) {
+        dynamicFidelityRules +=
+          'REMOVE ALL BRAND LOGOS: Strictly remove and omit all company branding, brand logos, brand emblems, and manufacturer text (such as SHIV-NARESH) from the clothing. Naturally fill the area with the exact original fabric color, texture, and shading so the garment is completely unbranded. ';
+      } else {
+        dynamicFidelityRules +=
+          'BRAND LOGO FIDELITY & NO DUPLICATION: Render only authentic single brand logos present on the garment reference photos (one on chest, one on thigh). Do NOT invent duplicate or repeated second logos. ';
+      }
+
+      let universalNegative =
+        'no hood, no hood resting behind neck, no bunched fabric at neck, no hoodie, no headgear, no baseball cap, no cap on head, no hat, no beanie, no helmet, no visor, no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no warped zipper, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
+
+      if (userWantsRemoveLogo) {
+        universalNegative += ', no logo, no company text, no shiv-naresh, no brand name, no wordmark, no emblem';
+      } else {
+        universalNegative += ', no extra logos, no duplicate logos';
+      }
+
+      dynamicFidelityRules += `UNIVERSAL NEGATIVE PROMPT: ${universalNegative}. `;
 
       agentPrompt += dynamicFidelityRules;
 
