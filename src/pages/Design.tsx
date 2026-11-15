@@ -5692,10 +5692,10 @@ export default function Design() {
     return '1k';
   });
   const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
-  const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
+  const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(true);
   const [hdLogoColor, setHdLogoColor] = useState<'white' | 'black' | 'golden'>('white');
-  const [hdLogoScale, setHdLogoScale] = useState<number>(38);
-  const [hdLogoX, setHdLogoX] = useState<number>(50);
+  const [hdLogoScale, setHdLogoScale] = useState<number>(34);
+  const [hdLogoX, setHdLogoX] = useState<number>(48);
   const [hdLogoY, setHdLogoY] = useState<number>(22);
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -6535,56 +6535,69 @@ export default function Design() {
 
 
 
+  /* Helper: composite 100% vector-sharp Shiv-Naresh brand logo stamp onto canvas */
+  async function stampHdLogoOntoImage(
+    baseImgUrl: string,
+    options?: { color?: 'white' | 'black' | 'golden'; scale?: number; x?: number; y?: number }
+  ): Promise<string> {
+    const color = options?.color || hdLogoColor;
+    const scale = options?.scale ?? hdLogoScale;
+    const x = options?.x ?? hdLogoX;
+    const y = options?.y ?? hdLogoY;
+
+    const baseImg = new Image();
+    baseImg.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve, reject) => {
+      baseImg.onload = () => resolve();
+      baseImg.onerror = () => reject(new Error('Failed to load base image'));
+      baseImg.src = baseImgUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = baseImg.naturalWidth || baseImg.width || 1024;
+    canvas.height = baseImg.naturalHeight || baseImg.height || 1024;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return baseImgUrl;
+
+    ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    const logoSrc = color === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png';
+    await new Promise<void>((resolve, reject) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = () => reject(new Error('Failed to load logo image'));
+      logoImg.src = logoSrc;
+    });
+
+    // Calculate placement on canvas natural dimensions
+    const logoW = (canvas.width * (scale * 1.5)) / 1000;
+    const logoH = (logoW * (logoImg.naturalHeight || 1)) / (logoImg.naturalWidth || 1);
+    const posX = (canvas.width * x) / 100 - logoW / 2;
+    const posY = (canvas.height * y) / 100 - logoH / 2;
+
+    ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+
+    return canvas.toDataURL('image/png');
+  }
+
   /* Helper: download rendered image with optional vector-sharp Shiv-Naresh brand logo stamp */
   async function downloadRenderWithBranding(imgUrl: string, fileName: string) {
     if (!showHdLogoOverlay) {
       return downloadDirectFile(imgUrl, fileName);
     }
     try {
-      const baseImg = new Image();
-      baseImg.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve, reject) => {
-        baseImg.onload = () => resolve();
-        baseImg.onerror = () => reject(new Error('Failed to load base image'));
-        baseImg.src = imgUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = baseImg.naturalWidth || baseImg.width || 1024;
-      canvas.height = baseImg.naturalHeight || baseImg.height || 1024;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return downloadDirectFile(imgUrl, fileName);
-
-      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
-
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      const logoSrc = hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png';
-      await new Promise<void>((resolve, reject) => {
-        logoImg.onload = () => resolve();
-        logoImg.onerror = () => reject(new Error('Failed to load logo image'));
-        logoImg.src = logoSrc;
-      });
-
-      // Calculate placement on canvas natural dimensions
-      const logoW = (canvas.width * (hdLogoScale * 1.5)) / 1000;
-      const logoH = (logoW * (logoImg.naturalHeight || 1)) / (logoImg.naturalWidth || 1);
-      const posX = (canvas.width * hdLogoX) / 100 - logoW / 2;
-      const posY = (canvas.height * hdLogoY) / 100 - logoH / 2;
-
-      ctx.drawImage(logoImg, posX, posY, logoW, logoH);
-
-      canvas.toBlob((blob) => {
-        if (!blob) return downloadDirectFile(imgUrl, fileName);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 2500);
-      }, 'image/png');
+      const dataUrl = await stampHdLogoOntoImage(imgUrl);
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
     } catch {
       downloadDirectFile(imgUrl, fileName);
     }
@@ -8908,27 +8921,29 @@ export default function Design() {
                         <span>✨ Generated AI Studio Render</span>
                         <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
                       </div>
-                      <div className="relative inline-block w-full overflow-hidden rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20">
-                        <img src={result} alt="Generated" className="max-h-[480px] w-full object-contain" />
-                        {showHdLogoOverlay && (
-                          <div
-                            className="absolute pointer-events-none select-none transition-all duration-75"
-                            style={{
-                              left: `${hdLogoX}%`,
-                              top: `${hdLogoY}%`,
-                              transform: 'translate(-50%, -50%)',
-                              width: `${hdLogoScale}px`,
-                            }}
-                          >
-                            <img
-                              src={hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png'}
-                              alt="SHIV-NARESH HD Logo"
-                              className={`w-full filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] ${
-                                hdLogoColor === 'golden' ? 'sepia hue-rotate-[15deg] saturate-[300%]' : ''
-                              }`}
-                            />
-                          </div>
-                        )}
+                      <div className="flex justify-center w-full">
+                        <div className="relative w-fit max-h-[480px] overflow-hidden rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20">
+                          <img src={result} alt="Generated" className="max-h-[480px] w-auto block object-contain" />
+                          {showHdLogoOverlay && (
+                            <div
+                              className="absolute pointer-events-none select-none transition-all duration-75"
+                              style={{
+                                left: `${hdLogoX}%`,
+                                top: `${hdLogoY}%`,
+                                transform: 'translate(-50%, -50%)',
+                                width: `${hdLogoScale}px`,
+                              }}
+                            >
+                              <img
+                                src={hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png'}
+                                alt="SHIV-NARESH HD Logo"
+                                className={`w-full filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] ${
+                                  hdLogoColor === 'golden' ? 'sepia hue-rotate-[15deg] saturate-[300%]' : ''
+                                }`}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -8995,8 +9010,15 @@ export default function Design() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setZoomCropImage(result);
+                    onClick={async () => {
+                      if (!result) return;
+                      let imgForCrop = result;
+                      if (showHdLogoOverlay) {
+                        try {
+                          imgForCrop = await stampHdLogoOntoImage(result);
+                        } catch {}
+                      }
+                      setZoomCropImage(imgForCrop);
                       setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.id || 'photoshoot-render');
                       setShowZoomCropModal(true);
                     }}
@@ -9016,7 +9038,7 @@ export default function Design() {
                         fivePoseItems.forEach((p, i) => {
                           if (p.url) {
                             setTimeout(() => {
-                              void downloadDirectFile(p.url!, `shivnaresh-${p.id || `render-${i + 1}`}.png`);
+                              void downloadRenderWithBranding(p.url!, `shivnaresh-${p.id || `render-${i + 1}`}.png`);
                             }, i * 350);
                           }
                         });
@@ -9135,6 +9157,26 @@ export default function Design() {
                         className="w-14 accent-emerald-500 cursor-pointer"
                       />
                     </label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!result) return;
+                        try {
+                          const stamped = await stampHdLogoOntoImage(result);
+                          setResult(stamped);
+                          setFivePoseItems((prev) =>
+                            prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: stamped } : p))
+                          );
+                          alert('Official HD Shiv-Naresh Brand Logo permanently applied to this render! You can now zoom in 1000% or open in new tab.');
+                        } catch (e: any) {
+                          alert('Could not apply logo: ' + e.message);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer flex items-center gap-1 ml-1"
+                      title="Permanently burn the vector-sharp official logo into the image file"
+                    >
+                      <span>⚡ Burn Logo into File</span>
+                    </button>
                   </div>
                 </div>
               )}
