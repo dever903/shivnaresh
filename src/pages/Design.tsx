@@ -6078,6 +6078,53 @@ export default function Design() {
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_y', String(val)); } catch { }
   };
+
+  const [draggingLogo, setDraggingLogo] = useState<'chest' | 'pant' | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleStartDragLogo = (e: React.MouseEvent | React.TouchEvent, target: 'chest' | 'pant') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingLogo(target);
+    setActiveLogoTarget(target);
+    setIsOptionBDirty(true);
+
+    const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
+      if (!previewContainerRef.current) return;
+      const rect = previewContainerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const clientX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
+      const clientY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
+
+      const rawX = ((clientX - rect.left) / rect.width) * 100;
+      const rawY = ((clientY - rect.top) / rect.height) * 100;
+
+      const clampedX = Math.max(3, Math.min(97, Math.round(rawX * 10) / 10));
+      const clampedY = Math.max(3, Math.min(97, Math.round(rawY * 10) / 10));
+
+      if (target === 'chest') {
+        updateChestX(clampedX);
+        updateChestY(clampedY);
+      } else {
+        updatePantX(clampedX);
+        updatePantY(clampedY);
+      }
+    };
+
+    const handleEnd = () => {
+      setDraggingLogo(null);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  };
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -9890,6 +9937,60 @@ export default function Design() {
                       : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                       }`}
                   />
+                  {/* Quick Neckline / Collar & Hood Styling Helper Pills */}
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[10px]">
+                    <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                      Collar & Neck Style:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPrompt('')}
+                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                        !prompt.trim()
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      title="Follow model neckline naturally with zero prompt overrides"
+                    >
+                      🎯 Match Model (Auto)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrompt((p) => p.includes('folded down') ? p : `${p.trim()} · Matte stand collar zipped, folded down neatly around neck`.replace(/^ · /, ''))}
+                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                        prompt.includes('folded down')
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      title="Folded collar around throat matching reference jacket"
+                    >
+                      🧥 Folded Collar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrompt((p) => p.includes('zipped to throat') ? p : `${p.trim()} · Full zipper zipped to throat, upright stand collar`.replace(/^ · /, ''))}
+                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                        prompt.includes('zipped to throat')
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      title="Upright stand collar zipped completely closed"
+                    >
+                      ⚡ Zipped Upright
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrompt((p) => p.includes('resting flat behind neck') ? p : `${p.trim()} · Attached hood resting flat behind neck along upper back, bare head`.replace(/^ · /, ''))}
+                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                        prompt.includes('resting flat behind neck')
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      title="Hood draped behind neck without covering head"
+                    >
+                      🎒 Hood Behind Neck
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -10086,7 +10187,10 @@ export default function Design() {
               )}
 
               {/* Main Result Canvas Preview Area */}
-              <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center">
+              <div
+                ref={previewContainerRef}
+                className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none"
+              >
                 {result ? (
                   <>
                     <img
@@ -10096,35 +10200,61 @@ export default function Design() {
                       className="h-full w-full object-contain select-none"
                     />
 
-                    {/* Live HD Logo Overlays (Chest & Pant) for Option B Preview */}
+                    {/* Live HD Logo Overlays (Chest & Pant) for Option B Preview with Direct Mouse & Touch Drag */}
                     {activeRenderOption === 'b' && showHdLogoOverlay && (
                       <div
+                        onMouseDown={(e) => handleStartDragLogo(e, 'chest')}
+                        onTouchStart={(e) => handleStartDragLogo(e, 'chest')}
                         style={{
                           position: 'absolute',
                           left: `${hdLogoX}%`,
                           top: `${hdLogoY}%`,
                           transform: 'translate(-50%, -50%)',
                           width: `${hdLogoScale}px`,
-                          pointerEvents: 'none',
-                          zIndex: 10,
+                          cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
+                          touchAction: 'none',
+                          zIndex: 20,
                         }}
+                        className={`group rounded p-1 transition-all select-none ${
+                          activeLogoTarget === 'chest'
+                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                            : 'hover:ring-1 hover:ring-white/70'
+                        }`}
+                        title="Click and drag with mouse to position Chest Logo anywhere"
                       >
                         <ShivNareshSvgLogo color={hdLogoColor} />
+                        {/* Hover badge indicator */}
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                          ✥ Drag Chest Logo
+                        </div>
                       </div>
                     )}
                     {activeRenderOption === 'b' && showPantLogo && (
                       <div
+                        onMouseDown={(e) => handleStartDragLogo(e, 'pant')}
+                        onTouchStart={(e) => handleStartDragLogo(e, 'pant')}
                         style={{
                           position: 'absolute',
                           left: `${pantLogoX}%`,
                           top: `${pantLogoY}%`,
                           transform: 'translate(-50%, -50%)',
                           width: `${pantLogoScale}px`,
-                          pointerEvents: 'none',
-                          zIndex: 10,
+                          cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
+                          touchAction: 'none',
+                          zIndex: 20,
                         }}
+                        className={`group rounded p-1 transition-all select-none ${
+                          activeLogoTarget === 'pant'
+                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                            : 'hover:ring-1 hover:ring-white/70'
+                        }`}
+                        title="Click and drag with mouse to position Pant Logo anywhere"
                       >
                         <ShivNareshSvgLogo color={hdLogoColor} />
+                        {/* Hover badge indicator */}
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                          ✥ Drag Pant Logo
+                        </div>
                       </div>
                     )}
                   </>
