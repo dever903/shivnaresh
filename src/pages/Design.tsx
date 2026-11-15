@@ -833,12 +833,14 @@ function ZoomCropDownloadModal({
   imageUrl,
   imageTitle,
   isLight,
+  onUseCrop,
 }: {
   isOpen: boolean;
   onClose: () => void;
   imageUrl: string | null;
   imageTitle?: string;
   isLight: boolean;
+  onUseCrop?: (croppedDataUrl: string) => void;
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -1000,6 +1002,91 @@ function ZoomCropDownloadModal({
     } catch (err: any) {
       console.error('[zoom-crop] Export error:', err);
       alert(`Could not export 1807×3000 crop: ${err.message || err}`);
+      setIsExporting(false);
+    }
+  };
+
+  const handleApplyCropForGeneration = async () => {
+    const activeImg = resolveImageUrl(currentImage || imageUrl);
+    if (!activeImg || !imgRef.current || !viewportRef.current || !onUseCrop) return;
+    setIsExporting(true);
+    try {
+      const img = imgRef.current;
+      const viewport = viewportRef.current;
+      const vRect = viewport.getBoundingClientRect();
+      const V_w = vRect.width;
+      const V_h = vRect.height;
+      const I_w = img.naturalWidth || img.width;
+      const I_h = img.naturalHeight || img.height;
+
+      const baseScale = Math.min(V_w / I_w, V_h / I_h);
+      const cropWidthNat = V_w / (zoom * baseScale);
+      const cropHeightNat = V_h / (zoom * baseScale);
+      const xNatTL = (I_w / 2) - ((V_w / 2) + pan.x) / (zoom * baseScale);
+      const yNatTL = (I_h / 2) - ((V_h / 2) + pan.y) / (zoom * baseScale);
+
+      const canvas = document.createElement('canvas');
+      const targetW = Math.min(2048, Math.max(1024, Math.round(cropWidthNat)));
+      const targetH = Math.min(3072, Math.max(1536, Math.round(cropHeightNat)));
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context not available');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      const tempImg = new Image();
+      try {
+        tempImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          tempImg.onload = () => resolve();
+          tempImg.onerror = () => reject(new Error('CORS image load failed'));
+          tempImg.src = activeImg;
+        });
+      } catch {
+        try {
+          const res = await fetch(activeImg);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = blobUrl;
+          });
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        } catch {
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = activeImg;
+          });
+        }
+      }
+
+      ctx.drawImage(
+        tempImg,
+        xNatTL,
+        yNatTL,
+        cropWidthNat,
+        cropHeightNat,
+        0,
+        0,
+        targetW,
+        targetH
+      );
+
+      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      onUseCrop(croppedDataUrl);
+      onClose();
+    } catch (err: any) {
+      console.error('[zoom-crop] Apply crop error:', err);
+      alert(`Could not apply crop: ${err.message || err}`);
+    } finally {
       setIsExporting(false);
     }
   };
@@ -1221,7 +1308,18 @@ function ZoomCropDownloadModal({
               </div>
             </div>
 
-            {/* Export Action Button */}
+            {/* Action Buttons */}
+            {onUseCrop && (
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => void handleApplyCropForGeneration()}
+                className="w-full rounded-xl bg-[#e5373f] hover:bg-[#c92a32] text-white py-3 px-4 text-xs font-bold uppercase tracking-wider transition shadow-lg cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <span>✂️ Use This Zoomed View for Generation</span>
+              </button>
+            )}
+
             <button
               type="button"
               disabled={isExporting}
@@ -6469,6 +6567,34 @@ export default function Design() {
   const [showZoomCropModal, setShowZoomCropModal] = useState(false);
   const [zoomCropImage, setZoomCropImage] = useState<string | null>(null);
   const [zoomCropTitle, setZoomCropTitle] = useState('photoshoot-crop');
+  const [zoomCropOnUse, setZoomCropOnUse] = useState<((url: string) => void) | null>(null);
+
+  function openZoomCropForGarment(g: ClassifiedGarment | { url: string; preview?: string; name: string }) {
+    setZoomCropImage(g.preview ?? g.url);
+    setZoomCropTitle(g.name || 'garment-crop');
+    setZoomCropOnUse(() => (croppedUrl: string) => {
+      setClassifiedGarments((prev) =>
+        prev.map((item) => (item.url === g.url ? { ...item, url: croppedUrl, preview: croppedUrl } : item))
+      );
+      setSelectedClothes((prev) =>
+        prev.map((item) => (item.url === g.url ? { ...item, url: croppedUrl, preview: croppedUrl } : item))
+      );
+      setCloth((prev) => (prev && prev.url === g.url ? { ...prev, url: croppedUrl, preview: croppedUrl } : prev));
+    });
+    setShowZoomCropModal(true);
+  }
+
+  function openZoomCropForModel(item: { url: string; preview?: string; name: string }, idx?: number) {
+    setZoomCropImage(item.preview ?? item.url);
+    setZoomCropTitle(item.name || 'model-crop');
+    setZoomCropOnUse(() => (croppedUrl: string) => {
+      setSelectedModels((prev) =>
+        prev.map((m, i) => (typeof idx === 'number' ? i === idx : m.url === item.url) ? { ...m, url: croppedUrl, preview: croppedUrl } : m)
+      );
+      setModel((prev) => (prev && prev.url === item.url ? { ...prev, url: croppedUrl, preview: croppedUrl } : prev));
+    });
+    setShowZoomCropModal(true);
+  }
 
   /* Edit Render Panel (underneath generated image in result canvas) */
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -6822,7 +6948,8 @@ export default function Design() {
     const timer = setInterval(async () => {
       try {
         const next = await api.job(job.id);
-        setJob(next);
+
+        const isBatchRunning = activePoseIndexRef.current >= 0 && Boolean(batchPayloadRef.current);
 
         const stage = PROGRESS_STAGES[next.status] || { label: next.status, percent: 30 };
         setProgressLabel(stage.label);
@@ -6836,7 +6963,7 @@ export default function Design() {
         if (next.status === 'completed' && next.output?.[0]) {
           const imgUrl = next.output[0];
 
-          if (activePoseIndexRef.current >= 0 && batchPayloadRef.current) {
+          if (isBatchRunning && batchPayloadRef.current) {
             const currentIdx = activePoseIndexRef.current;
             const batchCtx = batchPayloadRef.current;
             const currentItem = batchCtx.items[currentIdx];
@@ -6882,61 +7009,97 @@ export default function Design() {
                 prev.map((p, idx) => (idx === nextItemIdx ? { ...p, status: 'generating' } : p))
               );
               setProgress(Math.round(((currentIdx + 1) / batchCtx.total) * 100));
-              setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Cooling down 1.5s before ${nextItem.name}…`);
+              setProgressLabel(`Completed ${currentIdx + 1}/${batchCtx.total}! Cooling down 2s before ${nextItem.name}…`);
 
-              // Explicit 1500ms delay between consecutive batch requests to eliminate 409 concurrency lock collision
-              await new Promise((resolve) => setTimeout(resolve, 1500));
+              // Delay between consecutive batch requests to eliminate 409 concurrency lock collision
+              await new Promise((resolve) => setTimeout(resolve, 2000));
 
-              // Check if cancelled during the 1.5s delay
+              // Check if cancelled during the delay
               if (!batchPayloadRef.current || batchPayloadRef.current.items[nextItemIdx]?.cancelled) {
                 activePoseIndexRef.current = -1;
                 batchPayloadRef.current = null;
                 setBusy(false);
                 generatingRef.current = false;
+                setJob(next);
                 return;
               }
 
-              try {
-                const nextIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${nextItem.model?.name || ''} ${nextItem.model?.url || ''} ${nextItem.promptSuffix || ''}`);
+              const nextIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${nextItem.model?.name || ''} ${nextItem.model?.url || ''} ${nextItem.promptSuffix || ''}`);
 
-                const nextPayload: Record<string, unknown> = {
-                  ...batchCtx.payload,
-                  poseAngle: nextIsBack ? 'back' : 'front',
-                  ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
-                  ...(tryOnTarget === 'both' ? (
-                    bottomGarment?.url ? {
-                      mode: 'outfit',
-                      topCloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-                      bottomCloth: bottomGarment.url,
-                    } : {
-                      mode: 'tryon',
-                      cloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-                      source: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-                      category: 'one-pieces',
-                    }
-                  ) : {
-                    ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
-                  }),
-                  ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
-                  ...(nextItem.targetModel?.url ? { targetModel: nextItem.targetModel.url, model: nextItem.targetModel.url } : {}),
-                };
-                nextPayload.prompt = `${batchCtx.basePrompt} ${nextItem.promptSuffix || ''}`.trim();
-                const nextRes = await api.generate(nextPayload);
+              const nextPayload: Record<string, unknown> = {
+                ...batchCtx.payload,
+                poseAngle: nextIsBack ? 'back' : 'front',
+                ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
+                ...(tryOnTarget === 'both' ? (
+                  bottomGarment?.url ? {
+                    mode: 'outfit',
+                    topCloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                    bottomCloth: bottomGarment.url,
+                  } : {
+                    mode: 'tryon',
+                    cloth: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                    source: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+                    category: 'one-pieces',
+                  }
+                ) : {
+                  ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
+                }),
+                ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
+                ...(nextItem.targetModel?.url ? { targetModel: nextItem.targetModel.url, model: nextItem.targetModel.url } : {}),
+              };
+              nextPayload.prompt = `${batchCtx.basePrompt} ${nextItem.promptSuffix || ''}`.trim();
+
+              // Resilient launch with auto-unlock and up to 3 retries
+              let nextRes: { id: string; credits?: number } | null = null;
+              let lastErr: unknown = null;
+              for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                  await api.unlockUser().catch(() => {});
+                  const genRes = await api.generate(nextPayload);
+                  if (genRes && genRes.id) {
+                    nextRes = genRes;
+                    break;
+                  }
+                } catch (err: unknown) {
+                  lastErr = err;
+                  console.warn(`[Batch] Attempt ${attempt + 1} for ${nextItem.name} failed:`, err);
+                  if (attempt < 2) {
+                    await new Promise((r) => setTimeout(r, 2000));
+                  }
+                }
+              }
+
+              if (nextRes && nextRes.id) {
                 if (typeof nextRes.credits === 'number') {
                   setUser((prev) => (prev ? { ...prev, credits: nextRes.credits! } : null));
                 }
                 setJob({ id: nextRes.id, status: 'starting' });
-              } catch (err) {
-                const errMsg = err instanceof Error ? err.message : 'Error starting next render in sequence';
-                setError(errMsg);
-                void api.reportClientError({ title: 'Batch Render Sequence Error', message: errMsg, details: err });
+              } else {
+                const errMsg = lastErr instanceof Error ? lastErr.message : 'Error starting next render in sequence';
+                setError(`Pose ${nextItem.name} failed: ${errMsg}`);
+                void api.reportClientError({ title: 'Batch Render Sequence Error', message: errMsg, details: lastErr });
                 setFivePoseItems((prev) =>
                   prev.map((p, idx) => (idx === nextItemIdx ? { ...p, status: 'failed' } : p))
                 );
-                setBusy(false);
-                generatingRef.current = false;
-                activePoseIndexRef.current = -1;
-                batchPayloadRef.current = null;
+
+                // Check for subsequent uncancelled item in batch sequence
+                let subIdx = -1;
+                for (let i = nextItemIdx + 1; i < batchCtx.items.length; i++) {
+                  if (!batchCtx.items[i].cancelled) {
+                    subIdx = i;
+                    break;
+                  }
+                }
+                if (subIdx !== -1) {
+                  activePoseIndexRef.current = subIdx;
+                  setJob({ id: job.id, status: 'processing' });
+                } else {
+                  activePoseIndexRef.current = -1;
+                  batchPayloadRef.current = null;
+                  setBusy(false);
+                  generatingRef.current = false;
+                  setJob(next);
+                }
               }
             } else {
               // All active/uncancelled items finished
@@ -6947,6 +7110,7 @@ export default function Design() {
               setProgressLabel(`Batch Finished! Generated ${totalDone} active poses (cancelled poses skipped).`);
               setBusy(false);
               generatingRef.current = false;
+              setJob(next);
               sendDesktopNotification(
                 `Batch Finished`,
                 `All active fashion renders are ready in your studio.`,
@@ -6955,6 +7119,7 @@ export default function Design() {
             }
           } else {
             // Standard single generation
+            setJob(next);
             setResult(imgUrl);
             setCleanResultBackup(imgUrl);
             setActiveRenderOption('b');
@@ -7380,7 +7545,7 @@ export default function Design() {
 
       /* Batch Execution (multi-model/pose batch or multi-swap batch) */
       const isSwapBatch = mode === 'swap' && validSwapDrafts.length > 1;
-      const isMultiModelBatch = multiBatchCount > 1 && mode === 'tryon';
+      const isMultiModelBatch = (multiBatchCount > 1 || effectiveModels.length > 1) && mode === 'tryon';
 
       if ((isMultiModelBatch || isSwapBatch) && !isEditingRender) {
         let batchItems: Array<{
@@ -7706,10 +7871,14 @@ export default function Design() {
       {/* Zoom & Macro Crop Download Modal (Exact 1807×3000 Output) */}
       <ZoomCropDownloadModal
         isOpen={showZoomCropModal}
-        onClose={() => setShowZoomCropModal(false)}
+        onClose={() => {
+          setShowZoomCropModal(false);
+          setZoomCropOnUse(null);
+        }}
         imageUrl={zoomCropImage}
         imageTitle={zoomCropTitle}
         isLight={isLight}
+        onUseCrop={zoomCropOnUse || undefined}
       />
 
       {/* "Are You Sure?" Generation Confirmation Modal */}
@@ -9208,6 +9377,17 @@ export default function Design() {
                                 <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openZoomCropForGarment(garment);
+                                    }}
+                                    className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                    title="Zoom & Crop without blur (use this frame for generation)"
+                                  >
+                                    <ZoomIn className="h-2.5 w-2.5" />
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       const rot = await rotateImage(garment.preview ?? garment.url, 90);
@@ -9834,6 +10014,17 @@ export default function Design() {
                               <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openZoomCropForModel(item, idx);
+                                  }}
+                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                  title="Zoom & Crop without blur (use this frame for generation)"
+                                >
+                                  <ZoomIn className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     const rot = await rotateImage(item.preview ?? item.url, 90);
@@ -9891,6 +10082,14 @@ export default function Design() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openZoomCropForModel(model)}
+                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
+                          title="Zoom & Crop without blur (use this frame for generation)"
+                        >
+                          <ZoomIn className="h-4 w-4" />
+                        </button>
                         <button
                           type="button"
                           onClick={async () => {

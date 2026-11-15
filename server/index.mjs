@@ -3401,8 +3401,14 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let dynamicFidelityRules =
         'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
         'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, natural hair, athletic physique, posture, and shoes with 100% fidelity. ' +
-        'STRICT MODEL COLLAR & NECKLINE MATCH: Replicate the model’s exact neckline, stand-up collar height, throat closure, and neck styling as shown in Image 1. If the model is wearing an upright zippered stand collar or athletic funnel neck, reproduce that exact stand collar zipped to the throat. Do NOT add any hood, hood pouch, or bunched fabric behind the neck. Absolutely NO hood or headwear of any kind, whether on the head or resting behind the neck. ' +
-        'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all shoulder curved accent stripes, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. Preserve curved royal blue accent lines along both shoulder seams and the exact 1:1 dot grid across shoulder yoke and side panels without simplification. ' +
+        'MODEL COLLAR & HOOD FAITHFUL REPLICATION: Look directly at how the reference model in Image 1 is wearing their collar, neck, and hood, and replicate that EXACT styling on the generated garment with 100% fidelity: ' +
+        '1) If the model in Image 1 has an attached jacket hood hanging/draped down the upper back (as in back-view windcheaters/tracksuits), render that exact attached hood draped flat down the upper back matching the reference model pose, shape, and folds. ' +
+        '2) If the model in Image 1 is wearing an upright zippered stand-up collar / funnel neck with NO hood, render that exact clean upright stand collar zipped to the throat with NO hood. ' +
+        '3) If the model in Image 1 is wearing the hood up covering their head, render the hood up over the head. ' +
+        'Faithfully mirror the reference model’s exact collar, neckline, and hood styling without inventing or omitting anything. ' +
+        'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all garment patterns, bold curved accent lines, side panels, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. ' +
+        'Preserve the prominent royal blue curved accent lines running along both shoulder seams, the dense micro-laser perforated dot pattern across the shoulder yoke and extending fully down both side panels, and the lower body royal blue color gradient with exact 1:1 reproduction, every dot and line sharp and visible without solid-color flattening or omission. ' +
+        'If the model in Image 1 is facing backwards (back view), synthesize the back view of the garment: render the back shoulder yoke with the dot cluster, curved royal blue accent lines, back side panels, and lower back blue gradient. ' +
         'SPORTSWEAR PROPS NEGATIVE CONSTRAINT: Strictly NO balls (no basketball, soccer ball, cricket ball), no racquets, no sports equipment, no handheld props. Model hands must be completely free, natural, or in pockets. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ';
@@ -3422,7 +3428,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
 
       let universalNegative =
-        'no hood, no hood resting behind neck, no bunched fabric at neck, no hoodie, no headgear, no baseball cap, no cap on head, no hat, no beanie, no helmet, no visor, no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no warped zipper, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
+        'no baseball cap, no beanie, no helmet, no visor (unless worn by the reference model in Image 1), no ball, no basketball, no sports equipment in hands, no handheld props, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
 
       if (userWantsRemoveShivNaresh && !userWantsRemoveAllLogo) {
         universalNegative += ', no shiv-naresh text, no manufacturer animal logo';
@@ -3998,7 +4004,10 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
 /* Self-healing unlock endpoint to clear any lingering generation locks */
 app.post('/api/user/unlock', auth.requireUser, (req, res) => {
   activeUserGenerations.delete(getUserLockKey(req));
-  if (req.user?._id) activeUserGenerations.delete(`usr_${req.user._id}`);
+  if (req.user?._id) {
+    activeUserGenerations.delete(`usr_${req.user._id}`);
+    recentUserGenerations.delete(req.user._id);
+  }
   res.json({ ok: true });
 });
 
