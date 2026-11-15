@@ -3364,47 +3364,37 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
-      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog (Engineered from Cap & Collar Prompt Pack)
+      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog (No Baseball Cap, Natural Athlete Hair, Proper Neck/Hood)
       const HOOD_PAIRED_RULES = {
         'pair-1': {
-          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown (front height 9 cm), 7 cm curved brim, tonal black stitching, small tonal embroidered chevron mark on front-left panel, self-fabric covered top button, metal strap slider. Fit: cap band 1.5 cm above eyebrows level, brim 15 degrees down. ' +
-                 'COLLAR STATE: short matte black stand collar 4 cm tall standing up around throat, full black zip closed to very top of collar, throat 3 cm visible, hood folded flat behind neck only in pointed kite shape on upper back, never on shoulders. Cap crown keeps 2 cm gap above collar. ' +
-                 'GARMENT: black lightweight windcheater, silver-white halftone dot chevron running from both shoulders into deep V at centre chest, dots dissolving into deep red gradient across lower third, dark red side panels, raglan sleeves, elasticated cuffs, white SHIV NARESH wordmark with sprinting panther icon on right chest. Black straight track pants with small white panther logo on left thigh, white running shoes with coral-orange heel counters. ',
-          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, both rear panels, strap opening and metal slider clearly visible centred on nape, brim pointing away from camera. Cap band rests on occipital bone 2 cm above hairline leaving 3 cm clean nape skin above collar. ' +
-                'COLLAR STATE: hood folded down flat into pointed kite shape lying between shoulder blades, tip ending at mid-shoulder-blade, no hood on shoulders, no bunching at sides. Short matte black stand collar standing at nape with clean seam, 3 cm bare nape skin between cap band and collar. ' +
-                'GARMENT: plain black back panel with no print, raglan seams from collar to underarm, elasticated cuffs, black hem band, narrow red and white vertical stripe at left side seam. Black straight track pants plain from behind. Front chevron print must not bleed onto back panel. ',
+          front: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. ' +
+                 'FRONT COLLAR & HOOD: Front-facing sportswear catalogue pose. Model facing camera. 4 cm matte black stand collar zipped closed around throat. Attached jacket hood is folded away neatly resting behind the neck only (NOT on head, NOT on shoulders). Clean chest and front panel presentation with authentic Shiv-Naresh chest logo. ',
+          back: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. ' +
+                'BACK COLLAR & HOOD: Attached jacket hood hanging down flat in a pointed kite shape along the center spine between shoulder blades, tip ending at mid-shoulder-blade, no fabric bunching on shoulders. Short stand collar visible at nape with clean seam. Smooth plain black back panel with no front graphics bleeding onto the back. ',
         },
         'pair-2': {
-          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal black stitching, small white embroidered mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. ' +
-                 'COLLAR STATE: 5 cm black stand collar standing upright, full black zip closed to top of collar, completely 100% hoodless with NO hood anywhere on this garment. 3 cm throat visible above zip. Cap crown keeps 2 cm gap above collar. ' +
-                 'GARMENT: white matte lightweight track jacket body, black raglan shoulder yoke panels, sleeves fully covered in all-over white/grey geometric tape line print, black underarm side panels, white vertical block lettering down right sleeve near cuff, small black print near right shoulder seam, black zip, elasticated cuffs and hem. Dark charcoal track pants with white SHIV NARESH logo on left thigh, pale blue/mint sneakers. ',
-          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, rear panels, strap opening, slider centred on occiput, band rests 2 cm above hairline with 3 cm clean nape skin visible. ' +
-                'COLLAR STATE: 5 cm black stand collar sitting low on nape, hairline 2 cm above it, NO hood on this garment, nape clean with zero fabric bunching. Cap band and collar never touch. ' +
-                'GARMENT: plain white back panel, black raglan shoulder yoke running along top of shoulders, tape line print continuing around back of both sleeves, elasticated white hem band, no back print or logo. Dark charcoal track pants plain from behind. ',
+          front: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. ' +
+                 'FRONT COLLAR: Front-facing sportswear pose. Model facing camera. 5 cm athletic stand collar standing upright around throat, full zipper closed to top of collar. Completely 100% hoodless with NO hood anywhere on this garment. Clean front neck presentation. ',
+          back: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. ' +
+                'BACK COLLAR: Crisp 5 cm stand collar sitting low across nape of neck with clean center-back seam. 100% hoodless with completely smooth upper back panel and zero draped fabric. ',
         },
         'pair-3': {
-          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, single thin red embroidered arc on front-left panel. Fit: band 1.5 cm above brows level, brim 15 degrees down, cap back stays 2 cm clear of funnel collar behind. ' +
-                 'COLLAR STATE: 7 cm tall black funnel stand collar zipped completely to top, standing upright and touching underside of chin, throat fully covered, packable hood folded away flat behind neck. Only jaw, chin and 2 cm of neck visible. ' +
-                 'GARMENT: black lightweight windcheater with silver-white halftone dot chevron from shoulders into centre V, dissolving into deep red gradient across lower third, black raglan sleeves with elasticated cuffs, straight hem, full black zip, white SHIV NARESH wordmark with panther icon on right chest. Black straight track pants with small white logo on left thigh, black low-top sneakers. ',
-          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap, rear panels and metal slider centred on occiput. Band rests 2 cm above nape hairline leaving 3 cm clean nape skin. Cap worn OUTSIDE and ABOVE the hood, never tucked into it. ' +
-                'COLLAR STATE: packable hood folded DOWN and laid flat across upper back in soft pointed shape with two natural fold lines, tip landing between shoulder blades, no volume on shoulders. 7 cm funnel collar visible at nape with clean centre-back seam. Clear 2 cm gap between cap band and collar. ' +
-                'GARMENT: plain black back panel with no print, raglan sleeve seams from collar to underarm, elasticated cuffs, straight hem, narrow red panel edge at right side seam. Black straight track pants plain from behind. ',
+          front: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. ' +
+                 'FRONT COLLAR: Front-facing pose. Model facing camera. 7 cm tall funnel stand collar zipped completely to top touching underside of chin. Attached packable hood folded away flat behind neck only. ',
+          back: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. ' +
+                'BACK COLLAR & HOOD: Packable hood folded down flat across upper back in soft pointed shape between shoulder blades. Tall funnel collar visible at nape. Plain black back panel. ',
         },
         'pair-4': {
-          front: 'CAP: royal blue matte 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal royal-blue stitching, small light-blue embroidered mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. ' +
-                 'COLLAR STATE: 4.5 cm royal blue stand collar standing upright, full blue zip closed to top with blue pull, throat 3 cm visible above zip, hood folded away behind neck only. Cap crown keeps 2 cm gap above collar. ' +
-                 'GARMENT: royal blue matte lightweight tracksuit jacket, tonal light-blue topstitching along raglan seams and side seams, small tonal embroidered logo on left chest (viewer right), second small tonal logo on upper left sleeve, elasticated cuffs, straight hem, full blue zip. Matching royal blue track pants with light-blue embroidery on left thigh, light blue/white mesh trainers. ',
-          back: 'CAP FROM BEHIND: royal blue matte 6-panel baseball cap seen from rear, rear panels, strap opening and slider visible on nape side. Band rests on occipital bone 2 cm above hairline leaving 2.5 cm clean nape skin above collar. ' +
-                'COLLAR STATE: hood folded down and lying flat across upper back in pointed shape with defined centre fold, tip at mid-shoulder-blade, no volume on shoulders. 4.5 cm stand collar visible at nape with clean centre-back seam. Clear 2 cm gap between cap band and collar top. ' +
-                'GARMENT: royal blue back panel plain with no print, tonal raglan seam from collar to underarm, self-colour topstitching, subtle tonal embossed tape pattern along right shoulder-back seam, elasticated cuffs, straight hem. Royal blue track pants tonal from behind. ',
+          front: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. ' +
+                 'FRONT COLLAR: Front-facing pose. Model facing camera. 4.5 cm stand collar standing upright, full zipper closed to top, attached hood folded away neatly behind neck only. ',
+          back: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. ' +
+                'BACK COLLAR & HOOD: Attached hood folded down and lying flat across upper back with defined center fold between shoulder blades. Stand collar visible at nape with clean seam. Plain back panel. ',
         },
         'pair-5': {
-          front: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, tonal black stitching, one small yellow embroidered mark on front-left panel. Fit: band 1.5 cm above brows level, brim 15 degrees down. Cap band positioned 3 cm higher at back so crown does not sit inside hood opening. ' +
-                 'COLLAR STATE: the hood is DOWN, inner lining rolled into soft 3 cm thick collar around neck forming visible well behind head, two black drawcords hanging straight down from eyelets onto chest, no hood on head, none on shoulders. ' +
-                 'GARMENT: black heavy cotton-fleece hoodie, dropped shoulder seams, ribbed black cuffs and hem, large front print arched yellow "GLA", green and gold split shield crest with navy knight silhouette, arched yellow "UNIVERSITY" below, small yellow print near each sleeve cuff. Khaki track pants with green and gold side stripe and small shield patch on left thigh. ',
-          back: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, rear panels, strap opening and metal slider clearly visible above hood roll. Band rests on occiput with 2.5 cm clean nape skin visible ABOVE fleece hood roll, cap sits fully OUTSIDE and ABOVE the hood, strap never disappears into fleece. ' +
-                'HOOD STATE: thick black fleece hood lying down across upper back, inner lining rolled at nape forming raised 3 cm ridge, hood tip falling into soft rounded point between shoulder blades, one drawcord loop visible at right side of neck, no hood on head, no bunching at sides. ' +
-                'GARMENT: plain black fleece back panel with no print, dropped shoulder seams, ribbed black cuffs and hem, visible fleece texture with soft sheen. Khaki track pants with green and gold vertical side stripe, dark sneakers. ',
+          front: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. ' +
+                 'FRONT HOOD: Front-facing pose. Model facing camera. The hood is DOWN, inner lining rolled into soft 3 cm collar around neck forming visible well behind head, two drawcords hanging straight down onto chest. Hood is NOT worn on head. ',
+          back: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. ' +
+                'BACK HOOD: Thick fleece hood lying down across upper back with raised roll at nape, hood tip falling into soft rounded point between shoulder blades. Smooth plain fleece back panel. ',
         },
       };
 
@@ -3437,7 +3427,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
         'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ' +
         'BRAND LOGO FIDELITY & NO DUPLICATION: Render only the authentic brand logos present on the garment reference photos in their exact single position (one on the chest, one on the thigh). Do NOT invent duplicate or repeated second logos. ' +
-        'UNIVERSAL NEGATIVE PROMPT: no bare head, no missing cap, no bucket hat, no beanie, no snapback flat brim, no trucker mesh, no visor, no cap floating above the head, no cap covering the collar, no hood worn up, no hood resting on the shoulders, no changed garment colour, no invented print, no extra logos, no mirrored logo, no ball, no props in hands, no extra fingers, no warped zipper, no melted collar, no different face, no plastic skin, no cartoon, no text artefacts, no watermark, no logo distortion. ';
+        'UNIVERSAL NEGATIVE PROMPT: strictly NO baseball cap, NO cap on head, NO hat, NO headwear, NO beanie, NO helmet, NO visor, NO hood worn on head (hood must remain resting down behind neck), NO ball, NO basketball, NO sports equipment in hands, NO handheld props, NO changed garment colour, NO invented print, NO extra logos, NO duplicate logos, NO warped zipper, NO deformed fingers, NO melted collar, NO different face, NO plastic skin, NO cartoon, NO text artefacts, NO watermark. ';
 
       agentPrompt += dynamicFidelityRules;
 
@@ -4011,18 +4001,23 @@ app.post('/api/user/unlock', auth.requireUser, (req, res) => {
 app.get('/api/user/generations', auth.requireUser, async (req, res) => {
   try {
     const list = await readGenerations();
-    const currentUserId = String(req.user._id);
+    const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
 
     const items = list.filter((g) => {
+      if (isAdmin) return true;
       const gUserId = g.userId ? String(g.userId) : '';
       const gEmail = (g.userEmail || '').toLowerCase().trim();
-      return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail);
-    }).map((g) => ({
-      ...g,
-      url: g.url || g.highResUrl || g.remoteUrl || g.outputUrl || '',
-      highResUrl: g.highResUrl || g.remoteUrl || g.url || g.outputUrl || '',
-    }));
+      return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
+    }).map((g) => {
+      const resolvedUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl || (Array.isArray(g.output) ? g.output[0] : '') || '';
+      return {
+        ...g,
+        url: resolvedUrl,
+        highResUrl: g.highResUrl || g.remoteUrl || resolvedUrl,
+      };
+    }).filter((g) => Boolean(g.url));
 
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     res.json({ items });
@@ -4111,6 +4106,8 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       if (color) existing.color = color;
       if (colorName) existing.colorName = colorName;
       if (req.body.isManualUpload) existing.isManualUpload = true;
+      if (!existing.userId && req.user?._id) existing.userId = req.user._id;
+      if (!existing.userEmail && req.user?.email) existing.userEmail = req.user.email;
       await writeGenerations(list);
       return res.json(existing);
     }

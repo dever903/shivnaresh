@@ -187,11 +187,11 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     backThumb: '/hood-presets/pair1-back.webp',
     tagline: '4cm Stand Collar + Pointed Kite Hood Back',
     frontTitle: 'Front: 4cm Stand Collar + Hood Folded Behind Neck',
-    frontDesc: 'Zip to top, throat 3cm visible, hood bulk only behind neck. Cap crown keeps 2cm gap above collar.',
+    frontDesc: 'Zip to top, throat 3cm visible, hood bulk only behind neck. Natural athlete hair, no cap.',
     backTitle: 'Back: Pointed Kite Hood Between Shoulder Blades',
     backDesc: 'Pointed kite shape lying flat between blades, tip mid-blade, 3cm clean nape skin above collar.',
-    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, 7 cm curved brim, tonal black stitching, small tonal embroidered chevron mark on front-left panel. Fit: band 1.5 cm above brows, brim 15 degrees down. COLLAR STATE: short matte black stand collar 4 cm tall around throat, full black zip closed to top, throat 3 cm visible, hood folded away flat behind neck only. Cap crown keeps 2 cm gap above collar. GARMENT: black lightweight windcheater, silver-white halftone dot chevron into centre V, dissolving into deep red gradient across lower third, raglan sleeves, elasticated cuffs, white SHIV NARESH wordmark on right chest. Black straight track pants with small white panther logo on left thigh. ',
-    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, strap opening and metal slider centred on nape. Band rests 2 cm above hairline leaving 3 cm clean nape skin above collar. COLLAR STATE: hood folded down flat into pointed kite shape lying between shoulder blades, tip ending at mid-shoulder-blade, no hood on shoulders. Short matte black stand collar at nape with clean seam, 3 cm bare nape skin between cap band and collar. GARMENT: plain black back panel with no print, raglan seams, black straight track pants plain from behind. ',
+    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR & HOOD: Front-facing sportswear catalogue pose. Model facing camera. 4 cm matte black stand collar zipped closed around throat. Attached jacket hood is folded away neatly resting behind the neck only (NOT on head, NOT on shoulders). Clean chest and front panel presentation with authentic Shiv-Naresh chest logo. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Attached jacket hood hanging down flat in a pointed kite shape along the center spine between shoulder blades, tip ending at mid-shoulder-blade, no fabric bunching on shoulders. Short stand collar visible at nape with clean seam. Smooth plain black back panel with no front graphics bleeding onto the back. ',
     recommendedFor: 'Windcheaters & tracksuits with foldable/draped hoods (7924 / 7925 style)',
   },
   {
@@ -203,11 +203,11 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     backThumb: '/hood-presets/pair2-back.webp',
     tagline: '5cm Black Stand Collar + Smooth Nape Back (NO Hood)',
     frontTitle: 'Front: 5cm Athletic Stand Collar (No Hood)',
-    frontDesc: '5cm black stand collar upright, full zip closed, NO hood anywhere on garment, throat visible.',
+    frontDesc: '5cm black stand collar upright, full zip closed, NO hood anywhere on garment, natural hair.',
     backTitle: 'Back: Smooth Nape Collar (No Hood)',
     backDesc: '5cm collar sitting low on nape, hairline 2cm above it, 100% hoodless with clean smooth back panel.',
-    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small white embroidered mark on front-left panel. COLLAR STATE: 5 cm black stand collar standing upright, full black zip closed to top, completely 100% hoodless with NO hood anywhere on this garment. 3 cm throat visible. Cap crown keeps 2 cm gap above collar. GARMENT: white matte lightweight track jacket body, black raglan shoulder yoke, geometric tape-line sleeves, white block lettering down right sleeve near cuff, dark charcoal track pants with white SHIV NARESH logo on left thigh. ',
-    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear, slider centred on occiput, band rests 2 cm above hairline with 3 cm clean nape skin visible. COLLAR STATE: 5 cm black stand collar sitting low on nape, hairline 2 cm above it, NO hood on this garment, nape clean with zero fabric bunching. Cap band and collar never touch. GARMENT: plain white back panel, black raglan shoulder yoke, tape-line print continuing around sleeves, dark charcoal track pants plain from behind. ',
+    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing sportswear pose. Model facing camera. 5 cm athletic stand collar standing upright around throat, full zipper closed to top of collar. Completely 100% hoodless with NO hood anywhere on this garment. Clean front neck presentation. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR: Crisp 5 cm stand collar sitting low across nape of neck with clean center-back seam. 100% hoodless with completely smooth upper back panel and zero draped fabric. ',
     recommendedFor: 'Classic zippered track jackets without hoods (8625 / 8628 style)',
   },
   {
@@ -222,8 +222,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: '7cm funnel collar zipped to top, touching underside of chin, throat covered, packable hood folded flat.',
     backTitle: 'Back: Packable Hood Folded Flat Down Upper Back',
     backDesc: 'Packable hood folded DOWN across upper back in soft pointed shape, 7cm funnel collar visible at nape.',
-    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, thin red embroidered arc on front-left panel. COLLAR STATE: 7 cm tall black funnel stand collar zipped completely to top touching underside of chin, throat fully covered, packable hood folded away flat behind neck. Only jaw, chin and 2 cm of neck visible. Cap crown stays 2 cm clear of funnel collar behind. GARMENT: black windcheater with silver-white dot chevron into red gradient, white SHIV NARESH wordmark on right chest, black straight track pants. ',
-    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap, strap slider centred on occiput. Band rests 2 cm above hairline leaving 3 cm clean nape skin. Cap worn OUTSIDE and ABOVE the hood, never tucked in. COLLAR / HOOD STATE: packable hood folded DOWN flat across upper back in soft pointed shape with two natural fold lines, tip landing between shoulder blades. 7 cm funnel collar visible at nape with clean centre seam. GARMENT: plain black back panel with no print, straight track pants plain from behind. ',
+    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing pose. Model facing camera. 7 cm tall funnel stand collar zipped completely to top touching underside of chin. Attached packable hood folded away flat behind neck only. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Packable hood folded down flat across upper back in soft pointed shape between shoulder blades. Tall funnel collar visible at nape. Plain black back panel. ',
     recommendedFor: 'Technical windcheaters with tall funnel neck & packable hood (8776 / 8777 style)',
   },
   {
@@ -238,8 +238,8 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     frontDesc: '4.5cm royal blue stand collar upright, full blue zip to top, throat 3cm visible, hood folded behind.',
     backTitle: 'Back: Flat Pointed Hood Fold with Defined Center Line',
     backDesc: 'Hood flat across upper back, pointed tip at mid-blade, 4.5cm stand collar at nape, 2.5cm nape skin.',
-    frontPrompt: 'CAP: royal blue matte 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small light-blue embroidered mark on front-left panel. COLLAR STATE: 4.5 cm royal blue stand collar upright, full blue zip closed to top with blue pull, throat 3 cm visible above zip, hood folded behind neck only. Cap crown keeps 2 cm gap above collar. GARMENT: royal blue matte lightweight tracksuit jacket, tonal light-blue topstitching, small tonal embroidered logo on left chest (viewer right), second small logo on upper left sleeve. Matching royal blue track pants with light-blue embroidery on left thigh. ',
-    backPrompt: 'CAP FROM BEHIND: royal blue matte 6-panel baseball cap seen from rear three-quarter, band rests on occipital bone 2 cm above hairline leaving 2.5 cm clean nape skin above collar. COLLAR / HOOD STATE: hood folded down flat across upper back in pointed shape with defined centre fold, tip at mid-shoulder-blade, no volume on shoulders. 4.5 cm stand collar visible at nape. Clear 2 cm gap between cap band and collar top. GARMENT: royal blue back panel plain with no print, tonal raglan seams, straight hem, royal blue track pants tonal from behind. ',
+    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT COLLAR: Front-facing pose. Model facing camera. 4.5 cm stand collar standing upright, full zipper closed to top, attached hood folded away neatly behind neck only. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK COLLAR & HOOD: Attached hood folded down and lying flat across upper back with defined center fold between shoulder blades. Stand collar visible at nape with clean seam. Plain back panel. ',
     recommendedFor: 'Tonal lightweight polyester tracksuits (10365 / 10366 style)',
   },
   {
@@ -252,10 +252,10 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     tagline: 'Rolled Inner Collar & Drawstrings + Thick Nape Hood Roll Back',
     frontTitle: 'Front: Soft Rolled Collar Well + Dual Chest Drawstrings',
     frontDesc: 'Hood is DOWN, inner lining rolled into soft 3cm collar well, 2 black drawcords hanging straight down.',
-    backTitle: 'Back: Thick Fleece Hood Roll at Nape (Cap Sits Above)',
-    backDesc: 'Thick fleece roll at nape (raised 3cm ridge), rounded tip between blades. Cap rests ABOVE roll, strap clear.',
-    frontPrompt: 'CAP: matte black 6-panel structured baseball cap, mid-profile crown, curved 7 cm brim, small yellow embroidered mark on front-left panel. Cap band positioned 3 cm higher at back so crown does not sit inside hood opening. COLLAR STATE: hood is DOWN, inner lining rolled into soft 3 cm thick collar around neck forming visible well behind head, two black drawcords hanging straight down from eyelets onto chest, no hood on head, none on shoulders. GARMENT: black heavy cotton-fleece hoodie, dropped shoulder seams, ribbed cuffs and hem, large front print arched yellow "GLA", green and gold shield crest, arched yellow "UNIVERSITY" below. Khaki track pants with green and gold side stripe. ',
-    backPrompt: 'CAP FROM BEHIND: matte black 6-panel baseball cap seen from rear three-quarter, strap opening and metal slider clearly visible above hood roll. Band rests on occiput with 2.5 cm clean nape skin visible ABOVE fleece hood roll, cap sits fully OUTSIDE and ABOVE the hood, strap never disappears into fleece. HOOD STATE: thick black fleece hood lying down across upper back, inner lining rolled at nape forming raised 3 cm ridge, hood tip falling into soft rounded point between shoulder blades, one drawcord loop visible at right side of neck. Khaki track pants with green and gold side stripe, dark sneakers. ',
+    backTitle: 'Back: Thick Fleece Hood Roll at Nape',
+    backDesc: 'Thick fleece roll at nape (raised 3cm ridge), rounded tip between blades.',
+    frontPrompt: 'HEAD & HAIR: Natural bare head with neat athlete hair as seen in the model reference photo. Strictly NO baseball cap, NO hat, NO headwear. FRONT HOOD: Front-facing pose. Model facing camera. The hood is DOWN, inner lining rolled into soft 3 cm collar around neck forming visible well behind head, two drawcords hanging straight down onto chest. Hood is NOT worn on head. ',
+    backPrompt: 'HEAD & HAIR: Rear view of model facing away from camera. Natural back of head and hair. Strictly NO baseball cap, NO hat. BACK HOOD: Thick fleece hood lying down across upper back with raised roll at nape, hood tip falling into soft rounded point between shoulder blades. Smooth plain fleece back panel. ',
     recommendedFor: 'Heavy cotton-fleece pullover hoodies & sweatshirts (10627 / 10628 style)',
   },
 ];
@@ -1873,8 +1873,8 @@ function MySetsPanel({
   const clothRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
 
-  const imageGenerations = generations.filter((g) => g.type === 'image');
-  const videoGenerations = generations.filter((g) => g.type === 'video');
+  const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(g.url));
+  const videoGenerations = generations.filter((g) => g.type === 'video' && Boolean(g.url));
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -5922,8 +5922,36 @@ export default function Design() {
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
   const [showPantLogo, setShowPantLogo] = useState(false);
   const [cleanResultBackup, setCleanResultBackup] = useState<string | null>(null);
+  const [activeRenderOption, setActiveRenderOption] = useState<'a' | 'b'>('b');
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
+
+  const getAutoContrastColor = useCallback((colorStr: string) => {
+    if (!colorStr) return '#ffffff';
+    const lower = colorStr.toLowerCase();
+    if (
+      lower.includes('white') ||
+      lower.includes('optic') ||
+      lower.includes('cream') ||
+      lower.includes('ivory') ||
+      lower.includes('yellow') ||
+      lower.includes('lime') ||
+      lower.includes('light grey') ||
+      lower.includes('light gray')
+    ) {
+      return '#111111';
+    }
+    const hexMatch = colorStr.match(/#([0-9a-f]{6})/i);
+    if (hexMatch) {
+      const hex = hexMatch[1];
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      return lum > 165 ? '#111111' : '#ffffff';
+    }
+    return '#ffffff';
+  }, []);
   const customLogoUrl: string | null = null;
   // Chest logo: realistic 24px width, x=43.5% (right on chest pocket area), y=20.5%
   const [hdLogoScale, setHdLogoScale] = useState<number>(() => {
@@ -6128,6 +6156,13 @@ export default function Design() {
   }
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
+  const [isAutoLogoColor, setIsAutoLogoColor] = useState(true);
+
+  useEffect(() => {
+    if (isAutoLogoColor && garmentColor) {
+      setHdLogoColor(getAutoContrastColor(garmentColor));
+    }
+  }, [garmentColor, isAutoLogoColor, getAutoContrastColor]);
 
   /* Model Swap inputs (Slot 1: Kis Model ko change karna hai; Slot 2: Kis Model ke sath change karna hai) */
   interface SwapDraft {
@@ -6656,6 +6691,11 @@ export default function Design() {
               prev.map((p, idx) => (idx === currentIdx ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
             );
             setResult(imgUrl);
+            setCleanResultBackup(imgUrl);
+            setActiveRenderOption('b');
+            setShowHdLogoOverlay(true);
+            setShowPantLogo(true);
+            autoDetectContrastColor(imgUrl);
             setSelectedPoseIndex(currentIdx);
             void api.saveUserGeneration({
               id: next.id,
@@ -6666,6 +6706,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+              void loadUserGenerations();
             }).catch(() => { });
 
             // Find next uncancelled pending item in batch sequence
@@ -6756,6 +6797,11 @@ export default function Design() {
           } else {
             // Standard single generation
             setResult(imgUrl);
+            setCleanResultBackup(imgUrl);
+            setActiveRenderOption('b');
+            setShowHdLogoOverlay(true);
+            setShowPantLogo(true);
+            autoDetectContrastColor(imgUrl);
             setProgress(100);
             setProgressLabel('Complete!');
             setBusy(false);
@@ -6771,6 +6817,7 @@ export default function Design() {
               resolution: quality,
             }).then((res) => {
               setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+              void loadUserGenerations();
             }).catch(() => { });
           }
         }
@@ -7026,27 +7073,7 @@ export default function Design() {
     return canvas.toDataURL('image/png');
   }
 
-  /* Helper: download rendered image with optional vector-sharp Shiv-Naresh brand logo stamp */
-  async function downloadRenderWithBranding(imgUrl: string, fileName: string) {
-    if (!showHdLogoOverlay && !showPantLogo) {
-      return downloadDirectFile(imgUrl, fileName);
-    }
-    try {
-      const dataUrl = await stampHdLogoOntoImage(imgUrl);
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-    } catch {
-      downloadDirectFile(imgUrl, fileName);
-    }
-  }
+
 
   /* ------------------------------------------------
      Unified Execution Function (runs after user clicks Yes in confirmation)
@@ -10081,318 +10108,143 @@ export default function Design() {
                 </div>
               )}
 
-              <div className={`p-4 ${isLight ? 'bg-gray-50' : 'bg-black/40'}`}>
-                {result ? (
-                  <div className="space-y-4">
-                    {/* Before & After: Show Selected Model alongside or above Generated Output */}
-                    {(() => {
-                      const activeSelectedModel =
-                        fivePoseItems[selectedPoseIndex]?.model?.url ||
-                        (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null) ||
-                        selectedModels[selectedPoseIndex]?.url ||
-                        model?.url;
-                      return activeSelectedModel ? (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider opacity-60">
-                            <span>🎯 Selected Model (Target Pose)</span>
-                          </div>
-                          <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-h-[220px] flex items-center justify-center">
-                            <img src={activeSelectedModel} alt="Target Pose" className="max-h-[220px] w-full object-contain" />
-                          </div>
-                        </div>
-                      ) : null;
-                    })()}
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex-wrap gap-2">
-                        <span>✨ Generated AI Studio Render</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = !showHdLogoOverlay && !showPantLogo;
-                              setShowHdLogoOverlay(next);
-                              setShowPantLogo(next);
-                              if (next) {
-                                setHdLogoScale(24);
-                                setPantLogoScale(20);
-                              }
-                            }}
-                            className={`text-[9px] px-2.5 py-0.5 rounded-full border cursor-pointer font-bold transition-all ${
-                              showHdLogoOverlay || showPantLogo
-                                ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                                : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
-                            }`}
-                            title="Toggle between Option A (Cloth Original) and Option B (Vector Replace)"
-                          >
-                            {showHdLogoOverlay || showPantLogo ? '✨ Mode: Option B (Vector Replace)' : '👕 Mode: Option A (Cloth Original)'}
-                          </button>
-                          <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
-                        </div>
-                      </div>
-                      {(showHdLogoOverlay || showPantLogo) && (
-                        <p className={`text-[9px] text-center font-medium ${isLight ? 'text-gray-700' : 'text-emerald-400'}`}>
-                          🎯 <strong>Option B Cover-Up:</strong> Click directly over the blurry logo on the athlete to snap the crisp vector mark over it.
-                        </p>
-                      )}
-                      <div className="flex justify-center w-full">
-                        <div
-                          className="relative w-fit max-h-[700px] rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20 cursor-crosshair group"
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const clickX = Math.round(((e.clientX - rect.left) / rect.width) * 100 * 10) / 10;
-                            const clickY = Math.round(((e.clientY - rect.top) / rect.height) * 100 * 10) / 10;
-                            if (activeLogoTarget === 'chest') {
-                              setHdLogoX(clickX);
-                              setHdLogoY(clickY);
-                            } else {
-                              setPantLogoX(clickX);
-                              setPantLogoY(clickY);
-                            }
-                          }}
-                          title={`Click anywhere to place ${activeLogoTarget === 'chest' ? '👕 Chest' : '👖 Pant'} logo`}
-                        >
-                          <img src={result} alt="Generated" className="max-h-[700px] w-auto block object-contain pointer-events-none select-none rounded-xl" />
-
-                          {/* 1. Chest Logo Overlay */}
-                          {showHdLogoOverlay && (
-                            <div
-                              onClick={(e) => { e.stopPropagation(); setActiveLogoTarget('chest'); }}
-                              className={`absolute select-none transition-all duration-75 cursor-pointer ${
-                                activeLogoTarget === 'chest' ? 'ring-2 ring-emerald-400 rounded-sm' : ''
-                              }`}
-                              style={{
-                                left: `${hdLogoX}%`,
-                                top: `${hdLogoY}%`,
-                                transform: 'translate(-50%, -50%)',
-                                width: `${hdLogoScale}px`,
-                              }}
-                              title="Chest Logo (Click to activate/move)"
-                            >
-                              {customLogoUrl ? (
-                                <img
-                                  src={customLogoUrl}
-                                  alt="Custom Brand Logo"
-                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
-                                />
-                              ) : (
-                                <ShivNareshSvgLogo
-                                  color={hdLogoColor}
-                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
-                                />
-                              )}
-                            </div>
-                          )}
-
-                          {/* 2. Pant Thigh Logo Overlay */}
-                          {showPantLogo && (
-                            <div
-                              onClick={(e) => { e.stopPropagation(); setActiveLogoTarget('pant'); }}
-                              className={`absolute select-none transition-all duration-75 cursor-pointer ${
-                                activeLogoTarget === 'pant' ? 'ring-2 ring-emerald-400 rounded-sm' : ''
-                              }`}
-                              style={{
-                                left: `${pantLogoX}%`,
-                                top: `${pantLogoY}%`,
-                                transform: 'translate(-50%, -50%)',
-                                width: `${pantLogoScale}px`,
-                              }}
-                              title="Pant Thigh Logo (Click to activate/move)"
-                            >
-                              {customLogoUrl ? (
-                                <img
-                                  src={customLogoUrl}
-                                  alt="Custom Pant Logo"
-                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
-                                />
-                              ) : (
-                                <ShivNareshSvgLogo
-                                  color={hdLogoColor}
-                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
-                                />
-                              )}
-                            </div>
-                          )}
-
-                          {/* Click Hint Bar */}
-                          <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs border border-white/20 rounded-md px-2 py-0.5 text-[9px] text-white/80 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                            🎯 Click anywhere on image to position {activeLogoTarget === 'chest' ? '👕 Chest' : '👖 Pant'} logo
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : busy ? (
-                  <div className="grid min-h-[360px] place-items-center text-center">
-                    <div>
-                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                      <p className={`mt-3 text-xs ${isLight ? 'text-slate-900 font-medium' : 'text-white/50'}`}>{progressLabel || 'Rendering image…'}</p>
-                      <p className={`mt-1 text-[10px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Elapsed: {fmtTime(elapsedSec)}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid min-h-[380px] place-items-center text-center p-6">
-                    <div className="max-w-md flex flex-col items-center">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-3 text-emerald-400">
-                        <Layers className="w-6 h-6" />
-                      </div>
-                      <h3 className={`text-sm font-bold mb-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        AI Studio Canvas & Branding Toolbar Ready
-                      </h3>
-                      <p className={`text-xs leading-relaxed mb-4 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                        Configure your garment on the left and click Generate, or load any photoshoot from your recent generations below to test HD Vector Branding, Color Wheels, and 2K Export.
-                      </p>
-                      {userGenerations.length > 0 && (userGenerations[0]?.url || userGenerations[0]?.highResUrl) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const latest = userGenerations[0];
-                            const targetUrl = latest.highResUrl || latest.url || latest.outputUrl || '';
-                            if (!targetUrl) return;
-                            setResult(targetUrl);
-                            setFivePoseItems([
-                              {
-                                id: 'pose-1',
-                                name: 'Front View',
-                                angle: 'front',
-                                icon: '🧍',
-                                promptSuffix: '',
-                                status: 'completed',
-                                url: targetUrl,
-                              },
-                            ]);
-                          }}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer"
-                        >
-                          <span>🖼️ Open Latest Render into Branding Studio (Free Test)</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
+              {/* Action Buttons bar & Option A / Option B Selector */}
               {result && (
-                <div className={`flex flex-wrap gap-2 border-t p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10'}`}>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!result) return;
-                      const rot = await rotateImage(result, 90);
-                      setResult(rot.dataUrl);
-                      setFivePoseItems((prev) =>
-                        prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: rot.dataUrl } : p))
-                      );
-                    }}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold flex items-center gap-1.5 cursor-pointer ${isLight
-                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                      }`}
-                    title="Rotate 90° clockwise"
-                  >
-                    <RotateCw className="h-3.5 w-3.5" />
-                    <span>Rotate 90°</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowHdLogoOverlay((prev) => !prev)}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${showHdLogoOverlay
-                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm'
-                      : isLight
-                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
-                        : 'border-emerald-500/40 text-emerald-300 hover:text-white hover:border-emerald-500'
-                      }`}
-                    title="Toggle 100% Vector-Sharp Official Shiv-Naresh Brand Logo Stamp (Zero AI Blur at any zoom)"
-                  >
-                    <span>✨ HD Brand Logo {showHdLogoOverlay ? 'ON' : 'Stamp'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadRenderWithBranding(result, `shivnaresh-${fivePoseItems[selectedPoseIndex]?.id || 'render'}.png`)}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold cursor-pointer ${isLight
-                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                      }`}
-                  >
-                    ⬇️ Download {fivePoseItems.length > 1 ? 'Selected Pose' : 'Render'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!result) return;
-                      let imgForCrop = result;
-                      if (showHdLogoOverlay || showPantLogo) {
-                        try {
-                          imgForCrop = await stampHdLogoOntoImage(result);
-                        } catch { }
-                      }
-                      setZoomCropImage(imgForCrop);
-                      setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.id || 'photoshoot-render');
-                      setShowZoomCropModal(true);
-                    }}
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-bold flex items-center gap-1.5 cursor-pointer ${isLight
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                      : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/60'
-                      }`}
-                    title="Pan, zoom, and export exact 1807×3000 crop"
-                  >
-                    <Maximize2 size={13} />
-                    <span>Zoom & Crop (1807×3000)</span>
-                  </button>
-                  {fivePoseItems.filter(p => p.status === 'completed').length > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-t border-white/10">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Option A / Option B Dual Pill */}
+                    <div className="inline-flex rounded-full border border-emerald-500/40 p-0.5 bg-black/40">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveRenderOption('a');
+                          setShowHdLogoOverlay(false);
+                          setShowPantLogo(false);
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          activeRenderOption === 'a'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-white/60 hover:text-white'
+                        }`}
+                        title="Pure raw AI generation without vector logo overlay"
+                      >
+                        🅰️ Option A (Clean AI)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveRenderOption('b');
+                          setShowHdLogoOverlay(true);
+                          setShowPantLogo(true);
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          activeRenderOption === 'b'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-white/60 hover:text-white'
+                        }`}
+                        title="Crisp official vector Shiv-Naresh logos applied at exact coordinates"
+                      >
+                        🅱️ Option B (HD Vector Brand)
+                      </button>
+                    </div>
+
+                    <a
+                      href={result}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors font-semibold ${isLight
+                        ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                        }`}
+                    >
+                      Open New Tab
+                    </a>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {activeRenderOption === 'b' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!result) return;
+                          try {
+                            setBusy(true);
+                            const baseToUse = cleanResultBackup || result;
+                            const stamped = await stampHdLogoOntoImage(baseToUse);
+                            setResult(stamped);
+                            setFivePoseItems((prev) =>
+                              prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: stamped } : p))
+                            );
+                            // Save stamped result to My Sets immediately
+                            const savedGen = await api.saveUserGeneration({
+                              id: crypto.randomUUID(),
+                              type: 'image',
+                              url: stamped,
+                              prompt: `Option B (HD Vector Brand Applied) · ${prompt.trim() || 'Studio Sportswear'}`,
+                              resolution: quality,
+                            });
+                            setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== stamped)]);
+                            void loadUserGenerations();
+                            alert('✅ Option B saved! High-resolution image with crisp vector logos is now permanently saved to My Sets.');
+                          } catch (e: any) {
+                            alert('Could not save: ' + (e?.message || e));
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+                        title="Burn vector logos into the image file and permanently save it to My Sets"
+                      >
+                        <span>💾 Save Option B to My Sets</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!result) return;
+                        const baseToUse = cleanResultBackup || result;
+                        const downloadTarget = activeRenderOption === 'b'
+                          ? await stampHdLogoOntoImage(baseToUse)
+                          : baseToUse;
+                        const a = document.createElement('a');
+                        a.href = downloadTarget;
+                        a.download = `shivnaresh-${activeRenderOption === 'b' ? 'option-b-branded' : 'option-a-clean'}-${Date.now()}.png`;
+                        a.click();
+                      }}
+                      className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{activeRenderOption === 'b' ? '⬇️ Download Option B (HD)' : '⬇️ Download Option A'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditOpen((prev) => !prev)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${isEditOpen
+                        ? 'bg-[#e5373f] text-white border-[#e5373f]'
+                        : isLight
+                          ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
+                          : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
+                        }`}
+                    >
+                      {isEditOpen ? 'Close edit' : 'Edit render'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
-                        fivePoseItems.forEach((p, i) => {
-                          if (p.url) {
-                            setTimeout(() => {
-                              void downloadRenderWithBranding(p.url!, `shivnaresh-${p.id || `render-${i + 1}`}.png`);
-                            }, i * 350);
-                          }
-                        });
+                        setResult(null);
+                        setFivePoseItems([]);
                       }}
-                      className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-500/30 cursor-pointer"
+                      className={`rounded-full border px-2.5 py-1.5 text-xs transition-colors font-medium ${isLight
+                        ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
+                        : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
+                        }`}
+                      title="Clear this preview from canvas"
                     >
-                      ⬇️ Download All {fivePoseItems.length} Renders
+                      Clear
                     </button>
-                  )}
-                  <a
-                    href={result}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`rounded-full border px-4 py-1.5 text-xs transition-colors font-semibold ${isLight
-                      ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                      }`}
-                  >
-                    Open New Tab
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditOpen((prev) => !prev)}
-                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${isEditOpen
-                      ? 'bg-[#e5373f] text-white border-[#e5373f]'
-                      : isLight
-                        ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
-                        : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
-                      }`}
-                  >
-                    {isEditOpen ? 'Close edit' : 'Edit render'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResult(null);
-                      setFivePoseItems([]);
-                    }}
-                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors font-medium ${isLight
-                      ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
-                      : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
-                      }`}
-                    title="Clear this preview from canvas"
-                  >
-                    Clear Preview
-                  </button>
+                  </div>
                 </div>
               )}
 
@@ -10427,11 +10279,14 @@ export default function Design() {
                     {/* Auto Match Color */}
                     <button
                       type="button"
-                      onClick={() => autoDetectContrastColor()}
+                      onClick={() => {
+                        setIsAutoLogoColor(true);
+                        autoDetectContrastColor();
+                      }}
                       className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer"
                       title="Auto-detect high contrast color from fabric"
                     >
-                      <span>🤖 Auto Color</span>
+                      <span>🤖 Auto Contrast</span>
                     </button>
 
                     {/* 10 Quick Sports Swatches */}
@@ -10440,7 +10295,10 @@ export default function Design() {
                         <button
                           key={p.hex}
                           type="button"
-                          onClick={() => setHdLogoColor(p.hex)}
+                          onClick={() => {
+                            setHdLogoColor(p.hex);
+                            setIsAutoLogoColor(false);
+                          }}
                           title={`${p.name} (${p.hex})`}
                           className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${hdLogoColor.toLowerCase() === p.hex.toLowerCase()
                               ? 'ring-2 ring-emerald-500 scale-110 border-white'
@@ -10454,14 +10312,20 @@ export default function Design() {
                         <input
                           type="color"
                           value={hdLogoColor.startsWith('#') && hdLogoColor.length === 7 ? hdLogoColor : '#ffffff'}
-                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          onChange={(e) => {
+                            setHdLogoColor(e.target.value);
+                            setIsAutoLogoColor(false);
+                          }}
                           className="w-3.5 h-3.5 rounded-full cursor-pointer border-0 bg-transparent p-0"
                           title="Pick ANY custom color (16.7M Colors) or use browser Eyedropper"
                         />
                         <input
                           type="text"
                           value={hdLogoColor}
-                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          onChange={(e) => {
+                            setHdLogoColor(e.target.value);
+                            setIsAutoLogoColor(false);
+                          }}
                           placeholder="#ffffff"
                           className="w-14 bg-transparent text-[10px] font-mono text-white outline-none"
                           maxLength={7}
@@ -10613,15 +10477,24 @@ export default function Design() {
                           );
                           setShowHdLogoOverlay(false);
                           setShowPantLogo(false);
-                          alert('Official HD Shiv-Naresh Brand Logos burned into file. Live overlay turned off so there are no duplicate logos!');
+                          const savedGen = await api.saveUserGeneration({
+                            id: crypto.randomUUID(),
+                            type: 'image',
+                            url: stamped,
+                            prompt: `Option B (HD Vector Brand Applied) · ${prompt.trim() || 'Studio Sportswear'}`,
+                            resolution: quality,
+                          });
+                          setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== stamped)]);
+                          void loadUserGenerations();
+                          alert('✅ Official HD Shiv-Naresh Brand Logos burned into file and permanently saved to My Sets!');
                         } catch (e: any) {
                           alert('Could not apply logo: ' + e.message);
                         }
                       }}
                       className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer flex items-center gap-1 ml-1"
-                      title="Permanently burn the vector-sharp official logos into the image file and turn off live overlay"
+                      title="Permanently burn the vector-sharp official logos into the image file and save to My Sets"
                     >
-                      <span>⚡ Burn Logos into File</span>
+                      <span>💾 Burn & Save to My Sets</span>
                     </button>
                     {cleanResultBackup && (
                       <button
