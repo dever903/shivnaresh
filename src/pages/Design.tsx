@@ -5693,7 +5693,8 @@ export default function Design() {
   });
   const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(true);
-  const [hdLogoColor, setHdLogoColor] = useState<'white' | 'black' | 'golden'>('white');
+  const [hdLogoColor, setHdLogoColor] = useState<'white' | 'black' | 'red' | 'golden'>('white');
+  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
   const [hdLogoScale, setHdLogoScale] = useState<number>(34);
   const [hdLogoX, setHdLogoX] = useState<number>(48);
   const [hdLogoY, setHdLogoY] = useState<number>(22);
@@ -6538,12 +6539,13 @@ export default function Design() {
   /* Helper: composite 100% vector-sharp Shiv-Naresh brand logo stamp onto canvas */
   async function stampHdLogoOntoImage(
     baseImgUrl: string,
-    options?: { color?: 'white' | 'black' | 'golden'; scale?: number; x?: number; y?: number }
+    options?: { color?: 'white' | 'black' | 'red' | 'golden'; scale?: number; x?: number; y?: number; customLogo?: string | null }
   ): Promise<string> {
     const color = options?.color || hdLogoColor;
     const scale = options?.scale ?? hdLogoScale;
     const x = options?.x ?? hdLogoX;
     const y = options?.y ?? hdLogoY;
+    const activeCustom = options?.customLogo !== undefined ? options.customLogo : customLogoUrl;
 
     const baseImg = new Image();
     baseImg.crossOrigin = 'anonymous';
@@ -6563,7 +6565,7 @@ export default function Design() {
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
-    const logoSrc = color === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png';
+    const logoSrc = activeCustom || (color === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png');
     await new Promise<void>((resolve, reject) => {
       logoImg.onload = () => resolve();
       logoImg.onerror = () => reject(new Error('Failed to load logo image'));
@@ -6576,7 +6578,24 @@ export default function Design() {
     const posX = (canvas.width * x) / 100 - logoW / 2;
     const posY = (canvas.height * y) / 100 - logoH / 2;
 
-    ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+    if (!activeCustom && (color === 'red' || color === 'golden')) {
+      // Offscreen canvas for color tinting
+      const tintCanvas = document.createElement('canvas');
+      tintCanvas.width = logoImg.naturalWidth || 512;
+      tintCanvas.height = logoImg.naturalHeight || 256;
+      const tintCtx = tintCanvas.getContext('2d');
+      if (tintCtx) {
+        tintCtx.drawImage(logoImg, 0, 0, tintCanvas.width, tintCanvas.height);
+        tintCtx.globalCompositeOperation = 'source-in';
+        tintCtx.fillStyle = color === 'red' ? '#e5373f' : '#f59e0b';
+        tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+        ctx.drawImage(tintCanvas, posX, posY, logoW, logoH);
+      } else {
+        ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+      }
+    } else {
+      ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+    }
 
     return canvas.toDataURL('image/png');
   }
@@ -8935,10 +8954,14 @@ export default function Design() {
                               }}
                             >
                               <img
-                                src={hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png'}
-                                alt="SHIV-NARESH HD Logo"
+                                src={customLogoUrl || (hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png')}
+                                alt="Brand Logo"
                                 className={`w-full filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] ${
-                                  hdLogoColor === 'golden' ? 'sepia hue-rotate-[15deg] saturate-[300%]' : ''
+                                  !customLogoUrl && hdLogoColor === 'red'
+                                    ? 'invert-[16%] sepia-[99%] saturate-[7404%] hue-rotate-[358deg] brightness-[95%] contrast-[112%]'
+                                    : !customLogoUrl && hdLogoColor === 'golden'
+                                    ? 'sepia hue-rotate-[15deg] saturate-[300%]'
+                                    : ''
                                 }`}
                               />
                             </div>
@@ -9094,7 +9117,7 @@ export default function Design() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ HD Logo Stamp:</span>
                     <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/20">
-                      {(['white', 'black', 'golden'] as const).map((col) => (
+                      {(['white', 'black', 'red', 'golden'] as const).map((col) => (
                         <button
                           key={col}
                           type="button"
@@ -9121,6 +9144,38 @@ export default function Design() {
                       >
                         👖 Thigh
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { setHdLogoX(28); setHdLogoY(58); setHdLogoScale(24); }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30"
+                      >
+                        💪 Sleeve
+                      </button>
+                      <label className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 cursor-pointer flex items-center gap-1">
+                        <span>📁 Custom Logo</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/svg+xml,image/jpeg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => setCustomLogoUrl(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {customLogoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomLogoUrl(null)}
+                          className="text-[10px] text-red-400 hover:text-red-300 underline ml-1"
+                        >
+                          Reset
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-[11px]">
