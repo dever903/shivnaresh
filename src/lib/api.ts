@@ -381,7 +381,7 @@ export class ApiError extends Error {
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
-async function request<T>(url: string, init?: RequestInit, retries = 2): Promise<T> {
+async function request<T>(url: string, init?: RequestInit, retries = 4): Promise<T> {
   const headers = new Headers(init?.headers);
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -394,6 +394,9 @@ async function request<T>(url: string, init?: RequestInit, retries = 2): Promise
       const response = await fetch(targetUrl, { ...init, headers });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+          throw new ApiError(`Server waking up or redeploying (${response.status})`, response.status);
+        }
         const message = (data && (data.message || data.error)) || `Request failed (${response.status})`;
         throw new ApiError(message, response.status);
       }
@@ -406,9 +409,10 @@ async function request<T>(url: string, init?: RequestInit, retries = 2): Promise
           throw err;
         }
       }
-      // Wait and retry on transient network/502/redeploy errors
+      // Wait and retry with progressive backoff on transient network/502/redeploy errors
       if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const delayMs = Math.min(8000, 1500 * (attempt + 1));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
     }
