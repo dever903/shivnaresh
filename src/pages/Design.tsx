@@ -134,6 +134,8 @@ function sendDesktopNotification(title: string, body: string, icon?: string) {
   if (Notification.permission === 'granted') {
     const n = new Notification(title, { body, icon: icon || '/brand-mark-white.png', tag: 'shivnaresh-gen' });
     n.onclick = () => { window.focus(); n.close(); };
+  } else if (!('Notification' in window)) {
+    return;
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then((perm) => {
       if (perm === 'granted') {
@@ -142,6 +144,57 @@ function sendDesktopNotification(title: string, body: string, icon?: string) {
       }
     });
   }
+}
+
+export const BRAND_COLOR_PRESETS = [
+  { name: 'Pure White', hex: '#ffffff' },
+  { name: 'Jet Black', hex: '#111111' },
+  { name: 'Shiv-Naresh Red', hex: '#e5373f' },
+  { name: 'Athletic Gold', hex: '#f59e0b' },
+  { name: 'Cyan Blue', hex: '#00d2ff' },
+  { name: 'Royal Blue', hex: '#2563eb' },
+  { name: 'Neon Lime', hex: '#84cc16' },
+  { name: 'Sports Orange', hex: '#f97316' },
+  { name: 'Hot Pink', hex: '#ec4899' },
+  { name: 'Silver Grey', hex: '#94a3b8' },
+];
+
+export function ShivNareshSvgLogo({
+  color = '#ffffff',
+  className = '',
+}: {
+  color?: string;
+  className?: string;
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 360 210"
+      width="100%"
+      height="100%"
+      className={className}
+      style={{ color }}
+    >
+      <g transform="translate(14, 15) scale(1.0)">
+        <path
+          fill="currentColor"
+          d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z"
+        />
+      </g>
+      <text
+        x="180"
+        y="180"
+        textAnchor="middle"
+        fontFamily="-apple-system, BlinkMacSystemFont, Arial, sans-serif"
+        fontSize="36"
+        fontWeight="900"
+        letterSpacing="4"
+        fill="currentColor"
+      >
+        SHIV-NARESH
+      </text>
+    </svg>
+  );
 }
 
 /* ----------------------------------------------------------------
@@ -5693,7 +5746,7 @@ export default function Design() {
   });
   const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(true);
-  const [hdLogoColor, setHdLogoColor] = useState<'white' | 'black' | 'red' | 'golden'>('white');
+  const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
   const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
   const [hdLogoScale, setHdLogoScale] = useState<number>(34);
   const [hdLogoX, setHdLogoX] = useState<number>(48);
@@ -6539,9 +6592,9 @@ export default function Design() {
   /* Helper: composite 100% vector-sharp Shiv-Naresh brand logo stamp onto canvas */
   async function stampHdLogoOntoImage(
     baseImgUrl: string,
-    options?: { color?: 'white' | 'black' | 'red' | 'golden'; scale?: number; x?: number; y?: number; customLogo?: string | null }
+    options?: { color?: string; scale?: number; x?: number; y?: number; customLogo?: string | null }
   ): Promise<string> {
-    const color = options?.color || hdLogoColor;
+    const color = options?.color || hdLogoColor || '#ffffff';
     const scale = options?.scale ?? hdLogoScale;
     const x = options?.x ?? hdLogoX;
     const y = options?.y ?? hdLogoY;
@@ -6565,36 +6618,48 @@ export default function Design() {
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
-    const logoSrc = activeCustom || (color === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png');
-    await new Promise<void>((resolve, reject) => {
-      logoImg.onload = () => resolve();
-      logoImg.onerror = () => reject(new Error('Failed to load logo image'));
-      logoImg.src = logoSrc;
-    });
+
+    let blobUrl = '';
+    if (activeCustom) {
+      logoImg.src = activeCustom;
+    } else {
+      const cleanColor = color.replace(/[<>"'&]/g, '');
+      const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1080" height="630">
+        <g transform="translate(14, 15) scale(1.0)">
+          <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
+        </g>
+        <text x="180" y="180" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-size="36" font-weight="900" letter-spacing="4" fill="${cleanColor}">SHIV-NARESH</text>
+      </svg>`;
+      const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+      blobUrl = URL.createObjectURL(blob);
+      logoImg.src = blobUrl;
+    }
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => reject(new Error('Failed to load logo image'));
+      });
+    } catch {
+      if (!activeCustom) {
+        logoImg.src = '/brand-logo-2k-white.png';
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject(new Error('Failed to load raster logo'));
+        });
+      }
+    }
 
     // Calculate placement on canvas natural dimensions
     const logoW = (canvas.width * (scale * 1.5)) / 1000;
-    const logoH = (logoW * (logoImg.naturalHeight || 1)) / (logoImg.naturalWidth || 1);
+    const logoH = (logoW * (logoImg.naturalHeight || 210)) / (logoImg.naturalWidth || 360);
     const posX = (canvas.width * x) / 100 - logoW / 2;
     const posY = (canvas.height * y) / 100 - logoH / 2;
 
-    if (!activeCustom && (color === 'red' || color === 'golden')) {
-      // Offscreen canvas for color tinting
-      const tintCanvas = document.createElement('canvas');
-      tintCanvas.width = logoImg.naturalWidth || 512;
-      tintCanvas.height = logoImg.naturalHeight || 256;
-      const tintCtx = tintCanvas.getContext('2d');
-      if (tintCtx) {
-        tintCtx.drawImage(logoImg, 0, 0, tintCanvas.width, tintCanvas.height);
-        tintCtx.globalCompositeOperation = 'source-in';
-        tintCtx.fillStyle = color === 'red' ? '#e5373f' : '#f59e0b';
-        tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
-        ctx.drawImage(tintCanvas, posX, posY, logoW, logoH);
-      } else {
-        ctx.drawImage(logoImg, posX, posY, logoW, logoH);
-      }
-    } else {
-      ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+    ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
     }
 
     return canvas.toDataURL('image/png');
@@ -7542,6 +7607,173 @@ export default function Design() {
                 </div>
               </div>
             </div>
+
+            {/* Auto-Active HD Vector Branding Engine Setup Card */}
+            <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
+                    <span>✨ HD Vector Branding Engine</span>
+                  </span>
+                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                    100% Vector Sharp (Zero AI Blur)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHdLogoOverlay((prev) => !prev)}
+                  className={`rounded-full px-3.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                    showHdLogoOverlay
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : isLight
+                      ? 'border border-gray-300 text-gray-600 hover:text-gray-900'
+                      : 'border border-white/20 text-white/50 hover:text-white'
+                  }`}
+                >
+                  {showHdLogoOverlay ? 'Brand Logo: ACTIVE' : 'Brand Logo: OFF'}
+                </button>
+              </div>
+
+              {showHdLogoOverlay && (
+                <div className="space-y-3.5 pt-1">
+                  {/* 1. Color Selection: 10 Sports Presets + 16.7M Color Wheel + Eyedropper + Hex Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                        Logo Color (Any Fabric / Tracksuit Color)
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-400 font-bold">{hdLogoColor}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {BRAND_COLOR_PRESETS.map((p) => (
+                          <button
+                            key={p.hex}
+                            type="button"
+                            onClick={() => setHdLogoColor(p.hex)}
+                            title={`${p.name} (${p.hex})`}
+                            className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
+                              hdLogoColor.toLowerCase() === p.hex.toLowerCase()
+                                ? 'ring-2 ring-emerald-500 scale-110 border-white'
+                                : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
+                            }`}
+                            style={{ backgroundColor: p.hex }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Native Color Wheel + Hex input */}
+                      <div className={`flex items-center gap-1.5 border rounded-full px-2.5 py-0.5 ${isLight ? 'border-gray-300 bg-gray-50' : 'border-emerald-500/30 bg-black/40'}`}>
+                        <input
+                          type="color"
+                          value={hdLogoColor.startsWith('#') && hdLogoColor.length === 7 ? hdLogoColor : '#ffffff'}
+                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          className="w-4 h-4 rounded-full cursor-pointer border-0 bg-transparent p-0"
+                          title="Click for full 16.7M Color Wheel + Browser Eyedropper"
+                        />
+                        <input
+                          type="text"
+                          value={hdLogoColor}
+                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          placeholder="#ffffff"
+                          className={`w-16 bg-transparent text-[10px] font-mono outline-none ${isLight ? 'text-gray-800' : 'text-white'}`}
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Position Presets & Custom File Upload */}
+                  <div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1.5 ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                      Placement & Logo Source
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={`inline-flex rounded-full border p-0.5 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/30'}`}>
+                        <button
+                          type="button"
+                          onClick={() => { setHdLogoX(48); setHdLogoY(22); setHdLogoScale(36); }}
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                            hdLogoX === 48 && hdLogoY === 22 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          👕 Chest
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setHdLogoX(62); setHdLogoY(62); setHdLogoScale(28); }}
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                            hdLogoX === 62 && hdLogoY === 62 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          👖 Thigh
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setHdLogoX(28); setHdLogoY(58); setHdLogoScale(24); }}
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                            hdLogoX === 28 && hdLogoY === 58 ? 'bg-emerald-500 text-white' : 'text-current opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          💪 Sleeve
+                        </button>
+                      </div>
+
+                      <label className={`px-2.5 py-1 rounded-full text-[10px] font-bold border cursor-pointer flex items-center gap-1 transition-colors ${
+                        customLogoUrl
+                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                          : isLight ? 'border-gray-300 text-gray-700 hover:border-gray-400' : 'border-white/20 text-white/70 hover:text-white'
+                      }`}>
+                        <span>📁 {customLogoUrl ? 'Custom Logo (Active)' : 'Upload Custom Logo'}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/svg+xml,image/jpeg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => setCustomLogoUrl(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {customLogoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomLogoUrl(null)}
+                          className="text-[10px] text-red-400 hover:text-red-300 underline"
+                        >
+                          Reset to Shiv-Naresh
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Live Vector Swatch Preview */}
+                  <div className={`flex items-center justify-between rounded-xl p-2.5 border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                        {customLogoUrl ? (
+                          <img src={customLogoUrl} alt="Custom Preview" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <ShivNareshSvgLogo color={hdLogoColor} className="max-h-full max-w-full" />
+                        )}
+                      </div>
+                      <div className="text-[10px]">
+                        <p className="font-bold text-white/90">{customLogoUrl ? 'Custom Club / Client Logo' : 'Shiv-Naresh Vector Active'}</p>
+                        <p className="text-white/50">Vector overlay will auto-stamp on generated render & download</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="opacity-60">Scale: {hdLogoScale}px</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* MAIN CONTROLS: MODEL SWAP (UP TO 5 DRAFTS) OR TRY-ON */}
             {mode === 'swap' ? (
               <>
@@ -8953,17 +9185,18 @@ export default function Design() {
                                 width: `${hdLogoScale}px`,
                               }}
                             >
-                              <img
-                                src={customLogoUrl || (hdLogoColor === 'black' ? '/brand-logo-2k-black.png' : '/brand-logo-2k-white.png')}
-                                alt="Brand Logo"
-                                className={`w-full filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] ${
-                                  !customLogoUrl && hdLogoColor === 'red'
-                                    ? 'invert-[16%] sepia-[99%] saturate-[7404%] hue-rotate-[358deg] brightness-[95%] contrast-[112%]'
-                                    : !customLogoUrl && hdLogoColor === 'golden'
-                                    ? 'sepia hue-rotate-[15deg] saturate-[300%]'
-                                    : ''
-                                }`}
-                              />
+                              {customLogoUrl ? (
+                                <img
+                                  src={customLogoUrl}
+                                  alt="Custom Brand Logo"
+                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+                                />
+                              ) : (
+                                <ShivNareshSvgLogo
+                                  color={hdLogoColor}
+                                  className="w-full h-auto filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+                                />
+                              )}
                             </div>
                           )}
                         </div>
@@ -8979,10 +9212,43 @@ export default function Design() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid min-h-[360px] place-items-center text-center">
-                    <p className={`max-w-[240px] text-xs leading-relaxed ${isLight ? 'text-slate-800 font-medium' : 'text-white/30'}`}>
-                      Your rendered fashion image appears here. Select quality and click Generate.
-                    </p>
+                  <div className="grid min-h-[380px] place-items-center text-center p-6">
+                    <div className="max-w-md flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-3 text-emerald-400">
+                        <Layers className="w-6 h-6" />
+                      </div>
+                      <h3 className={`text-sm font-bold mb-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                        AI Studio Canvas & Branding Toolbar Ready
+                      </h3>
+                      <p className={`text-xs leading-relaxed mb-4 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                        Configure your garment on the left and click Generate, or load any photoshoot from your recent generations below to test HD Vector Branding, Color Wheels, and 2K Export.
+                      </p>
+                      {userGenerations.length > 0 && (userGenerations[0]?.url || userGenerations[0]?.highResUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const latest = userGenerations[0];
+                            const targetUrl = latest.highResUrl || latest.url || latest.outputUrl || '';
+                            if (!targetUrl) return;
+                            setResult(targetUrl);
+                            setFivePoseItems([
+                              {
+                                id: 'pose-1',
+                                name: 'Front View',
+                                angle: 'front',
+                                icon: '🧍',
+                                promptSuffix: '',
+                                status: 'completed',
+                                url: targetUrl,
+                              },
+                            ]);
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer"
+                        >
+                          <span>🖼️ Open Latest Render into Branding Studio (Free Test)</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -9115,18 +9381,41 @@ export default function Design() {
               {result && showHdLogoOverlay && (
                 <div className={`border-t px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ${isLight ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950' : 'bg-emerald-950/30 border-emerald-500/20 text-emerald-200'}`}>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ HD Logo Stamp:</span>
-                    <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/20">
-                      {(['white', 'black', 'red', 'golden'] as const).map((col) => (
+                    <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ HD Logo:</span>
+                    {/* 10 Quick Sports Swatches */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {BRAND_COLOR_PRESETS.map((p) => (
                         <button
-                          key={col}
+                          key={p.hex}
                           type="button"
-                          onClick={() => setHdLogoColor(col)}
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase transition-all ${hdLogoColor === col ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'}`}
-                        >
-                          {col}
-                        </button>
+                          onClick={() => setHdLogoColor(p.hex)}
+                          title={`${p.name} (${p.hex})`}
+                          className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${
+                            hdLogoColor.toLowerCase() === p.hex.toLowerCase()
+                              ? 'ring-2 ring-emerald-500 scale-110 border-white'
+                              : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: p.hex }}
+                        />
                       ))}
+                      {/* Color Wheel + Hex input */}
+                      <div className="flex items-center gap-1 bg-black/40 border border-emerald-500/30 rounded-full px-2 py-0.5 ml-0.5">
+                        <input
+                          type="color"
+                          value={hdLogoColor.startsWith('#') && hdLogoColor.length === 7 ? hdLogoColor : '#ffffff'}
+                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          className="w-3.5 h-3.5 rounded-full cursor-pointer border-0 bg-transparent p-0"
+                          title="Pick ANY custom color (16.7M Colors) or use browser Eyedropper"
+                        />
+                        <input
+                          type="text"
+                          value={hdLogoColor}
+                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          placeholder="#ffffff"
+                          className="w-14 bg-transparent text-[10px] font-mono text-white outline-none"
+                          maxLength={7}
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 ml-2">
                       <span className="text-[10px] opacity-75">Preset:</span>
