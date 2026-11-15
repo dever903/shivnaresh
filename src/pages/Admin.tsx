@@ -5254,6 +5254,11 @@ ${log.stack || 'None'}
                           }`}>
                             {g.type === 'video' ? 'Video' : g.mode === 'swap' || g.type === 'model-swap' ? 'Swap' : 'Try-On'}
                           </span>
+                          {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
+                            <span className="inline-block ml-1 rounded-md px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-amber-400 text-black border border-amber-300 shadow-xs">
+                              ✏️ EDITED
+                            </span>
+                          )}
                           <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
                             {g.resolution || (g.type === 'video' ? 'HD' : '1K')}
                           </span>
@@ -6566,6 +6571,11 @@ ${log.stack || 'None'}
                             onError={() => setFailedRenderIds((prev) => new Set(prev).add(g.id))}
                             className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                           />
+                          {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
+                            <span className="absolute bottom-1.5 left-1.5 rounded-md bg-amber-400 text-black px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wider shadow-md z-10 border border-amber-300">
+                              ✏️ EDITED
+                            </span>
+                          )}
                           
                           {/* Checkbox */}
                           <div

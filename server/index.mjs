@@ -4034,6 +4034,7 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
         ...g,
         url: resolvedUrl,
         highResUrl: g.highResUrl || g.remoteUrl || resolvedUrl,
+        isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
     }).filter((g) => Boolean(g.url));
 
@@ -4113,6 +4114,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       });
     }
 
+    const isEditedValue = Boolean(req.body.isEdited || type === 'edit' || (prompt && /\b(edit|edited|option b)\b/i.test(prompt)));
     if (existing) {
       // Update in place, do NOT duplicate!
       existing.url = url || existing.url;
@@ -4124,6 +4126,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       if (color) existing.color = color;
       if (colorName) existing.colorName = colorName;
       if (req.body.isManualUpload) existing.isManualUpload = true;
+      if (isEditedValue) existing.isEdited = true;
       if (!existing.userId && req.user?._id) existing.userId = req.user._id;
       if (!existing.userEmail && req.user?.email) existing.userEmail = req.user.email;
       await writeGenerations(list);
@@ -4136,6 +4139,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       userEmail: req.user.email || '',
       userName: req.user.name || '',
       type: type === 'video' ? 'video' : 'image',
+      isEdited: isEditedValue,
       url,
       highResUrl: highResUrl || resolvedRemoteUrl || url,
       remoteUrl: resolvedRemoteUrl || (typeof highResUrl === 'string' && /^https?:/.test(highResUrl) ? highResUrl : ''),
@@ -5551,7 +5555,10 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
   try {
     const list = await readGenerations();
-    const sorted = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const sorted = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((g) => ({
+      ...g,
+      isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
+    }));
     const totalCreditsDeducted = sorted.reduce((sum, g) => sum + (Number(g.creditsUsed) || 0), 0);
     const successCount = sorted.filter((g) => g.status === 'completed' || (!g.status && (g.url || g.outputUrl))).length;
     const failedCount = sorted.filter((g) => g.status === 'failed').length;

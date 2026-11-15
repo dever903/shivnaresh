@@ -938,14 +938,36 @@ function ZoomCropDownloadModal({
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 1807, 3000);
 
-      // Load image with CORS to allow canvas export
+      // Load image for canvas export with robust CORS & Blob fallback
       const tempImg = new Image();
-      tempImg.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve, reject) => {
-        tempImg.onload = () => resolve();
-        tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-        tempImg.src = activeImg;
-      });
+      try {
+        tempImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          tempImg.onload = () => resolve();
+          tempImg.onerror = () => reject(new Error('CORS image load failed'));
+          tempImg.src = activeImg;
+        });
+      } catch {
+        try {
+          const res = await fetch(activeImg);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = blobUrl;
+          });
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        } catch {
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = activeImg;
+          });
+        }
+      }
 
       // Draw exact visible cropped rectangle onto 1807x3000 canvas
       ctx.drawImage(
@@ -1040,8 +1062,14 @@ function ZoomCropDownloadModal({
                 ref={imgRef}
                 src={currentImage || imageUrl}
                 alt="Zoom Preview"
-                crossOrigin="anonymous"
                 draggable={false}
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.crossOrigin) {
+                    el.removeAttribute('crossorigin');
+                    el.src = currentImage || imageUrl || '';
+                  }
+                }}
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: 'center center',
@@ -2262,7 +2290,26 @@ function MySetsPanel({
                       <div
                         className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
                       >
-                        <img src={gen.url} alt="" className="h-full w-full object-cover" onClick={() => window.open(gen.highResUrl || gen.url, '_blank')} />
+                        <img
+                          src={gen.url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            if (gen.remoteUrl && el.src !== gen.remoteUrl) {
+                              el.src = gen.remoteUrl;
+                            } else if (gen.highResUrl && el.src !== gen.highResUrl) {
+                              el.src = gen.highResUrl;
+                            }
+                          }}
+                        />
+                        {/* EDITED Badge Sticker */}
+                        {Boolean(gen.isEdited || gen.type === 'edit' || (gen.prompt && /\b(edit|edited|option b)\b/i.test(gen.prompt))) && (
+                          <span className="absolute top-2 right-2 rounded-md bg-amber-400 text-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-md z-10 border border-amber-300">
+                            ✏️ EDITED
+                          </span>
+                        )}
                         <label
                           onClick={(e) => e.stopPropagation()}
                           className="absolute top-2 left-2 z-10 flex items-center justify-center h-5 w-5 rounded bg-black/70 border border-white/40 cursor-pointer transition hover:bg-black"
@@ -2307,7 +2354,10 @@ function MySetsPanel({
                     <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-white/5">
                       <button
                         type="button"
-                        onClick={() => void downloadDirectFile(gen.remoteUrl || gen.highResUrl || gen.url, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`)}
+                        onClick={() => {
+                          const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+                          if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
+                        }}
                         className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer"
                       >
                         Download
@@ -2315,7 +2365,10 @@ function MySetsPanel({
                       {onZoomCrop && (
                         <button
                           type="button"
-                          onClick={() => onZoomCrop(gen.remoteUrl || gen.highResUrl || gen.url, `studio-${gen.id.slice(0, 6)}`)}
+                          onClick={() => {
+                            const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+                            if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
+                          }}
                           className={`rounded-full border p-2 text-xs transition cursor-pointer ${isLight
                             ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
                             : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
@@ -5926,6 +5979,7 @@ export default function Design() {
   const [activeRenderOption, setActiveRenderOption] = useState<'a' | 'b'>('b');
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
+  const [isOptionBDirty, setIsOptionBDirty] = useState(false);
 
   const getAutoContrastColor = useCallback((colorStr: string) => {
     if (!colorStr) return '#ffffff';
@@ -6001,26 +6055,32 @@ export default function Design() {
 
   const updateChestScale = (val: number) => {
     setHdLogoScale(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_scale', String(val)); } catch { }
   };
   const updateChestX = (val: number) => {
     setHdLogoX(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_x', String(val)); } catch { }
   };
   const updateChestY = (val: number) => {
     setHdLogoY(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_y', String(val)); } catch { }
   };
   const updatePantScale = (val: number) => {
     setPantLogoScale(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_scale', String(val)); } catch { }
   };
   const updatePantX = (val: number) => {
     setPantLogoX(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_x', String(val)); } catch { }
   };
   const updatePantY = (val: number) => {
     setPantLogoY(val);
+    setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_y', String(val)); } catch { }
   };
   const [showTierLockModal, setShowTierLockModal] = useState(false);
@@ -6807,17 +6867,19 @@ export default function Design() {
             setProgressLabel('Complete!');
             setBusy(false);
             generatingRef.current = false;
+            const wasEdit = isEditingRender;
             setIsEditingRender(false);
-            sendDesktopNotification('Render Complete', 'Your virtual try-on render is ready.', imgUrl);
+            sendDesktopNotification('Render Complete', wasEdit ? 'Your edited sportswear render is ready.' : 'Your virtual try-on render is ready.', imgUrl);
             void api.saveUserGeneration({
               id: next.id,
               jobId: next.id,
               type: 'image',
+              isEdited: wasEdit,
               url: imgUrl,
-              prompt: prompt.trim() || (mode === 'swap' ? 'Model Swap' : 'Virtual Try-On'),
+              prompt: wasEdit ? (editPrompt.trim() || 'Studio Sportswear Edit') : (prompt.trim() || (mode === 'swap' ? 'Model Swap' : 'Virtual Try-On')),
               resolution: quality,
             }).then((res) => {
-              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+              setUserGenerations((prev) => [{ ...res, isEdited: wasEdit || res.isEdited }, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
               void loadUserGenerations();
             }).catch(() => { });
           }
@@ -10222,10 +10284,29 @@ export default function Design() {
                     >
                       Open New Tab
                     </a>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetUrl = activeRenderOption === 'b' ? result : (cleanResultBackup || result);
+                        if (!targetUrl) return;
+                        setZoomCropImage(targetUrl);
+                        setZoomCropTitle('render-zoom');
+                        setShowZoomCropModal(true);
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isLight
+                        ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
+                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                        }`}
+                      title="Open full interactive Zoom & Macro Crop Studio"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Zoom Studio</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {activeRenderOption === 'b' && (
+                    {(activeRenderOption === 'b' || isOptionBDirty) && (
                       <button
                         type="button"
                         onClick={async () => {
@@ -10235,20 +10316,22 @@ export default function Design() {
                             const baseToUse = cleanResultBackup || result;
                             const stamped = await stampHdLogoOntoImage(baseToUse);
                             setResult(stamped);
+                            setCleanResultBackup(baseToUse);
                             setFivePoseItems((prev) =>
                               prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: stamped } : p))
                             );
-                            // Save stamped result to My Sets immediately
+                            setIsOptionBDirty(false);
                             const savedGen = await api.saveUserGeneration({
                               id: crypto.randomUUID(),
                               type: 'image',
                               url: stamped,
+                              isEdited: true,
                               prompt: `Option B (HD Vector Brand Applied) · ${prompt.trim() || 'Studio Sportswear'}`,
                               resolution: quality,
                             });
                             setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== stamped)]);
                             void loadUserGenerations();
-                            alert('✅ Option B saved! High-resolution image with crisp vector logos is now permanently saved to My Sets.');
+                            alert('✅ Saved! High-resolution image with crisp vector logos is now permanently saved to My Sets with EDITED sticker.');
                           } catch (e: any) {
                             alert('Could not save: ' + (e?.message || e));
                           } finally {
@@ -10256,7 +10339,7 @@ export default function Design() {
                           }
                         }}
                         className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
-                        title="Burn vector logos into the image file and permanently save it to My Sets"
+                        title="Burn vector logos into the image file and permanently save it to My Sets with EDITED badge"
                       >
                         <span>💾 Save Option B to My Sets</span>
                       </button>
@@ -10276,9 +10359,10 @@ export default function Design() {
                         a.click();
                       }}
                       className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1"
+                      title={activeRenderOption === 'b' ? 'Direct high-res download with crisp HD vector branding stamped at exact coordinates' : 'Direct high-res download of clean AI render'}
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>{activeRenderOption === 'b' ? '⬇️ Download Option B (HD)' : '⬇️ Download Option A'}</span>
+                      <span>{activeRenderOption === 'b' ? '⬇️ Download (HD Vector)' : '⬇️ Download (Clean AI)'}</span>
                     </button>
 
                     <button

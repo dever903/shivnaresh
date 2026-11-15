@@ -174,7 +174,7 @@ export type UserGeneration = {
   jobId?: string;
   userId: string;
   userEmail: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'edit';
   url: string;
   highResUrl: string;
   remoteUrl?: string;
@@ -187,6 +187,7 @@ export type UserGeneration = {
   aspectRatio?: string;
   title: string;
   isManualUpload?: boolean;
+  isEdited?: boolean;
   createdAt: number;
 };
 
@@ -198,6 +199,7 @@ export type AdminGeneration = {
   userName?: string;
   type: string;
   mode?: string;
+  isEdited?: boolean;
   resolution?: string;
   creditsUsed: number;
   status: 'completed' | 'processing' | 'failed' | 'refunded';
