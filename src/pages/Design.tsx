@@ -5891,7 +5891,7 @@ export default function Design() {
   const [showPantLogo, setShowPantLogo] = useState(true);
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
-  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
+  const customLogoUrl: string | null = null;
   // Chest logo: realistic 22px width, x=43.5% (right on the chest pocket area, avoiding zipper at 50%), y=20.5%
   const [hdLogoScale, setHdLogoScale] = useState<number>(22);
   const [hdLogoX, setHdLogoX] = useState<number>(43.5);
@@ -5908,7 +5908,32 @@ export default function Design() {
   const [selectedClothes, setSelectedClothes] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
   /* Smart garment classification */
   const [classifiedGarments, setClassifiedGarments] = useState<ClassifiedGarment[]>([]);
-  const [tryOnTarget, setTryOnTarget] = useState<TryOnTarget>('upper');
+  const [tryOnTarget, setTryOnTarget] = useState<TryOnTarget>(() => {
+    try {
+      const saved = localStorage.getItem('shivnaresh_tryon_target');
+      if (saved === 'both' || saved === 'lower' || saved === 'upper') return saved;
+    } catch { }
+    return 'both';
+  });
+
+  const handleSetTryOnTarget = (target: TryOnTarget) => {
+    setTryOnTarget(target);
+    try {
+      localStorage.setItem('shivnaresh_tryon_target', target);
+    } catch { }
+    if (target === 'both') {
+      setShowHdLogoOverlay(true);
+      setShowPantLogo(true);
+    } else if (target === 'upper') {
+      setShowHdLogoOverlay(true);
+      setShowPantLogo(false);
+      setActiveLogoTarget('chest');
+    } else if (target === 'lower') {
+      setShowHdLogoOverlay(false);
+      setShowPantLogo(true);
+      setActiveLogoTarget('pant');
+    }
+  };
 
   function removeSelectedCloth(index: number) {
     setSelectedClothes((prev) => {
@@ -5929,7 +5954,21 @@ export default function Design() {
         alert('You can upload a maximum of 5 garment reference views.');
         return prev;
       }
-      return [...prev, { ...garment, role }];
+      const next = [...prev, { ...garment, role }];
+      const hasBottom = next.some((g) => g.role === 'bottom' || g.role === 'bottoms' || g.role === 'left-bottom' || g.role === 'right-bottom');
+      if (hasBottom || next.length >= 2) {
+        setTryOnTarget('both');
+        setShowHdLogoOverlay(true);
+        setShowPantLogo(true);
+        try { localStorage.setItem('shivnaresh_tryon_target', 'both'); } catch { }
+      } else if (role === 'bottom' || role === 'bottoms') {
+        setTryOnTarget('lower');
+        setShowHdLogoOverlay(false);
+        setShowPantLogo(true);
+        setActiveLogoTarget('pant');
+        try { localStorage.setItem('shivnaresh_tryon_target', 'lower'); } catch { }
+      }
+      return next;
     });
   }
 
@@ -7779,23 +7818,18 @@ export default function Design() {
                 </div>
               </div>
 
-              {/* 5 Hood & Collar Paired Formats (Front & Back Paired Presets) */}
+              {/* Hood & Collar 5 Paired Formats (Unslopped & Clean) */}
               <div className="w-full mt-3 pt-3 border-t border-white/10">
-                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      <span>🧢 Hood / Collar Presets (5 Paired Front & Back Formats)</span>
-                    </span>
-                    <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                      Saved for All 10 Poses
-                    </span>
-                  </div>
-                  <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                    Select 1 pair · Automatically applies Front & Back rules across all renders
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    Hood / Collar Presets (5 Paired Formats)
+                  </span>
+                  <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                    Auto-Applies to Front & Back
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {HOOD_PAIR_FORMATS.map((pair) => {
                     const isSelected = hoodPairStyle === pair.id;
                     return (
@@ -7803,70 +7837,39 @@ export default function Design() {
                         key={pair.id}
                         type="button"
                         onClick={() => handleSelectHoodPair(pair.id)}
-                        className={`w-full text-left rounded-xl p-3 border transition-all cursor-pointer relative overflow-hidden ${
+                        className={`w-full text-left rounded-xl px-3 py-2 border transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? isLight
-                              ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/50 shadow-md'
-                              : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-lg'
+                              ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 text-gray-900 shadow-sm'
+                              : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 text-white shadow-sm'
                             : isLight
-                            ? 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
-                            : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
+                            ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                            : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl shrink-0">{pair.icon}</span>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold ${isSelected ? 'text-emerald-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
-                                  {pair.name}
-                                </span>
-                                {isSelected && (
-                                  <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
-                                    ✓ Active
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-[10px] font-medium leading-tight ${isSelected ? 'text-emerald-400' : isLight ? 'text-slate-600' : 'text-white/60'}`}>
-                                {pair.tagline}
-                              </p>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base shrink-0">{pair.icon}</span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-semibold truncate ${isSelected ? (isLight ? 'text-gray-950 font-bold' : 'text-white font-bold') : ''}`}>
+                                {pair.name.replace(/^Format \d+:\s*/, '')}
+                              </span>
+                              {isSelected && (
+                                <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
+                              )}
                             </div>
-                          </div>
-                          <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
-                            isSelected
-                              ? 'bg-emerald-500 text-white border-emerald-400'
-                              : isLight ? 'bg-gray-200 text-gray-700 border-gray-300' : 'bg-white/10 text-white/60 border-white/10'
-                          }`}>
-                            {pair.badge}
-                          </span>
-                        </div>
-
-                        {/* Front & Back Paired Specifications Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5 text-[10px]">
-                          <div className={`p-2 rounded-lg border ${isSelected ? 'bg-emerald-950/20 border-emerald-500/20' : isLight ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5'}`}>
-                            <div className="flex items-center gap-1 font-bold text-blue-400 mb-0.5">
-                              <span>👕</span>
-                              <span>{pair.frontTitle}</span>
-                            </div>
-                            <p className={`text-[9px] leading-tight ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
-                              {pair.frontDesc}
-                            </p>
-                          </div>
-
-                          <div className={`p-2 rounded-lg border ${isSelected ? 'bg-emerald-950/20 border-emerald-500/20' : isLight ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5'}`}>
-                            <div className="flex items-center gap-1 font-bold text-amber-400 mb-0.5">
-                              <span>🔄</span>
-                              <span>{pair.backTitle}</span>
-                            </div>
-                            <p className={`text-[9px] leading-tight ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
-                              {pair.backDesc}
+                            <p className={`text-[10px] truncate ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                              {pair.tagline}
                             </p>
                           </div>
                         </div>
-
-                        <div className={`mt-1.5 text-[8.5px] ${isSelected ? 'text-emerald-400/80 font-medium' : isLight ? 'text-slate-500 italic' : 'text-white/40 italic'}`}>
-                          Recommended: {pair.recommendedFor}
-                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full border shrink-0 ${
+                          isSelected
+                            ? isLight ? 'border-gray-900 text-gray-900 font-bold bg-gray-200' : 'border-emerald-500/50 text-emerald-300 font-bold bg-emerald-500/10'
+                            : isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                        }`}>
+                          {pair.badge}
+                        </span>
                       </button>
                     );
                   })}
@@ -7874,15 +7877,15 @@ export default function Design() {
               </div>
             </div>
 
-            {/* Auto-Active HD Vector Branding Engine Setup Card */}
+            {/* Official Shiv-Naresh HD Vector Branding Engine Setup Card */}
             <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
-                    <span>✨ HD Vector Branding Engine (Tracksuit Dual-Logo)</span>
+                    <span>✨ Shiv-Naresh HD Vector Branding Engine</span>
                   </span>
                   <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                    100% Vector Sharp (Zero AI Blur)
+                    Official Company Mark (100% Vector)
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -7908,62 +7911,72 @@ export default function Design() {
 
               {(showHdLogoOverlay || showPantLogo) && (
                 <div className="space-y-3.5 pt-1">
-                  {/* Outfit Mode Presets */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold opacity-75 uppercase">Outfit Mode:</span>
+                  {/* Brand Mode Selector: Both | Upper Only | Bottom Only | Off */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                      Brand Mode:
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
                         setShowHdLogoOverlay(true);
                         setShowPantLogo(true);
-                        setHdLogoX(43.5);
-                        setHdLogoY(20.5);
-                        setHdLogoScale(22);
-                        setPantLogoX(63);
-                        setPantLogoY(61);
-                        setPantLogoScale(18);
+                        setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
+                        setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
                       }}
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                         showHdLogoOverlay && showPantLogo
-                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:text-white'
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
                       }`}
                     >
-                      🥋 Full Tracksuit (Dual Logos: Chest + Thigh)
+                      🥋 Both (Chest + Pant)
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setShowHdLogoOverlay(true);
                         setShowPantLogo(false);
-                        setHdLogoX(43.5);
-                        setHdLogoY(20.5);
-                        setHdLogoScale(22);
+                        setActiveLogoTarget('chest');
+                        setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
                       }}
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                         showHdLogoOverlay && !showPantLogo
-                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:text-white'
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
                       }`}
                     >
-                      👕 Jacket / Top Only
+                      👕 Upper Only (Chest)
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setShowHdLogoOverlay(false);
                         setShowPantLogo(true);
-                        setPantLogoX(63);
-                        setPantLogoY(61);
-                        setPantLogoScale(18);
+                        setActiveLogoTarget('pant');
+                        setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
                       }}
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                         !showHdLogoOverlay && showPantLogo
-                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:text-white'
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
                       }`}
                     >
-                      👖 Pant Only
+                      👖 Bottom Only (Pant)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(false);
+                        setShowPantLogo(false);
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+                        !showHdLogoOverlay && !showPantLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-white/20 text-white font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      Off
                     </button>
                   </div>
 
@@ -8105,36 +8118,6 @@ export default function Design() {
                           💪 Sleeve
                         </button>
                       </div>
-
-                      <label className={`px-2.5 py-1 rounded-full text-[10px] font-bold border cursor-pointer flex items-center gap-1 transition-colors ${
-                        customLogoUrl
-                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
-                          : isLight ? 'border-gray-300 text-gray-700 hover:border-gray-400' : 'border-white/20 text-white/70 hover:text-white'
-                      }`}>
-                        <span>📁 {customLogoUrl ? 'Custom Logo (Active)' : 'Upload Custom Logo'}</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/svg+xml,image/jpeg"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = () => setCustomLogoUrl(reader.result as string);
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                      {customLogoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setCustomLogoUrl(null)}
-                          className="text-[10px] text-red-400 hover:text-red-300 underline"
-                        >
-                          Reset to Shiv-Naresh
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -8142,11 +8125,7 @@ export default function Design() {
                   <div className={`flex items-center justify-between rounded-xl p-2.5 border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                        {customLogoUrl ? (
-                          <img src={customLogoUrl} alt="Custom Preview" className="max-h-full max-w-full object-contain" />
-                        ) : (
-                          <ShivNareshSvgLogo color={hdLogoColor} className="max-h-full max-w-full" />
-                        )}
+                        <ShivNareshSvgLogo color={hdLogoColor} className="max-h-full max-w-full" />
                       </div>
                       <div className="text-[10px]">
                         <p className="font-bold text-white/90">
@@ -8477,21 +8456,26 @@ export default function Design() {
 
                   {/* Try-On Target Selector */}
                   <div className="mt-4 mb-3">
-                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                      What to Change?
-                    </p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                        Try-On Outfit Target
+                      </p>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${tryOnTarget === 'both' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-white/60'}`}>
+                        {tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : '👕 Upper Only'}
+                      </span>
+                    </div>
                     <div className={`inline-flex rounded-xl border p-1 w-full ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/40'}`}>
                       {([
+                        { id: 'both', label: '🥋 Full Outfit', hint: 'Top + Bottom (Jacket + Pants together)' },
                         { id: 'upper', label: '👕 Upper Only', hint: 'Jacket, shirt, hoodie' },
                         { id: 'lower', label: '👖 Lower Only', hint: 'Pants, shorts' },
-                        { id: 'both', label: '✨ Full Outfit', hint: 'Top + Bottom together' },
                       ] as { id: TryOnTarget; label: string; hint: string }[]).map((opt) => (
                         <button
                           key={opt.id}
                           type="button"
-                          onClick={() => setTryOnTarget(opt.id)}
+                          onClick={() => handleSetTryOnTarget(opt.id)}
                           title={opt.hint}
-                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center ${tryOnTarget === opt.id
+                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center cursor-pointer ${tryOnTarget === opt.id
                             ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
                             : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
                             }`}
@@ -8500,6 +8484,21 @@ export default function Design() {
                         </button>
                       ))}
                     </div>
+                    {tryOnTarget === 'upper' && bottomGarment && (
+                      <div className="mt-2 rounded-lg p-2 bg-amber-500/15 border border-amber-500/30 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-amber-300 font-medium">
+                          <span>⚠️</span>
+                          <span>Pants uploaded, but Target is "Upper Only".</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSetTryOnTarget('both')}
+                          className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black hover:bg-amber-400 shrink-0 cursor-pointer"
+                        >
+                          Switch to Full Outfit
+                        </button>
+                      </div>
+                    )}
                     {tryOnTarget === 'both' && (
                       <p className={`mt-1.5 text-[10px] leading-relaxed ${isLight ? 'text-blue-700' : 'text-blue-300'}`}>
                         ✨ Full outfit: upload top + bottom garments. 1 credit per final image (backend chains 2 API calls automatically).
@@ -9365,6 +9364,19 @@ export default function Design() {
 
             {/* Generate Trigger Button — Opens Confirmation Modal */}
             <div className="flex items-center gap-4">
+              {/* Pre-Flight Confirmation Pill */}
+              {canRun && mode === 'tryon' && (
+                <div className={`mb-2.5 px-3 py-1 rounded-full border text-[10px] flex items-center justify-center gap-2 flex-wrap ${
+                  isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/[0.04] text-white/70'
+                }`}>
+                  <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : isLight ? 'text-gray-900 font-bold' : 'text-white font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : '👕 Upper Only'}</strong></span>
+                  <span>·</span>
+                  <span>Hood: <strong>{HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle)?.name.replace(/^Format \d+:\s*/, '') || 'Tracksuit Hood'}</strong></span>
+                  <span>·</span>
+                  <span>Branding: <strong>{showHdLogoOverlay && showPantLogo ? 'Dual (Chest + Pant)' : showHdLogoOverlay ? 'Chest' : showPantLogo ? 'Pant' : 'Off'}</strong></span>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => {
@@ -9398,7 +9410,7 @@ export default function Design() {
                     ? 'Generation in Progress (Please wait)…'
                     : mode === 'swap'
                       ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                      : `Generate (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+                      : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
               </button>
               {isLocked ? (
                 <p className="max-w-xs text-xs leading-relaxed text-rose-500">
