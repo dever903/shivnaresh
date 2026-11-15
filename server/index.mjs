@@ -1358,7 +1358,15 @@ const upiGateway = createUpiGateway({
 app.use('/api/upi-gateway', upiGateway.router);
 app.use('/api/v1', upiGateway.router);
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get(['/api/health', '/health', '/api/ping'], (_req, res) => {
+  res.json({
+    ok: true,
+    status: 'online',
+    uptime: Math.round(process.uptime()),
+    timestamp: Date.now(),
+    service: 'shivnaresh-augmented-studio',
+  });
+});
 
 /* ------------------------------------------------------------- image proxy & catalog direct download */
 app.get('/api/proxy-image', async (req, res) => {
@@ -5938,4 +5946,22 @@ app.use((err, req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`[shivnaresh] api on http://localhost:${PORT}`);
+
+  // Automated Self Keep-Alive: Pings server public URL every 10 minutes to prevent Render idle spin-down
+  const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || process.env.VITE_API_URL || 'https://shivnaresh-api.onrender.com';
+  if (KEEP_ALIVE_URL && !KEEP_ALIVE_URL.includes('localhost') && !KEEP_ALIVE_URL.includes('127.0.0.1')) {
+    const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes (Render sleeps after 15 minutes of inactivity)
+    setInterval(async () => {
+      try {
+        const pingTarget = `${KEEP_ALIVE_URL.replace(/\/+$/, '')}/api/health`;
+        const resp = await fetch(pingTarget, {
+          method: 'GET',
+          headers: { 'User-Agent': 'ShivNaresh-KeepAlive-Worker/1.0' },
+        });
+        console.log(`[KeepAlive] Pinged ${pingTarget} -> HTTP ${resp.status}`);
+      } catch (err) {
+        console.warn('[KeepAlive] Self-ping notice (will retry):', err.message);
+      }
+    }, PING_INTERVAL);
+  }
 });
