@@ -1768,6 +1768,7 @@ function MySetsPanel({
   refreshGenerations,
   onDeleteGeneration,
   onZoomCrop,
+  onEditLogo,
   isLight,
 }: {
   uploadSets: UploadSet[];
@@ -1780,6 +1781,7 @@ function MySetsPanel({
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
   onZoomCrop?: (url: string, title: string) => void;
+  onEditLogo?: (gen: UserGeneration) => void;
   isLight: boolean;
 }) {
   const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'sets'>('all');
@@ -2362,6 +2364,17 @@ function MySetsPanel({
                       >
                         Download
                       </button>
+                      {onEditLogo && (
+                        <button
+                          type="button"
+                          onClick={() => onEditLogo(gen)}
+                          className="flex-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1"
+                          title="Open on canvas to reposition, resize, recolor or add HD vector logos"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>Brand / Edit</span>
+                        </button>
+                      )}
                       {onZoomCrop && (
                         <button
                           type="button"
@@ -5955,24 +5968,6 @@ export default function Design() {
     } catch { }
     return '1k';
   });
-  const [hoodStyle, setHoodStyle] = useState<'auto' | 'draped' | 'on-head' | 'none'>('auto');
-  const [hoodPairStyle, setHoodPairStyle] = useState<string>(() => {
-    try {
-      return localStorage.getItem('shivnaresh_hood_pair_format') || 'pair-1';
-    } catch {
-      return 'pair-1';
-    }
-  });
-
-  const handleSelectHoodPair = (pairId: string) => {
-    setHoodPairStyle(pairId);
-    try {
-      localStorage.setItem('shivnaresh_hood_pair_format', pairId);
-    } catch { }
-    if (pairId === 'pair-2') setHoodStyle('none');
-    else if (pairId === 'pair-3') setHoodStyle('on-head');
-    else setHoodStyle('draped');
-  };
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
   const [showPantLogo, setShowPantLogo] = useState(false);
   const [cleanResultBackup, setCleanResultBackup] = useState<string | null>(null);
@@ -6804,13 +6799,10 @@ export default function Design() {
 
               try {
                 const nextIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${nextItem.model?.name || ''} ${nextItem.model?.url || ''} ${nextItem.promptSuffix || ''}`);
-                const activePairForNext = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
-                const nextHoodPrompt = nextIsBack ? activePairForNext.backPrompt : activePairForNext.frontPrompt;
 
                 const nextPayload: Record<string, unknown> = {
                   ...batchCtx.payload,
                   poseAngle: nextIsBack ? 'back' : 'front',
-                  hoodPairStyle,
                   ...(nextItem.model?.url ? { model: nextItem.model.url } : {}),
                   ...(tryOnTarget === 'both' ? {
                     mode: 'outfit',
@@ -6822,7 +6814,7 @@ export default function Design() {
                   ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
                   ...(nextItem.targetModel?.url ? { targetModel: nextItem.targetModel.url, model: nextItem.targetModel.url } : {}),
                 };
-                nextPayload.prompt = `${batchCtx.basePrompt} · ${nextHoodPrompt} ${nextItem.promptSuffix || ''}`.trim();
+                nextPayload.prompt = `${batchCtx.basePrompt} ${nextItem.promptSuffix || ''}`.trim();
                 const nextRes = await api.generate(nextPayload);
                 if (typeof nextRes.credits === 'number') {
                   setUser((prev) => (prev ? { ...prev, credits: nextRes.credits! } : null));
@@ -7174,8 +7166,6 @@ export default function Design() {
         resolution: quality,
         color: garmentColor.trim(),
         tryOnTarget,
-        hoodStyle,
-        hoodPairStyle,
       };
 
       if (isEditingRender) {
@@ -7319,7 +7309,6 @@ export default function Design() {
         const firstPayload: Record<string, unknown> = {
           ...payload,
           poseAngle: firstIsBack ? 'back' : 'front',
-          hoodPairStyle,
           ...(firstItem.model?.url ? { model: firstItem.model.url } : {}),
           ...(tryOnTarget === 'both' ? (
             bottomGarment?.url ? {
@@ -7338,9 +7327,7 @@ export default function Design() {
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
           ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        const firstActivePair = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
-        const firstHoodPrompt = firstIsBack ? firstActivePair.backPrompt : firstActivePair.frontPrompt;
-        firstPayload.prompt = `${effectivePrompt} · ${firstHoodPrompt} ${firstItem.promptSuffix || ''}`.trim();
+        firstPayload.prompt = `${effectivePrompt} ${firstItem.promptSuffix || ''}`.trim();
 
         const res1 = await api.generate(firstPayload);
         if (res1.credits !== undefined && user) {
@@ -7359,10 +7346,7 @@ export default function Design() {
           `${model?.name || ''} ${model?.url || ''}`
         );
         singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
-        singlePayload.hoodPairStyle = hoodPairStyle;
-        const singleActivePair = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
-        const singleHoodPrompt = singleIsBack ? singleActivePair.backPrompt : singleActivePair.frontPrompt;
-        singlePayload.prompt = `${effectivePrompt} · ${singleHoodPrompt}`.trim();
+        singlePayload.prompt = effectivePrompt;
 
         if (mode === 'swap') {
           const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
@@ -7898,6 +7882,18 @@ export default function Design() {
             setZoomCropTitle(title);
             setShowZoomCropModal(true);
           }}
+          onEditLogo={(gen) => {
+            const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+            if (!targetUrl) return;
+            setResult(targetUrl);
+            setCleanResultBackup(targetUrl);
+            setActiveRenderOption('b');
+            setShowHdLogoOverlay(true);
+            setShowPantLogo(true);
+            setIsOptionBDirty(true);
+            setPageView('studio');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           isLight={isLight}
         />
       )}
@@ -8030,92 +8026,6 @@ export default function Design() {
                   )}
                 </div>
               </div>
-
-              {/* Hood & Collar 5 Paired Formats (Unslopped & Clean) */}
-              <div className="w-full mt-3 pt-3 border-t border-white/10">
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    Hood / Collar Presets (5 Paired Formats)
-                  </span>
-                  <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
-                    Auto-Applies to Front & Back
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {HOOD_PAIR_FORMATS.map((pair) => {
-                    const isSelected = hoodPairStyle === pair.id;
-                    return (
-                      <div
-                        key={pair.id}
-                        onClick={() => handleSelectHoodPair(pair.id)}
-                        className={`w-full text-left rounded-xl p-2.5 border transition-all cursor-pointer ${
-                          isSelected
-                            ? isLight
-                              ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 text-gray-900 shadow-sm'
-                              : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 text-white shadow-sm'
-                            : isLight
-                            ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                            : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base shrink-0">{pair.icon}</span>
-                            <span className={`text-xs font-semibold truncate ${isSelected ? (isLight ? 'text-gray-950 font-bold' : 'text-white font-bold') : ''}`}>
-                              {pair.name.replace(/^Format \d+:\s*/, '')}
-                            </span>
-                            {isSelected && (
-                              <span className="text-[9px] font-bold text-emerald-400 shrink-0">✓ Active</span>
-                            )}
-                          </div>
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full border shrink-0 ${
-                            isSelected
-                              ? isLight ? 'border-gray-900 text-gray-900 font-bold bg-gray-200' : 'border-emerald-500/50 text-emerald-300 font-bold bg-emerald-500/10'
-                              : isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
-                          }`}>
-                            {pair.badge}
-                          </span>
-                        </div>
-
-                        {/* Real catalog photo thumbnails (Front + Back pair) */}
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <div className="relative rounded overflow-hidden border border-white/20 bg-black/40">
-                              <img
-                                src={pair.frontThumb}
-                                alt="Front Reference"
-                                className="w-11 h-14 object-contain"
-                              />
-                              <span className="absolute bottom-0 inset-x-0 text-[8px] font-bold text-center bg-black/80 text-white/90 py-0.5">
-                                Front
-                              </span>
-                            </div>
-                            <div className="relative rounded overflow-hidden border border-white/20 bg-black/40">
-                              <img
-                                src={pair.backThumb}
-                                alt="Back Reference"
-                                className="w-11 h-14 object-contain"
-                              />
-                              <span className="absolute bottom-0 inset-x-0 text-[8px] font-bold text-center bg-black/80 text-white/90 py-0.5">
-                                Back
-                              </span>
-                            </div>
-                          </div>
-                          <div className="min-w-0 flex-1 text-[10px]">
-                            <p className={`font-semibold line-clamp-1 ${isLight ? 'text-gray-900' : 'text-white/90'}`}>
-                              {pair.tagline}
-                            </p>
-                            <p className={`mt-0.5 text-[9px] line-clamp-2 leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-                              {pair.recommendedFor}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
             {/* Official Shiv-Naresh HD Vector Branding Engine Setup Card */}
@@ -8136,11 +8046,12 @@ export default function Design() {
                 <button
                   type="button"
                   onClick={() => {
+                    setActiveRenderOption('a');
                     setShowHdLogoOverlay(false);
                     setShowPantLogo(false);
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    !showHdLogoOverlay && !showPantLogo
+                    activeRenderOption === 'a' || (!showHdLogoOverlay && !showPantLogo)
                       ? isLight
                         ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
                         : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
@@ -8153,7 +8064,7 @@ export default function Design() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>👕 Option A: Garment Original Logo</span>
                     </span>
-                    {!showHdLogoOverlay && !showPantLogo && (
+                    {(activeRenderOption === 'a' || (!showHdLogoOverlay && !showPantLogo)) && (
                       <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
                     )}
                   </div>
@@ -8165,13 +8076,14 @@ export default function Design() {
                 <button
                   type="button"
                   onClick={() => {
+                    setActiveRenderOption('b');
                     setShowHdLogoOverlay(true);
                     setShowPantLogo(true);
                     setHdLogoScale(24);
                     setPantLogoScale(20);
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    showHdLogoOverlay || showPantLogo
+                    activeRenderOption === 'b' || (showHdLogoOverlay || showPantLogo)
                       ? isLight
                         ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
                         : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
@@ -8184,7 +8096,7 @@ export default function Design() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>✨ Option B: Vector Replace (Cover-Up)</span>
                     </span>
-                    {(showHdLogoOverlay || showPantLogo) && (
+                    {(activeRenderOption === 'b' || (showHdLogoOverlay || showPantLogo)) && (
                       <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
                     )}
                   </div>
@@ -9991,8 +9903,6 @@ export default function Design() {
                 }`}>
                   <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : isLight ? 'text-gray-900 font-bold' : 'text-white font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : '👕 Upper Only'}</strong></span>
                   <span>·</span>
-                  <span>Hood: <strong>{HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle)?.name.replace(/^Format \d+:\s*/, '') || 'Tracksuit Hood'}</strong></span>
-                  <span>·</span>
                   <span>Branding: <strong>{showHdLogoOverlay && showPantLogo ? 'Dual (Chest + Pant)' : showHdLogoOverlay ? 'Chest' : showPantLogo ? 'Pant' : 'Off'}</strong></span>
                 </div>
               )}
@@ -10396,7 +10306,7 @@ export default function Design() {
               )}
 
               {/* HD Logo Stamp Controls Strip */}
-              {result && (showHdLogoOverlay || showPantLogo) && (
+              {result && (activeRenderOption === 'b' || showHdLogoOverlay || showPantLogo) && (
                 <div className={`border-t px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ${isLight ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950' : 'bg-emerald-950/30 border-emerald-500/20 text-emerald-200'}`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ Branding:</span>

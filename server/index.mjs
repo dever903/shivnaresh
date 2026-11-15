@@ -3312,29 +3312,6 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let images = [];
       let agentPrompt = '';
 
-      // Detect if this specific angle is Front or Back strictly
-      const explicitAngle = String(body.poseAngle || '').toLowerCase().trim();
-      let isBackPose = false;
-      if (explicitAngle === 'back') {
-        isBackPose = true;
-      } else if (explicitAngle === 'front') {
-        isBackPose = false;
-      } else {
-        // Fallback: check model name/url only (NEVER check body.prompt because front prompts contain "behind the neck")
-        isBackPose = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
-          `${body.model || ''} ${body.targetModel || ''} ${body.sourceModel || ''}`
-        );
-      }
-
-      const selectedPairKey = body.hoodPairStyle || (body.hoodStyle === 'none' ? 'pair-2' : (body.hoodStyle === 'on-head' ? 'pair-3' : 'pair-1'));
-      const presetFileName = isBackPose ? `${selectedPairKey}-back.webp` : `${selectedPairKey}-front.webp`;
-      let hoodTemplateUri = null;
-      try {
-        hoodTemplateUri = await toDataUri(`/hood-presets/${presetFileName}`);
-      } catch (presetErr) {
-        console.warn(`[HoodPreset] Could not load /hood-presets/${presetFileName}:`, presetErr.message);
-      }
-
       if (isSwap) {
         const targetUri = await toDataUri(body.targetModel || body.model);
         const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
@@ -3342,15 +3319,13 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ';
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
-        const viewsToUse = garmentViews.slice(0, 4); // Allow up to 4 reference views + 1 hood template = 6 max total
+        const viewsToUse = garmentViews.slice(0, 4);
         const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
         images = [modelUri, ...garmentUris];
-        if (hoodTemplateUri) images.push(hoodTemplateUri);
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
         agentPrompt += `Multi-Angle Garment Synthesis: Dress the model in Image 1 with the authentic garment shown across the reference photos (${viewLabels}). ` +
-          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, hood/collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture. ' +
-          'HIGH-FIDELITY ZOOMED GRAPHICS & PATTERN SYNTHESIS: Any close-up or zoomed reference views provide micro-detail for logos, university/team typography, crests, sleeve prints, and dot gradient textures. You MUST faithfully synthesize these high-resolution details onto the garment on the model at exact scale, perspective, and placement without blurring or dropping letters. ';
+          'Synthesize all provided reference views dynamically: transfer the front design, back patterns, collar, sleeves, and graphics onto the model in Image 1 matching the model’s posture and natural styling. ';
 
         if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
           agentPrompt += 'Target: Lower body. Dress the model’s legs with the bottom garment from the reference views, matching its exact silhouette, length, waistband, and side details. Keep top shirt, face, shoes, and posture intact. ';
@@ -3364,17 +3339,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         const topClothUri = await toDataUri(body.topCloth || body.cloth);
         const bottomClothUri = body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
         images = bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri];
-        if (hoodTemplateUri) images.push(hoodTemplateUri);
         if (bottomClothUri) {
           agentPrompt += 'Dress the model in Image 1 wearing both garments simultaneously: the top garment from Image 2 and the bottom garment from Image 3 as a complete matching outfit. ';
         } else {
-          agentPrompt += 'Put the garment from Image 2 onto the model in Image 1 with realistic fit and high fidelity. ';
+          agentPrompt += 'Put the garment from Image 2 onto the model in Image 1 with realistic fit and natural style. ';
         }
       } else {
         const modelUri = await toDataUri(body.model);
         const singleClothUri = await toDataUri(body.cloth);
         images = [modelUri, singleClothUri];
-        if (hoodTemplateUri) images.push(hoodTemplateUri);
         const isTracksuitOrSet = Boolean(
           body.category === 'one-pieces' ||
           body.tryOnTarget === 'both' ||
@@ -3382,7 +3355,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           (typeof body.prompt === 'string' && /tracksuit|suit|outfit|both|track\s*pant/i.test(body.prompt))
         );
         if (isTracksuitOrSet) {
-          agentPrompt += 'Target: Complete Tracksuit / Sports Outfit. Dress the model in Image 1 wearing the complete athletic tracksuit from Image 2 (both the upper jacket/top and the matching track pants/bottoms simultaneously). Ensure matching fabric, colors, logos, and side dot patterns on both top and bottom with 100% fidelity. ';
+          agentPrompt += 'Target: Complete Tracksuit / Sports Outfit. Dress the model in Image 1 wearing the complete athletic tracksuit from Image 2 (both the upper jacket/top and the matching track pants/bottoms simultaneously). Ensure matching fabric, colors, and side patterns on both top and bottom with 100% fidelity. ';
         } else if (body.category === 'bottoms' || body.tryOnTarget === 'lower') {
           agentPrompt += 'Target: Lower body. Dress the model’s legs in Image 1 with the bottom garment from Image 2, matching its exact length, waistband, and details. Keep existing top, face, and shoes intact. ';
         } else {
@@ -3390,62 +3363,16 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         }
       }
 
-      // 5 Front & Back Paired Formats for Shiv-Naresh Sports Catalog
-      const HOOD_PAIRED_RULES = {
-        'pair-1': {
-          front: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. ' +
-                 'COLLAR & HOOD SPECIFICATION: Front-facing sportswear catalogue pose. Model facing camera. 4 cm matte black stand collar zipped closed around throat. Attached jacket hood is folded away neatly resting behind the neck only (NOT on head, NOT on shoulders). Clean chest and front panel presentation with authentic Shiv-Naresh chest logo. ',
-          back: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. ' +
-                'BACK COLLAR & HOOD SPECIFICATION: Attached jacket hood hanging down flat in a pointed kite shape along the center spine between shoulder blades, tip ending at mid-shoulder-blade, no fabric bunching on shoulders. Short stand collar visible at nape with clean seam. Smooth plain black back panel with zero front graphics bleeding onto the back. ',
-        },
-        'pair-2': {
-          front: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. ' +
-                 'COLLAR SPECIFICATION: Front-facing sportswear pose. Model facing camera. 5 cm athletic stand collar standing upright around throat, full zipper closed to top of collar. Completely 100% hoodless with zero hood anywhere on this garment. Clean front neck presentation. ',
-          back: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. ' +
-                'BACK COLLAR SPECIFICATION: Crisp 5 cm stand collar sitting low across nape of neck with clean center-back seam. 100% hoodless with completely smooth upper back panel and zero draped fabric. ',
-        },
-        'pair-3': {
-          front: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. ' +
-                 'COLLAR SPECIFICATION: Front-facing pose. Model facing camera. 7 cm tall funnel stand collar zipped completely to top touching underside of chin. Attached packable hood folded away flat behind neck only. ',
-          back: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. ' +
-                'BACK COLLAR & HOOD SPECIFICATION: Packable hood folded down flat across upper back in soft pointed shape between shoulder blades. Tall funnel collar visible at nape. Plain black back panel. ',
-        },
-        'pair-4': {
-          front: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. ' +
-                 'COLLAR SPECIFICATION: Front-facing pose. Model facing camera. 4.5 cm stand collar standing upright, full zipper closed to top, attached hood folded away neatly behind neck only. ',
-          back: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. ' +
-                'BACK COLLAR & HOOD SPECIFICATION: Attached hood folded down and lying flat across upper back with defined center fold between shoulder blades. Stand collar visible at nape with clean seam. Plain back panel. ',
-        },
-        'pair-5': {
-          front: 'HEAD & HAIR: Clean athletic male haircut, neat natural trimmed hair, bare forehead and natural exposed hairline matching Image 1. ' +
-                 'FRONT HOOD SPECIFICATION: Front-facing pose. Model facing camera. The hood is DOWN, inner lining rolled into soft 3 cm collar around neck forming visible well behind head, two drawcords hanging straight down onto chest. Hood is NOT worn on head. ',
-          back: 'HEAD & HAIR: Rear view of model head and neck. Clean natural hairline at nape. ' +
-                'BACK HOOD SPECIFICATION: Thick fleece hood lying down across upper back with raised roll at nape, hood tip falling into soft rounded point between shoulder blades. Smooth plain fleece back panel. ',
-        },
-      };
-
-      const activePairRule = HOOD_PAIRED_RULES[selectedPairKey] || HOOD_PAIRED_RULES['pair-1'];
-      const hoodInstruction = isBackPose ? activePairRule.back : activePairRule.front;
-
-      const hoodImageIndex = hoodTemplateUri ? (images.indexOf(hoodTemplateUri) + 1) : 0;
-      const hoodVisualGuidance = (hoodImageIndex > 0)
-        ? `ANATOMICAL COLLAR & HOOD TEMPLATE (Image ${hoodImageIndex}): Image ${hoodImageIndex} is the strict visual anatomical template for the collar, neckline closure, and hood styling. The athlete model's collar height, neck closure, zipper position, and hood fold MUST precisely duplicate Image ${hoodImageIndex} (${isBackPose ? 'Rear view: attached jacket hood lying flat down the center spine between shoulder blades in a pointed kite shape' : 'Front view: upright athletic stand collar zipped closed around throat with attached hood resting neatly behind neck only'}). Transfer all fabric prints, colors, and textures from the garment photos, but strictly reconstruct the neckline structure and hood silhouette from Image ${hoodImageIndex}. Do NOT leave the collar unzipped or open like a shirt collar. `
-        : '';
-
-      // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, hood preservation, and all-over pattern synthesis
+      // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, and natural styling matching model
       const dynamicFidelityRules =
         'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
-        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, hair, athletic physique, posture, and shoes with 100% fidelity. ' +
+        'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, natural hair, athletic physique, posture, and shoes with 100% fidelity. ' +
+        'NATURAL GARMENT STYLING: Dress the model matching their exact pose and natural collar/neckline styling as worn in Image 1 without forcing rigid artificial overrides. ' +
         'SPORTSWEAR PROPS NEGATIVE CONSTRAINT: Strictly NO balls (no basketball, soccer ball, cricket ball), no racquets, no sports equipment, no handheld props. Model hands must be completely free, natural, or in pockets. ' +
-        '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around the zipper seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. The geometric dot gradient grid and stripe patterns must wrap seamlessly following the anatomical 3D cylindrical curvature and perspective foreshortening of the athlete’s chest, torso, and ribcage. Render professional commercial sportswear studio lighting: crisp directional key lighting, soft natural contact shadows in fabric folds, realistic ambient occlusion, and subtle micro-specular sheen characteristic of performance moisture-wicking polyester/nylon sportswear fabric. ' +
-        hoodVisualGuidance +
-        hoodInstruction +
-        'COLLAR & NECKLINE OVERRIDE MANDATE: Replace any open or low neckline from the model or reference garment with the upright closed stand collar/funnel neckline specified in the template. The jacket must be fully zipped closed up to the throat. Do not expose model bare throat or collarbones. ' +
-        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length, closures (zipper with realistic zipper pull), textures, and printed graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
-        'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood extending above the collar line. Do not mistake the hood for background. ' +
-        'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ' +
-        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only the authentic brand logos present on the garment reference photos in their exact single position (one on the chest, one on the thigh). Do NOT invent duplicate or repeated second logos. ' +
-        'UNIVERSAL NEGATIVE PROMPT: no headgear, no headwear, no beanie, no helmet, no visor, no hood worn on head (hood must remain resting down behind neck), no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no invented print, no extra logos, no duplicate logos, no warped zipper, no deformed fingers, no melted collar, no different face, no plastic skin, no cartoon, no text artefacts, no watermark. ';
+        '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
+        'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ' +
+        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only authentic single brand logos present on the garment reference photos (one on chest, one on thigh). Do NOT invent duplicate or repeated second logos. ' +
+        'UNIVERSAL NEGATIVE PROMPT: no headgear, no baseball cap, no hat, no beanie, no helmet, no visor, no hood worn on head, no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no extra logos, no duplicate logos, no warped zipper, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark. ';
 
       agentPrompt += dynamicFidelityRules;
 
