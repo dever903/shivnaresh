@@ -7929,67 +7929,85 @@ export default function Design() {
                     Official Company Mark (100% Vector)
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !showHdLogoOverlay && !showPantLogo;
-                      setShowHdLogoOverlay(next);
-                      setShowPantLogo(next);
-                    }}
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                      showHdLogoOverlay || showPantLogo
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : isLight
-                        ? 'border border-gray-300 text-gray-600 hover:text-gray-900'
-                        : 'border border-white/20 text-white/50 hover:text-white'
-                    }`}
-                  >
-                    {showHdLogoOverlay || showPantLogo ? 'Branding: ACTIVE' : 'Branding: OFF'}
-                  </button>
-                </div>
               </div>
 
-              {!showHdLogoOverlay && !showPantLogo ? (
-                <div className={`mt-2 p-2.5 rounded-xl border text-[11px] flex items-center justify-between gap-3 ${
-                  isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/[0.02] text-white/70'
-                }`}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0">👕</span>
-                    <div className="min-w-0">
-                      <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white/90'}`}>
-                        Using Garment's Original Reference Logo
-                      </p>
-                      <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-                        Authentic logo directly from your uploaded clothing photos. Zero duplicate logos.
-                      </p>
-                    </div>
+              {/* 2 Big Mode Selector Cards: Option A vs Option B */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHdLogoOverlay(false);
+                    setShowPantLogo(false);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    !showHdLogoOverlay && !showPantLogo
+                      ? isLight
+                        ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
+                        : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
+                      : isLight
+                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span>👕 Option A: Garment Original Logo</span>
+                    </span>
+                    {!showHdLogoOverlay && !showPantLogo && (
+                      <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowHdLogoOverlay(true);
-                      setShowPantLogo(true);
-                    }}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 cursor-pointer shrink-0"
-                  >
-                    ✨ Turn Branding ON
-                  </button>
-                </div>
-              ) : (
+                  <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                    Use authentic logo from reference photos. Zero duplicates, natural fabric drape.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHdLogoOverlay(true);
+                    setShowPantLogo(true);
+                    setHdLogoScale(24);
+                    setPantLogoScale(20);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    showHdLogoOverlay || showPantLogo
+                      ? isLight
+                        ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
+                        : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
+                      : isLight
+                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span>✨ Option B: Vector Replace (Cover-Up)</span>
+                    </span>
+                    {(showHdLogoOverlay || showPantLogo) && (
+                      <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
+                    )}
+                  </div>
+                  <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                    Replace blurry AI logo with 100% crisp vector SVG. Scaled to cover edges without reflection.
+                  </p>
+                </button>
+              </div>
+
+              {(showHdLogoOverlay || showPantLogo) && (
                 <div className="space-y-3.5 pt-1">
-                  {/* Brand Mode Selector: Both | Upper Only | Bottom Only | Off */}
+                  {/* Brand Mode Selector: Both | Upper Only | Bottom Only */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                      Brand Mode:
+                      Targets:
                     </span>
                     <button
                       type="button"
                       onClick={() => {
                         setShowHdLogoOverlay(true);
                         setShowPantLogo(true);
-                        setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
-                        setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
+                        setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(24);
+                        setPantLogoX(63); setPantLogoY(61); setPantLogoScale(20);
                       }}
                       className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                         showHdLogoOverlay && showPantLogo
@@ -9856,10 +9874,37 @@ export default function Design() {
                     })()}
 
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex-wrap gap-2">
                         <span>✨ Generated AI Studio Render</span>
-                        <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !showHdLogoOverlay && !showPantLogo;
+                              setShowHdLogoOverlay(next);
+                              setShowPantLogo(next);
+                              if (next) {
+                                setHdLogoScale(24);
+                                setPantLogoScale(20);
+                              }
+                            }}
+                            className={`text-[9px] px-2.5 py-0.5 rounded-full border cursor-pointer font-bold transition-all ${
+                              showHdLogoOverlay || showPantLogo
+                                ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                                : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
+                            }`}
+                            title="Toggle between Option A (Cloth Original) and Option B (Vector Replace)"
+                          >
+                            {showHdLogoOverlay || showPantLogo ? '✨ Mode: Option B (Vector Replace)' : '👕 Mode: Option A (Cloth Original)'}
+                          </button>
+                          <span className="font-mono text-[9px]">{quality.toUpperCase()} Quality</span>
+                        </div>
                       </div>
+                      {(showHdLogoOverlay || showPantLogo) && (
+                        <p className={`text-[9px] text-center font-medium ${isLight ? 'text-gray-700' : 'text-emerald-400'}`}>
+                          🎯 <strong>Option B Cover-Up:</strong> Click directly over the blurry logo on the athlete to snap the crisp vector mark over it.
+                        </p>
+                      )}
                       <div className="flex justify-center w-full">
                         <div
                           className="relative w-fit max-h-[700px] rounded-xl border border-emerald-500/20 shadow-2xl bg-black/20 cursor-crosshair group"
