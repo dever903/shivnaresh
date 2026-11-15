@@ -3393,7 +3393,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
 
       const userPrompt = (body.prompt || '').trim();
-      const userWantsRemoveLogo = /remove.*(?:logo|brand|text|shiv-naresh|shiv naresh)|no.*logo|unbranded/i.test(userPrompt);
+      const userWantsRemoveShivNaresh = /remove.*(?:company.*logo|company.*text|shiv-naresh|shiv naresh)|without.*(?:shiv-naresh|shiv naresh)/i.test(userPrompt);
+      const userWantsRemoveAllLogo = /remove.*(?:all\s+logos?|every\s+logo|all\s+branding|unbranded)/i.test(userPrompt);
+      const userWantsRemoveLogo = userWantsRemoveShivNaresh || userWantsRemoveAllLogo || /remove.*(?:logo|brand)/i.test(userPrompt);
 
       // Universal dynamic fidelity rules: Full-body vertical preservation, 3D realism, true fabric drape, and natural styling matching model
       let dynamicFidelityRules =
@@ -3405,9 +3407,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ';
 
-      if (userWantsRemoveLogo) {
+      if (userWantsRemoveShivNaresh && !userWantsRemoveAllLogo) {
         dynamicFidelityRules +=
-          'REMOVE ALL BRAND LOGOS: Strictly remove and omit all company branding, brand logos, brand emblems, and manufacturer text (such as SHIV-NARESH) from the clothing. Naturally fill the area with the exact original fabric color, texture, and shading so the garment is completely unbranded. ';
+          'REMOVE ONLY COMPANY BRANDING: Remove ONLY the company manufacturer logo (white animal emblem) and company name text "SHIV-NARESH". Naturally fill that exact area with the original fabric color, texture, and shading. STRICTLY PRESERVE all other graphic patterns, design stripes, sleeve prints, team typography, and garment styles intact without altering them. ';
+      } else if (userWantsRemoveAllLogo) {
+        dynamicFidelityRules +=
+          'REMOVE ALL BRAND LOGOS: Strictly remove all brand logos and manufacturer emblems from the clothing, naturally restoring the fabric so the garment is unbranded. Preserve all underlying fabric patterns and stripes. ';
+      } else if (userWantsRemoveLogo) {
+        dynamicFidelityRules +=
+          'REMOVE BRAND LOGOS: Remove brand logos from the clothing while preserving all underlying fabric patterns, seam lines, and graphic styling. ';
       } else {
         dynamicFidelityRules +=
           'BRAND LOGO FIDELITY & NO DUPLICATION: Render only authentic single brand logos present on the garment reference photos (one on chest, one on thigh). Do NOT invent duplicate or repeated second logos. ';
@@ -3416,7 +3424,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let universalNegative =
         'no hood, no hood resting behind neck, no bunched fabric at neck, no hoodie, no headgear, no baseball cap, no cap on head, no hat, no beanie, no helmet, no visor, no ball, no basketball, no sports equipment in hands, no handheld props, no changed garment colour, no warped zipper, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
 
-      if (userWantsRemoveLogo) {
+      if (userWantsRemoveShivNaresh && !userWantsRemoveAllLogo) {
+        universalNegative += ', no shiv-naresh text, no manufacturer animal logo';
+      } else if (userWantsRemoveAllLogo || userWantsRemoveLogo) {
         universalNegative += ', no logo, no company text, no shiv-naresh, no brand name, no wordmark, no emblem';
       } else {
         universalNegative += ', no extra logos, no duplicate logos';
