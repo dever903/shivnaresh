@@ -5899,8 +5899,9 @@ export default function Design() {
     else if (pairId === 'pair-3') setHoodStyle('on-head');
     else setHoodStyle('draped');
   };
-  const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(true);
-  const [showPantLogo, setShowPantLogo] = useState(true);
+  const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
+  const [showPantLogo, setShowPantLogo] = useState(false);
+  const [cleanResultBackup, setCleanResultBackup] = useState<string | null>(null);
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
   const customLogoUrl: string | null = null;
@@ -5933,16 +5934,9 @@ export default function Design() {
     try {
       localStorage.setItem('shivnaresh_tryon_target', target);
     } catch { }
-    if (target === 'both') {
-      setShowHdLogoOverlay(true);
-      setShowPantLogo(true);
-    } else if (target === 'upper') {
-      setShowHdLogoOverlay(true);
-      setShowPantLogo(false);
+    if (target === 'upper') {
       setActiveLogoTarget('chest');
     } else if (target === 'lower') {
-      setShowHdLogoOverlay(false);
-      setShowPantLogo(true);
       setActiveLogoTarget('pant');
     }
   };
@@ -7122,26 +7116,33 @@ export default function Design() {
             : `Starting Pose 1 of ${batchItems.length} (${firstItem.name})…`
         );
 
-        const firstIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${firstItem.model?.name || ''} ${firstItem.model?.url || ''} ${firstItem.promptSuffix || ''}`);
-        const activePairForFirst = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
-        const firstHoodPrompt = firstIsBack ? activePairForFirst.backPrompt : activePairForFirst.frontPrompt;
+        const firstIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
+          `${firstItem.model?.name || ''} ${firstItem.model?.url || ''}`
+        );
 
         const firstPayload: Record<string, unknown> = {
           ...payload,
           poseAngle: firstIsBack ? 'back' : 'front',
           hoodPairStyle,
           ...(firstItem.model?.url ? { model: firstItem.model.url } : {}),
-          ...(tryOnTarget === 'both' ? {
-            mode: 'outfit',
-            topCloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-            bottomCloth: bottomGarment?.url,
-          } : {
+          ...(tryOnTarget === 'both' ? (
+            bottomGarment?.url ? {
+              mode: 'outfit',
+              topCloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+              bottomCloth: bottomGarment.url,
+            } : {
+              mode: 'tryon',
+              cloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+              source: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+              category: 'one-pieces',
+            }
+          ) : {
             ...(firstItem.cloth?.url ? { cloth: firstItem.cloth.url, source: firstItem.cloth.url } : {}),
           }),
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
           ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        firstPayload.prompt = `${effectivePrompt} · ${firstHoodPrompt} ${firstItem.promptSuffix || ''}`.trim();
+        firstPayload.prompt = `${effectivePrompt} ${firstItem.promptSuffix || ''}`.trim();
 
         const res1 = await api.generate(firstPayload);
         if (res1.credits !== undefined && user) {
@@ -7156,12 +7157,12 @@ export default function Design() {
         setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
 
         const singlePayload: Record<string, unknown> = { ...payload };
-        const singleIsBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${model?.name || ''} ${model?.url || ''} ${prompt}`);
-        const activePairForSingle = HOOD_PAIR_FORMATS.find(p => p.id === hoodPairStyle) || HOOD_PAIR_FORMATS[0];
-        const singleHoodPrompt = singleIsBack ? activePairForSingle.backPrompt : activePairForSingle.frontPrompt;
+        const singleIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
+          `${model?.name || ''} ${model?.url || ''}`
+        );
         singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
         singlePayload.hoodPairStyle = hoodPairStyle;
-        singlePayload.prompt = `${effectivePrompt} · ${singleHoodPrompt}`.trim();
+        singlePayload.prompt = effectivePrompt;
 
         if (mode === 'swap') {
           const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
@@ -7949,7 +7950,33 @@ export default function Design() {
                 </div>
               </div>
 
-              {(showHdLogoOverlay || showPantLogo) && (
+              {!showHdLogoOverlay && !showPantLogo ? (
+                <div className={`mt-2 p-2.5 rounded-xl border text-[11px] flex items-center justify-between gap-3 ${
+                  isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/[0.02] text-white/70'
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">👕</span>
+                    <div className="min-w-0">
+                      <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white/90'}`}>
+                        Using Garment's Original Reference Logo
+                      </p>
+                      <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                        Authentic logo directly from your uploaded clothing photos. Zero duplicate logos.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHdLogoOverlay(true);
+                      setShowPantLogo(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 cursor-pointer shrink-0"
+                  >
+                    ✨ Turn Branding ON
+                  </button>
+                </div>
+              ) : (
                 <div className="space-y-3.5 pt-1">
                   {/* Brand Mode Selector: Both | Upper Only | Bottom Only | Off */}
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -10252,21 +10279,40 @@ export default function Design() {
                       onClick={async () => {
                         if (!result) return;
                         try {
+                          if (!cleanResultBackup) setCleanResultBackup(result);
                           const stamped = await stampHdLogoOntoImage(result);
                           setResult(stamped);
                           setFivePoseItems((prev) =>
                             prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: stamped } : p))
                           );
-                          alert('Official HD Shiv-Naresh Brand Logos (Chest + Pant) permanently burned into file with 100% vector sharpness!');
+                          setShowHdLogoOverlay(false);
+                          setShowPantLogo(false);
+                          alert('Official HD Shiv-Naresh Brand Logos burned into file. Live overlay turned off so there are no duplicate logos!');
                         } catch (e: any) {
                           alert('Could not apply logo: ' + e.message);
                         }
                       }}
                       className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer flex items-center gap-1 ml-1"
-                      title="Permanently burn the vector-sharp official logos into the image file"
+                      title="Permanently burn the vector-sharp official logos into the image file and turn off live overlay"
                     >
                       <span>⚡ Burn Logos into File</span>
                     </button>
+                    {cleanResultBackup && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResult(cleanResultBackup);
+                          setFivePoseItems((prev) =>
+                            prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: cleanResultBackup } : p))
+                          );
+                          setCleanResultBackup(null);
+                        }}
+                        className="px-2 py-1 rounded text-[10px] font-semibold border border-white/20 hover:bg-white/10 text-white cursor-pointer ml-1"
+                        title="Revert back to clean original render without burned logos"
+                      >
+                        ↩️ Revert to Clean AI
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -3389,9 +3389,19 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         },
       };
 
-      // Detect if this specific angle is Front or Back
-      const isBackPose = body.poseAngle === 'back' ||
-        /back|rear|behind|reverse|peche|dorsal/i.test(`${body.poseAngle || ''} ${body.prompt || ''} ${body.model || ''} ${body.targetModel || ''}`);
+      // Detect if this specific angle is Front or Back strictly
+      const explicitAngle = String(body.poseAngle || '').toLowerCase().trim();
+      let isBackPose = false;
+      if (explicitAngle === 'back') {
+        isBackPose = true;
+      } else if (explicitAngle === 'front') {
+        isBackPose = false;
+      } else {
+        // Fallback: check model name/url only (NEVER check body.prompt because front prompts contain "behind the neck")
+        isBackPose = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
+          `${body.model || ''} ${body.targetModel || ''} ${body.sourceModel || ''}`
+        );
+      }
 
       const selectedPairKey = body.hoodPairStyle || (body.hoodStyle === 'none' ? 'pair-2' : (body.hoodStyle === 'on-head' ? 'pair-3' : 'pair-1'));
       const activePairRule = HOOD_PAIRED_RULES[selectedPairKey] || HOOD_PAIRED_RULES['pair-1'];
@@ -3405,7 +3415,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         hoodInstruction +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its exact cut, sleeve length (short-sleeve, 3/4 sleeve, full-sleeve, or sleeveless), collar/hood style, closures (zipper with realistic zipper pull), textures, and printed graphics strictly as visually present in the reference photos. Do NOT invent features that are absent in the reference photos, and do NOT omit features that are present. ' +
         'REFERENCE CLEANUP: Discard artificial turf/grass background, price tags, laundry labels, and floor shadows from the reference photos, but STRICTLY PRESERVE the complete garment structure and silhouette — including any hood/cap extending above the collar line. Do not mistake the hood for background. ' +
-        'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ';
+        'GARMENT PRINTS & PATTERNS: Replicate all sublimation dot gradients, sleeve stripes, and geometric design elements exactly as shown in the reference images. ' +
+        'BRAND LOGO FIDELITY & NO DUPLICATION: Render only the authentic brand logos present on the garment reference photos in their exact single position (one on the chest, one on the thigh). Do NOT invent duplicate or repeated second logos. ';
 
       agentPrompt += dynamicFidelityRules;
 
@@ -3413,7 +3424,17 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         agentPrompt += `Exact fabric color: ${body.color.trim()}. Maintain true garment dye and athlete kit tones with accurate color matching. `;
       }
       if (body.prompt && typeof body.prompt === 'string' && body.prompt.trim()) {
-        agentPrompt += `Specific styling instructions: ${body.prompt.trim()}. `;
+        const cleanedUserPrompt = body.prompt
+          .replace(/ATHLETIC HOODED TRACKSUIT \([^)]+\):[^.]*\./gi, '')
+          .replace(/CLASSIC ZIP JACKET \([^)]+\):[^.]*\./gi, '')
+          .replace(/ACTIVE SPORTS \([^)]+\):[^.]*\./gi, '')
+          .replace(/WINDCHEATER JACKET \([^)]+\):[^.]*\./gi, '')
+          .replace(/PULLOVER HOODIE \([^)]+\):[^.]*\./gi, '')
+          .replace(/·\s*·/g, '·')
+          .trim();
+        if (cleanedUserPrompt) {
+          agentPrompt += `Specific styling instructions: ${cleanedUserPrompt}. `;
+        }
       }
       if (is2k) {
         agentPrompt += 'Render in 2K Ultra HD studio resolution with razor-sharp fabric weave and realistic texture. ';
