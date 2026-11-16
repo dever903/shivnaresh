@@ -6352,6 +6352,10 @@ export default function Design() {
     setCleanResultBackup(imageUrl);
     setIsEraseMode(true);
     setEraseBox(null);
+    setActiveRenderOption('a');
+    setShowHdLogoOverlay(false);
+    setShowPantLogo(false);
+    setIsOptionBDirty(false);
   };
 
   const handleFileUploadForEraser = async (file: File) => {
@@ -7680,26 +7684,26 @@ export default function Design() {
         const lumDist = Math.abs(pLum - medLum);
 
         // A pixel is logo/text/defect if color or luminance diverges from surrounding fabric
-        if (dist > 18 || lumDist > 14) {
+        if (dist > 14 || lumDist > 10) {
           rawMask[row * bw + col] = 1;
           logoCount++;
         }
       }
     }
 
-    // 3. Dilate mask by 2px to thoroughly encapsulate anti-aliased font edges and emblems
+    // 3. Dilate mask by 3px to thoroughly encapsulate anti-aliased font edges, drop shadows and emblems
     const finalMask = new Uint8Array(bw * bh);
     const totalPixels = bw * bh;
 
-    // If more than 70% of box is detected as logo or if box is small, inpaint entire box for seamless texture
-    if (logoCount > totalPixels * 0.70 || logoCount === 0) {
+    // If more than 35% of box is detected as logo or if box is a focused selection, inpaint entire box for seamless texture
+    if (logoCount > totalPixels * 0.35 || logoCount === 0 || Math.min(bw, bh) < 60) {
       finalMask.fill(1);
     } else {
       for (let row = 0; row < bh; row++) {
         for (let col = 0; col < bw; col++) {
           if (rawMask[row * bw + col] === 1) {
-            for (let dy = -2; dy <= 2; dy++) {
-              for (let dx = -2; dx <= 2; dx++) {
+            for (let dy = -3; dy <= 3; dy++) {
+              for (let dx = -3; dx <= 3; dx++) {
                 const nr = row + dy;
                 const nc = col + dx;
                 if (nr >= 0 && nr < bh && nc >= 0 && nc < bw) {
@@ -7745,7 +7749,7 @@ export default function Design() {
               const nIdx = nr * bw + nc;
               if (finalMask[nIdx] === 0) {
                 const pDist = Math.sqrt((bufR[nIdx] - avgR)**2 + (bufG[nIdx] - avgG)**2 + (bufB[nIdx] - avgB)**2);
-                if (pDist < 25) {
+                if (pDist < 30) {
                   const weight = 1 / (step * step);
                   sumR += bufR[nIdx] * weight;
                   sumG += bufG[nIdx] * weight;
@@ -7758,7 +7762,7 @@ export default function Design() {
               // Outside box in clean perimeter
               const p = getPixel(bx + nc, by + nr);
               const pDist = Math.sqrt((p[0] - avgR)**2 + (p[1] - avgG)**2 + (p[2] - avgB)**2);
-              if (pDist < 40) {
+              if (pDist < 45) {
                 const weight = 1 / (step * step);
                 sumR += p[0] * weight;
                 sumG += p[1] * weight;
@@ -7869,6 +7873,19 @@ export default function Design() {
         }
         setActiveRenderOption('b');
         setIsOptionBDirty(true);
+      } else {
+        // User clicked "Erase Logo" -> Turn off vector overlay on that spot so it doesn't block the erased area
+        const centerY = eraseBox.y + eraseBox.height / 2;
+        if (centerY > 50) {
+          setShowPantLogo(false);
+        } else {
+          setShowHdLogoOverlay(false);
+        }
+        if (centerY <= 55) {
+          setShowHdLogoOverlay(false);
+        }
+        setActiveRenderOption('a');
+        setIsOptionBDirty(false);
       }
 
       setEraseBox(null);
@@ -8737,10 +8754,10 @@ export default function Design() {
             setMode('removelogo');
             setIsEraseMode(true);
             setEraseBox(null);
-            setActiveRenderOption('b');
-            setShowHdLogoOverlay(true);
-            setShowPantLogo(true);
-            setIsOptionBDirty(true);
+            setActiveRenderOption('a');
+            setShowHdLogoOverlay(false);
+            setShowPantLogo(false);
+            setIsOptionBDirty(false);
             setPageView('studio');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
