@@ -6220,6 +6220,21 @@ export default function Design() {
 
   const [draggingLogo, setDraggingLogo] = useState<'chest' | 'pant' | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const imageWrapperRef = useRef<HTMLDivElement>(null);
+
+  const getImageElementRect = () => {
+    const wrapper = imageWrapperRef.current;
+    if (wrapper) {
+      const wRect = wrapper.getBoundingClientRect();
+      if (wRect.width > 10 && wRect.height > 10) return wRect;
+    }
+    const img = document.getElementById('rendered-main-img') as HTMLImageElement | null;
+    if (img) {
+      const iRect = img.getBoundingClientRect();
+      if (iRect.width > 10 && iRect.height > 10) return iRect;
+    }
+    return previewContainerRef.current?.getBoundingClientRect() || null;
+  };
 
   const handleStartDragLogo = (e: React.MouseEvent | React.TouchEvent, target: 'chest' | 'pant') => {
     e.preventDefault();
@@ -6229,9 +6244,8 @@ export default function Design() {
     setIsOptionBDirty(true);
 
     const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
-      if (!previewContainerRef.current) return;
-      const rect = previewContainerRef.current.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
+      const rect = getImageElementRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
 
       const clientX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
       const clientY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
@@ -6273,12 +6287,12 @@ export default function Design() {
   const [isErasing, setIsErasing] = useState(false);
 
   const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isEraseMode || !previewContainerRef.current) return;
+    if (!isEraseMode) return;
     if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
 
-    const rect = previewContainerRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    const rect = getImageElementRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
 
     const startClientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const startClientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -6290,8 +6304,8 @@ export default function Design() {
     setEraseBox({ x: startX, y: startY, width: 0, height: 0 });
 
     const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
-      if (!previewContainerRef.current) return;
-      const curRect = previewContainerRef.current.getBoundingClientRect();
+      const curRect = getImageElementRect();
+      if (!curRect || curRect.width === 0 || curRect.height === 0) return;
       const clientX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
       const clientY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
 
@@ -7601,8 +7615,8 @@ export default function Design() {
       return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
     };
 
-    // 1. Sample border perimeter around box to get true, unpolluted fabric color
-    const band = Math.max(5, Math.min(25, Math.round(Math.min(bw, bh) * 0.2)));
+    // 1. Sample border perimeter outside box to get true, unpolluted natural fabric color
+    const band = Math.max(4, Math.min(20, Math.round(Math.min(bw, bh) * 0.25)));
     const rawBorderSamples: number[][] = [];
 
     for (let col = 0; col < bw; col++) {
@@ -7622,7 +7636,7 @@ export default function Design() {
 
     if (rawBorderSamples.length === 0) return canvas.toDataURL('image/png');
 
-    // Median luminance to filter out outlier logo pixels on border
+    // Median luminance to filter out outlier border pixels (e.g. if boundary touches zipper, stripe or logo)
     const sortedByLum = [...rawBorderSamples].sort((a, b) => {
       const lumA = 0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2];
       const lumB = 0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2];
@@ -7631,11 +7645,11 @@ export default function Design() {
     const medPixel = sortedByLum[Math.floor(sortedByLum.length / 2)];
     const medLum = 0.299 * medPixel[0] + 0.587 * medPixel[1] + 0.114 * medPixel[2];
 
-    // Filter out outlier pixels that deviate from median fabric (e.g. if border cuts across white logo)
+    // Filter clean fabric samples
     const cleanFabricSamples = rawBorderSamples.filter((p) => {
       const lum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
       const dist = Math.sqrt((p[0] - medPixel[0])**2 + (p[1] - medPixel[1])**2 + (p[2] - medPixel[2])**2);
-      return Math.abs(lum - medLum) < 45 && dist < 60;
+      return Math.abs(lum - medLum) < 35 && dist < 50;
     });
 
     const samplesToUse = cleanFabricSamples.length > 20 ? cleanFabricSamples : rawBorderSamples;
@@ -7652,9 +7666,9 @@ export default function Design() {
     for (const p of samplesToUse) {
       varSum += Math.abs(p[0] - avgR) + Math.abs(p[1] - avgG) + Math.abs(p[2] - avgB);
     }
-    const noiseAmp = Math.max(1.0, Math.min(6.0, varSum / (samplesToUse.length * 3)));
+    const noiseAmp = Math.max(1.0, Math.min(5.0, varSum / (samplesToUse.length * 3)));
 
-    // 2. Identify Logo / Artifact Mask inside bounding box ("Only Logo Hate, Background Na Hate")
+    // 2. Identify Logo / Artifact Mask inside bounding box ("Only Logo Hate, Background Fabric Na Hate")
     const rawMask = new Uint8Array(bw * bh);
     let logoCount = 0;
 
@@ -7665,25 +7679,27 @@ export default function Design() {
         const pLum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
         const lumDist = Math.abs(pLum - medLum);
 
-        // A pixel is logo/artifact if its color or luminance diverges from the surrounding fabric
-        if (dist > 22 || lumDist > 18) {
+        // A pixel is logo/text/defect if color or luminance diverges from surrounding fabric
+        if (dist > 18 || lumDist > 14) {
           rawMask[row * bw + col] = 1;
           logoCount++;
         }
       }
     }
 
-    // 3. Dilate mask slightly (1.5px) to cover anti-aliased boundary fringes of letters
+    // 3. Dilate mask by 2px to thoroughly encapsulate anti-aliased font edges and emblems
     const finalMask = new Uint8Array(bw * bh);
     const totalPixels = bw * bh;
-    const isSelective = logoCount > 0 && logoCount < totalPixels * 0.95;
 
-    if (isSelective) {
+    // If more than 70% of box is detected as logo or if box is small, inpaint entire box for seamless texture
+    if (logoCount > totalPixels * 0.70 || logoCount === 0) {
+      finalMask.fill(1);
+    } else {
       for (let row = 0; row < bh; row++) {
         for (let col = 0; col < bw; col++) {
           if (rawMask[row * bw + col] === 1) {
-            for (let dy = -1; dy <= 1; dy++) {
-              for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -2; dy <= 2; dy++) {
+              for (let dx = -2; dx <= 2; dx++) {
                 const nr = row + dy;
                 const nc = col + dx;
                 if (nr >= 0 && nr < bh && nc >= 0 && nc < bw) {
@@ -7694,16 +7710,14 @@ export default function Design() {
           }
         }
       }
-    } else {
-      finalMask.fill(1);
     }
 
-    // 4. Inpaint masked pixels using multi-directional harmonic diffusion
+    // 4. Inpaint target pixels strictly using surrounding clean fabric
     const bufR = new Float32Array(bw * bh);
     const bufG = new Float32Array(bw * bh);
     const bufB = new Float32Array(bw * bh);
 
-    // Initialize with original pixels for fabric (mask=0)
+    // Initialize buffer
     for (let row = 0; row < bh; row++) {
       for (let col = 0; col < bw; col++) {
         const idx = row * bw + col;
@@ -7714,7 +7728,7 @@ export default function Design() {
       }
     }
 
-    // Step A: Ray-march nearest clean fabric in 8 directions for masked pixels
+    // Step A: Multi-directional ray-march strictly to verified clean fabric (never sampling logo)
     const dirs = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
     for (let row = 0; row < bh; row++) {
       for (let col = 0; col < bw; col++) {
@@ -7724,27 +7738,34 @@ export default function Design() {
         let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
         for (const [dx, dy] of dirs) {
           let step = 1;
-          while (step <= Math.max(bw, bh)) {
+          while (step <= Math.max(bw, bh) + 15) {
             const nc = col + dx * step;
             const nr = row + dy * step;
             if (nc >= 0 && nc < bw && nr >= 0 && nr < bh) {
               const nIdx = nr * bw + nc;
               if (finalMask[nIdx] === 0) {
+                const pDist = Math.sqrt((bufR[nIdx] - avgR)**2 + (bufG[nIdx] - avgG)**2 + (bufB[nIdx] - avgB)**2);
+                if (pDist < 25) {
+                  const weight = 1 / (step * step);
+                  sumR += bufR[nIdx] * weight;
+                  sumG += bufG[nIdx] * weight;
+                  sumB += bufB[nIdx] * weight;
+                  sumW += weight;
+                  break;
+                }
+              }
+            } else {
+              // Outside box in clean perimeter
+              const p = getPixel(bx + nc, by + nr);
+              const pDist = Math.sqrt((p[0] - avgR)**2 + (p[1] - avgG)**2 + (p[2] - avgB)**2);
+              if (pDist < 40) {
                 const weight = 1 / (step * step);
-                sumR += bufR[nIdx] * weight;
-                sumG += bufG[nIdx] * weight;
-                sumB += bufB[nIdx] * weight;
+                sumR += p[0] * weight;
+                sumG += p[1] * weight;
+                sumB += p[2] * weight;
                 sumW += weight;
                 break;
               }
-            } else {
-              const p = getPixel(bx + nc, by + nr);
-              const weight = 1 / (step * step);
-              sumR += p[0] * weight;
-              sumG += p[1] * weight;
-              sumB += p[2] * weight;
-              sumW += weight;
-              break;
             }
             step++;
           }
@@ -7762,8 +7783,8 @@ export default function Design() {
       }
     }
 
-    // Step B: Laplacian harmonic smoothing passes over masked pixels to blend smoothly into fabric
-    for (let iter = 0; iter < 5; iter++) {
+    // Step B: Laplacian harmonic smoothing passes for seamless blending across fabric gradients & folds
+    for (let iter = 0; iter < 6; iter++) {
       for (let row = 0; row < bh; row++) {
         for (let col = 0; col < bw; col++) {
           const idx = row * bw + col;
@@ -7791,7 +7812,7 @@ export default function Design() {
       }
     }
 
-    // Step C: Write back into image data
+    // Step C: Write back into image data with subtle natural micro-weave grain
     for (let row = 0; row < bh; row++) {
       for (let col = 0; col < bw; col++) {
         const idx = row * bw + col;
@@ -11442,12 +11463,19 @@ export default function Design() {
                 }`}
               >
                 {result ? (
-                  <>
+                  <div
+                    ref={imageWrapperRef}
+                    onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
+                    onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
+                    className={`relative inline-flex items-center justify-center max-h-full max-w-full select-none ${
+                      isEraseMode ? 'cursor-crosshair' : ''
+                    }`}
+                  >
                     <img
                       id="rendered-main-img"
                       src={resolveImageUrl(activeRenderOption === 'b' ? result : (cleanResultBackup || result))}
                       alt="Rendered result"
-                      className="h-full w-full object-contain select-none"
+                      className="max-h-full max-w-full h-auto w-auto object-contain block select-none pointer-events-none"
                     />
 
                     {/* Active Erase Mode Helper Pill at top of canvas */}
@@ -11587,7 +11615,7 @@ export default function Design() {
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 ) : busy ? (
                   <div className="flex flex-col items-center justify-center text-center p-6 text-white/40">
                     <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-3" />
