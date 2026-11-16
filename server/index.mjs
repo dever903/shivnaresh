@@ -4062,9 +4062,26 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     }
 
     let resolvedRemoteUrl = remoteUrl || '';
-    if (!resolvedRemoteUrl && typeof url === 'string' && url.startsWith('/generated/')) {
+    let finalUrl = url;
+    let finalHighRes = highResUrl || url;
+
+    // Convert raw data URLs (from canvas inpaint/stamp edits) to permanent Cloudinary/static assets
+    if (typeof finalUrl === 'string' && finalUrl.startsWith('data:')) {
       try {
-        const filename = path.basename(url);
+        const cdn = await uploadToCloudinary(finalUrl, req.user._id, `gen-${Date.now()}`);
+        if (cdn?.url) {
+          finalUrl = cdn.secure_url || cdn.url;
+          finalHighRes = finalUrl;
+          resolvedRemoteUrl = finalUrl;
+        }
+      } catch (uploadErr) {
+        console.warn('[generations] uploadToCloudinary fallback:', uploadErr.message);
+      }
+    }
+
+    if (!resolvedRemoteUrl && typeof finalUrl === 'string' && finalUrl.startsWith('/generated/')) {
+      try {
+        const filename = path.basename(finalUrl);
         const jobId = filename.replace(/-\d+\.[^.]+$/, '');
         const db = await getMongoDb();
         if (db) {
@@ -4073,8 +4090,8 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
               { id: jobId },
               { id: { $regex: `^${jobId}`, $options: 'i' } },
               { id: filename },
-              { url },
-              { outputUrl: url }
+              { url: finalUrl },
+              { outputUrl: finalUrl }
             ]
           });
           if (orig) {
@@ -4113,8 +4130,8 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     const isEditedValue = Boolean(req.body.isEdited || type === 'edit' || (prompt && /\b(edit|edited|option b)\b/i.test(prompt)));
     if (existing) {
       // Update in place, do NOT duplicate!
-      existing.url = url || existing.url;
-      existing.highResUrl = highResUrl || resolvedRemoteUrl || existing.highResUrl || url;
+      existing.url = finalUrl || existing.url;
+      existing.highResUrl = finalHighRes || resolvedRemoteUrl || existing.highResUrl || finalUrl;
       existing.remoteUrl = resolvedRemoteUrl || existing.remoteUrl || '';
       existing.status = 'completed';
       if (prompt && !prompt.startsWith('Multi-Angle Garment Synthesis')) existing.prompt = String(prompt).slice(0, 600);
@@ -4136,9 +4153,9 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       userName: req.user.name || '',
       type: type === 'video' ? 'video' : 'image',
       isEdited: isEditedValue,
-      url,
-      highResUrl: highResUrl || resolvedRemoteUrl || url,
-      remoteUrl: resolvedRemoteUrl || (typeof highResUrl === 'string' && /^https?:/.test(highResUrl) ? highResUrl : ''),
+      url: finalUrl,
+      highResUrl: finalHighRes || resolvedRemoteUrl || finalUrl,
+      remoteUrl: resolvedRemoteUrl || (typeof finalHighRes === 'string' && /^https?:/.test(finalHighRes) ? finalHighRes : ''),
       prompt: String(prompt || '').slice(0, 600),
       color: String(color || ''),
       colorName: String(colorName || ''),
