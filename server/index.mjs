@@ -4081,6 +4081,9 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
 
     const items = list.filter((g) => {
+      // Exclude soft-deleted items (preserved safely in Admin Recycle Bin)
+      if (g.deleted === true || g.isDeleted === true) return false;
+
       if (isAdmin) return true;
       const gUserId = g.userId ? String(g.userId) : '';
       const gEmail = (g.userEmail || '').toLowerCase().trim();
@@ -4088,20 +4091,28 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
     }).map((g) => {
       const candidates = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl, (Array.isArray(g.output) ? g.output[0] : '')]
         .filter(Boolean)
-        .filter((u) => typeof u === 'string');
+        .filter((u) => typeof u === 'string' && u.trim().length > 0);
+
+      // Skip records that failed or have no actual image outputs
+      if (candidates.length === 0 || g.status === 'failed') {
+        return null;
+      }
+
       const cleanCandidate = candidates.find((u) => !u.includes('ibb.co') && !u.includes('imgbb.com')) || null;
       let fallbackUrl = '';
-      if (g.id && g.id.length > 5) {
+      if (!cleanCandidate && g.id && g.id.length > 5 && !g.id.startsWith('agent_')) {
         fallbackUrl = `/generated/${g.id}-0.png`;
       }
       const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
+      if (!resolvedUrl) return null;
+
       return {
         ...g,
         url: resolvedUrl,
         highResUrl: cleanCandidate || fallbackUrl || candidates[0] || resolvedUrl,
         isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
-    }).filter((g) => Boolean(g.url));
+    }).filter(Boolean);
 
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     res.json({ items });
@@ -4268,10 +4279,22 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
 app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
   try {
     const list = await readGenerations();
-    const index = list.findIndex((g) => g.id === req.params.id && g.userId === req.user._id);
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+
+    const index = list.findIndex((g) => {
+      if (g.id !== req.params.id) return false;
+      if (isAdmin) return true;
+      const gUserId = g.userId ? String(g.userId) : '';
+      const gEmail = (g.userEmail || '').toLowerCase().trim();
+      return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
+    });
+
     if (index === -1) {
       return res.status(404).json({ error: 'not_found', message: 'Item not found.' });
     }
+
     const gen = list[index];
     let refunded = false;
     let refundedCredits = 0;
@@ -4288,13 +4311,26 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
         console.log(`[billing] Refunded ${refundedCredits} credits to ${req.user._id} on generation discard.`);
       }
     }
-    list.splice(index, 1);
+
+    // Soft delete: move safely into Admin Recycle Bin
+    gen.deleted = true;
+    gen.isDeleted = true;
+    gen.deletedAt = Date.now();
+    gen.deletedBy = currentUserEmail || currentUserId || 'user';
+
     await writeGenerations(list);
+
     try {
       const db = await getMongoDb();
-      if (db) await db.collection('generations').deleteOne({ id: req.params.id, userId: req.user._id });
+      if (db) {
+        await db.collection('generations').updateOne(
+          { id: req.params.id },
+          { $set: { deleted: true, isDeleted: true, deletedAt: gen.deletedAt, deletedBy: gen.deletedBy } }
+        );
+      }
     } catch {}
-    res.json({ ok: true, deleted: req.params.id, refunded, refundedCredits });
+
+    res.json({ ok: true, deleted: req.params.id, inBin: true, refunded, refundedCredits });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
   }
@@ -5167,21 +5203,25 @@ app.delete('/api/admin/deliveries/:id', requireAdmin, async (req, res) => {
   }
 });
 
-/* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests & Deliveries) */
+/* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests, Deliveries & Generations) */
 app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
   try {
-    const [allRequests, allDeliveries] = await Promise.all([
+    const [allRequests, allDeliveries, allGenerations] = await Promise.all([
       readCustomRequests(),
       readAdminDeliveries(),
+      readGenerations(),
     ]);
     const deletedRequests = allRequests.filter((r) => r.deleted === true);
     const deletedDeliveries = allDeliveries.filter((d) => d.deleted === true);
+    const deletedGenerations = allGenerations.filter((g) => g.deleted === true || g.isDeleted === true);
     deletedRequests.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     deletedDeliveries.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+    deletedGenerations.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     res.json({
       requests: deletedRequests,
       deliveries: deletedDeliveries,
-      total: deletedRequests.length + deletedDeliveries.length,
+      generations: deletedGenerations,
+      total: deletedRequests.length + deletedDeliveries.length + deletedGenerations.length,
     });
   } catch (err) {
     res.status(500).json({ error: 'fetch_bin_failed', message: err.message });
@@ -5208,6 +5248,25 @@ app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
       delete item.deletedAt;
       delete item.deletedBy;
       await writeAdminDeliveries(all);
+      return res.json({ ok: true, item });
+    } else if (type === 'generation' || type === 'image') {
+      const all = await readGenerations();
+      const item = all.find((g) => g.id === id);
+      if (!item) return res.status(404).json({ error: 'not_found' });
+      item.deleted = false;
+      item.isDeleted = false;
+      delete item.deletedAt;
+      delete item.deletedBy;
+      await writeGenerations(all);
+      try {
+        const db = await getMongoDb();
+        if (db) {
+          await db.collection('generations').updateOne(
+            { id },
+            { $unset: { deleted: '', isDeleted: '', deletedAt: '', deletedBy: '' } }
+          );
+        }
+      } catch {}
       return res.json({ ok: true, item });
     }
     res.status(400).json({ error: 'invalid_type' });
@@ -5236,6 +5295,14 @@ app.delete('/api/admin/bin/:type/:id', requireAdmin, async (req, res) => {
         await db.collection('admin_deliveries').deleteOne({ id });
       }
       return res.json({ ok: true, message: 'Delivery permanently deleted from bin.' });
+    } else if (type === 'generation' || type === 'image') {
+      const all = await readGenerations();
+      const filtered = all.filter((g) => g.id !== id);
+      await writeGenerations(filtered);
+      if (db) {
+        await db.collection('generations').deleteOne({ id });
+      }
+      return res.json({ ok: true, message: 'Generation permanently deleted from bin.' });
     }
     res.status(400).json({ error: 'invalid_type' });
   } catch (err) {
@@ -5246,9 +5313,10 @@ app.delete('/api/admin/bin/:type/:id', requireAdmin, async (req, res) => {
 app.post('/api/admin/bin/empty', requireAdmin, async (_req, res) => {
   try {
     const db = await getMongoDb();
-    const [allRequests, allDeliveries] = await Promise.all([
+    const [allRequests, allDeliveries, allGenerations] = await Promise.all([
       readCustomRequests(),
       readAdminDeliveries(),
+      readGenerations(),
     ]);
 
     const activeRequests = allRequests.filter((r) => !r.deleted);
@@ -5265,7 +5333,14 @@ app.post('/api/admin/bin/empty', requireAdmin, async (_req, res) => {
       await db.collection('admin_deliveries').deleteMany({ deleted: true });
     }
 
-    res.json({ ok: true, purged: deletedReqCount + deletedDelCount });
+    const activeGenerations = allGenerations.filter((g) => !g.deleted && !g.isDeleted);
+    const deletedGenCount = allGenerations.length - activeGenerations.length;
+    await writeGenerations(activeGenerations);
+    if (db) {
+      await db.collection('generations').deleteMany({ $or: [{ deleted: true }, { isDeleted: true }] });
+    }
+
+    res.json({ ok: true, purged: deletedReqCount + deletedDelCount + deletedGenCount });
   } catch (err) {
     res.status(500).json({ error: 'empty_bin_failed', message: err.message });
   }

@@ -444,21 +444,25 @@ export function safeOpenMediaInNewTab(
     img { max-width: 100%; max-height: 86vh; object-fit: contain; border-radius: 12px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8); }
     .toolbar { margin-top: 18px; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.08); padding: 8px 20px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); }
     .label { font-size: 13px; font-weight: 600; color: #cbd5e1; max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 7px 18px; border-radius: 9999px; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 7px 18px; border-radius: 9999px; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
     .dl-btn:hover { background: #d42d35; }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <img src="${resolved}" alt="${title.replace(/"/g, '&quot;')}" />
+    <img id="previewImg" alt="Preview" />
     <div class="toolbar">
       <span class="label">${title.replace(/</g, '&lt;')}</span>
-      <a class="dl-btn" href="${resolved}" download="shivnaresh-render-1807x3000.png">⬇️ Download (1807 × 3000)</a>
+      <a id="dlBtn" class="dl-btn" download="shivnaresh-render-1807x3000.png">⬇️ Download (1807 × 3000)</a>
     </div>
   </div>
 </body>
 </html>`);
       win.document.close();
+      const pImg = win.document.getElementById('previewImg') as HTMLImageElement | null;
+      if (pImg) pImg.src = resolved;
+      const dBtn = win.document.getElementById('dlBtn') as HTMLAnchorElement | null;
+      if (dBtn) dBtn.href = resolved;
       return;
     } catch (e) {
       console.warn('Direct document write error, navigating to URL:', e);
@@ -1922,7 +1926,7 @@ export function getBestGenUrl(g: UserGeneration): string {
     .filter(Boolean)
     .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
   if (clean) return clean;
-  if (g.id && g.id.length > 5) return `/generated/${g.id}-0.png`;
+  if (g.id && g.id.length > 5 && !g.id.startsWith('agent_')) return `/generated/${g.id}-0.png`;
   return g.url || g.highResUrl || g.remoteUrl || '';
 }
 
@@ -2139,7 +2143,7 @@ function MySetsPanel({
   }
 
   async function handleDeleteGen(id: string) {
-    if (!confirm('Are you sure you want to delete this generation from your archive?')) return;
+    if (!confirm('Move this item to the Admin Recycle Bin? (Admin can restore it anytime or permanently delete it)')) return;
     setDeletingGenId(id);
     try {
       await api.deleteUserGeneration(id);
@@ -2481,8 +2485,17 @@ function MySetsPanel({
                               onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
                               onError={(e) => {
                                 const el = e.currentTarget;
-                                if (gen.id && gen.id.length > 5 && !el.src.includes(`/generated/${gen.id}-0.png`)) {
+                                if (gen.id && gen.id.length > 5 && !gen.id.startsWith('agent_') && !el.src.includes(`/generated/${gen.id}-0.png`)) {
                                   el.src = resolveImageUrl(`/generated/${gen.id}-0.png`);
+                                } else {
+                                  el.style.display = 'none';
+                                  const parent = el.parentElement;
+                                  if (parent && !parent.querySelector('.broken-img-placeholder')) {
+                                    const ph = document.createElement('div');
+                                    ph.className = 'broken-img-placeholder absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-900/90 text-zinc-400 select-none';
+                                    ph.innerHTML = '<span class="text-3xl mb-1">🖼️</span><span class="text-xs font-semibold text-zinc-200">Image Expired or Incomplete</span><span class="text-[10px] text-zinc-400 mt-1">Click trash icon below to move to Recycle Bin</span>';
+                                    parent.appendChild(ph);
+                                  }
                                 }
                               }}
                             />
@@ -2510,8 +2523,9 @@ function MySetsPanel({
                             className="h-3 w-3 accent-[#e5373f] cursor-pointer"
                           />
                         </label>
-                        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider">
-                          {gen.resolution || '1K'}
+                        <span className="absolute bottom-2 right-2 rounded-md bg-black/85 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-md flex items-center gap-1 z-10">
+                          <span className="text-[#38bdf8]">📐</span>
+                          <span>1807 × 3000 px</span>
                         </span>
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
@@ -2556,10 +2570,10 @@ function MySetsPanel({
                             const targetUrl = resolveImageUrl(primary);
                             if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
                           }}
-                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                          title="Download high-resolution (1807×3000) image"
+                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-md hover:shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-1.5"
+                          title="Download high-resolution catalog standard image (1807 × 3000 px)"
                         >
-                          <Download className="h-3.5 w-3.5 shrink-0" />
+                          <Download className="h-4 w-4 shrink-0" />
                           <span>Download (1807×3000)</span>
                         </button>
                       </div>
@@ -9744,7 +9758,14 @@ export default function Design() {
                                 }`}
                                 title={gen.prompt || 'Load into Logo Eraser'}
                               >
-                                <img src={resolveImageUrl(targetUrl)} alt="" className="w-full h-full object-cover" />
+                                <img
+                                  src={resolveImageUrl(targetUrl)}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                  }}
+                                />
                                 {isSelected && (
                                   <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
                                     <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded shadow">Active</span>

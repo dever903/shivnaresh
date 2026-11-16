@@ -216,6 +216,10 @@ export type AdminGeneration = {
   isManualUpload?: boolean;
   createdAt: number;
   completedAt?: number;
+  deleted?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: number;
+  deletedBy?: string;
 };
 
 export type FashnCredits = {
@@ -545,10 +549,10 @@ export const api = {
 
   /* Admin Recycle Bin */
   getAdminBin: () =>
-    request<{ requests: CustomRequest[]; deliveries: AdminDelivery[]; total: number }>('/api/admin/bin'),
-  restoreBinItem: (type: 'request' | 'delivery', id: string) =>
+    request<{ requests: CustomRequest[]; deliveries: AdminDelivery[]; generations?: AdminGeneration[]; total: number }>('/api/admin/bin'),
+  restoreBinItem: (type: 'request' | 'delivery' | 'generation', id: string) =>
     request<{ ok: boolean; item?: any }>('/api/admin/bin/restore', json({ type, id })),
-  permanentlyDeleteBinItem: (type: 'request' | 'delivery', id: string) =>
+  permanentlyDeleteBinItem: (type: 'request' | 'delivery' | 'generation', id: string) =>
     request<{ ok: boolean; message: string }>(`/api/admin/bin/${type}/${id}`, { method: 'DELETE' }),
   emptyAdminBin: () =>
     request<{ ok: boolean; purged: number }>('/api/admin/bin/empty', { method: 'POST' }),

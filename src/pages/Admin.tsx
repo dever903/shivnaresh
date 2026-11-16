@@ -262,6 +262,7 @@ export default function Admin() {
   const [adminRequestsTab, setAdminRequestsTab] = useState<'receive' | 'send' | 'bin'>('receive');
   const [binRequests, setBinRequests] = useState<CustomRequest[]>([]);
   const [binDeliveries, setBinDeliveries] = useState<AdminDelivery[]>([]);
+  const [binGenerations, setBinGenerations] = useState<AdminGeneration[]>([]);
   const [binLoading, setBinLoading] = useState(false);
   const [binCount, setBinCount] = useState(0);
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
@@ -1584,6 +1585,7 @@ ${log.stack || 'None'}
       const res = await api.getAdminBin();
       setBinRequests(res.requests || []);
       setBinDeliveries(res.deliveries || []);
+      setBinGenerations(res.generations || []);
       setBinCount(res.total || 0);
     } catch (e) {
       console.warn('Failed to load admin bin:', e);
@@ -1592,18 +1594,19 @@ ${log.stack || 'None'}
     }
   }
 
-  async function handleRestoreItem(type: 'request' | 'delivery', id: string) {
+  async function handleRestoreItem(type: 'request' | 'delivery' | 'generation', id: string) {
     try {
       await api.restoreBinItem(type, id);
       await loadBin();
       if (type === 'request') await loadCustomRequests();
       if (type === 'delivery') await loadAdminDeliveries();
+      if (type === 'generation') await loadGenerations();
     } catch (e: any) {
       alert(e.message || 'Restore failed');
     }
   }
 
-  async function handlePermanentlyDeleteItem(type: 'request' | 'delivery', id: string) {
+  async function handlePermanentlyDeleteItem(type: 'request' | 'delivery' | 'generation', id: string) {
     if (!window.confirm('Permanently delete this item? This action is irreversible.')) return;
     try {
       await api.permanentlyDeleteBinItem(type, id);
@@ -3459,11 +3462,96 @@ ${log.stack || 'None'}
               <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500 opacity-60" />
               <h3 className="text-base font-bold">Recycle Bin is Empty</h3>
               <p className="text-xs opacity-60 mt-1">
-                There are no deleted custom requests or deliveries in the trash.
+                There are no deleted custom requests, deliveries, or studio images in the trash.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Deleted Studio Images & Generations Section */}
+              {binGenerations.length > 0 && (
+                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400 mb-4 flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    <span>Deleted Studio Images & Generations ({binGenerations.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {binGenerations.map((gen) => {
+                      const thumbUrl = gen.highResUrl || gen.url || gen.outputUrl || '';
+                      return (
+                        <div
+                          key={gen.id}
+                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                            isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {thumbUrl ? (
+                              <img
+                                src={thumbUrl}
+                                alt="Deleted generation"
+                                className="w-14 h-18 object-cover rounded-lg border border-white/10 bg-black/40 shrink-0"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-14 h-18 rounded-lg border border-white/10 bg-black/40 flex items-center justify-center shrink-0 text-xl text-zinc-500">
+                                🖼️
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs">{gen.cloth || 'Studio Fashion Render'}</span>
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-300 font-semibold uppercase">
+                                  {gen.type || 'image'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold uppercase">
+                                  1807 × 3000 px
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/20 text-red-400 font-semibold uppercase">
+                                  Deleted
+                                </span>
+                              </div>
+                              <p className="text-[11px] opacity-70">
+                                User: <span className="font-semibold">{gen.userEmail || gen.userName || gen.userId}</span> &middot; Created: {new Date(gen.createdAt).toLocaleDateString()}
+                              </p>
+                              {gen.deletedAt && (
+                                <p className="text-[10px] text-red-400">
+                                  Moved to Bin: {new Date(gen.deletedAt).toLocaleString()} {gen.deletedBy ? `by ${gen.deletedBy}` : ''}
+                                </p>
+                              )}
+                              {gen.prompt && (
+                                <p className="text-xs italic opacity-80 mt-1 line-clamp-1 max-w-xl">"{gen.prompt}"</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => void handleRestoreItem('generation', gen.id)}
+                              className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                              title="Restore back to active user My Sets gallery"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Restore</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handlePermanentlyDeleteItem('generation', gen.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                              title="Permanently erase forever from database and storage"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Permanently</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {/* Deleted Custom Requests Section */}
               {binRequests.length > 0 && (
                 <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
