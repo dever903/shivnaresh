@@ -3401,15 +3401,15 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let dynamicFidelityRules =
         'FULL-BODY HEAD-TO-TOE PRESERVATION: Render the complete athlete model from top of head/hair down to sneakers without cropping the edges, shoes, or head. Keep the entire full-body vertical frame complete and centered. ' +
         'MODEL INTEGRITY: Strictly preserve the model in Image 1 intact — maintain their exact face, facial expression, skin tone, natural hair, athletic physique, posture, and shoes with 100% fidelity. ' +
-        'MODEL COLLAR & HOOD FAITHFUL REPLICATION: Look directly at how the reference model in Image 1 is wearing their collar, neck, and hood, and replicate that EXACT styling on the generated garment with 100% fidelity: ' +
-        '1) If the model in Image 1 has an attached jacket hood hanging/draped down the upper back (as in back-view windcheaters/tracksuits), render that exact attached hood draped flat down the upper back matching the reference model pose, shape, and folds. ' +
-        '2) If the model in Image 1 is wearing an upright zippered stand-up collar / funnel neck with NO hood, render that exact clean upright stand collar zipped to the throat with NO hood. ' +
-        '3) If the model in Image 1 is wearing the hood up covering their head, render the hood up over the head. ' +
-        'Faithfully mirror the reference model’s exact collar, neckline, and hood styling without inventing or omitting anything. ' +
+        'COLLAR & HOOD INTEGRITY (STRICT HOODLESS STAND-COLLAR DEFAULT): Derive collar, neckline, and hood styling strictly from the reference garment in Image 2. ' +
+        'If the reference garment in Image 2 is a track jacket, windcheater, zip jacket, jersey, or tracksuit with a stand collar or funnel neck (or if prompt specifies stand collar / zipped / hoodless), the garment MUST be rendered 100% HOODLESS. ' +
+        'Do NOT invent, attach, or drape any hood, cap, hoodie pouch, drawstrings, or bunched fabric behind the neck, ears, or across the upper back/shoulders. ' +
+        'The nape and back of neck must show only the neat, clean upright stand collar seam and natural skin/hairline. ' +
+        'Only render a hood if the reference garment in Image 2 is explicitly an attached pullover/zip hoodie with an attached hood. ' +
         'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all garment patterns, bold curved accent lines, side panels, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. ' +
         'Preserve the prominent royal blue curved accent lines running along both shoulder seams, the dense micro-laser perforated dot pattern across the shoulder yoke and extending fully down both side panels, and the lower body royal blue color gradient with exact 1:1 reproduction, every dot and line sharp and visible without solid-color flattening or omission. ' +
         'If the model in Image 1 is facing backwards (back view), synthesize the back view of the garment: render the back shoulder yoke with the dot cluster, curved royal blue accent lines, back side panels, and lower back blue gradient. ' +
-        'SPORTSWEAR PROPS NEGATIVE CONSTRAINT: Strictly NO balls (no basketball, soccer ball, cricket ball), no racquets, no sports equipment, no handheld props. Model hands must be completely free, natural, or in pockets. ' +
+        'MODEL ACCESSORIES & INTEGRITY: Strictly preserve the model’s natural posture, accessories, watches, wristbands, and shoes from Image 1 intact with 100% fidelity. Do NOT remove worn accessories or alter the model’s natural hands or stance. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ';
 
@@ -3428,7 +3428,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
 
       let universalNegative =
-        'no baseball cap, no beanie, no helmet, no visor (unless worn by the reference model in Image 1), no ball, no basketball, no sports equipment in hands, no handheld props, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
+        'no baseball cap, no beanie, no helmet, no visor (unless worn by the reference model in Image 1), no hood behind neck, no draped hood, no bunched fabric at nape, no hanging hoodie pouch, no cap behind neck, no ball, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
 
       if (userWantsRemoveShivNaresh && !userWantsRemoveAllLogo) {
         universalNegative += ', no shiv-naresh text, no manufacturer animal logo';

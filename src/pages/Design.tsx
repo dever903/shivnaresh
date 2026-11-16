@@ -418,9 +418,10 @@ function ImageConfirmPopup({
 
 export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Media Preview') {
   if (!mediaUrl) return;
-  if (mediaUrl.startsWith('data:')) {
+  const resolved = resolveImageUrl(mediaUrl);
+  if (resolved.startsWith('data:')) {
     try {
-      const arr = mediaUrl.split(',');
+      const arr = resolved.split(',');
       const mimeMatch = arr[0].match(/:(.*?);/);
       const mime = mimeMatch ? mimeMatch[1] : 'image/png';
       const bstr = atob(arr[1]);
@@ -431,21 +432,36 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
       }
       const blob = new Blob([u8arr], { type: mime });
       const blobUrl = URL.createObjectURL(blob);
-      const win = window.open(blobUrl, '_blank');
-      if (!win) {
-        window.location.href = blobUrl;
-      }
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = title;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        } catch {}
+      }, 60000);
       return;
     } catch {
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>body{margin:0;background:#08080a;display:flex;justify-content:center;align-items:center;min-height:100vh;}img{max-width:98vw;max-height:98vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);}</style></head><body><img src="${mediaUrl}" alt="${title}" /></body></html>`);
-        win.document.close();
-        return;
-      }
+      // Fallback
     }
   }
-  window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+  const a = document.createElement('a');
+  a.href = resolved;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = title;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    try {
+      document.body.removeChild(a);
+    } catch {}
+  }, 100);
 }
 
 function classifyGarmentByHeuristic(name: string): GarmentRole {
@@ -2358,7 +2374,7 @@ function MySetsPanel({
                       </a>
                       <button
                         type="button"
-                        onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
+                        onClick={() => safeOpenMediaInNewTab(gen.highResUrl || gen.url, `shivnaresh-video-${gen.id.slice(0, 6)}`)}
                         className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
                           }`}
                         title="Open full video in new tab"
@@ -2431,15 +2447,15 @@ function MySetsPanel({
                           src={resolveImageUrl(gen.url || gen.outputUrl || gen.highResUrl)}
                           alt=""
                           className="h-full w-full object-cover"
-                          onClick={() => window.open(gen.highResUrl || gen.url, '_blank')}
+                          onClick={() => safeOpenMediaInNewTab(gen.highResUrl || gen.url, gen.prompt || 'Shiv-Naresh Render')}
                           onError={(e) => {
                             const el = e.currentTarget;
-                            if (gen.remoteUrl && el.src !== gen.remoteUrl) {
-                              el.src = gen.remoteUrl;
-                            } else if (gen.highResUrl && el.src !== gen.highResUrl) {
-                              el.src = gen.highResUrl;
-                            } else if (gen.outputUrl && el.src !== gen.outputUrl) {
-                              el.src = gen.outputUrl;
+                            if (gen.remoteUrl && el.src !== resolveImageUrl(gen.remoteUrl)) {
+                              el.src = resolveImageUrl(gen.remoteUrl);
+                            } else if (gen.highResUrl && el.src !== resolveImageUrl(gen.highResUrl)) {
+                              el.src = resolveImageUrl(gen.highResUrl);
+                            } else if (gen.outputUrl && el.src !== resolveImageUrl(gen.outputUrl)) {
+                              el.src = resolveImageUrl(gen.outputUrl);
                             }
                           }}
                         />
@@ -2540,7 +2556,7 @@ function MySetsPanel({
                         )}
                         <button
                           type="button"
-                          onClick={() => window.open(gen.remoteUrl || gen.highResUrl || gen.url, '_blank')}
+                          onClick={() => safeOpenMediaInNewTab(gen.remoteUrl || gen.highResUrl || gen.url, gen.prompt || 'Shiv-Naresh Render')}
                           className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
                             isLight
                               ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
@@ -2632,7 +2648,7 @@ function MySetsPanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => window.open(set.clothUrl || set.modelUrl, '_blank')}
+                        onClick={() => safeOpenMediaInNewTab(set.clothUrl || set.modelUrl, set.clothName || 'Outfit Set')}
                         className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
                           }`}
                         title="Open images in new tab"
@@ -7518,9 +7534,13 @@ export default function Design() {
       const offY = Math.round((canvas.height - renderH) / 2);
       ctx.drawImage(baseImg, offX, offY, renderW, renderH);
     } else {
-      // Natural resolution: zero crop, zero distortion
-      canvas.width = baseImg.naturalWidth || 1024;
-      canvas.height = baseImg.naturalHeight || 1024;
+      // High-res vector stamping: if base image is low-res, scale canvas proportionally (at least 1800px width)
+      // so vector logo paths render with razor-sharp micro detail without pixelation when zooming
+      const rawW = baseImg.naturalWidth || 1024;
+      const rawH = baseImg.naturalHeight || 1024;
+      const scaleFactor = Math.max(1, Math.min(4, Math.ceil(1800 / rawW)));
+      canvas.width = rawW * scaleFactor;
+      canvas.height = rawH * scaleFactor;
       ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
     }
 
@@ -7672,174 +7692,124 @@ export default function Design() {
       return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
     };
 
-    // 1. Sample border perimeter outside box to get true, unpolluted natural fabric color
-    const band = Math.max(4, Math.min(20, Math.round(Math.min(bw, bh) * 0.25)));
-    const rawBorderSamples: number[][] = [];
+    // 1. Sample clean 2-pixel perimeter borders outside the box (Top, Bottom, Left, Right)
+    // to build exact Dirichlet boundary conditions with gradient preservation
+    const topBorder: number[][] = [];
+    const botBorder: number[][] = [];
+    const leftBorder: number[][] = [];
+    const rightBorder: number[][] = [];
 
-    for (let col = 0; col < bw; col++) {
-      const px = bx + col;
-      for (let d = 1; d <= band; d++) {
-        rawBorderSamples.push(getPixel(px, by - d));
-        rawBorderSamples.push(getPixel(px, by + bh + d - 1));
-      }
+    const allBorderSamples: number[][] = [];
+    for (let c = 0; c < bw; c++) {
+      const p1 = getPixel(bx + c, by - 1);
+      const p2 = getPixel(bx + c, by - 2);
+      const avg = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, (p1[2] + p2[2]) / 2];
+      topBorder.push(avg);
+      allBorderSamples.push(avg);
+
+      const pb1 = getPixel(bx + c, by + bh);
+      const pb2 = getPixel(bx + c, by + bh + 1);
+      const avgB = [(pb1[0] + pb2[0]) / 2, (pb1[1] + pb2[1]) / 2, (pb1[2] + pb2[2]) / 2];
+      botBorder.push(avgB);
+      allBorderSamples.push(avgB);
     }
-    for (let row = 0; row < bh; row++) {
-      const py = by + row;
-      for (let d = 1; d <= band; d++) {
-        rawBorderSamples.push(getPixel(bx - d, py));
-        rawBorderSamples.push(getPixel(bx + bw + d - 1, py));
-      }
+
+    for (let r = 0; r < bh; r++) {
+      const pl1 = getPixel(bx - 1, by + r);
+      const pl2 = getPixel(bx - 2, by + r);
+      const avgL = [(pl1[0] + pl2[0]) / 2, (pl1[1] + pl2[1]) / 2, (pl1[2] + pl2[2]) / 2];
+      leftBorder.push(avgL);
+      allBorderSamples.push(avgL);
+
+      const pr1 = getPixel(bx + bw, by + r);
+      const pr2 = getPixel(bx + bw + 1, by + r);
+      const avgR = [(pr1[0] + pr2[0]) / 2, (pr1[1] + pr2[1]) / 2, (pr1[2] + pr2[2]) / 2];
+      rightBorder.push(avgR);
+      allBorderSamples.push(avgR);
     }
 
-    if (rawBorderSamples.length === 0) return canvas.toDataURL('image/png');
+    if (allBorderSamples.length === 0) return canvas.toDataURL('image/png');
 
-    // Median luminance to filter out outlier border pixels (e.g. if boundary touches zipper, stripe or logo)
-    const sortedByLum = [...rawBorderSamples].sort((a, b) => {
-      const lumA = 0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2];
-      const lumB = 0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2];
-      return lumA - lumB;
-    });
-    const medPixel = sortedByLum[Math.floor(sortedByLum.length / 2)];
-    const medLum = 0.299 * medPixel[0] + 0.587 * medPixel[1] + 0.114 * medPixel[2];
+    // Median luminance filter for boundary outlier correction
+    const lums = allBorderSamples.map((p) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]).sort((a, b) => a - b);
+    const medLum = lums[Math.floor(lums.length / 2)];
 
-    // Filter clean fabric samples
-    const cleanFabricSamples = rawBorderSamples.filter((p) => {
-      const lum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
-      const dist = Math.sqrt((p[0] - medPixel[0])**2 + (p[1] - medPixel[1])**2 + (p[2] - medPixel[2])**2);
-      return Math.abs(lum - medLum) < 35 && dist < 50;
-    });
-
-    const samplesToUse = cleanFabricSamples.length > 20 ? cleanFabricSamples : rawBorderSamples;
-    let avgR = 0, avgG = 0, avgB = 0;
-    for (const p of samplesToUse) {
-      avgR += p[0]; avgG += p[1]; avgB += p[2];
-    }
-    avgR /= samplesToUse.length;
-    avgG /= samplesToUse.length;
-    avgB /= samplesToUse.length;
-
-    // Variance of clean fabric for micro-weave texture
-    let varSum = 0;
-    for (const p of samplesToUse) {
-      varSum += Math.abs(p[0] - avgR) + Math.abs(p[1] - avgG) + Math.abs(p[2] - avgB);
-    }
-    const noiseAmp = Math.max(1.0, Math.min(5.0, varSum / (samplesToUse.length * 3)));
-
-    // 2. Identify Logo / Artifact Mask inside bounding box ("Only Logo Hate, Background Fabric Na Hate")
-    const rawMask = new Uint8Array(bw * bh);
-    let logoCount = 0;
-
-    for (let row = 0; row < bh; row++) {
-      for (let col = 0; col < bw; col++) {
-        const p = getPixel(bx + col, by + row);
-        const dist = Math.sqrt((p[0] - avgR)**2 + (p[1] - avgG)**2 + (p[2] - avgB)**2);
-        const pLum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
-        const lumDist = Math.abs(pLum - medLum);
-
-        // A pixel is logo/text/defect if color or luminance diverges from surrounding fabric
-        if (dist > 14 || lumDist > 10) {
-          rawMask[row * bw + col] = 1;
-          logoCount++;
+    // Clamp extreme border outliers (e.g. if selection border touched white logo edge or black zipper)
+    const sanitizeBorder = (arr: number[][]) => {
+      for (let i = 0; i < arr.length; i++) {
+        const lum = 0.299 * arr[i][0] + 0.587 * arr[i][1] + 0.114 * arr[i][2];
+        if (Math.abs(lum - medLum) > 75) {
+          const neighbor = i > 0 ? arr[i - 1] : i < arr.length - 1 ? arr[i + 1] : allBorderSamples[Math.floor(allBorderSamples.length / 2)];
+          arr[i] = [...neighbor];
         }
       }
+    };
+    sanitizeBorder(topBorder);
+    sanitizeBorder(botBorder);
+    sanitizeBorder(leftBorder);
+    sanitizeBorder(rightBorder);
+
+    // Compute corners for Coons Patch bilinear blend
+    const TL = [(topBorder[0][0] + leftBorder[0][0]) / 2, (topBorder[0][1] + leftBorder[0][1]) / 2, (topBorder[0][2] + leftBorder[0][2]) / 2];
+    const TR = [(topBorder[bw - 1][0] + rightBorder[0][0]) / 2, (topBorder[bw - 1][1] + rightBorder[0][1]) / 2, (topBorder[bw - 1][2] + rightBorder[0][2]) / 2];
+    const BL = [(botBorder[0][0] + leftBorder[bh - 1][0]) / 2, (botBorder[0][1] + leftBorder[bh - 1][1]) / 2, (botBorder[0][2] + leftBorder[bh - 1][2]) / 2];
+    const BR = [(botBorder[bw - 1][0] + rightBorder[bh - 1][0]) / 2, (botBorder[bw - 1][1] + rightBorder[bh - 1][1]) / 2, (botBorder[bw - 1][2] + rightBorder[bh - 1][2]) / 2];
+
+    // Variance for natural fabric micro-weave texture
+    let varSum = 0;
+    for (const p of allBorderSamples) {
+      varSum += Math.abs(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] - medLum);
     }
+    const noiseAmp = Math.max(0.8, Math.min(3.5, varSum / allBorderSamples.length));
 
-    // 3. User specifically selected this box to erase: fill entire box mask to guarantee no leftover shadows, outlines or anti-aliasing
-    const finalMask = new Uint8Array(bw * bh);
-    finalMask.fill(1);
-
-    // 4. Inpaint target pixels strictly using surrounding clean fabric
+    // 2. Coons Patch Harmonic Inpaint: Bilinear boundary interpolation
+    // Guarantees C^0 continuity on all 4 boundaries with zero directional streaks
     const bufR = new Float32Array(bw * bh);
     const bufG = new Float32Array(bw * bh);
     const bufB = new Float32Array(bw * bh);
 
-    // Initialize buffer
-    for (let row = 0; row < bh; row++) {
-      for (let col = 0; col < bw; col++) {
-        const idx = row * bw + col;
-        const p = getPixel(bx + col, by + row);
-        bufR[idx] = p[0];
-        bufG[idx] = p[1];
-        bufB[idx] = p[2];
-      }
-    }
+    for (let r = 0; r < bh; r++) {
+      const v = bh > 1 ? r / (bh - 1) : 0.5;
+      const leftP = leftBorder[r];
+      const rightP = rightBorder[r];
 
-    // Step A: Multi-directional ray-march strictly to verified clean fabric (never sampling logo)
-    const dirs = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
-    for (let row = 0; row < bh; row++) {
-      for (let col = 0; col < bw; col++) {
-        const idx = row * bw + col;
-        if (finalMask[idx] === 0) continue;
+      for (let c = 0; c < bw; c++) {
+        const u = bw > 1 ? c / (bw - 1) : 0.5;
+        const topP = topBorder[c];
+        const botP = botBorder[c];
+        const idx = r * bw + c;
 
-        let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
-        for (const [dx, dy] of dirs) {
-          let step = 1;
-          while (step <= Math.max(bw, bh) + 15) {
-            const nc = col + dx * step;
-            const nr = row + dy * step;
-            if (nc >= 0 && nc < bw && nr >= 0 && nr < bh) {
-              const nIdx = nr * bw + nc;
-              if (finalMask[nIdx] === 0) {
-                const pDist = Math.sqrt((bufR[nIdx] - avgR)**2 + (bufG[nIdx] - avgG)**2 + (bufB[nIdx] - avgB)**2);
-                if (pDist < 60) {
-                  const weight = 1 / (step * step);
-                  sumR += bufR[nIdx] * weight;
-                  sumG += bufG[nIdx] * weight;
-                  sumB += bufB[nIdx] * weight;
-                  sumW += weight;
-                  break;
-                }
-              }
-            } else {
-              // Outside box in clean perimeter
-              const p = getPixel(bx + nc, by + nr);
-              const pDist = Math.sqrt((p[0] - avgR)**2 + (p[1] - avgG)**2 + (p[2] - avgB)**2);
-              if (pDist < 45) {
-                const weight = 1 / (step * step);
-                sumR += p[0] * weight;
-                sumG += p[1] * weight;
-                sumB += p[2] * weight;
-                sumW += weight;
-                break;
-              }
-            }
-            step++;
-          }
-        }
-
-        if (sumW > 0) {
-          bufR[idx] = sumR / sumW;
-          bufG[idx] = sumG / sumW;
-          bufB[idx] = sumB / sumW;
-        } else {
-          bufR[idx] = avgR;
-          bufG[idx] = avgG;
-          bufB[idx] = avgB;
+        for (let ch = 0; ch < 3; ch++) {
+          const vertVal = (1 - v) * topP[ch] + v * botP[ch];
+          const horizVal = (1 - u) * leftP[ch] + u * rightP[ch];
+          const cornerVal = (1 - u) * (1 - v) * TL[ch] + u * (1 - v) * TR[ch] + (1 - u) * v * BL[ch] + u * v * BR[ch];
+          const val = vertVal + horizVal - cornerVal;
+          if (ch === 0) bufR[idx] = val;
+          else if (ch === 1) bufG[idx] = val;
+          else bufB[idx] = val;
         }
       }
     }
 
-    // Step B: Laplacian harmonic smoothing passes for seamless blending across fabric gradients & folds
-    for (let iter = 0; iter < 6; iter++) {
-      for (let row = 0; row < bh; row++) {
-        for (let col = 0; col < bw; col++) {
-          const idx = row * bw + col;
-          if (finalMask[idx] === 0) continue;
+    // 3. Dirichlet Laplace Relaxation (20 iterations) to blend subtle fabric folds & tension lines
+    for (let iter = 0; iter < 20; iter++) {
+      for (let r = 0; r < bh; r++) {
+        for (let c = 0; c < bw; c++) {
+          const idx = r * bw + c;
+          const topR = r > 0 ? bufR[idx - bw] : topBorder[c][0];
+          const botR = r < bh - 1 ? bufR[idx + bw] : botBorder[c][0];
+          const leftR = c > 0 ? bufR[idx - 1] : leftBorder[r][0];
+          const rightR = c < bw - 1 ? bufR[idx + 1] : rightBorder[r][0];
 
-          const topR = row > 0 ? bufR[idx - bw] : getPixel(bx + col, by - 1)[0];
-          const botR = row < bh - 1 ? bufR[idx + bw] : getPixel(bx + col, by + bh)[0];
-          const leftR = col > 0 ? bufR[idx - 1] : getPixel(bx - 1, by + row)[0];
-          const rightR = col < bw - 1 ? bufR[idx + 1] : getPixel(bx + bw, by + row)[0];
+          const topG = r > 0 ? bufG[idx - bw] : topBorder[c][1];
+          const botG = r < bh - 1 ? bufG[idx + bw] : botBorder[c][1];
+          const leftG = c > 0 ? bufG[idx - 1] : leftBorder[r][1];
+          const rightG = c < bw - 1 ? bufG[idx + 1] : rightBorder[r][1];
 
-          const topG = row > 0 ? bufG[idx - bw] : getPixel(bx + col, by - 1)[1];
-          const botG = row < bh - 1 ? bufG[idx + bw] : getPixel(bx + col, by + bh)[1];
-          const leftG = col > 0 ? bufG[idx - 1] : getPixel(bx - 1, by + row)[1];
-          const rightG = col < bw - 1 ? bufG[idx + 1] : getPixel(bx + bw, by + row)[1];
-
-          const topB = row > 0 ? bufB[idx - bw] : getPixel(bx + col, by - 1)[2];
-          const botB = row < bh - 1 ? bufB[idx + bw] : getPixel(bx + col, by + bh)[2];
-          const leftB = col > 0 ? bufB[idx - 1] : getPixel(bx - 1, by + row)[2];
-          const rightB = col < bw - 1 ? bufB[idx + 1] : getPixel(bx + bw, by + row)[2];
+          const topB = r > 0 ? bufB[idx - bw] : topBorder[c][2];
+          const botB = r < bh - 1 ? bufB[idx + bw] : botBorder[c][2];
+          const leftB = c > 0 ? bufB[idx - 1] : leftBorder[r][2];
+          const rightB = c < bw - 1 ? bufB[idx + 1] : rightBorder[r][2];
 
           bufR[idx] = 0.25 * (topR + botR + leftR + rightR);
           bufG[idx] = 0.25 * (topG + botG + leftG + rightG);
@@ -7848,20 +7818,18 @@ export default function Design() {
       }
     }
 
-    // Step C: Write back into image data with subtle natural micro-weave grain
-    for (let row = 0; row < bh; row++) {
-      for (let col = 0; col < bw; col++) {
-        const idx = row * bw + col;
-        if (finalMask[idx] === 0) continue;
-
-        const grain = (Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1;
+    // 4. Write back into image data with natural micro-weave fabric grain
+    for (let r = 0; r < bh; r++) {
+      for (let c = 0; c < bw; c++) {
+        const idx = r * bw + c;
+        const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
         const noise = (grain - 0.5) * noiseAmp;
 
         const outR = Math.max(0, Math.min(255, Math.round(bufR[idx] + noise)));
         const outG = Math.max(0, Math.min(255, Math.round(bufG[idx] + noise)));
         const outB = Math.max(0, Math.min(255, Math.round(bufB[idx] + noise)));
 
-        const pixelIdx = ((by + row) * w + (bx + col)) * 4;
+        const pixelIdx = ((by + r) * w + (bx + c)) * 4;
         data[pixelIdx] = outR;
         data[pixelIdx + 1] = outG;
         data[pixelIdx + 2] = outB;
@@ -11241,6 +11209,18 @@ export default function Design() {
                     >
                       ⚡ Zipped Upright
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrompt((p) => p.includes('100% hoodless') ? p : `${p.trim()} · 100% hoodless stand collar, zero hood or draped cap behind neck`.replace(/^ · /, ''))}
+                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
+                        prompt.includes('100% hoodless')
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      title="Enforce 100% hoodless stand collar with zero hoodie, cap, or folded cloth behind neck"
+                    >
+                      🚫 100% Hoodless (No Cap/Hood)
+                    </button>
                   </div>
                 </div>
               </>
@@ -11754,7 +11734,7 @@ export default function Design() {
                           touchAction: 'none',
                           zIndex: 20,
                         }}
-                        className={`group rounded p-1 transition-all select-none ${
+                        className={`group rounded p-0 transition-all select-none ${
                           activeLogoTarget === 'chest'
                             ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
                             : 'hover:ring-1 hover:ring-white/70'
@@ -11783,7 +11763,7 @@ export default function Design() {
                           touchAction: 'none',
                           zIndex: 20,
                         }}
-                        className={`group rounded p-1 transition-all select-none ${
+                        className={`group rounded p-0 transition-all select-none ${
                           activeLogoTarget === 'pant'
                             ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
                             : 'hover:ring-1 hover:ring-white/70'
