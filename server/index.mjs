@@ -552,6 +552,13 @@ function deduplicateGenerations(list) {
 
   for (const item of list) {
     if (!item) continue;
+    // Edited generations or distinct user uploads should never be collapsed into other records
+    if (item.isEdited) {
+      if (item.id && seenKeys.has(item.id)) continue;
+      if (item.id) seenKeys.add(item.id);
+      result.push(item);
+      continue;
+    }
     const keys = getGenerationKeys(item);
     const targetUrl = item.url || item.highResUrl || item.outputUrl || item.remoteUrl;
     const normImg = normalizeImageUrl(targetUrl);
@@ -4232,30 +4239,32 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
 
     const list = await readGenerations();
 
+    const isEditedValue = Boolean(req.body.isEdited || type === 'edit' || (prompt && /\b(edit|edited|option b)\b/i.test(prompt)));
+
     // Check if an existing generation record matches this id or url:
     let existing = null;
-    if (targetId) {
-      existing = list.find((g) => g.id === targetId || g.jobId === targetId);
-    }
-    if (!existing) {
-      const incomingKeys = new Set([url, resolvedRemoteUrl, highResUrl, targetId].filter(Boolean));
-      try {
-        const u = new URL(url, 'http://localhost');
-        incomingKeys.add(u.pathname);
-        const base = path.basename(u.pathname);
-        if (base && base.length > 5) incomingKeys.add(base);
-      } catch {}
+    if (!isEditedValue && !req.body.isNewSnapshot) {
+      if (targetId) {
+        existing = list.find((g) => g.id === targetId || g.jobId === targetId);
+      }
+      if (!existing) {
+        const incomingKeys = new Set([url, resolvedRemoteUrl, highResUrl, targetId].filter(Boolean));
+        try {
+          const u = new URL(url, 'http://localhost');
+          incomingKeys.add(u.pathname);
+          const base = path.basename(u.pathname);
+          if (base && base.length > 5) incomingKeys.add(base);
+        } catch {}
 
-      existing = list.find((g) => {
-        const gKeys = getGenerationKeys(g);
-        for (const k of incomingKeys) {
-          if (gKeys.has(k)) return true;
-        }
-        return false;
-      });
+        existing = list.find((g) => {
+          const gKeys = getGenerationKeys(g);
+          for (const k of incomingKeys) {
+            if (gKeys.has(k)) return true;
+          }
+          return false;
+        });
+      }
     }
-
-    const isEditedValue = Boolean(req.body.isEdited || type === 'edit' || (prompt && /\b(edit|edited|option b)\b/i.test(prompt)));
     if (existing) {
       // Update in place, do NOT duplicate!
       existing.url = finalUrl || existing.url;
@@ -4296,6 +4305,20 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       isManualUpload: Boolean(req.body.isManualUpload),
       createdAt: Date.now(),
     };
+
+    // Immediately commit single-item upsert to MongoDB so GET /api/user/generations sees it instantly
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('generations').updateOne(
+          { id: item.id },
+          { $set: item },
+          { upsert: true }
+        );
+      }
+    } catch (dbErr) {
+      console.warn('[generations] direct MongoDB single-item upsert warning:', dbErr.message);
+    }
 
     list.unshift(item);
     cachedGenerations = { items: list, time: Date.now() };
@@ -4378,6 +4401,57 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     res.json({ ok: true, deleted: req.params.id, inBin: true, refunded, refundedCredits });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
+  }
+});
+
+app.post('/api/user/generations/batch-delete', auth.requireUser, async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids_required', message: 'Array of generation IDs is required.' });
+    }
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const db = await getMongoDb();
+    const now = Date.now();
+    const deletedBy = currentUserEmail || currentUserId || 'user';
+
+    const idSet = new Set(ids);
+    const list = await readGenerations();
+    for (const g of list) {
+      if (idSet.has(g.id)) {
+        const gUserId = g.userId ? String(g.userId) : '';
+        const gEmail = (g.userEmail || '').toLowerCase().trim();
+        const isOwner = isAdmin || (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
+        if (isOwner) {
+          g.deleted = true;
+          g.isDeleted = true;
+          g.deletedAt = now;
+          g.deletedBy = deletedBy;
+        }
+      }
+    }
+    cachedGenerations = { items: list, time: Date.now() };
+    void writeGenerations(list).catch(() => {});
+
+    if (db) {
+      const filter = { id: { $in: ids } };
+      if (!isAdmin) {
+        filter.$or = [
+          { userId: currentUserId },
+          { userEmail: currentUserEmail },
+          { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+        ];
+      }
+      await db.collection('generations').updateMany(filter, {
+        $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy },
+      }).catch((err) => console.warn('[generations] batch delete MongoDB error:', err.message));
+    }
+
+    res.json({ ok: true, deletedCount: ids.length, inBin: true });
+  } catch (error) {
+    res.status(500).json({ error: 'batch_delete_failed', message: error.message });
   }
 });
 

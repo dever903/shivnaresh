@@ -2073,6 +2073,7 @@ function MySetsPanel({
   const [saveError, setSaveError] = useState('');
   const [deletingSetId, setDeletingSetId] = useState('');
   const [deletingGenId, setDeletingGenId] = useState('');
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   const clothRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
@@ -2154,6 +2155,36 @@ function MySetsPanel({
       setError(e instanceof Error ? e.message : 'Could not delete item');
     } finally {
       setDeletingGenId('');
+    }
+  }
+
+  async function handleBatchDelete() {
+    if (selectedGenIds.length === 0) return;
+    const count = selectedGenIds.length;
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${count} selected image${count > 1 ? 's' : ''}?\n\nThey will be safely moved to the Admin Recycle Bin where admin can view, restore, or permanently delete them.`
+    );
+    if (!confirmed) return;
+
+    setBatchDeleting(true);
+    const idsToDelete = [...selectedGenIds];
+    // Immediate optimistic removal from screen
+    idsToDelete.forEach((id) => onDeleteGeneration(id));
+    setSelectedGenIds([]);
+
+    try {
+      await api.batchDeleteUserGenerations(idsToDelete);
+      refreshGenerations();
+    } catch {
+      try {
+        await Promise.allSettled(idsToDelete.map((id) => api.deleteUserGeneration(id)));
+        refreshGenerations();
+      } catch (e: any) {
+        refreshGenerations();
+        setError(e?.message || 'Could not delete selected items');
+      }
+    } finally {
+      setBatchDeleting(false);
     }
   }
 
@@ -2453,14 +2484,26 @@ function MySetsPanel({
                     {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
                   </button>
                   {selectedGenIds.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadZip()}
-                      disabled={zipping}
-                      className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5"
-                    >
-                      {zipping ? 'Compressing ZIP…' : `⬇️ Download Selected (${selectedGenIds.length}) as ZIP`}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadZip()}
+                        disabled={zipping || batchDeleting}
+                        className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {zipping ? 'Compressing ZIP…' : `⬇️ Download Selected (${selectedGenIds.length}) as ZIP`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleBatchDelete()}
+                        disabled={batchDeleting || zipping}
+                        className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Move all selected images to Admin Recycle Bin"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{batchDeleting ? 'Moving to Bin…' : `🗑️ Delete Selected (${selectedGenIds.length})`}</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -2511,7 +2554,7 @@ function MySetsPanel({
                         <label
                           onClick={(e) => e.stopPropagation()}
                           className="absolute top-2 left-2 z-10 flex items-center justify-center h-5 w-5 rounded bg-black/70 border border-white/40 cursor-pointer transition hover:bg-black"
-                          title="Select for batch ZIP download"
+                          title="Select for batch ZIP download or delete"
                         >
                           <input
                             type="checkbox"
@@ -7095,7 +7138,13 @@ export default function Design() {
     try {
       const res = await api.userGenerations();
       const items = res.items || [];
-      setUserGenerations(items);
+      setUserGenerations((prev) => {
+        const itemIds = new Set(items.map((it) => it.id));
+        const recentOptimistic = prev.filter(
+          (p) => !itemIds.has(p.id) && !p.deleted && !p.isDeleted && Date.now() - (p.createdAt || 0) < 60000
+        );
+        return [...recentOptimistic, ...items];
+      });
       try {
         const light = items.slice(0, 50).map((g) => ({
           ...g,
@@ -8194,30 +8243,42 @@ export default function Design() {
 
       lastSavedUrlRef.current = finalImg;
 
-      if (!currentEditGenIdRef.current) {
-        currentEditGenIdRef.current = crypto.randomUUID();
-      }
+      // Always generate a fresh unique ID so each save/edit creates a distinct card in My Sets!
+      const newGenId = crypto.randomUUID();
+      currentEditGenIdRef.current = newGenId;
 
       const savePayload = {
-        id: currentEditGenIdRef.current,
+        id: newGenId,
         type: 'image' as const,
         url: finalImg,
         isEdited: wasEdited,
+        isNewSnapshot: true,
         prompt: promptLabel,
         resolution: quality || '2k',
       };
 
-      let savedGen = null;
+      // 1. Optimistic insertion: immediately display the new card in My Sets (<10ms)
+      const optimisticGen: UserGeneration = {
+        id: newGenId,
+        type: 'image',
+        url: finalImg,
+        highResUrl: finalImg,
+        isEdited: wasEdited,
+        prompt: promptLabel,
+        resolution: quality || '2k',
+        createdAt: Date.now(),
+        status: 'completed',
+      };
+      setUserGenerations((prev) => [optimisticGen, ...prev.filter((g) => g.id !== newGenId)]);
+
+      let savedGen: UserGeneration | null = null;
       try {
         savedGen = await api.saveUserGeneration(savePayload);
       } catch (saveErr) {
-        // When saving high-res images over cellular or Render free tier, the connection may momentarily reset
-        // right as the server successfully commits the save. Verify library to avoid false alarm errors!
-        await new Promise((r) => setTimeout(r, 1200));
+        // Fast fallback check if connection reset right at save commit
         try {
           const fresh = await api.userGenerations();
-          const targetId = currentEditGenIdRef.current;
-          const found = fresh.items?.find((g) => g.id === targetId || (g.prompt && g.prompt === promptLabel));
+          const found = fresh.items?.find((g) => g.id === newGenId);
           if (found) {
             savedGen = found;
           }
@@ -8228,10 +8289,9 @@ export default function Design() {
           try {
             savedGen = await api.saveUserGeneration(savePayload);
           } catch (retryErr) {
-            // Check once more in library
             try {
               const fresh2 = await api.userGenerations();
-              const found2 = fresh2.items?.find((g) => g.id === currentEditGenIdRef.current || (g.prompt && g.prompt === promptLabel));
+              const found2 = fresh2.items?.find((g) => g.id === newGenId);
               if (found2) {
                 savedGen = found2;
               }
@@ -8242,7 +8302,7 @@ export default function Design() {
       }
 
       if (savedGen) {
-        setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== finalImg)]);
+        setUserGenerations((prev) => [savedGen!, ...prev.filter((g) => g.id !== savedGen!.id && g.id !== newGenId)]);
       }
       void loadUserGenerations();
       setAutoSaveStatus('Saved to My Sets');

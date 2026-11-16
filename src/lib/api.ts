@@ -172,8 +172,8 @@ export type AdminDelivery = {
 export type UserGeneration = {
   id: string;
   jobId?: string;
-  userId: string;
-  userEmail: string;
+  userId?: string;
+  userEmail?: string;
   type: 'image' | 'video' | 'edit';
   url: string;
   highResUrl: string;
@@ -185,9 +185,12 @@ export type UserGeneration = {
   resolution?: string;
   duration?: number;
   aspectRatio?: string;
-  title: string;
+  title?: string;
   isManualUpload?: boolean;
   isEdited?: boolean;
+  deleted?: boolean;
+  isDeleted?: boolean;
+  status?: string;
   createdAt: number;
 };
 
@@ -594,6 +597,11 @@ export const api = {
     request<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
       `/api/user/generations/${id}${refund ? '?refund=true' : ''}`,
       { method: 'DELETE' }
+    ),
+  batchDeleteUserGenerations: (ids: string[]) =>
+    request<{ ok: boolean; deletedCount: number; inBin: boolean }>(
+      '/api/user/generations/batch-delete',
+      json({ ids })
     ),
 
   /* admin user management */
