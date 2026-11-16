@@ -5996,8 +5996,8 @@ app.use((err, req, res, _next) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[shivnaresh] api on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[shivnaresh] api listening on 0.0.0.0:${PORT}`);
 
   // Automated Self Keep-Alive: Pings server public URL every 10 minutes to prevent Render idle spin-down
   const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || process.env.VITE_API_URL || 'https://shivnaresh-api.onrender.com';

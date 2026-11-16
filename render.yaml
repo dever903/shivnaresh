@@ -5,14 +5,14 @@ services:
     runtime: node
     buildCommand: npm install --include=dev && npm run build
     startCommand: node server/index.mjs
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
 
   # 2. Static Site Frontend (If using split frontend architecture)
-  - type: web
+  - type: static
     name: shivnaresh-studio
-    runtime: static
     buildCommand: npm install --include=dev && npm run build
     staticPublishPath: ./dist
     routes:
