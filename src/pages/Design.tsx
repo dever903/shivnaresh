@@ -7563,35 +7563,32 @@ export default function Design() {
     box: { x: number; y: number; width: number; height: number }
   ): Promise<string> {
     const resolvedUrl = resolveImageUrl(baseImgUrl);
-    const img = new Image();
-    try {
-      img.crossOrigin = 'anonymous';
-      await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej(new Error('Image load failed'));
-        img.src = resolvedUrl;
-      });
-    } catch {
+
+    // Always convert to data URL first — remote URLs cause canvas CORS taint on getImageData()
+    let safeUrl = resolvedUrl;
+    if (!resolvedUrl.startsWith('data:')) {
       try {
-        const resp = await fetch(resolvedUrl);
+        const resp = await fetch(resolvedUrl, { mode: 'cors' });
         const blob = await resp.blob();
-        const bUrl = URL.createObjectURL(blob);
-        img.removeAttribute('crossorigin');
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => rej(new Error('Blob image load failed'));
-          img.src = bUrl;
+        safeUrl = await new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(blob);
         });
-        setTimeout(() => URL.revokeObjectURL(bUrl), 3000);
       } catch {
-        img.removeAttribute('crossorigin');
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => rej(new Error('Fallback direct image load failed'));
-          img.src = resolvedUrl;
-        });
+        // shortcut: if fetch fails (blocked CORS), canvas taint will prevent getImageData; falls through
+        safeUrl = resolvedUrl;
       }
     }
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => rej(new Error('Image load failed: ' + safeUrl.slice(0, 60)));
+      img.src = safeUrl;
+    });
 
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth || 1024;
@@ -7749,7 +7746,7 @@ export default function Design() {
               const nIdx = nr * bw + nc;
               if (finalMask[nIdx] === 0) {
                 const pDist = Math.sqrt((bufR[nIdx] - avgR)**2 + (bufG[nIdx] - avgG)**2 + (bufB[nIdx] - avgB)**2);
-                if (pDist < 30) {
+                if (pDist < 60) {
                   const weight = 1 / (step * step);
                   sumR += bufR[nIdx] * weight;
                   sumG += bufG[nIdx] * weight;
