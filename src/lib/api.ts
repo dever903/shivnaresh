@@ -1003,12 +1003,17 @@ export async function scaleToEcommerceCatalog(
   let blob: Blob;
   if (imageSource instanceof Blob) {
     blob = imageSource;
+  } else if (typeof imageSource === 'string' && (imageSource.startsWith('data:') || imageSource.startsWith('blob:'))) {
+    const res = await fetch(imageSource);
+    blob = await res.blob();
   } else {
+    const resolvedSource = resolveImageUrl(typeof imageSource === 'string' ? imageSource : '');
+    const isDataOrBlob = resolvedSource.startsWith('data:') || resolvedSource.startsWith('blob:');
     const candidates = [
-      getProxiedImageUrl(imageSource),
-      `/api/download-proxy?url=${encodeURIComponent(imageSource)}&filename=${encodeURIComponent(filename)}`,
-      imageSource
-    ];
+      resolvedSource,
+      getProxiedImageUrl(resolvedSource),
+      isDataOrBlob ? '' : `/api/download-proxy?url=${encodeURIComponent(resolvedSource)}&filename=${encodeURIComponent(filename)}`
+    ].filter(Boolean);
     let loadedBlob: Blob | null = null;
     for (const cand of candidates) {
       try {

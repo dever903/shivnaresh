@@ -453,7 +453,7 @@ export function safeOpenMediaInNewTab(
     <img src="${resolved}" alt="${title.replace(/"/g, '&quot;')}" />
     <div class="toolbar">
       <span class="label">${title.replace(/</g, '&lt;')}</span>
-      <a class="dl-btn" href="${resolved}" download="shivnaresh-render.png">⬇️ Download Image</a>
+      <a class="dl-btn" href="${resolved}" download="shivnaresh-render-1807x3000.png">⬇️ Download (1807 × 3000)</a>
     </div>
   </div>
 </body>
@@ -2565,13 +2565,13 @@ function MySetsPanel({
                               || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
                               || '';
                             const targetUrl = resolveImageUrl(primary);
-                            if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
+                            if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
                           }}
                           className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                          title="Download high-resolution image"
+                          title="Download high-resolution (1807×3000) image"
                         >
                           <Download className="h-3.5 w-3.5 shrink-0" />
-                          <span>Download</span>
+                          <span>Download (1807×3000)</span>
                         </button>
                       </div>
 
@@ -12123,9 +12123,9 @@ export default function Design() {
                             }
                             const baseToUse = cleanResultBackup || result;
                             const viewTarget = activeRenderOption === 'b'
-                              ? await stampHdLogoOntoImage(baseToUse)
+                              ? await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 })
                               : baseToUse;
-                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
+                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render 1807×3000 (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
                           }}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                             isLight
@@ -12142,22 +12142,23 @@ export default function Design() {
 
                     <button
                       type="button"
+                      disabled={!result}
                       onClick={async () => {
                         if (!result) return;
                         const baseToUse = cleanResultBackup || result;
                         const downloadTarget = activeRenderOption === 'b'
-                          ? await stampHdLogoOntoImage(baseToUse)
+                          ? await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 })
                           : baseToUse;
-                        const a = document.createElement('a');
-                        a.href = downloadTarget;
-                        a.download = `shivnaresh-${activeRenderOption === 'b' ? 'option-b-branded' : 'option-a-clean'}-${Date.now()}.png`;
-                        a.click();
+                        await downloadDirectFile(
+                          downloadTarget,
+                          `shivnaresh-${activeRenderOption === 'b' ? 'option-b-branded' : 'option-a-clean'}-1807x3000-${Date.now()}.png`
+                        );
                       }}
-                      className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1"
-                      title={activeRenderOption === 'b' ? 'Direct high-res download with crisp HD vector branding stamped at exact coordinates' : 'Direct high-res download of clean AI render'}
+                      className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                      title={activeRenderOption === 'b' ? 'Direct high-res 1807×3000 download with crisp HD vector branding stamped at exact coordinates' : 'Direct high-res 1807×3000 download of clean AI render'}
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>{activeRenderOption === 'b' ? '⬇️ Download (HD Vector)' : '⬇️ Download (Clean AI)'}</span>
+                      <span>{activeRenderOption === 'b' ? '⬇️ Download 1807×3000 (HD Vector)' : '⬇️ Download 1807×3000 (Clean AI)'}</span>
                     </button>
 
                     <button
