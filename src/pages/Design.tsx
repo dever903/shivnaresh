@@ -1926,8 +1926,7 @@ export function getBestGenUrl(g: UserGeneration): string {
     .filter(Boolean)
     .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
   if (clean) return clean;
-  if (g.id && g.id.length > 5 && !g.id.startsWith('agent_')) return `/generated/${g.id}-0.png`;
-  return g.url || g.highResUrl || g.remoteUrl || '';
+  return g.url || g.highResUrl || g.remoteUrl || (g.id && g.id.length > 5 && !g.id.startsWith('agent_') ? `/generated/${g.id}-0.png` : '');
 }
 
 function MySetsPanel({
@@ -6311,6 +6310,9 @@ export default function Design() {
     return 61;
   });
 
+  // Track last erased area specs for automatic 1:1 scale & position deduction
+  const lastErasedSpecRef = useRef<{ scale: number; x: number; y: number; target: 'chest' | 'pant' } | null>(null);
+
   // Logo rotation, fabric curvature, and 3D torso perspective states
   const [hdLogoAngle, setHdLogoAngle] = useState<number>(() => {
     try {
@@ -6525,6 +6527,13 @@ export default function Design() {
       setIsDrawingEraseBox(false);
       setEraseBox((prev) => {
         if (!prev || prev.width < 1.5 || prev.height < 1.5) return null;
+        const curRect = getImageElementRect();
+        const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
+        const autoScale = Math.max(14, Math.min(80, Math.round((dispW * prev.width) / 100)));
+        const centerX = Math.round((prev.x + prev.width / 2) * 10) / 10;
+        const centerY = Math.round((prev.y + prev.height / 2) * 10) / 10;
+        const target = centerY > 50 ? 'pant' : 'chest';
+        lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
         return prev;
       });
       window.removeEventListener('mousemove', handleMove);
@@ -7934,16 +7943,32 @@ export default function Design() {
 
     if (allBorderSamples.length === 0) return canvas.toDataURL('image/png');
 
-    // Median luminance filter for boundary outlier correction
-    const lums = allBorderSamples.map((p) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]).sort((a, b) => a - b);
-    const medLum = lums[Math.floor(lums.length / 2)];
+    // 1. Dominant background fabric color estimation using channel medians
+    const sortedR = allBorderSamples.map((p) => p[0]).sort((a, b) => a - b);
+    const sortedG = allBorderSamples.map((p) => p[1]).sort((a, b) => a - b);
+    const sortedB = allBorderSamples.map((p) => p[2]).sort((a, b) => a - b);
+    const midIdx = Math.floor(allBorderSamples.length / 2);
+    const medFabricR = sortedR[midIdx];
+    const medFabricG = sortedG[midIdx];
+    const medFabricB = sortedB[midIdx];
+    const dominantFabric = [medFabricR, medFabricG, medFabricB];
 
-    // Clamp extreme border outliers (e.g. if selection border touched white logo edge or black zipper)
+    // Compute median color distance from dominant fabric to determine true fabric variance
+    const borderDists = allBorderSamples.map((p) => Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB)).sort((a, b) => a - b);
+    const medDist = borderDists[Math.floor(borderDists.length / 2)];
+    // Threshold to catch pattern dots (cyan chevron), zippers, and logo edges touching the boundary
+    const outlierThreshold = Math.max(16, medDist * 2.2);
+
+    // Sanitize borders by replacing non-fabric pattern dots / zippers with clean fabric
     const sanitizeBorder = (arr: number[][]) => {
       for (let i = 0; i < arr.length; i++) {
-        const lum = 0.299 * arr[i][0] + 0.587 * arr[i][1] + 0.114 * arr[i][2];
-        if (Math.abs(lum - medLum) > 75) {
-          const neighbor = i > 0 ? arr[i - 1] : i < arr.length - 1 ? arr[i + 1] : allBorderSamples[Math.floor(allBorderSamples.length / 2)];
+        const dist = Math.hypot(arr[i][0] - medFabricR, arr[i][1] - medFabricG, arr[i][2] - medFabricB);
+        if (dist > outlierThreshold) {
+          const neighbor = i > 0 && Math.hypot(arr[i - 1][0] - medFabricR, arr[i - 1][1] - medFabricG, arr[i - 1][2] - medFabricB) <= outlierThreshold
+            ? arr[i - 1]
+            : i < arr.length - 1 && Math.hypot(arr[i + 1][0] - medFabricR, arr[i + 1][1] - medFabricG, arr[i + 1][2] - medFabricB) <= outlierThreshold
+            ? arr[i + 1]
+            : dominantFabric;
           arr[i] = [...neighbor];
         }
       }
@@ -7959,12 +7984,15 @@ export default function Design() {
     const BL = [(botBorder[0][0] + leftBorder[bh - 1][0]) / 2, (botBorder[0][1] + leftBorder[bh - 1][1]) / 2, (botBorder[0][2] + leftBorder[bh - 1][2]) / 2];
     const BR = [(botBorder[bw - 1][0] + rightBorder[bh - 1][0]) / 2, (botBorder[bw - 1][1] + rightBorder[bh - 1][1]) / 2, (botBorder[bw - 1][2] + rightBorder[bh - 1][2]) / 2];
 
+    const lums = allBorderSamples.map((p) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]).sort((a, b) => a - b);
+    const medLum = lums[Math.floor(lums.length / 2)];
+
     // Variance for natural fabric micro-weave texture
     let varSum = 0;
     for (const p of allBorderSamples) {
       varSum += Math.abs(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] - medLum);
     }
-    const noiseAmp = Math.max(0.8, Math.min(3.5, varSum / allBorderSamples.length));
+    const noiseAmp = Math.max(0.6, Math.min(2.8, varSum / allBorderSamples.length));
 
     // 2. Coons Patch Harmonic Inpaint: Bilinear boundary interpolation
     // Guarantees C^0 continuity on all 4 boundaries with zero directional streaks
@@ -8022,21 +8050,18 @@ export default function Design() {
       }
     }
 
-    // Background fabric color analysis
-    const sortedR = allBorderSamples.map((p) => p[0]).sort((a, b) => a - b);
-    const sortedG = allBorderSamples.map((p) => p[1]).sort((a, b) => a - b);
-    const sortedB = allBorderSamples.map((p) => p[2]).sort((a, b) => a - b);
-    const midIdx = Math.floor(allBorderSamples.length / 2);
-    const medFabricR = sortedR[midIdx];
-    const medFabricG = sortedG[midIdx];
-    const medFabricB = sortedB[midIdx];
-
-    let totalVar = 0;
-    for (const p of allBorderSamples) {
-      totalVar += Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB);
-    }
-    const avgFabricVar = totalVar / allBorderSamples.length;
-    const contrastThreshold = Math.max(26, avgFabricVar * 2.3);
+    // Smooth cosine ease edge falloff across 18% margin ensures zero visible rectangular box outline
+    const featherX = Math.max(4, Math.min(24, Math.round(bw * 0.18)));
+    const featherY = Math.max(4, Math.min(24, Math.round(bh * 0.18)));
+    const getBoxFalloff = (c: number, r: number) => {
+      const edgeDistX = Math.min(c, bw - 1 - c);
+      const edgeDistY = Math.min(r, bh - 1 - r);
+      const fx = Math.min(1.0, edgeDistX / featherX);
+      const fy = Math.min(1.0, edgeDistY / featherY);
+      const easeX = 0.5 * (1 - Math.cos(Math.PI * fx));
+      const easeY = 0.5 * (1 - Math.cos(Math.PI * fy));
+      return easeX * easeY;
+    };
 
     const getBorderLum = (p: number[]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
     const topLums = topBorder.map(getBorderLum);
@@ -8052,21 +8077,20 @@ export default function Design() {
           const botSeamOffset = botLums[c] - medLum;
           const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
 
-          const edgeDistX = Math.min(c, bw - 1 - c);
-          const edgeDistY = Math.min(r, bh - 1 - r);
-          const edgeFactor = Math.min(1.0, Math.min(edgeDistX, edgeDistY) / 2.0);
+          const falloff = getBoxFalloff(c, r);
 
           if (Math.abs(seamOffset) > 2) {
-            data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * edgeFactor)));
-            data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 1] + seamOffset * 0.95 * edgeFactor)));
-            data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 2] + seamOffset * 0.95 * edgeFactor)));
+            data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * falloff)));
+            data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 1] + seamOffset * 0.95 * falloff)));
+            data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 2] + seamOffset * 0.95 * falloff)));
           }
         }
       }
     } else {
-      // 4B. ERASE LOGO MODE: Selectively erase ONLY contrasting logo ink, preserving creases, seams, and fabric 100%
+      // 4B. ERASE LOGO MODE: Selectively erase ONLY contrasting logo ink with seamless fabric feathering
+      const inkThreshold = Math.max(14, medDist * 1.5);
+
       for (let r = 0; r < bh; r++) {
-        const v = bh > 1 ? r / (bh - 1) : 0.5;
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
           const pixelIdx = ((by + r) * w + (bx + c)) * 4;
@@ -8075,19 +8099,20 @@ export default function Design() {
           const origG = data[pixelIdx + 1];
           const origB = data[pixelIdx + 2];
 
-          const colorDist = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
+          const synthR = bufR[idx];
+          const synthG = bufG[idx];
+          const synthB = bufB[idx];
 
-          const edgeDistX = Math.min(c, bw - 1 - c);
-          const edgeDistY = Math.min(r, bh - 1 - r);
-          const edgeFactor = Math.min(1.0, Math.min(edgeDistX, edgeDistY) / 2.5);
+          const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
+          const falloff = getBoxFalloff(c, r);
 
           let eraseWeight = 0;
           if (isSeamProtect) {
-            if (colorDist > contrastThreshold) {
-              eraseWeight = Math.min(1.0, (colorDist - contrastThreshold) / 20.0) * edgeFactor;
+            if (colorDist > inkThreshold) {
+              eraseWeight = Math.min(1.0, (colorDist - inkThreshold) / 10.0) * falloff;
             }
           } else {
-            eraseWeight = edgeFactor;
+            eraseWeight = falloff;
           }
 
           if (eraseWeight <= 0.005) {
@@ -8095,20 +8120,16 @@ export default function Design() {
             continue;
           }
 
-          const topSeamOffset = topLums[c] - medLum;
-          const botSeamOffset = botLums[c] - medLum;
-          const verticalSeamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
-
           const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
           const noise = (grain - 0.5) * noiseAmp;
 
-          const synthR = Math.max(0, Math.min(255, bufR[idx] + verticalSeamOffset * 0.75 + noise));
-          const synthG = Math.max(0, Math.min(255, bufG[idx] + verticalSeamOffset * 0.75 + noise));
-          const synthB = Math.max(0, Math.min(255, bufB[idx] + verticalSeamOffset * 0.75 + noise));
+          const finalR = Math.max(0, Math.min(255, synthR + noise));
+          const finalG = Math.max(0, Math.min(255, synthG + noise));
+          const finalB = Math.max(0, Math.min(255, synthB + noise));
 
-          data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * synthR);
-          data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * synthG);
-          data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * synthB);
+          data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
+          data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
+          data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * finalB);
           data[pixelIdx + 3] = 255;
         }
       }
@@ -8116,10 +8137,10 @@ export default function Design() {
 
     ctx.putImageData(imgData, 0, 0);
     try {
-      const webp = canvas.toDataURL('image/webp', 0.82);
+      const webp = canvas.toDataURL('image/webp', 0.98);
       if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
     } catch {}
-    return canvas.toDataURL('image/jpeg', 0.82);
+    return canvas.toDataURL('image/png');
   }
 
   const handleExecuteErase = async (snapVector = false, isSeamRepair = false) => {
@@ -8141,18 +8162,27 @@ export default function Design() {
         prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: inpainted } : p))
       );
 
-      if (snapVector) {
-        const centerX = Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
-        const centerY = Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
+      const dispRect = getImageElementRect();
+      const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
+      const autoScale = Math.max(14, Math.min(80, Math.round((dispW * eraseBox.width) / 100)));
+      const centerX = Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
+      const centerY = Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
+      const isPant = centerY > 50 || activeLogoTarget === 'pant';
+      const target = isPant ? 'pant' : 'chest';
 
-        if (centerY > 50 || activeLogoTarget === 'pant') {
+      lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
+
+      if (snapVector) {
+        if (isPant) {
           updatePantX(centerX);
           updatePantY(centerY);
+          updatePantScale(autoScale);
           setShowPantLogo(true);
           setActiveLogoTarget('pant');
         } else {
           updateChestX(centerX);
           updateChestY(centerY);
+          updateChestScale(autoScale);
           setShowHdLogoOverlay(true);
           setActiveLogoTarget('chest');
         }
@@ -10027,15 +10057,22 @@ export default function Design() {
                         <Eraser className="w-3.5 h-3.5" />
                         <span>{isErasing ? 'Erasing…' : 'Erase Selected Area'}</span>
                       </button>
-                      <button
-                        type="button"
-                        disabled={isErasing}
-                        onClick={() => handleExecuteErase(true)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Erase & Snap HD Vector</span>
-                      </button>
+                      {(() => {
+                        const curRect = getImageElementRect();
+                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * eraseBox.width) / 100)));
+                        return (
+                          <button
+                            type="button"
+                            disabled={isErasing}
+                            onClick={() => handleExecuteErase(true)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            title={`Erase and snap HD vector brand with auto-detected scale (${autoScalePx}px)`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                          </button>
+                        );
+                      })()}
                       <button
                         type="button"
                         onClick={() => setEraseBox(null)}
@@ -10128,9 +10165,26 @@ export default function Design() {
                       </div>
 
                       <div>
-                        <div className="flex justify-between text-[11px] opacity-70 mb-1">
+                        <div className="flex justify-between items-center text-[11px] opacity-70 mb-1">
                           <span>Logo Size</span>
-                          <span>{activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}px</span>
+                          <div className="flex items-center gap-2">
+                            {lastErasedSpecRef.current && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (lastErasedSpecRef.current) {
+                                    if (activeLogoTarget === 'chest') updateChestScale(lastErasedSpecRef.current.scale);
+                                    else updatePantScale(lastErasedSpecRef.current.scale);
+                                  }
+                                }}
+                                className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500 hover:text-black transition cursor-pointer"
+                                title="Auto-deduce exact size from erased logo box"
+                              >
+                                🎯 Auto-Fit ({lastErasedSpecRef.current.scale}px)
+                              </button>
+                            )}
+                            <span className="font-mono font-bold text-white">{activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}px</span>
+                          </div>
                         </div>
                         <input
                           type="range"
@@ -12071,19 +12125,25 @@ export default function Design() {
                           <Eraser className="w-3 h-3" />
                           <span>{isErasing ? 'Erasing…' : 'Erase Logo'}</span>
                         </button>
-                        <button
-                          type="button"
-                          disabled={isErasing}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExecuteErase(true);
-                          }}
-                          className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                          title="Erase unwanted AI logo and immediately place crisp HD vector logo in this exact spot"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                          <span>Erase & Snap HD Vector</span>
-                        </button>
+                        {(() => {
+                          const curRect = getImageElementRect();
+                          const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * eraseBox.width) / 100)));
+                          return (
+                            <button
+                              type="button"
+                              disabled={isErasing}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExecuteErase(true);
+                              }}
+                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                              title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-300" />
+                              <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                            </button>
+                          );
+                        })()}
                         <button
                           type="button"
                           disabled={isErasing}

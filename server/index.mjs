@@ -4139,15 +4139,18 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       const cleanCandidate = candidates.find((u) => !u.includes('ibb.co') && !u.includes('imgbb.com')) || null;
       let fallbackUrl = '';
       if (!cleanCandidate && g.id && g.id.length > 5 && !g.id.startsWith('agent_')) {
-        fallbackUrl = `/generated/${g.id}-0.png`;
+        const localPath = path.join(GENERATED, `${g.id}-0.png`);
+        if (fsSync.existsSync(localPath)) {
+          fallbackUrl = `/generated/${g.id}-0.png`;
+        }
       }
-      const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
+      const resolvedUrl = cleanCandidate || fallbackUrl || (candidates[0] && !candidates[0].includes('ibb.co') ? candidates[0] : '');
       if (!resolvedUrl) return null;
 
       return {
         ...g,
         url: resolvedUrl,
-        highResUrl: cleanCandidate || fallbackUrl || candidates[0] || resolvedUrl,
+        highResUrl: cleanCandidate || fallbackUrl || (candidates[0] && !candidates[0].includes('ibb.co') ? candidates[0] : resolvedUrl),
         isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
     }).filter(Boolean);
