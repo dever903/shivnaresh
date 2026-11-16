@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   Bookmark,
   Camera,
@@ -308,10 +308,15 @@ export const HOOD_STYLE_OPTIONS = [
 export function ShivNareshSvgLogo({
   color = '#ffffff',
   className = '',
+  curved = true,
 }: {
   color?: string;
   className?: string;
+  curved?: boolean;
 }) {
+  const curveId = useId();
+  const arcPathId = `sn-arc-${curveId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -321,24 +326,41 @@ export function ShivNareshSvgLogo({
       className={className}
       style={{ color }}
     >
-      <g transform="translate(14, 15) scale(1.0)">
+      <defs>
+        <path id={arcPathId} d="M 28,185 Q 180,172 332,185" fill="none" />
+      </defs>
+      <g transform="translate(14, 15) rotate(-0.8, 180, 60)">
         <path
           fill="currentColor"
           d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z"
         />
       </g>
-      <text
-        x="180"
-        y="180"
-        textAnchor="middle"
-        fontFamily="-apple-system, BlinkMacSystemFont, Arial, sans-serif"
-        fontSize="36"
-        fontWeight="900"
-        letterSpacing="4"
-        fill="currentColor"
-      >
-        SHIV-NARESH
-      </text>
+      {curved ? (
+        <text
+          fontFamily="-apple-system, BlinkMacSystemFont, Arial, sans-serif"
+          fontSize="35"
+          fontWeight="900"
+          letterSpacing="4"
+          fill="currentColor"
+        >
+          <textPath href={`#${arcPathId}`} startOffset="50%" textAnchor="middle">
+            SHIV-NARESH
+          </textPath>
+        </text>
+      ) : (
+        <text
+          x="180"
+          y="180"
+          textAnchor="middle"
+          fontFamily="-apple-system, BlinkMacSystemFont, Arial, sans-serif"
+          fontSize="36"
+          fontWeight="900"
+          letterSpacing="4"
+          fill="currentColor"
+        >
+          SHIV-NARESH
+        </text>
+      )}
     </svg>
   );
 }
@@ -7477,36 +7499,39 @@ export default function Design() {
       }
     }
 
-    // High-Resolution 1807x3000 Standard
-    const targetW = options?.targetWidth || Math.max(1807, baseImg.naturalWidth || 1024);
-    const targetH = options?.targetHeight || Math.max(3000, baseImg.naturalHeight || 1024);
-
     const canvas = document.createElement('canvas');
-    canvas.width = targetW;
-    canvas.height = targetH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return baseImgUrl;
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // Scale and center base image proportionally
-    const srcW = baseImg.naturalWidth || 1024;
-    const srcH = baseImg.naturalHeight || 1024;
-    const sRatio = Math.max(targetW / srcW, targetH / srcH);
-    const renderW = Math.round(srcW * sRatio);
-    const renderH = Math.round(srcH * sRatio);
-    const offX = Math.round((targetW - renderW) / 2);
-    const offY = Math.round((targetH - renderH) / 2);
-    ctx.drawImage(baseImg, offX, offY, renderW, renderH);
+    if (options?.targetWidth && options?.targetHeight) {
+      canvas.width = options.targetWidth;
+      canvas.height = options.targetHeight;
+      const srcW = baseImg.naturalWidth || 1024;
+      const srcH = baseImg.naturalHeight || 1024;
+      const sRatio = Math.max(canvas.width / srcW, canvas.height / srcH);
+      const renderW = Math.round(srcW * sRatio);
+      const renderH = Math.round(srcH * sRatio);
+      const offX = Math.round((canvas.width - renderW) / 2);
+      const offY = Math.round((canvas.height - renderH) / 2);
+      ctx.drawImage(baseImg, offX, offY, renderW, renderH);
+    } else {
+      // Natural resolution: zero crop, zero distortion
+      canvas.width = baseImg.naturalWidth || 1024;
+      canvas.height = baseImg.naturalHeight || 1024;
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+    }
 
-    // Get displayed width of the preview image on screen to calculate exact physical scale
+    // Get displayed width of preview image on screen to calculate exact 1:1 physical scale
+    const dispRect = getImageElementRect();
     const imgElem = document.getElementById('rendered-main-img') as HTMLImageElement | null;
-    const dispW = imgElem?.clientWidth || 380;
+    const dispW = dispRect?.width || imgElem?.clientWidth || 380;
 
-    // Direct proportional scale
-    const chestRatio = Math.max(0.02, Math.min(0.40, scale / (dispW || 380)));
-    const pantRatio = Math.max(0.02, Math.min(0.40, pScale / (dispW || 380)));
+    // Direct proportional scale matching on-screen preview 1:1
+    const chestRatio = Math.max(0.02, Math.min(0.60, scale / (dispW || 380)));
+    const pantRatio = Math.max(0.02, Math.min(0.60, pScale / (dispW || 380)));
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
@@ -7517,10 +7542,15 @@ export default function Design() {
     } else {
       const cleanColor = color.replace(/[<>"'&]/g, '');
       const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
-        <g transform="translate(14, 15) scale(1.0)">
+        <defs>
+          <path id="sn-curve-arc" d="M 28,185 Q 180,172 332,185" fill="none" />
+        </defs>
+        <g transform="translate(14, 15) rotate(-0.8, 180, 60)">
           <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
         </g>
-        <text x="180" y="180" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-size="36" font-weight="900" letter-spacing="4" fill="${cleanColor}">SHIV-NARESH</text>
+        <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="900" letter-spacing="4" fill="${cleanColor}">
+          <textPath href="#sn-curve-arc" startOffset="50%" text-anchor="middle">SHIV-NARESH</textPath>
+        </text>
       </svg>`;
       const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
       blobUrl = URL.createObjectURL(blob);
@@ -7546,18 +7576,34 @@ export default function Design() {
     if (showHdLogoOverlay) {
       const logoW = Math.round(canvas.width * chestRatio);
       const logoH = Math.round((logoW * 210) / 360);
-      const posX = Math.round((canvas.width * x) / 100 - logoW / 2);
-      const posY = Math.round((canvas.height * y) / 100 - logoH / 2);
-      ctx.drawImage(logoImg, posX, posY, logoW, logoH);
+      const centerX = (canvas.width * x) / 100;
+      const centerY = (canvas.height * y) / 100;
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate((-2.5 * Math.PI) / 180);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = Math.max(1, Math.round(logoW * 0.02));
+      ctx.shadowOffsetY = Math.max(1, Math.round(logoW * 0.012));
+      ctx.drawImage(logoImg, -logoW / 2, -logoH / 2, logoW, logoH);
+      ctx.restore();
     }
 
     // 2. Stamp Pant Thigh Logo (if enabled)
     if (stampPant) {
       const pLogoW = Math.round(canvas.width * pantRatio);
       const pLogoH = Math.round((pLogoW * 210) / 360);
-      const pPosX = Math.round((canvas.width * pX) / 100 - pLogoW / 2);
-      const pPosY = Math.round((canvas.height * pY) / 100 - pLogoH / 2);
-      ctx.drawImage(logoImg, pPosX, pPosY, pLogoW, pLogoH);
+      const pCenterX = (canvas.width * pX) / 100;
+      const pCenterY = (canvas.height * pY) / 100;
+
+      ctx.save();
+      ctx.translate(pCenterX, pCenterY);
+      ctx.rotate((-1.0 * Math.PI) / 180);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = Math.max(1, Math.round(pLogoW * 0.02));
+      ctx.shadowOffsetY = Math.max(1, Math.round(pLogoW * 0.012));
+      ctx.drawImage(logoImg, -pLogoW / 2, -pLogoH / 2, pLogoW, pLogoH);
+      ctx.restore();
     }
 
     if (blobUrl) {
@@ -7875,7 +7921,9 @@ export default function Design() {
       }
 
       setEraseBox(null);
-      setIsEraseMode(false);
+      if (snapVector) {
+        setIsEraseMode(false);
+      }
     } catch (err: any) {
       alert('Erase failed: ' + (err?.message || err));
     } finally {
@@ -7892,6 +7940,8 @@ export default function Design() {
     setFivePoseItems((prev) =>
       prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: previous } : p))
     );
+    setEraseBox(null);
+    setIsEraseMode(true);
   };
 
 
@@ -11488,11 +11538,45 @@ export default function Design() {
                       className="w-full h-full object-contain block select-none pointer-events-none"
                     />
 
-                    {/* Active Erase Mode Helper Pill at top of canvas */}
+                    {/* Active Erase Mode Toolbar at top of canvas with instant 1-click Step Back */}
                     {isEraseMode && (
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500 text-black text-[11px] font-bold shadow-lg pointer-events-none select-none">
-                        <Eraser className="w-3.5 h-3.5" />
-                        <span>{eraseBox ? 'Adjust box or choose an action below' : 'Drag a box over the unwanted logo on the image'}</span>
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/90 backdrop-blur-md border border-amber-500/60 text-white text-xs font-semibold shadow-2xl pointer-events-auto select-none">
+                        <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                          <Eraser className="w-3.5 h-3.5" />
+                          <span>Erase Mode</span>
+                        </div>
+                        <span className="text-white/40">|</span>
+                        <span className="text-white/80 text-[11px] hidden sm:inline">
+                          {eraseBox ? 'Adjust box below' : 'Drag box over unwanted logo to erase'}
+                        </span>
+
+                        {eraseUndoStack.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUndoErase();
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-sky-200 border border-sky-400/40 text-[11px] font-bold transition cursor-pointer"
+                            title="Step back to previous state before last erase"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Step Back ({eraseUndoStack.length})</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEraseMode(false);
+                            setEraseBox(null);
+                          }}
+                          className="ml-1 p-1 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition cursor-pointer"
+                          title="Done / Exit Erase Mode"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     )}
 
@@ -11554,6 +11638,20 @@ export default function Design() {
                           <Sparkles className="w-3 h-3 text-amber-300" />
                           <span>Erase & Snap HD Vector</span>
                         </button>
+                        {eraseUndoStack.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUndoErase();
+                            }}
+                            className="px-2 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-sky-200 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                            title="Step back to previous image"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Step Back</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -11577,7 +11675,8 @@ export default function Design() {
                           position: 'absolute',
                           left: `${hdLogoX}%`,
                           top: `${hdLogoY}%`,
-                          transform: 'translate(-50%, -50%)',
+                          transform: 'translate(-50%, -50%) rotate(-2.5deg)',
+                          filter: 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35))',
                           width: `${hdLogoScale}px`,
                           cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
                           touchAction: 'none',
@@ -11605,7 +11704,8 @@ export default function Design() {
                           position: 'absolute',
                           left: `${pantLogoX}%`,
                           top: `${pantLogoY}%`,
-                          transform: 'translate(-50%, -50%)',
+                          transform: 'translate(-50%, -50%) rotate(-1deg)',
+                          filter: 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35))',
                           width: `${pantLogoScale}px`,
                           cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
                           touchAction: 'none',
