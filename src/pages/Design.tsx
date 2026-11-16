@@ -7539,7 +7539,7 @@ export default function Design() {
     return canvas.toDataURL('image/png');
   }
 
-  /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact using boundary Coons patch + micro-grain */
+  /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric */
   async function inpaintEraseArea(
     baseImgUrl: string,
     box: { x: number; y: number; width: number; height: number }
@@ -7589,7 +7589,6 @@ export default function Design() {
     const bw = Math.max(2, Math.min(canvas.width - bx, Math.round((box.width / 100) * canvas.width)));
     const bh = Math.max(2, Math.min(canvas.height - by, Math.round((box.height / 100) * canvas.height)));
 
-    const band = Math.max(3, Math.min(18, Math.round(Math.min(bw, bh) * 0.15)));
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imgData.data;
     const w = canvas.width;
@@ -7602,105 +7601,213 @@ export default function Design() {
       return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
     };
 
-    // Pre-sample top & bottom boundaries
-    const topSamples: number[][] = [];
-    const bottomSamples: number[][] = [];
+    // 1. Sample border perimeter around box to get true, unpolluted fabric color
+    const band = Math.max(5, Math.min(25, Math.round(Math.min(bw, bh) * 0.2)));
+    const rawBorderSamples: number[][] = [];
+
     for (let col = 0; col < bw; col++) {
       const px = bx + col;
-      let rSumT = 0, gSumT = 0, bSumT = 0, cntT = 0;
       for (let d = 1; d <= band; d++) {
-        const p = getPixel(px, by - d);
-        rSumT += p[0]; gSumT += p[1]; bSumT += p[2]; cntT++;
+        rawBorderSamples.push(getPixel(px, by - d));
+        rawBorderSamples.push(getPixel(px, by + bh + d - 1));
       }
-      topSamples.push([rSumT / cntT, gSumT / cntT, bSumT / cntT]);
-
-      let rSumB = 0, gSumB = 0, bSumB = 0, cntB = 0;
-      for (let d = 1; d <= band; d++) {
-        const p = getPixel(px, by + bh + d - 1);
-        rSumB += p[0]; gSumB += p[1]; bSumB += p[2]; cntB++;
-      }
-      bottomSamples.push([rSumB / cntB, gSumB / cntB, bSumB / cntB]);
     }
-
-    // Pre-sample left & right boundaries
-    const leftSamples: number[][] = [];
-    const rightSamples: number[][] = [];
     for (let row = 0; row < bh; row++) {
       const py = by + row;
-      let rSumL = 0, gSumL = 0, bSumL = 0, cntL = 0;
       for (let d = 1; d <= band; d++) {
-        const p = getPixel(bx - d, py);
-        rSumL += p[0]; gSumL += p[1]; bSumL += p[2]; cntL++;
+        rawBorderSamples.push(getPixel(bx - d, py));
+        rawBorderSamples.push(getPixel(bx + bw + d - 1, py));
       }
-      leftSamples.push([rSumL / cntL, gSumL / cntL, bSumL / cntL]);
-
-      let rSumR = 0, gSumR = 0, bSumR = 0, cntR = 0;
-      for (let d = 1; d <= band; d++) {
-        const p = getPixel(bx + bw + d - 1, py);
-        rSumR += p[0]; gSumR += p[1]; bSumR += p[2]; cntR++;
-      }
-      rightSamples.push([rSumR / cntR, gSumR / cntR, bSumR / cntR]);
     }
 
-    const tl = topSamples[0];
-    const tr = topSamples[bw - 1];
-    const bl = bottomSamples[0];
-    const br = bottomSamples[bw - 1];
+    if (rawBorderSamples.length === 0) return canvas.toDataURL('image/png');
 
+    // Median luminance to filter out outlier logo pixels on border
+    const sortedByLum = [...rawBorderSamples].sort((a, b) => {
+      const lumA = 0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2];
+      const lumB = 0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2];
+      return lumA - lumB;
+    });
+    const medPixel = sortedByLum[Math.floor(sortedByLum.length / 2)];
+    const medLum = 0.299 * medPixel[0] + 0.587 * medPixel[1] + 0.114 * medPixel[2];
+
+    // Filter out outlier pixels that deviate from median fabric (e.g. if border cuts across white logo)
+    const cleanFabricSamples = rawBorderSamples.filter((p) => {
+      const lum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+      const dist = Math.sqrt((p[0] - medPixel[0])**2 + (p[1] - medPixel[1])**2 + (p[2] - medPixel[2])**2);
+      return Math.abs(lum - medLum) < 45 && dist < 60;
+    });
+
+    const samplesToUse = cleanFabricSamples.length > 20 ? cleanFabricSamples : rawBorderSamples;
+    let avgR = 0, avgG = 0, avgB = 0;
+    for (const p of samplesToUse) {
+      avgR += p[0]; avgG += p[1]; avgB += p[2];
+    }
+    avgR /= samplesToUse.length;
+    avgG /= samplesToUse.length;
+    avgB /= samplesToUse.length;
+
+    // Variance of clean fabric for micro-weave texture
     let varSum = 0;
-    for (let i = 0; i < bw; i++) {
-      varSum += Math.abs(topSamples[i][0] - tl[0]) + Math.abs(topSamples[i][1] - tl[1]) + Math.abs(topSamples[i][2] - tl[2]);
+    for (const p of samplesToUse) {
+      varSum += Math.abs(p[0] - avgR) + Math.abs(p[1] - avgG) + Math.abs(p[2] - avgB);
     }
-    const noiseAmp = Math.max(1.5, Math.min(8.0, varSum / (bw * 3)));
-    const feather = Math.max(2, Math.min(6, Math.round(Math.min(bw, bh) * 0.08)));
+    const noiseAmp = Math.max(1.0, Math.min(6.0, varSum / (samplesToUse.length * 3)));
+
+    // 2. Identify Logo / Artifact Mask inside bounding box ("Only Logo Hate, Background Na Hate")
+    const rawMask = new Uint8Array(bw * bh);
+    let logoCount = 0;
 
     for (let row = 0; row < bh; row++) {
-      const v = bh > 1 ? row / (bh - 1) : 0.5;
-      const lColor = leftSamples[row];
-      const rColor = rightSamples[row];
-
       for (let col = 0; col < bw; col++) {
-        const u = bw > 1 ? col / (bw - 1) : 0.5;
-        const tColor = topSamples[col];
-        const bColor = bottomSamples[col];
+        const p = getPixel(bx + col, by + row);
+        const dist = Math.sqrt((p[0] - avgR)**2 + (p[1] - avgG)**2 + (p[2] - avgB)**2);
+        const pLum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+        const lumDist = Math.abs(pLum - medLum);
 
-        const vertR = (1 - v) * tColor[0] + v * bColor[0];
-        const vertG = (1 - v) * tColor[1] + v * bColor[1];
-        const vertB = (1 - v) * tColor[2] + v * bColor[2];
+        // A pixel is logo/artifact if its color or luminance diverges from the surrounding fabric
+        if (dist > 22 || lumDist > 18) {
+          rawMask[row * bw + col] = 1;
+          logoCount++;
+        }
+      }
+    }
 
-        const horizR = (1 - u) * lColor[0] + u * rColor[0];
-        const horizG = (1 - u) * lColor[1] + u * rColor[1];
-        const horizB = (1 - u) * lColor[2] + u * rColor[2];
+    // 3. Dilate mask slightly (1.5px) to cover anti-aliased boundary fringes of letters
+    const finalMask = new Uint8Array(bw * bh);
+    const totalPixels = bw * bh;
+    const isSelective = logoCount > 0 && logoCount < totalPixels * 0.95;
 
-        const cornerR = (1 - u) * (1 - v) * tl[0] + u * (1 - v) * tr[0] + (1 - u) * v * bl[0] + u * v * br[0];
-        const cornerG = (1 - u) * (1 - v) * tl[1] + u * (1 - v) * tr[1] + (1 - u) * v * bl[1] + u * v * br[1];
-        const cornerB = (1 - u) * (1 - v) * tl[2] + u * (1 - v) * tr[2] + (1 - u) * v * bl[2] + u * v * br[2];
+    if (isSelective) {
+      for (let row = 0; row < bh; row++) {
+        for (let col = 0; col < bw; col++) {
+          if (rawMask[row * bw + col] === 1) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                const nr = row + dy;
+                const nc = col + dx;
+                if (nr >= 0 && nr < bh && nc >= 0 && nc < bw) {
+                  finalMask[nr * bw + nc] = 1;
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      finalMask.fill(1);
+    }
 
-        let r = vertR + horizR - cornerR;
-        let g = vertG + horizG - cornerG;
-        let b = vertB + horizB - cornerB;
+    // 4. Inpaint masked pixels using multi-directional harmonic diffusion
+    const bufR = new Float32Array(bw * bh);
+    const bufG = new Float32Array(bw * bh);
+    const bufB = new Float32Array(bw * bh);
 
-        // Micro-weave grain
-        const grain = (Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1;
-        const noise = (grain - 0.5) * noiseAmp;
-        r += noise;
-        g += noise;
-        b += noise;
+    // Initialize with original pixels for fabric (mask=0)
+    for (let row = 0; row < bh; row++) {
+      for (let col = 0; col < bw; col++) {
+        const idx = row * bw + col;
+        const p = getPixel(bx + col, by + row);
+        bufR[idx] = p[0];
+        bufG[idx] = p[1];
+        bufB[idx] = p[2];
+      }
+    }
 
-        // Smooth cosine edge feathering
-        const distToEdge = Math.min(col, bw - 1 - col, row, bh - 1 - row);
-        if (distToEdge < feather) {
-          const t = distToEdge / feather;
-          const orig = getPixel(bx + col, by + row);
-          r = orig[0] * (1 - t) + r * t;
-          g = orig[1] * (1 - t) + g * t;
-          b = orig[2] * (1 - t) + b * t;
+    // Step A: Ray-march nearest clean fabric in 8 directions for masked pixels
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
+    for (let row = 0; row < bh; row++) {
+      for (let col = 0; col < bw; col++) {
+        const idx = row * bw + col;
+        if (finalMask[idx] === 0) continue;
+
+        let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
+        for (const [dx, dy] of dirs) {
+          let step = 1;
+          while (step <= Math.max(bw, bh)) {
+            const nc = col + dx * step;
+            const nr = row + dy * step;
+            if (nc >= 0 && nc < bw && nr >= 0 && nr < bh) {
+              const nIdx = nr * bw + nc;
+              if (finalMask[nIdx] === 0) {
+                const weight = 1 / (step * step);
+                sumR += bufR[nIdx] * weight;
+                sumG += bufG[nIdx] * weight;
+                sumB += bufB[nIdx] * weight;
+                sumW += weight;
+                break;
+              }
+            } else {
+              const p = getPixel(bx + nc, by + nr);
+              const weight = 1 / (step * step);
+              sumR += p[0] * weight;
+              sumG += p[1] * weight;
+              sumB += p[2] * weight;
+              sumW += weight;
+              break;
+            }
+            step++;
+          }
         }
 
+        if (sumW > 0) {
+          bufR[idx] = sumR / sumW;
+          bufG[idx] = sumG / sumW;
+          bufB[idx] = sumB / sumW;
+        } else {
+          bufR[idx] = avgR;
+          bufG[idx] = avgG;
+          bufB[idx] = avgB;
+        }
+      }
+    }
+
+    // Step B: Laplacian harmonic smoothing passes over masked pixels to blend smoothly into fabric
+    for (let iter = 0; iter < 5; iter++) {
+      for (let row = 0; row < bh; row++) {
+        for (let col = 0; col < bw; col++) {
+          const idx = row * bw + col;
+          if (finalMask[idx] === 0) continue;
+
+          const topR = row > 0 ? bufR[idx - bw] : getPixel(bx + col, by - 1)[0];
+          const botR = row < bh - 1 ? bufR[idx + bw] : getPixel(bx + col, by + bh)[0];
+          const leftR = col > 0 ? bufR[idx - 1] : getPixel(bx - 1, by + row)[0];
+          const rightR = col < bw - 1 ? bufR[idx + 1] : getPixel(bx + bw, by + row)[0];
+
+          const topG = row > 0 ? bufG[idx - bw] : getPixel(bx + col, by - 1)[1];
+          const botG = row < bh - 1 ? bufG[idx + bw] : getPixel(bx + col, by + bh)[1];
+          const leftG = col > 0 ? bufG[idx - 1] : getPixel(bx - 1, by + row)[1];
+          const rightG = col < bw - 1 ? bufG[idx + 1] : getPixel(bx + bw, by + row)[1];
+
+          const topB = row > 0 ? bufB[idx - bw] : getPixel(bx + col, by - 1)[2];
+          const botB = row < bh - 1 ? bufB[idx + bw] : getPixel(bx + col, by + bh)[2];
+          const leftB = col > 0 ? bufB[idx - 1] : getPixel(bx - 1, by + row)[2];
+          const rightB = col < bw - 1 ? bufB[idx + 1] : getPixel(bx + bw, by + row)[2];
+
+          bufR[idx] = 0.25 * (topR + botR + leftR + rightR);
+          bufG[idx] = 0.25 * (topG + botG + leftG + rightG);
+          bufB[idx] = 0.25 * (topB + botB + leftB + rightB);
+        }
+      }
+    }
+
+    // Step C: Write back into image data
+    for (let row = 0; row < bh; row++) {
+      for (let col = 0; col < bw; col++) {
+        const idx = row * bw + col;
+        if (finalMask[idx] === 0) continue;
+
+        const grain = (Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1;
+        const noise = (grain - 0.5) * noiseAmp;
+
+        const outR = Math.max(0, Math.min(255, Math.round(bufR[idx] + noise)));
+        const outG = Math.max(0, Math.min(255, Math.round(bufG[idx] + noise)));
+        const outB = Math.max(0, Math.min(255, Math.round(bufB[idx] + noise)));
+
         const pixelIdx = ((by + row) * w + (bx + col)) * 4;
-        data[pixelIdx] = Math.max(0, Math.min(255, Math.round(r)));
-        data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(g)));
-        data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        data[pixelIdx] = outR;
+        data[pixelIdx + 1] = outG;
+        data[pixelIdx + 2] = outB;
         data[pixelIdx + 3] = 255;
       }
     }
