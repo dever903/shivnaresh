@@ -108,6 +108,7 @@ export interface ClassifiedGarment {
 const MODES = [
   { id: 'tryon', label: 'Try-On', needs: ['cloth', 'model'], hint: 'Fit your garment onto a studio model, preserving pose and athletic posture.' },
   { id: 'swap', label: 'Model Swap', needs: ['sourceModel', 'targetModel'], hint: 'Swap model or face in an outfit with another model or persona.' },
+  { id: 'removelogo', label: 'Erase / Replace Logo', needs: [], hint: 'Select unwanted AI logos on any image to erase them or snap crisp HD vector logos.' },
 ] as const;
 
 type ModeId = (typeof MODES)[number]['id'] | 'edit';
@@ -6313,6 +6314,24 @@ export default function Design() {
     window.addEventListener('touchmove', handleMove, { passive: false });
     window.addEventListener('touchend', handleEnd);
   };
+
+  const eraseUploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLoadImageForEraser = (imageUrl: string) => {
+    setResult(imageUrl);
+    setCleanResultBackup(imageUrl);
+    setIsEraseMode(true);
+    setEraseBox(null);
+  };
+
+  const handleFileUploadForEraser = async (file: File) => {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      handleLoadImageForEraser(dataUrl);
+    } catch (e: any) {
+      alert('Could not load image: ' + (e?.message || e));
+    }
+  };
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -9259,8 +9278,264 @@ export default function Design() {
               )}
             </div>
 
-            {/* MAIN CONTROLS: MODEL SWAP (UP TO 5 DRAFTS) OR TRY-ON */}
-            {mode === 'swap' ? (
+            {/* MAIN CONTROLS: REMOVE/REPLACE LOGO, MODEL SWAP, OR TRY-ON */}
+            {mode === 'removelogo' ? (
+              <div className="space-y-4">
+                {/* 1. Image Selection / Upload */}
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      1 · Choose Image to Clean or Brand
+                    </span>
+                    {result && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResult(null);
+                          setCleanResultBackup(null);
+                          setEraseBox(null);
+                        }}
+                        className={`text-[11px] font-semibold cursor-pointer ${isLight ? 'text-rose-600 hover:text-rose-800' : 'text-rose-400 hover:text-rose-300'}`}
+                      >
+                        Clear Image
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    ref={eraseUploadInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleFileUploadForEraser(f);
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => eraseUploadInputRef.current?.click()}
+                    className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition cursor-pointer ${
+                      isLight
+                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                        : 'border-white/15 bg-white/[0.01] hover:border-white/35 hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    <div className="grid h-16 w-14 place-items-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                      <Eraser className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                        Upload Garment or Model Render
+                      </p>
+                      <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                        PNG, JPG, WebP from your device &middot; Cleanly inpaint logos with zero quality loss
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Past Renders Picker from My Sets */}
+                  {userGenerations.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                        Or pick from My Sets / Past Renders:
+                      </p>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
+                        {userGenerations.slice(0, 18).map((gen) => {
+                          const targetUrl = gen.outputUrl || gen.url || gen.highResUrl;
+                          if (!targetUrl) return null;
+                          const isSelected = result === targetUrl;
+                          return (
+                            <button
+                              key={gen.id}
+                              type="button"
+                              onClick={() => handleLoadImageForEraser(targetUrl)}
+                              className={`group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'border-amber-400 ring-2 ring-amber-400 shadow-md'
+                                  : isLight ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/40'
+                              }`}
+                              title={gen.prompt || 'Load into Logo Eraser'}
+                            >
+                              <img src={resolveImageUrl(targetUrl)} alt="" className="w-full h-full object-cover" />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                                  <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded">Active</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Eraser Instructions & Quick Actions */}
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    2 · How to Erase Logos on Canvas
+                  </span>
+                  <div className={`text-xs space-y-1.5 leading-relaxed ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
+                    <p className="flex items-start gap-2">
+                      <span className="text-amber-400 font-bold">①</span>
+                      <span><strong>Drag a box</strong> with mouse or finger over the unwanted logo on the canvas.</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <span className="text-amber-400 font-bold">②</span>
+                      <span>Click <strong>"Erase Logo"</strong> to blend seamlessly with surrounding fabric texture.</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <span className="text-emerald-400 font-bold">③</span>
+                      <span>Or click <strong>"Erase & Snap HD Vector"</strong> to simultaneously place official crisp vector branding.</span>
+                    </p>
+                  </div>
+
+                  {eraseBox && (
+                    <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={isErasing}
+                        onClick={() => handleExecuteErase(false)}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Eraser className="w-3.5 h-3.5" />
+                        <span>{isErasing ? 'Erasing…' : 'Erase Selected Area'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isErasing}
+                        onClick={() => handleExecuteErase(true)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Erase & Snap HD Vector</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEraseBox(null)}
+                        className="px-2.5 py-1.5 rounded-lg border border-white/20 text-white/70 hover:text-white text-xs transition cursor-pointer"
+                      >
+                        Cancel Box
+                      </button>
+                    </div>
+                  )}
+
+                  {eraseUndoStack.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleUndoErase}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-semibold cursor-pointer"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      <span>Undo Last Erase ({eraseUndoStack.length} in history)</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 3. HD Vector Brand Overlay Settings */}
+                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      3 · HD Vector Logo Branding
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(!showHdLogoOverlay);
+                        setActiveRenderOption('b');
+                      }}
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer ${
+                        showHdLogoOverlay
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-white/10 text-white/40 border-white/10'
+                      }`}
+                    >
+                      {showHdLogoOverlay ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+
+                  {showHdLogoOverlay && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveLogoTarget('chest')}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                            activeLogoTarget === 'chest'
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                              : 'border-white/10 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          Chest Logo ({hdLogoScale}px)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveLogoTarget('pant');
+                            setShowPantLogo(true);
+                          }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                            activeLogoTarget === 'pant'
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                              : 'border-white/10 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          Pant Logo ({pantLogoScale}px)
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] opacity-70 mb-1">
+                          <span>Logo Size</span>
+                          <span>{activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="14"
+                          max="60"
+                          value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            if (activeLogoTarget === 'chest') updateChestScale(val);
+                            else updatePantScale(val);
+                          }}
+                          className="w-full accent-emerald-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] opacity-70 block mb-1.5">Logo Color</span>
+                        <div className="flex items-center gap-2">
+                          {['#ffffff', '#111111', '#ffd700', '#0047ab', '#e5373f'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setHdLogoColor(c)}
+                              style={{ backgroundColor: c }}
+                              className={`w-6 h-6 rounded-full border-2 transition cursor-pointer ${
+                                hdLogoColor.toLowerCase() === c.toLowerCase()
+                                  ? 'border-emerald-400 scale-110 shadow-md'
+                                  : 'border-white/20 hover:scale-105'
+                              }`}
+                              title={c}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={hdLogoColor}
+                            onChange={(e) => setHdLogoColor(e.target.value)}
+                            className="w-6 h-6 rounded-full border-0 p-0 cursor-pointer bg-transparent"
+                            title="Custom Color"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : mode === 'swap' ? (
               <>
                 {/* Multi-Swap Drafts Bar (up to 5 simultaneous swaps) */}
                 <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
@@ -10682,54 +10957,60 @@ export default function Design() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (isLocked) {
-                    setError('Your account generation credits have been locked by an administrator.');
-                    return;
-                  }
-                  if (isGlobalBusy) {
-                    setError('Another generation is currently in progress. At one time only one generation is allowed.');
-                    return;
-                  }
-                  if (canRun) setShowConfirmModal(true);
-                }}
-                disabled={!canRun || isGlobalBusy}
-                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
-                  ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
-                  : isGlobalBusy
-                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : canRun
-                      ? isLight
-                        ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
-                        : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
-                      : isLight
-                        ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                        : 'cursor-not-allowed bg-white/20 text-white/40'
-                  }`}
-              >
-                {isLocked
-                  ? 'Credits locked by administrator'
-                  : isGlobalBusy
-                    ? 'Generation in Progress (Please wait)…'
-                    : mode === 'swap'
-                      ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                      : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
-              </button>
-              {isLocked ? (
-                <p className="max-w-xs text-xs leading-relaxed text-rose-500">
-                  Credits locked. Contact administrator to re-enable generations.
-                </p>
-              ) : error ? (
-                <p className={`max-w-xs text-xs leading-relaxed ${isLight ? 'text-red-600' : 'text-[#ff9aa0]'}`}>{error}</p>
-              ) : missing.length ? (
-                <p className={`text-xs ${isLight ? 'text-amber-800 font-medium' : 'text-[#ffb3b7]'}`}>
-                  Add {missing.join(' and ')} to start.
-                </p>
-              ) : !ready ? (
-                <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>No render API key configured. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
-              ) : null}
+              {mode !== 'removelogo' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isLocked) {
+                      setError('Your account generation credits have been locked by an administrator.');
+                      return;
+                    }
+                    if (isGlobalBusy) {
+                      setError('Another generation is currently in progress. At one time only one generation is allowed.');
+                      return;
+                    }
+                    if (canRun) setShowConfirmModal(true);
+                  }}
+                  disabled={!canRun || isGlobalBusy}
+                  className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
+                    ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
+                    : isGlobalBusy
+                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : canRun
+                        ? isLight
+                          ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                          : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
+                        : isLight
+                          ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                          : 'cursor-not-allowed bg-white/20 text-white/40'
+                    }`}
+                >
+                  {isLocked
+                    ? 'Credits locked by administrator'
+                    : isGlobalBusy
+                      ? 'Generation in Progress (Please wait)…'
+                      : mode === 'swap'
+                        ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                        : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+                </button>
+              )}
+              {mode !== 'removelogo' && (
+                <>
+                  {isLocked ? (
+                    <p className="max-w-xs text-xs leading-relaxed text-rose-500">
+                      Credits locked. Contact administrator to re-enable generations.
+                    </p>
+                  ) : error ? (
+                    <p className={`max-w-xs text-xs leading-relaxed ${isLight ? 'text-red-600' : 'text-[#ff9aa0]'}`}>{error}</p>
+                  ) : missing.length ? (
+                    <p className={`text-xs ${isLight ? 'text-amber-800 font-medium' : 'text-[#ffb3b7]'}`}>
+                      Add {missing.join(' and ')} to start.
+                    </p>
+                  ) : !ready ? (
+                    <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>No render API key configured. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
+                  ) : null}
+                </>
+              )}
             </div>
           </section>
 
@@ -11144,9 +11425,37 @@ export default function Design() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-center p-6 text-white/30">
-                    <Sparkles className="h-10 w-10 mb-2 opacity-50" />
-                    <p className="text-xs font-semibold">Your generated high-res model render will appear here</p>
-                    <p className="text-[10px] mt-1 opacity-60">Upload clothing & model reference to start</p>
+                    {mode === 'removelogo' ? (
+                      <div className="flex flex-col items-center justify-center max-w-sm p-4">
+                        <Eraser className="h-10 w-10 mb-2 text-amber-400 opacity-90" />
+                        <p className="text-sm font-bold text-white mb-1">Erase or Replace AI Logo</p>
+                        <p className="text-xs text-white/60 mb-4">
+                          Upload an image from your device or pick one from My Sets on the left to erase unwanted logos on this canvas.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => eraseUploadInputRef.current?.click()}
+                          className="rounded-full bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 text-xs font-bold transition shadow-lg cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload Image to Clean</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Sparkles className="h-10 w-10 mb-2 opacity-50" />
+                        <p className="text-xs font-semibold">Your generated high-res model render will appear here</p>
+                        <p className="text-[10px] mt-1 opacity-60">Upload clothing & model reference to start</p>
+                        <button
+                          type="button"
+                          onClick={() => setMode('removelogo')}
+                          className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2 cursor-pointer"
+                        >
+                          <Eraser className="w-3 h-3" />
+                          <span>Have an existing image? Open Logo Eraser Studio &rarr;</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
