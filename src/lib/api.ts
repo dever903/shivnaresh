@@ -386,7 +386,7 @@ export function resolveImageUrl(url: string | null | undefined): string {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
-  if (API_BASE && (url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets'))) {
+  if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data'))) {
     return `${API_BASE}${url}`;
   }
   return url;

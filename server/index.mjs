@@ -1282,8 +1282,10 @@ app.use('/hosted', express.static(path.join(PUBLIC_DIR, 'hosted'), { maxAge: '7d
 app.use('/hosted', express.static(path.join(ROOT, 'public', 'hosted'), { maxAge: '7d' }));
 app.use('/hosted', async (req, res, next) => {
   try {
-    const filename = path.basename(decodeURIComponent(req.path));
-    const subfolder = req.path.includes('/sets/') ? 'sets' : 'misc';
+    const rawPath = decodeURIComponent(req.path);
+    const parts = rawPath.split('/').filter(Boolean);
+    const filename = parts.length > 0 ? parts[parts.length - 1] : '';
+    const subfolder = parts.length > 1 ? parts[0] : 'sets';
     const candidate1 = path.join(PUBLIC_DIR, 'hosted', subfolder, filename);
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
       return res.sendFile(candidate1);
@@ -1296,9 +1298,14 @@ app.use('/hosted', async (req, res, next) => {
     // Fallback: lookup persistent MongoDB hosted_assets
     try {
       const db = await getMongoDb();
-      if (db) {
+      if (db && filename) {
         const doc = await db.collection('hosted_assets').findOne({
-          $or: [{ id: filename }, { url: `/hosted/${subfolder}/${filename}` }]
+          $or: [
+            { id: filename },
+            { url: `/hosted/${subfolder}/${filename}` },
+            { url: `/hosted/${filename}` },
+            { url: { $regex: filename, $options: 'i' } }
+          ]
         });
         if (doc && doc.dataUrl) {
           const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
@@ -3051,6 +3058,22 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         found.highResUrl = generatedUrls[0] || primaryUrl;
         found.completedAt = Date.now();
         await writeGenerations(genList);
+      } else if (primaryUrl) {
+        genList.unshift({
+          id: jobId,
+          userId: job?.userId || '',
+          userEmail: job?.userEmail || '',
+          type: 'image',
+          status: 'completed',
+          outputUrl: primaryUrl,
+          url: primaryUrl,
+          remoteUrl: generatedUrls[0] || primaryUrl,
+          highResUrl: generatedUrls[0] || primaryUrl,
+          prompt: job?.prompt || 'Studio Sportswear Render',
+          createdAt: job?.createdAt || Date.now(),
+          completedAt: Date.now(),
+        });
+        await writeGenerations(genList);
       }
     } catch (saveErr) {
       console.warn('[agent] Failed to update completed generation status:', saveErr.message);
@@ -3847,8 +3870,9 @@ app.get('/api/job/:id', async (req, res) => {
           }
         }
 
-        // Safe fallback: prioritize permanent cloud URL, then verified local copy, then original remote CDN URL
-        const finalUrl = permanent || (savedLocally ? `/generated/${file}` : remote) || remote;
+        // Safe fallback: prioritize non-expiring cloud URL or verified local copy over fragile hosts
+        const safePermanent = (permanent && !permanent.includes('ibb.co')) ? permanent : '';
+        const finalUrl = safePermanent || (savedLocally ? `/generated/${file}` : remote) || remote;
         local.push(finalUrl);
       }
       data.output = local;
@@ -3877,7 +3901,7 @@ app.get('/api/job/:id', async (req, res) => {
           } else {
             found = {
               id: req.params.id,
-              userId: req.user?._id || 'guest',
+              userId: req.user?._id || mapping?.userId || 'guest',
               userEmail: req.user?.email || 'guest',
               userName: req.user?.name || '',
               type: 'tryon',
@@ -4025,11 +4049,15 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       const gEmail = (g.userEmail || '').toLowerCase().trim();
       return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
     }).map((g) => {
-      const resolvedUrl = g.url || g.highResUrl || g.remoteUrl || g.outputUrl || (Array.isArray(g.output) ? g.output[0] : '') || '';
+      // Prioritize permanent local/hosted/Cloudinary assets over dead or fragile imgbb URLs
+      const candidates = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl, (Array.isArray(g.output) ? g.output[0] : '')].filter(Boolean);
+      const cleanCandidate = candidates.find((u) => typeof u === 'string' && !u.includes('ibb.co'));
+      const fallbackUrl = (g.id && g.id.length > 5 && !cleanCandidate) ? `/generated/${g.id}-0.png` : '';
+      const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
       return {
         ...g,
         url: resolvedUrl,
-        highResUrl: g.highResUrl || g.remoteUrl || resolvedUrl,
+        highResUrl: cleanCandidate || fallbackUrl || g.highResUrl || g.remoteUrl || resolvedUrl,
         isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
     }).filter((g) => Boolean(g.url));
@@ -4064,18 +4092,36 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     let resolvedRemoteUrl = remoteUrl || '';
     let finalUrl = url;
     let finalHighRes = highResUrl || url;
+    const targetId = req.body.id || req.body.jobId || crypto.randomUUID();
 
-    // Convert raw data URLs (from canvas inpaint/stamp edits) to permanent Cloudinary/static assets
+    // Convert raw data URLs (from canvas inpaint/stamp edits) to permanent static local asset (<10ms)
+    // with background async Cloudinary persistence (non-blocking)
     if (typeof finalUrl === 'string' && finalUrl.startsWith('data:')) {
       try {
-        const cdn = await uploadToCloudinary(finalUrl, req.user._id, `gen-${Date.now()}`);
-        if (cdn?.url) {
-          finalUrl = cdn.secure_url || cdn.url;
-          finalHighRes = finalUrl;
-          resolvedRemoteUrl = finalUrl;
+        const localUrl = await saveLocalAsset(finalUrl, 'sets', `${req.user._id}-gen`);
+        if (localUrl) {
+          finalUrl = localUrl;
+          finalHighRes = localUrl;
+          resolvedRemoteUrl = localUrl;
         }
+        // Background async Cloudinary upload if configured (does not block HTTP response)
+        const rawDataUrl = url;
+        void (async () => {
+          try {
+            const cdn = await uploadToCloudinary(rawDataUrl, req.user._id, `gen-${Date.now()}`);
+            if (cdn?.secure_url && cdn.secure_url.startsWith('https://')) {
+              const db = await getMongoDb();
+              if (db) {
+                await db.collection('generations').updateOne(
+                  { $or: [{ id: targetId }, { url: localUrl }] },
+                  { $set: { remoteUrl: cdn.secure_url, highResUrl: cdn.secure_url } }
+                ).catch(() => {});
+              }
+            }
+          } catch {}
+        })();
       } catch (uploadErr) {
-        console.warn('[generations] uploadToCloudinary fallback:', uploadErr.message);
+        console.warn('[generations] saveLocalAsset error:', uploadErr.message);
       }
     }
 
@@ -4101,7 +4147,6 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       } catch {}
     }
 
-    const targetId = req.body.id || req.body.jobId;
     const list = await readGenerations();
 
     // Check if an existing generation record matches this id or url:

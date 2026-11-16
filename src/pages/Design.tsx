@@ -419,49 +419,63 @@ function ImageConfirmPopup({
 export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Media Preview') {
   if (!mediaUrl) return;
   const resolved = resolveImageUrl(mediaUrl);
-  if (resolved.startsWith('data:')) {
-    try {
-      const arr = resolved.split(',');
-      const mimeMatch = arr[0].match(/:(.*?);/);
-      const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
+
+  // If it's a data URL or blob URL, render cleanly inside an HTML window
+  // (Prevents Chrome / Edge top-frame navigation block: "Not allowed to navigate top frame to data URL / blob URL")
+  if (resolved.startsWith('data:') || resolved.startsWith('blob:')) {
+    const win = window.open('', '_blank');
+    if (win) {
+      try {
+        win.document.open();
+        win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title.replace(/</g, '&lt;')}</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .wrapper { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    img { max-width: 100%; max-height: 88vh; object-fit: contain; border-radius: 8px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7); }
+    .toolbar { margin-top: 16px; display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.1); }
+    .label { font-size: 13px; font-weight: 500; color: #cbd5e1; }
+    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 6px 14px; border-radius: 9999px; transition: background 0.15s; }
+    .dl-btn:hover { background: #d42d35; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <img src="${resolved}" alt="${title.replace(/"/g, '&quot;')}" />
+    <div class="toolbar">
+      <span class="label">${title.replace(/</g, '&lt;')}</span>
+      <a class="dl-btn" href="${resolved}" download="shivnaresh-render.png">Download Image</a>
+    </div>
+  </div>
+</body>
+</html>`);
+        win.document.close();
+        return;
+      } catch (e) {
+        console.warn('Direct document write error:', e);
       }
-      const blob = new Blob([u8arr], { type: mime });
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.title = title;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        try {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(blobUrl);
-        } catch {}
-      }, 60000);
-      return;
-    } catch {
-      // Fallback
     }
   }
-  const a = document.createElement('a');
-  a.href = resolved;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  a.title = title;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    try {
-      document.body.removeChild(a);
-    } catch {}
-  }, 100);
+
+  // Regular URL navigation (Cloudinary, /hosted/..., /generated/...)
+  const win = window.open(resolved, '_blank', 'noopener,noreferrer');
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = resolved;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.title = title;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try { document.body.removeChild(a); } catch {}
+    }, 1000);
+  }
 }
 
 function classifyGarmentByHeuristic(name: string): GarmentRole {
@@ -2443,22 +2457,32 @@ function MySetsPanel({
                       <div
                         className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
                       >
-                        <img
-                          src={resolveImageUrl(gen.url || gen.outputUrl || gen.highResUrl)}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          onClick={() => safeOpenMediaInNewTab(gen.highResUrl || gen.url, gen.prompt || 'Shiv-Naresh Render')}
-                          onError={(e) => {
-                            const el = e.currentTarget;
-                            if (gen.remoteUrl && el.src !== resolveImageUrl(gen.remoteUrl)) {
-                              el.src = resolveImageUrl(gen.remoteUrl);
-                            } else if (gen.highResUrl && el.src !== resolveImageUrl(gen.highResUrl)) {
-                              el.src = resolveImageUrl(gen.highResUrl);
-                            } else if (gen.outputUrl && el.src !== resolveImageUrl(gen.outputUrl)) {
-                              el.src = resolveImageUrl(gen.outputUrl);
-                            }
-                          }}
-                        />
+                        {(() => {
+                          const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
+                            .filter(Boolean)
+                            .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
+                            || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                            || gen.url || gen.outputUrl || '';
+                          return (
+                            <img
+                              src={resolveImageUrl(primary)}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
+                              onError={(e) => {
+                                const el = e.currentTarget;
+                                const fallbacks = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
+                                  .filter(Boolean)
+                                  .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && resolveImageUrl(u) !== el.src);
+                                if (fallbacks[0]) {
+                                  el.src = resolveImageUrl(fallbacks[0]);
+                                } else if (gen.id && el.src !== resolveImageUrl(`/generated/${gen.id}-0.png`)) {
+                                  el.src = resolveImageUrl(`/generated/${gen.id}-0.png`);
+                                }
+                              }}
+                            />
+                          );
+                        })()}
                         {/* EDITED Badge Sticker */}
                         {Boolean(gen.isEdited || gen.type === 'edit' || (gen.prompt && /\b(edit|edited|option b)\b/i.test(gen.prompt))) && (
                           <span className="absolute top-2 right-2 rounded-md bg-amber-400 text-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-md z-10 border border-amber-300">
@@ -2523,7 +2547,12 @@ function MySetsPanel({
                         <button
                           type="button"
                           onClick={() => {
-                            const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
+                            const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
+                              .filter(Boolean)
+                              .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
+                              || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                              || gen.url || '';
+                            const targetUrl = resolveImageUrl(primary);
                             if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
                           }}
                           className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
@@ -2540,7 +2569,12 @@ function MySetsPanel({
                           <button
                             type="button"
                             onClick={() => {
-                              const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
+                              const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
+                                .filter(Boolean)
+                                .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
+                                || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                                || gen.url || '';
+                              const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
                             className={`flex-1 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
@@ -2556,7 +2590,14 @@ function MySetsPanel({
                         )}
                         <button
                           type="button"
-                          onClick={() => safeOpenMediaInNewTab(gen.remoteUrl || gen.highResUrl || gen.url, gen.prompt || 'Shiv-Naresh Render')}
+                          onClick={() => {
+                            const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
+                              .filter(Boolean)
+                              .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
+                              || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                              || gen.remoteUrl || gen.url || '';
+                            safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
+                          }}
                           className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
                             isLight
                               ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
@@ -6225,35 +6266,43 @@ export default function Design() {
     return 61;
   });
 
+  const autoSaveTriggerRef = useRef<((img?: string, label?: string) => void) | null>(null);
+
   const updateChestScale = (val: number) => {
     setHdLogoScale(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_scale', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
   const updateChestX = (val: number) => {
     setHdLogoX(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_x', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
   const updateChestY = (val: number) => {
     setHdLogoY(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_y', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
   const updatePantScale = (val: number) => {
     setPantLogoScale(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_scale', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
   const updatePantX = (val: number) => {
     setPantLogoX(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_x', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
   const updatePantY = (val: number) => {
     setPantLogoY(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_y', String(val)); } catch { }
+    autoSaveTriggerRef.current?.();
   };
 
   const [draggingLogo, setDraggingLogo] = useState<'chest' | 'pant' | null>(null);
@@ -6316,6 +6365,7 @@ export default function Design() {
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
+      autoSaveTriggerRef.current?.();
     };
 
     window.addEventListener('mousemove', handleMove);
@@ -7630,7 +7680,11 @@ export default function Design() {
       URL.revokeObjectURL(blobUrl);
     }
 
-    return canvas.toDataURL('image/png');
+    try {
+      const webp = canvas.toDataURL('image/webp', 0.90);
+      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
+    } catch {}
+    return canvas.toDataURL('image/jpeg', 0.90);
   }
 
   /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric */
@@ -7838,7 +7892,11 @@ export default function Design() {
     }
 
     ctx.putImageData(imgData, 0, 0);
-    return canvas.toDataURL('image/png');
+    try {
+      const webp = canvas.toDataURL('image/webp', 0.90);
+      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
+    } catch {}
+    return canvas.toDataURL('image/jpeg', 0.90);
   }
 
   const handleExecuteErase = async (snapVector = false) => {
@@ -7892,6 +7950,7 @@ export default function Design() {
       if (snapVector) {
         setIsEraseMode(false);
       }
+      autoSaveTriggerRef.current?.(inpainted, snapVector ? 'Option B (HD Vector Brand Applied)' : 'Edited & Erased');
     } catch (err: any) {
       alert('Erase failed: ' + (err?.message || err));
     } finally {
@@ -7910,12 +7969,74 @@ export default function Design() {
     );
     setEraseBox(null);
     setIsEraseMode(true);
+    autoSaveTriggerRef.current?.(previous, 'Step Back (Undone Erase)');
   };
+
+  const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
+  const autoSaveTimerRef = useRef<any>(null);
+  const lastSavedUrlRef = useRef<string>('');
+
+  const triggerAutoSaveToMySets = useCallback((overrideImg?: string, customLabel?: string) => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const base = overrideImg || result;
+        if (!base) return;
+
+        let finalImg = base;
+        let promptLabel = customLabel || 'Studio Sportswear Edit';
+
+        if (activeRenderOption === 'b' && (showHdLogoOverlay || showPantLogo)) {
+          const baseToUse = cleanResultBackup || base;
+          finalImg = await stampHdLogoOntoImage(baseToUse);
+          promptLabel = customLabel || `Option B (HD Vector Brand Applied) · ${prompt.trim() || 'Studio Sportswear'}`;
+        } else if (!customLabel) {
+          promptLabel = `Edited & Erased · ${prompt.trim() || 'Clean Fabric Studio'}`;
+        }
+
+        if (lastSavedUrlRef.current === finalImg) return;
+        lastSavedUrlRef.current = finalImg;
+
+        setAutoSaveStatus('Saving…');
+
+        const savedGen = await api.saveUserGeneration({
+          id: crypto.randomUUID(),
+          type: 'image',
+          url: finalImg,
+          isEdited: true,
+          prompt: promptLabel,
+          resolution: quality || '2k',
+        });
+
+        if (savedGen) {
+          setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== finalImg)]);
+          void loadUserGenerations();
+        }
+
+        setAutoSaveStatus('Auto-saved to My Sets');
+        setTimeout(() => setAutoSaveStatus(''), 3000);
+      } catch (err) {
+        console.warn('[auto-save] Auto-save skipped:', err);
+        setAutoSaveStatus('');
+      }
+    }, 1200);
+  }, [result, activeRenderOption, showHdLogoOverlay, showPantLogo, cleanResultBackup, prompt, quality, loadUserGenerations]);
+
+  useEffect(() => {
+    autoSaveTriggerRef.current = triggerAutoSaveToMySets;
+  }, [triggerAutoSaveToMySets]);
 
   const handleSaveToMySets = async () => {
     if (!result) return;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
     try {
       setBusy(true);
+      setAutoSaveStatus('Saving…');
       let finalImg = result;
       let promptLabel = 'Studio Sportswear';
       const wasEdited = Boolean(eraseUndoStack.length > 0 || isOptionBDirty || activeRenderOption === 'b');
@@ -7936,6 +8057,8 @@ export default function Design() {
         promptLabel = `Edited & Erased · ${prompt.trim() || 'Clean Fabric Studio'}`;
       }
 
+      lastSavedUrlRef.current = finalImg;
+
       const savedGen = await api.saveUserGeneration({
         id: crypto.randomUUID(),
         type: 'image',
@@ -7949,8 +8072,11 @@ export default function Design() {
         setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== finalImg)]);
       }
       void loadUserGenerations();
+      setAutoSaveStatus('Saved to My Sets');
+      setTimeout(() => setAutoSaveStatus(''), 3000);
       alert('✅ Saved! The edited image is now permanently saved to My Sets with the EDITED badge.');
     } catch (e: any) {
+      setAutoSaveStatus('');
       alert('Could not save to My Sets: ' + (e?.message || e));
     } finally {
       setBusy(false);
@@ -9700,6 +9826,11 @@ export default function Design() {
                         <Bookmark className="w-3.5 h-3.5" />
                         <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
                       </button>
+                      {autoSaveStatus && (
+                        <p className="text-[11px] font-semibold text-emerald-400 text-center py-1 bg-emerald-950/40 rounded-lg border border-emerald-500/30">
+                          ✓ {autoSaveStatus}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -11614,6 +11745,11 @@ export default function Design() {
                               <Bookmark className="w-3 h-3" />
                               <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
                             </button>
+                            {autoSaveStatus && (
+                              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold shadow-xs">
+                                ✓ {autoSaveStatus}
+                              </span>
+                            )}
                           </>
                         )}
 
@@ -11938,16 +12074,42 @@ export default function Design() {
 
                   <div className="flex items-center gap-2 flex-wrap">
                     {result && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleSaveToMySets()}
-                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                        title="Permanently save current image (with all erasures, edits and logos) to My Sets archive"
-                      >
-                        <Bookmark className="w-3.5 h-3.5" />
-                        <span>{busy ? 'Saving to My Sets…' : '💾 Save to My Sets'}</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleSaveToMySets()}
+                          className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                          title="Permanently save current image (with all erasures, edits and logos) to My Sets archive"
+                        >
+                          <Bookmark className="w-3.5 h-3.5" />
+                          <span>{busy ? 'Saving to My Sets…' : '💾 Save to My Sets'}</span>
+                        </button>
+                        {autoSaveStatus && (
+                          <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-xs font-bold shadow-xs">
+                            ✓ {autoSaveStatus}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const baseToUse = cleanResultBackup || result;
+                            const viewTarget = activeRenderOption === 'b'
+                              ? await stampHdLogoOntoImage(baseToUse)
+                              : baseToUse;
+                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                            isLight
+                              ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                              : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
+                          }`}
+                          title="Open this render preview full-screen in a new tab"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Open in new tab</span>
+                        </button>
+                      </>
                     )}
 
                     <button
