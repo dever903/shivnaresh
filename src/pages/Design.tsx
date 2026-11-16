@@ -6223,15 +6223,22 @@ export default function Design() {
   const imageWrapperRef = useRef<HTMLDivElement>(null);
 
   const getImageElementRect = () => {
+    const img = document.getElementById('rendered-main-img') as HTMLImageElement | null;
+    if (img && img.naturalWidth && img.naturalHeight) {
+      const rect = img.getBoundingClientRect();
+      if (rect.width > 10 && rect.height > 10) {
+        const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
+        const renderW = img.naturalWidth * scale;
+        const renderH = img.naturalHeight * scale;
+        const left = rect.left + (rect.width - renderW) / 2;
+        const top = rect.top + (rect.height - renderH) / 2;
+        return { left, top, width: renderW, height: renderH };
+      }
+    }
     const wrapper = imageWrapperRef.current;
     if (wrapper) {
       const wRect = wrapper.getBoundingClientRect();
       if (wRect.width > 10 && wRect.height > 10) return wRect;
-    }
-    const img = document.getElementById('rendered-main-img') as HTMLImageElement | null;
-    if (img) {
-      const iRect = img.getBoundingClientRect();
-      if (iRect.width > 10 && iRect.height > 10) return iRect;
     }
     return previewContainerRef.current?.getBoundingClientRect() || null;
   };
@@ -6285,11 +6292,13 @@ export default function Design() {
   const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
   const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
   const [isErasing, setIsErasing] = useState(false);
+  const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
 
   const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isEraseMode) return;
     if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
+    e.stopPropagation();
 
     const rect = getImageElementRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
@@ -6350,6 +6359,7 @@ export default function Design() {
   const handleLoadImageForEraser = (imageUrl: string) => {
     setResult(imageUrl);
     setCleanResultBackup(imageUrl);
+    setRenderedImgAspect(null);
     setIsEraseMode(true);
     setEraseBox(null);
     setActiveRenderOption('a');
@@ -7688,30 +7698,9 @@ export default function Design() {
       }
     }
 
-    // 3. Dilate mask by 3px to thoroughly encapsulate anti-aliased font edges, drop shadows and emblems
+    // 3. User specifically selected this box to erase: fill entire box mask to guarantee no leftover shadows, outlines or anti-aliasing
     const finalMask = new Uint8Array(bw * bh);
-    const totalPixels = bw * bh;
-
-    // If more than 35% of box is detected as logo or if box is a focused selection, inpaint entire box for seamless texture
-    if (logoCount > totalPixels * 0.35 || logoCount === 0 || Math.min(bw, bh) < 60) {
-      finalMask.fill(1);
-    } else {
-      for (let row = 0; row < bh; row++) {
-        for (let col = 0; col < bw; col++) {
-          if (rawMask[row * bw + col] === 1) {
-            for (let dy = -3; dy <= 3; dy++) {
-              for (let dx = -3; dx <= 3; dx++) {
-                const nr = row + dy;
-                const nc = col + dx;
-                if (nr >= 0 && nr < bh && nc >= 0 && nc < bw) {
-                  finalMask[nr * bw + nc] = 1;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    finalMask.fill(1);
 
     // 4. Inpaint target pixels strictly using surrounding clean fabric
     const bufR = new Float32Array(bw * bh);
@@ -11481,7 +11470,8 @@ export default function Design() {
                     ref={imageWrapperRef}
                     onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
                     onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
-                    className={`relative inline-flex items-center justify-center max-h-full max-w-full select-none ${
+                    style={renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : undefined}
+                    className={`relative max-h-full max-w-full flex items-center justify-center select-none ${
                       isEraseMode ? 'cursor-crosshair' : ''
                     }`}
                   >
@@ -11489,7 +11479,13 @@ export default function Design() {
                       id="rendered-main-img"
                       src={resolveImageUrl(activeRenderOption === 'b' ? result : (cleanResultBackup || result))}
                       alt="Rendered result"
-                      className="max-h-full max-w-full h-auto w-auto object-contain block select-none pointer-events-none"
+                      onLoad={(e) => {
+                        const target = e.currentTarget;
+                        if (target.naturalWidth && target.naturalHeight) {
+                          setRenderedImgAspect(target.naturalWidth / target.naturalHeight);
+                        }
+                      }}
+                      className="w-full h-full object-contain block select-none pointer-events-none"
                     />
 
                     {/* Active Erase Mode Helper Pill at top of canvas */}
