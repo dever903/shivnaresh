@@ -1917,6 +1917,15 @@ function UserProfileModal({
 /* ----------------------------------------------------------------
    My Sets panel — Production Archive & Generated Media Gallery
    ---------------------------------------------------------------- */
+export function getBestGenUrl(g: UserGeneration): string {
+  const clean = [g.url, g.highResUrl, g.outputUrl, g.remoteUrl]
+    .filter(Boolean)
+    .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
+  if (clean) return clean;
+  if (g.id && g.id.length > 5) return `/generated/${g.id}-0.png`;
+  return g.url || g.highResUrl || g.remoteUrl || '';
+}
+
 function MySetsPanel({
   uploadSets,
   loadingSets,
@@ -2014,7 +2023,7 @@ function MySetsPanel({
       for (let i = 0; i < selectedGens.length; i++) {
         const g = selectedGens[i];
         try {
-          const rawUrl = g.highResUrl || g.url;
+          const rawUrl = getBestGenUrl(g);
           if (!rawUrl) continue;
           const isVideo = rawUrl.endsWith('.mp4') || rawUrl.includes('.mp4');
           if (isVideo) {
@@ -2064,14 +2073,7 @@ function MySetsPanel({
   const clothRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
 
-  const imageGenerations = generations.filter((g) => {
-    if (g.type === 'video' || !g.url) return false;
-    const best = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl]
-      .filter(Boolean)
-      .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
-    const hasJobFallback = Boolean(g.id && !g.id.includes('-') && g.id.length > 5);
-    return Boolean(best || hasJobFallback);
-  });
+  const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(g.url));
   const videoGenerations = generations.filter((g) => g.type === 'video' && Boolean(g.url));
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
@@ -2469,11 +2471,7 @@ function MySetsPanel({
                         className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
                       >
                         {(() => {
-                          const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
-                            .filter(Boolean)
-                            .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
-                            || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                            || '';
+                          const primary = getBestGenUrl(gen);
                           if (!primary) return null;
                           return (
                             <img
@@ -2483,12 +2481,7 @@ function MySetsPanel({
                               onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
                               onError={(e) => {
                                 const el = e.currentTarget;
-                                const fallbacks = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
-                                  .filter(Boolean)
-                                  .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com') && resolveImageUrl(u) !== el.src);
-                                if (fallbacks[0]) {
-                                  el.src = resolveImageUrl(fallbacks[0]);
-                                } else if (gen.id && !gen.id.includes('-') && el.src !== resolveImageUrl(`/generated/${gen.id}-0.png`)) {
+                                if (gen.id && gen.id.length > 5 && !el.src.includes(`/generated/${gen.id}-0.png`)) {
                                   el.src = resolveImageUrl(`/generated/${gen.id}-0.png`);
                                 }
                               }}
@@ -2559,11 +2552,7 @@ function MySetsPanel({
                         <button
                           type="button"
                           onClick={() => {
-                            const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
-                              .filter(Boolean)
-                              .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
-                              || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                              || '';
+                            const primary = getBestGenUrl(gen);
                             const targetUrl = resolveImageUrl(primary);
                             if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
                           }}
@@ -2581,11 +2570,7 @@ function MySetsPanel({
                           <button
                             type="button"
                             onClick={() => {
-                              const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
-                                .filter(Boolean)
-                                .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
-                                || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                                || '';
+                              const primary = getBestGenUrl(gen);
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
@@ -2603,11 +2588,7 @@ function MySetsPanel({
                         <button
                           type="button"
                           onClick={() => {
-                            const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
-                              .filter(Boolean)
-                              .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
-                              || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                              || '';
+                            const primary = getBestGenUrl(gen);
                             if (primary) safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
                           }}
                           className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
@@ -8943,7 +8924,7 @@ export default function Design() {
             setShowZoomCropModal(true);
           }}
           onEditLogo={(gen) => {
-            const targetUrl = gen.url || gen.highResUrl || gen.remoteUrl || '';
+            const targetUrl = getBestGenUrl(gen);
             if (!targetUrl) return;
             setResult(targetUrl);
             setCleanResultBackup(targetUrl);

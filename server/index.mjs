@@ -1139,12 +1139,16 @@ app.use('/generated', async (req, res, next) => {
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
       if (fsSync.statSync(candidate1).size > 20000) {
         return res.sendFile(candidate1);
+      } else {
+        try { fsSync.unlinkSync(candidate1); } catch {}
       }
     }
     const candidate2 = path.join(DATA, 'generated', filename);
     if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
       if (fsSync.statSync(candidate2).size > 20000) {
         return res.sendFile(candidate2);
+      } else {
+        try { fsSync.unlinkSync(candidate2); } catch {}
       }
     }
 
@@ -1195,6 +1199,11 @@ app.use('/generated', async (req, res, next) => {
           } catch {}
         }
 
+        if (!remoteUrl && gen) {
+          const fallbackCand = [gen.remoteUrl, gen.highResUrl, gen.url].find((u) => u && typeof u === 'string' && u.startsWith('http'));
+          if (fallbackCand) remoteUrl = fallbackCand;
+        }
+
         if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
           const upstream = await fetch(remoteUrl, {
             headers: {
@@ -1202,12 +1211,16 @@ app.use('/generated', async (req, res, next) => {
             },
           });
           if (upstream.ok) {
-            const contentType = upstream.headers.get('content-type') || 'image/png';
             const buf = Buffer.from(await upstream.arrayBuffer());
-            try { await fs.writeFile(candidate1, buf); } catch {}
-            res.set('Content-Type', contentType);
-            res.set('Cache-Control', 'public, max-age=86400');
-            return res.send(buf);
+            if (remoteUrl.includes('ibb.co') && buf.byteLength <= 20000) {
+              // Dead placeholder image, do not serve
+            } else {
+              const contentType = upstream.headers.get('content-type') || 'image/png';
+              try { await fs.writeFile(candidate1, buf); } catch {}
+              res.set('Content-Type', contentType);
+              res.set('Cache-Control', 'public, max-age=86400');
+              return res.send(buf);
+            }
           }
         }
       }
@@ -1463,6 +1476,9 @@ app.get('/api/proxy-image', async (req, res) => {
 
     const contentType = upstream.headers.get('content-type') || 'image/jpeg';
     const buffer = Buffer.from(await upstream.arrayBuffer());
+    if (imageUrl.includes('ibb.co') && buffer.byteLength <= 20000) {
+      return res.status(404).json({ error: 'Upstream image expired or deleted on imgbb' });
+    }
 
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -1612,6 +1628,9 @@ app.get('/api/download-proxy', async (req, res) => {
 
       contentType = upstream.headers.get('content-type') || 'image/png';
       buffer = Buffer.from(await upstream.arrayBuffer());
+      if (imageUrl.includes('ibb.co') && buffer.byteLength <= 20000) {
+        return res.status(404).json({ error: 'Upstream image expired or deleted on imgbb' });
+      }
     }
 
     res.set('Access-Control-Allow-Origin', '*');
@@ -4067,23 +4086,22 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       const gEmail = (g.userEmail || '').toLowerCase().trim();
       return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
     }).map((g) => {
-      // Prioritize permanent local/hosted/Cloudinary assets over dead or fragile imgbb URLs
       const candidates = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl, (Array.isArray(g.output) ? g.output[0] : '')]
         .filter(Boolean)
-        .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
-      const cleanCandidate = candidates[0] || null;
+        .filter((u) => typeof u === 'string');
+      const cleanCandidate = candidates.find((u) => !u.includes('ibb.co') && !u.includes('imgbb.com')) || null;
       let fallbackUrl = '';
-      if (!cleanCandidate && g.id && g.id.length > 5 && !g.id.includes('-')) {
+      if (g.id && g.id.length > 5) {
         fallbackUrl = `/generated/${g.id}-0.png`;
       }
-      const resolvedUrl = cleanCandidate || fallbackUrl || '';
+      const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
       return {
         ...g,
         url: resolvedUrl,
-        highResUrl: cleanCandidate || fallbackUrl || resolvedUrl,
+        highResUrl: cleanCandidate || fallbackUrl || candidates[0] || resolvedUrl,
         isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
-    }).filter((g) => Boolean(g.url) && !g.url.includes('ibb.co') && !g.url.includes('imgbb.com'));
+    }).filter((g) => Boolean(g.url));
 
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     res.json({ items });
