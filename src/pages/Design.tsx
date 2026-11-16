@@ -2468,62 +2468,76 @@ function MySetsPanel({
                       )}
                     </div>
 
-                    <div className="mt-4 flex items-center gap-1.5 pt-3 border-t border-white/5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
-                          if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
-                        }}
-                        className="flex-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer"
-                      >
-                        Download
-                      </button>
-                      {onEditLogo && (
-                        <button
-                          type="button"
-                          onClick={() => onEditLogo(gen)}
-                          className="flex-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-center py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1"
-                          title="Open on canvas to reposition, resize, recolor or add HD vector logos"
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          <span>Brand / Edit</span>
-                        </button>
-                      )}
-                      {onZoomCrop && (
+                    <div className="mt-3.5 pt-3 border-t border-white/10 space-y-2">
+                      {/* Row 1: Primary Actions (Erase/Edit Logo & Download) */}
+                      <div className="flex items-center gap-2">
+                        {onEditLogo && (
+                          <button
+                            type="button"
+                            onClick={() => onEditLogo(gen)}
+                            className="flex-1 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/40 text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                            title="Open in Logo Eraser Studio to erase unwanted AI logos or snap crisp HD vector brand"
+                          >
+                            <Eraser className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">Erase / Edit Logo</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
                             const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
-                            if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
+                            if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
                           }}
-                          className={`rounded-full border p-2 text-xs transition cursor-pointer ${isLight
-                            ? 'border-emerald-600/40 text-emerald-700 hover:bg-emerald-50'
-                            : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
-                            }`}
-                          title="Zoom & Macro Crop Download (1807×3000 px)"
+                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                          title="Download high-resolution image"
                         >
-                          <Maximize2 className="h-3.5 w-3.5" />
+                          <Download className="h-3.5 w-3.5 shrink-0" />
+                          <span>Download</span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => window.open(gen.remoteUrl || gen.highResUrl || gen.url, '_blank')}
-                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                      </div>
+
+                      {/* Row 2: Secondary Utility Actions (Zoom, View, Delete) */}
+                      <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                        {onZoomCrop && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetUrl = resolveImageUrl(gen.url || gen.highResUrl || gen.remoteUrl || '');
+                              if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
+                            }}
+                            className={`flex-1 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                              isLight
+                                ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
+                                : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                            }`}
+                            title="Open interactive Zoom & Macro Crop Studio (1807×3000 px)"
+                          >
+                            <Maximize2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                            <span>Zoom & Crop</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => window.open(gen.remoteUrl || gen.highResUrl || gen.url, '_blank')}
+                          className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
+                            isLight
+                              ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
+                              : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
                           }`}
-                        title="Open full image in new tab"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteGen(gen.id)}
-                        disabled={deletingGenId === gen.id}
-                        className="rounded-full border border-red-500/30 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
-                        title="Delete image"
-                      >
-                        {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
-                      </button>
+                          title="Open full image in new tab"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteGen(gen.id)}
+                          disabled={deletingGenId === gen.id}
+                          className="rounded-lg border border-red-500/20 p-1.5 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition cursor-pointer disabled:opacity-50 flex items-center justify-center"
+                          title="Delete image from My Sets"
+                        >
+                          {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -6316,6 +6330,8 @@ export default function Design() {
   };
 
   const eraseUploadInputRef = useRef<HTMLInputElement>(null);
+  const [eraseSearchQuery, setEraseSearchQuery] = useState('');
+  const [showAllMySetsInEraser, setShowAllMySetsInEraser] = useState(false);
 
   const handleLoadImageForEraser = (imageUrl: string) => {
     setResult(imageUrl);
@@ -8590,6 +8606,9 @@ export default function Design() {
             if (!targetUrl) return;
             setResult(targetUrl);
             setCleanResultBackup(targetUrl);
+            setMode('removelogo');
+            setIsEraseMode(true);
+            setEraseBox(null);
             setActiveRenderOption('b');
             setShowHdLogoOverlay(true);
             setShowPantLogo(true);
@@ -9338,35 +9357,80 @@ export default function Design() {
                   {/* Past Renders Picker from My Sets */}
                   {userGenerations.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                        Or pick from My Sets / Past Renders:
-                      </p>
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
-                        {userGenerations.slice(0, 18).map((gen) => {
-                          const targetUrl = gen.outputUrl || gen.url || gen.highResUrl;
-                          if (!targetUrl) return null;
-                          const isSelected = result === targetUrl;
-                          return (
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                          Or pick directly from My Sets ({userGenerations.length} available):
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {userGenerations.length > 18 && (
                             <button
-                              key={gen.id}
                               type="button"
-                              onClick={() => handleLoadImageForEraser(targetUrl)}
-                              className={`group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'border-amber-400 ring-2 ring-amber-400 shadow-md'
-                                  : isLight ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/40'
-                              }`}
-                              title={gen.prompt || 'Load into Logo Eraser'}
+                              onClick={() => setShowAllMySetsInEraser(!showAllMySetsInEraser)}
+                              className="text-[10px] font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
                             >
-                              <img src={resolveImageUrl(targetUrl)} alt="" className="w-full h-full object-cover" />
-                              {isSelected && (
-                                <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
-                                  <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded">Active</span>
-                                </div>
-                              )}
+                              {showAllMySetsInEraser ? 'Show Recent' : `Show All (${userGenerations.length})`}
                             </button>
-                          );
-                        })}
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPageView('my-sets')}
+                            className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-0.5 cursor-pointer"
+                            title="Go to full My Sets production gallery"
+                          >
+                            <span>Open My Sets</span>
+                            <span>&rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {userGenerations.length > 6 && (
+                        <div className="mb-2.5">
+                          <input
+                            type="text"
+                            value={eraseSearchQuery}
+                            onChange={(e) => setEraseSearchQuery(e.target.value)}
+                            placeholder="🔍 Filter My Sets by prompt or date…"
+                            className={`w-full rounded-lg border px-2.5 py-1 text-xs focus:outline-none transition ${
+                              isLight
+                                ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-amber-500'
+                                : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50'
+                            }`}
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-56 overflow-y-auto pr-1">
+                        {(showAllMySetsInEraser ? userGenerations : userGenerations.slice(0, 18))
+                          .filter((gen) => {
+                            if (!eraseSearchQuery.trim()) return true;
+                            const q = eraseSearchQuery.toLowerCase();
+                            return (gen.prompt && gen.prompt.toLowerCase().includes(q)) || (gen.id && gen.id.includes(q));
+                          })
+                          .map((gen) => {
+                            const targetUrl = gen.outputUrl || gen.url || gen.highResUrl;
+                            if (!targetUrl) return null;
+                            const isSelected = result === targetUrl;
+                            return (
+                              <button
+                                key={gen.id}
+                                type="button"
+                                onClick={() => handleLoadImageForEraser(targetUrl)}
+                                className={`group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'border-amber-400 ring-2 ring-amber-400 shadow-md'
+                                    : isLight ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/40'
+                                }`}
+                                title={gen.prompt || 'Load into Logo Eraser'}
+                              >
+                                <img src={resolveImageUrl(targetUrl)} alt="" className="w-full h-full object-cover" />
+                                {isSelected && (
+                                  <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                                    <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded shadow">Active</span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
                       </div>
                     </div>
                   )}
