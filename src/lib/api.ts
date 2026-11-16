@@ -440,7 +440,7 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
   }
 
   if (lastError && (lastError.message?.toLowerCase().includes('failed to fetch') || lastError.name === 'TypeError')) {
-    throw new Error('Server connection was momentarily interrupted (likely a server update). Please click Generate again.');
+    throw new Error('Server connection was momentarily interrupted. Please try again.');
   }
   throw lastError || new Error('Request failed');
 }

@@ -23,6 +23,7 @@ import {
   RefreshCw,
   RotateCcw,
   RotateCw,
+  Scissors,
   Send,
   ShieldCheck,
   Sliders,
@@ -6434,6 +6435,7 @@ export default function Design() {
   const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
   const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
   const [isErasing, setIsErasing] = useState(false);
+  const [isSeamProtect, setIsSeamProtect] = useState(true);
   const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
 
   const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
@@ -7785,10 +7787,11 @@ export default function Design() {
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
-  /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric */
+  /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric and crease lines */
   async function inpaintEraseArea(
     baseImgUrl: string,
-    box: { x: number; y: number; width: number; height: number }
+    box: { x: number; y: number; width: number; height: number },
+    mode: 'erase_logo' | 'repair_seam' = 'erase_logo'
   ): Promise<string> {
     const resolvedUrl = resolveImageUrl(baseImgUrl);
 
@@ -7970,39 +7973,116 @@ export default function Design() {
       }
     }
 
-    // 4. Write back into image data with natural micro-weave fabric grain
-    for (let r = 0; r < bh; r++) {
-      for (let c = 0; c < bw; c++) {
-        const idx = r * bw + c;
-        const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
-        const noise = (grain - 0.5) * noiseAmp;
+    // Background fabric color analysis
+    const sortedR = allBorderSamples.map((p) => p[0]).sort((a, b) => a - b);
+    const sortedG = allBorderSamples.map((p) => p[1]).sort((a, b) => a - b);
+    const sortedB = allBorderSamples.map((p) => p[2]).sort((a, b) => a - b);
+    const midIdx = Math.floor(allBorderSamples.length / 2);
+    const medFabricR = sortedR[midIdx];
+    const medFabricG = sortedG[midIdx];
+    const medFabricB = sortedB[midIdx];
 
-        const outR = Math.max(0, Math.min(255, Math.round(bufR[idx] + noise)));
-        const outG = Math.max(0, Math.min(255, Math.round(bufG[idx] + noise)));
-        const outB = Math.max(0, Math.min(255, Math.round(bufB[idx] + noise)));
+    let totalVar = 0;
+    for (const p of allBorderSamples) {
+      totalVar += Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB);
+    }
+    const avgFabricVar = totalVar / allBorderSamples.length;
+    const contrastThreshold = Math.max(26, avgFabricVar * 2.3);
 
-        const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-        data[pixelIdx] = outR;
-        data[pixelIdx + 1] = outG;
-        data[pixelIdx + 2] = outB;
-        data[pixelIdx + 3] = 255;
+    const getBorderLum = (p: number[]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+    const topLums = topBorder.map(getBorderLum);
+    const botLums = botBorder.map(getBorderLum);
+
+    if (mode === 'repair_seam') {
+      // 4A. REPAIR SEAM MODE: Reconnect and restore vertical crease line through a blurred gap
+      for (let r = 0; r < bh; r++) {
+        const v = bh > 1 ? r / (bh - 1) : 0.5;
+        for (let c = 0; c < bw; c++) {
+          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+          const topSeamOffset = topLums[c] - medLum;
+          const botSeamOffset = botLums[c] - medLum;
+          const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+
+          const edgeDistX = Math.min(c, bw - 1 - c);
+          const edgeDistY = Math.min(r, bh - 1 - r);
+          const edgeFactor = Math.min(1.0, Math.min(edgeDistX, edgeDistY) / 2.0);
+
+          if (Math.abs(seamOffset) > 2) {
+            data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * edgeFactor)));
+            data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 1] + seamOffset * 0.95 * edgeFactor)));
+            data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 2] + seamOffset * 0.95 * edgeFactor)));
+          }
+        }
+      }
+    } else {
+      // 4B. ERASE LOGO MODE: Selectively erase ONLY contrasting logo ink, preserving creases, seams, and fabric 100%
+      for (let r = 0; r < bh; r++) {
+        const v = bh > 1 ? r / (bh - 1) : 0.5;
+        for (let c = 0; c < bw; c++) {
+          const idx = r * bw + c;
+          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+
+          const origR = data[pixelIdx];
+          const origG = data[pixelIdx + 1];
+          const origB = data[pixelIdx + 2];
+
+          const colorDist = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
+
+          const edgeDistX = Math.min(c, bw - 1 - c);
+          const edgeDistY = Math.min(r, bh - 1 - r);
+          const edgeFactor = Math.min(1.0, Math.min(edgeDistX, edgeDistY) / 2.5);
+
+          let eraseWeight = 0;
+          if (isSeamProtect) {
+            if (colorDist > contrastThreshold) {
+              eraseWeight = Math.min(1.0, (colorDist - contrastThreshold) / 20.0) * edgeFactor;
+            }
+          } else {
+            eraseWeight = edgeFactor;
+          }
+
+          if (eraseWeight <= 0.005) {
+            // Pixel matches garment fabric / seam: keep original pixel 100% untouched!
+            continue;
+          }
+
+          const topSeamOffset = topLums[c] - medLum;
+          const botSeamOffset = botLums[c] - medLum;
+          const verticalSeamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+
+          const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
+          const noise = (grain - 0.5) * noiseAmp;
+
+          const synthR = Math.max(0, Math.min(255, bufR[idx] + verticalSeamOffset * 0.75 + noise));
+          const synthG = Math.max(0, Math.min(255, bufG[idx] + verticalSeamOffset * 0.75 + noise));
+          const synthB = Math.max(0, Math.min(255, bufB[idx] + verticalSeamOffset * 0.75 + noise));
+
+          data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * synthR);
+          data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * synthG);
+          data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * synthB);
+          data[pixelIdx + 3] = 255;
+        }
       }
     }
 
     ctx.putImageData(imgData, 0, 0);
     try {
-      const webp = canvas.toDataURL('image/webp', 0.85);
+      const webp = canvas.toDataURL('image/webp', 0.82);
       if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
     } catch {}
-    return canvas.toDataURL('image/jpeg', 0.85);
+    return canvas.toDataURL('image/jpeg', 0.82);
   }
 
-  const handleExecuteErase = async (snapVector = false) => {
+  const handleExecuteErase = async (snapVector = false, isSeamRepair = false) => {
     if (!eraseBox || !result) return;
     try {
       setIsErasing(true);
       const currentImg = result;
-      const inpainted = await inpaintEraseArea(currentImg, eraseBox);
+      const inpainted = await inpaintEraseArea(
+        currentImg,
+        eraseBox,
+        isSeamRepair ? 'repair_seam' : 'erase_logo'
+      );
 
       // Save to undo stack (max 5)
       setEraseUndoStack((prev) => [currentImg, ...prev.slice(0, 4)]);
@@ -8029,7 +8109,7 @@ export default function Design() {
         }
         setActiveRenderOption('b');
         setIsOptionBDirty(true);
-      } else {
+      } else if (!isSeamRepair) {
         // User clicked "Erase Logo" -> Turn off vector overlay on that spot so it doesn't block the erased area
         const centerY = eraseBox.y + eraseBox.height / 2;
         if (centerY > 50) {
@@ -8118,14 +8198,48 @@ export default function Design() {
         currentEditGenIdRef.current = crypto.randomUUID();
       }
 
-      const savedGen = await api.saveUserGeneration({
+      const savePayload = {
         id: currentEditGenIdRef.current,
-        type: 'image',
+        type: 'image' as const,
         url: finalImg,
         isEdited: wasEdited,
         prompt: promptLabel,
         resolution: quality || '2k',
-      });
+      };
+
+      let savedGen = null;
+      try {
+        savedGen = await api.saveUserGeneration(savePayload);
+      } catch (saveErr) {
+        // When saving high-res images over cellular or Render free tier, the connection may momentarily reset
+        // right as the server successfully commits the save. Verify library to avoid false alarm errors!
+        await new Promise((r) => setTimeout(r, 1200));
+        try {
+          const fresh = await api.userGenerations();
+          const targetId = currentEditGenIdRef.current;
+          const found = fresh.items?.find((g) => g.id === targetId || (g.prompt && g.prompt === promptLabel));
+          if (found) {
+            savedGen = found;
+          }
+        } catch {}
+
+        if (!savedGen) {
+          // Retry once with a clean request
+          try {
+            savedGen = await api.saveUserGeneration(savePayload);
+          } catch (retryErr) {
+            // Check once more in library
+            try {
+              const fresh2 = await api.userGenerations();
+              const found2 = fresh2.items?.find((g) => g.id === currentEditGenIdRef.current || (g.prompt && g.prompt === promptLabel));
+              if (found2) {
+                savedGen = found2;
+              }
+            } catch {}
+            if (!savedGen) throw retryErr;
+          }
+        }
+      }
 
       if (savedGen) {
         setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== finalImg)]);
@@ -11781,6 +11895,23 @@ export default function Design() {
                           <span>Erase Mode</span>
                         </div>
                         <span className="text-white/40">|</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSeamProtect((prev) => !prev);
+                          }}
+                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition cursor-pointer border ${
+                            isSeamProtect
+                              ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300'
+                              : 'bg-white/10 border-white/20 text-white/60'
+                          }`}
+                          title="When ON, preserves trouser pleats, creases, piping, and seams 100% and selectively removes only contrasting logo ink"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
+                        </button>
+                        <span className="text-white/40">|</span>
                         <span className="text-white/80 text-[11px] hidden sm:inline">
                           {eraseBox ? 'Adjust box below' : 'Drag box over unwanted logo to erase'}
                         </span>
@@ -11892,6 +12023,19 @@ export default function Design() {
                         >
                           <Sparkles className="w-3 h-3 text-amber-300" />
                           <span>Erase & Snap HD Vector</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isErasing}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExecuteErase(false, true);
+                          }}
+                          className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          title="Reconnect and repair a blurred or broken vertical trouser crease/seam line across this selection"
+                        >
+                          <Scissors className="w-3 h-3 text-indigo-300" />
+                          <span>🧵 Restore Seam</span>
                         </button>
                         {eraseUndoStack.length > 0 && (
                           <button
