@@ -761,17 +761,19 @@ async function saveLocalAsset(dataUrl, subfolder = 'sets', prefix = 'asset') {
   await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
   const localUrl = `/hosted/${subfolder}/${fname}`;
 
-  // Persist to MongoDB hosted_assets collection for permanent cloud survival
-  try {
-    const db = await getMongoDb();
-    if (db) {
-      await db.collection('hosted_assets').updateOne(
-        { id: fname },
-        { $set: { id: fname, url: localUrl, subfolder, dataUrl, createdAt: Date.now() } },
-        { upsert: true }
-      ).catch(() => {});
-    }
-  } catch {}
+  // Persist to MongoDB hosted_assets collection for permanent cloud survival (non-blocking)
+  void (async () => {
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('hosted_assets').updateOne(
+          { id: fname },
+          { $set: { id: fname, url: localUrl, subfolder, dataUrl, createdAt: Date.now() } },
+          { upsert: true }
+        ).catch(() => {});
+      }
+    } catch {}
+  })();
 
   return localUrl;
 }
@@ -1123,6 +1125,9 @@ app.use('/uploads', async (req, res, next) => {
       }
     } catch {}
   } catch {}
+  if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
+    return res.status(404).json({ error: 'asset_not_found', path: req.path });
+  }
   next();
 });
 
@@ -1132,11 +1137,15 @@ app.use('/generated', async (req, res, next) => {
     const filename = path.basename(decodeURIComponent(req.path));
     const candidate1 = path.join(GENERATED, filename);
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
-      return res.sendFile(candidate1);
+      if (fsSync.statSync(candidate1).size > 20000) {
+        return res.sendFile(candidate1);
+      }
     }
     const candidate2 = path.join(DATA, 'generated', filename);
     if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
-      return res.sendFile(candidate2);
+      if (fsSync.statSync(candidate2).size > 20000) {
+        return res.sendFile(candidate2);
+      }
     }
 
     // Fallback 1: Lookup MongoDB generations collection
@@ -1155,8 +1164,8 @@ app.use('/generated', async (req, res, next) => {
             { outputUrl: { $regex: filename, $options: 'i' } }
           ]
         });
-        let remoteUrl = (gen?.remoteUrl && gen.remoteUrl.startsWith('http')) ? gen.remoteUrl : null;
-        if (!remoteUrl && gen?.highResUrl && gen.highResUrl.startsWith('http')) {
+        let remoteUrl = (gen?.remoteUrl && gen.remoteUrl.startsWith('http') && !gen.remoteUrl.includes('ibb.co')) ? gen.remoteUrl : null;
+        if (!remoteUrl && gen?.highResUrl && gen.highResUrl.startsWith('http') && !gen.highResUrl.includes('ibb.co')) {
           remoteUrl = gen.highResUrl;
         }
 
@@ -1233,11 +1242,14 @@ app.use('/generated', async (req, res, next) => {
     try {
       const hosted = await readHosted();
       const remoteUrl = hosted.generated?.[filename];
-      if (remoteUrl && typeof remoteUrl === 'string') {
+      if (remoteUrl && typeof remoteUrl === 'string' && !remoteUrl.includes('ibb.co')) {
         return res.redirect(302, remoteUrl);
       }
     } catch {}
   } catch {}
+  if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
+    return res.status(404).json({ error: 'asset_not_found', path: req.path });
+  }
   next();
 });
 app.use('/models', express.static(MODELS_DIR, { maxAge: '7d' }));
@@ -1275,6 +1287,9 @@ app.use('/models', async (req, res, next) => {
       }
     } catch {}
   } catch {}
+  if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
+    return res.status(404).json({ error: 'asset_not_found', path: req.path });
+  }
   next();
 });
 
@@ -1319,6 +1334,9 @@ app.use('/hosted', async (req, res, next) => {
       }
     } catch {}
   } catch {}
+  if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
+    return res.status(404).json({ error: 'asset_not_found', path: req.path });
+  }
   next();
 });
 app.use('/guidelines', express.static(path.join(PUBLIC_DIR, 'guidelines'), { maxAge: '7d' }));
@@ -4050,17 +4068,22 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
     }).map((g) => {
       // Prioritize permanent local/hosted/Cloudinary assets over dead or fragile imgbb URLs
-      const candidates = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl, (Array.isArray(g.output) ? g.output[0] : '')].filter(Boolean);
-      const cleanCandidate = candidates.find((u) => typeof u === 'string' && !u.includes('ibb.co'));
-      const fallbackUrl = (g.id && g.id.length > 5 && !cleanCandidate) ? `/generated/${g.id}-0.png` : '';
-      const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
+      const candidates = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl, (Array.isArray(g.output) ? g.output[0] : '')]
+        .filter(Boolean)
+        .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
+      const cleanCandidate = candidates[0] || null;
+      let fallbackUrl = '';
+      if (!cleanCandidate && g.id && g.id.length > 5 && !g.id.includes('-')) {
+        fallbackUrl = `/generated/${g.id}-0.png`;
+      }
+      const resolvedUrl = cleanCandidate || fallbackUrl || '';
       return {
         ...g,
         url: resolvedUrl,
-        highResUrl: cleanCandidate || fallbackUrl || g.highResUrl || g.remoteUrl || resolvedUrl,
+        highResUrl: cleanCandidate || fallbackUrl || resolvedUrl,
         isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
       };
-    }).filter((g) => Boolean(g.url));
+    }).filter((g) => Boolean(g.url) && !g.url.includes('ibb.co') && !g.url.includes('imgbb.com'));
 
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     res.json({ items });
@@ -4187,7 +4210,8 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       if (isEditedValue) existing.isEdited = true;
       if (!existing.userId && req.user?._id) existing.userId = req.user._id;
       if (!existing.userEmail && req.user?.email) existing.userEmail = req.user.email;
-      await writeGenerations(list);
+      cachedGenerations = { items: list, time: Date.now() };
+      void writeGenerations(list).catch((err) => console.warn('[generations] background write error:', err.message));
       return res.json(existing);
     }
 
@@ -4214,7 +4238,8 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     };
 
     list.unshift(item);
-    await writeGenerations(list);
+    cachedGenerations = { items: list, time: Date.now() };
+    void writeGenerations(list).catch((err) => console.warn('[generations] background write error:', err.message));
 
     res.json(item);
   } catch (error) {

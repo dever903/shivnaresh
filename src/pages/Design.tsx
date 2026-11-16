@@ -416,18 +416,22 @@ function ImageConfirmPopup({
   );
 }
 
-export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Media Preview') {
+export function safeOpenMediaInNewTab(
+  mediaUrl: string,
+  title = 'SHIV-NARESH Media Preview',
+  targetWin?: Window | null
+) {
   if (!mediaUrl) return;
   const resolved = resolveImageUrl(mediaUrl);
 
-  // If it's a data URL or blob URL, render cleanly inside an HTML window
-  // (Prevents Chrome / Edge top-frame navigation block: "Not allowed to navigate top frame to data URL / blob URL")
-  if (resolved.startsWith('data:') || resolved.startsWith('blob:')) {
-    const win = window.open('', '_blank');
-    if (win) {
-      try {
-        win.document.open();
-        win.document.write(`<!DOCTYPE html>
+  // If a synchronous window reference was pre-opened (or we can open one immediately),
+  // write a self-contained responsive HTML viewer that displays the high-res render with download controls.
+  // This bypasses Chrome / Safari / Edge top-frame navigation restrictions on data:/blob: URLs and prevents popup blocking.
+  const win = targetWin && !targetWin.closed ? targetWin : window.open('', '_blank');
+  if (win) {
+    try {
+      win.document.open();
+      win.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -435,12 +439,12 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
   <title>${title.replace(/</g, '&lt;')}</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #f8fafc; }
     .wrapper { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    img { max-width: 100%; max-height: 88vh; object-fit: contain; border-radius: 8px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7); }
-    .toolbar { margin-top: 16px; display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.1); }
-    .label { font-size: 13px; font-weight: 500; color: #cbd5e1; }
-    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 6px 14px; border-radius: 9999px; transition: background 0.15s; }
+    img { max-width: 100%; max-height: 86vh; object-fit: contain; border-radius: 12px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8); }
+    .toolbar { margin-top: 18px; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.08); padding: 8px 20px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); }
+    .label { font-size: 13px; font-weight: 600; color: #cbd5e1; max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 7px 18px; border-radius: 9999px; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; }
     .dl-btn:hover { background: #d42d35; }
   </style>
 </head>
@@ -449,33 +453,33 @@ export function safeOpenMediaInNewTab(mediaUrl: string, title = 'SHIV-NARESH Med
     <img src="${resolved}" alt="${title.replace(/"/g, '&quot;')}" />
     <div class="toolbar">
       <span class="label">${title.replace(/</g, '&lt;')}</span>
-      <a class="dl-btn" href="${resolved}" download="shivnaresh-render.png">Download Image</a>
+      <a class="dl-btn" href="${resolved}" download="shivnaresh-render.png">⬇️ Download Image</a>
     </div>
   </div>
 </body>
 </html>`);
-        win.document.close();
+      win.document.close();
+      return;
+    } catch (e) {
+      console.warn('Direct document write error, navigating to URL:', e);
+      try {
+        win.location.href = resolved;
         return;
-      } catch (e) {
-        console.warn('Direct document write error:', e);
-      }
+      } catch {}
     }
   }
 
-  // Regular URL navigation (Cloudinary, /hosted/..., /generated/...)
-  const win = window.open(resolved, '_blank', 'noopener,noreferrer');
-  if (!win) {
-    const a = document.createElement('a');
-    a.href = resolved;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.title = title;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      try { document.body.removeChild(a); } catch {}
-    }, 1000);
-  }
+  // Fallback if popup blocker suppressed window creation
+  const a = document.createElement('a');
+  a.href = resolved;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = title;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    try { document.body.removeChild(a); } catch {}
+  }, 1000);
 }
 
 function classifyGarmentByHeuristic(name: string): GarmentRole {
@@ -2060,7 +2064,14 @@ function MySetsPanel({
   const clothRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
 
-  const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(g.url));
+  const imageGenerations = generations.filter((g) => {
+    if (g.type === 'video' || !g.url) return false;
+    const best = [g.outputUrl, g.highResUrl, g.url, g.remoteUrl]
+      .filter(Boolean)
+      .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
+    const hasJobFallback = Boolean(g.id && !g.id.includes('-') && g.id.length > 5);
+    return Boolean(best || hasJobFallback);
+  });
   const videoGenerations = generations.filter((g) => g.type === 'video' && Boolean(g.url));
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
@@ -2460,9 +2471,10 @@ function MySetsPanel({
                         {(() => {
                           const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
                             .filter(Boolean)
-                            .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
-                            || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                            || gen.url || gen.outputUrl || '';
+                            .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
+                            || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                            || '';
+                          if (!primary) return null;
                           return (
                             <img
                               src={resolveImageUrl(primary)}
@@ -2473,10 +2485,10 @@ function MySetsPanel({
                                 const el = e.currentTarget;
                                 const fallbacks = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
                                   .filter(Boolean)
-                                  .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && resolveImageUrl(u) !== el.src);
+                                  .filter((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com') && resolveImageUrl(u) !== el.src);
                                 if (fallbacks[0]) {
                                   el.src = resolveImageUrl(fallbacks[0]);
-                                } else if (gen.id && el.src !== resolveImageUrl(`/generated/${gen.id}-0.png`)) {
+                                } else if (gen.id && !gen.id.includes('-') && el.src !== resolveImageUrl(`/generated/${gen.id}-0.png`)) {
                                   el.src = resolveImageUrl(`/generated/${gen.id}-0.png`);
                                 }
                               }}
@@ -2549,9 +2561,9 @@ function MySetsPanel({
                           onClick={() => {
                             const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
                               .filter(Boolean)
-                              .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
-                              || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                              || gen.url || '';
+                              .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
+                              || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                              || '';
                             const targetUrl = resolveImageUrl(primary);
                             if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-${gen.id.slice(0, 6)}.png`);
                           }}
@@ -2571,9 +2583,9 @@ function MySetsPanel({
                             onClick={() => {
                               const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
                                 .filter(Boolean)
-                                .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
-                                || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                                || gen.url || '';
+                                .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
+                                || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                                || '';
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
@@ -2593,10 +2605,10 @@ function MySetsPanel({
                           onClick={() => {
                             const primary = [gen.outputUrl, gen.highResUrl, gen.url, gen.remoteUrl]
                               .filter(Boolean)
-                              .find((u) => typeof u === 'string' && !u.includes('ibb.co'))
-                              || (gen.id && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
-                              || gen.remoteUrl || gen.url || '';
-                            safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
+                              .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'))
+                              || (gen.id && !gen.id.includes('-') && gen.id.length > 5 ? `/generated/${gen.id}-0.png` : '')
+                              || '';
+                            if (primary) safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
                           }}
                           className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
                             isLight
@@ -7681,10 +7693,10 @@ export default function Design() {
     }
 
     try {
-      const webp = canvas.toDataURL('image/webp', 0.90);
+      const webp = canvas.toDataURL('image/webp', 0.85);
       if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
     } catch {}
-    return canvas.toDataURL('image/jpeg', 0.90);
+    return canvas.toDataURL('image/jpeg', 0.85);
   }
 
   /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric */
@@ -7893,10 +7905,10 @@ export default function Design() {
 
     ctx.putImageData(imgData, 0, 0);
     try {
-      const webp = canvas.toDataURL('image/webp', 0.90);
+      const webp = canvas.toDataURL('image/webp', 0.85);
       if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
     } catch {}
-    return canvas.toDataURL('image/jpeg', 0.90);
+    return canvas.toDataURL('image/jpeg', 0.85);
   }
 
   const handleExecuteErase = async (snapVector = false) => {
@@ -7975,6 +7987,7 @@ export default function Design() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
   const autoSaveTimerRef = useRef<any>(null);
   const lastSavedUrlRef = useRef<string>('');
+  const currentEditGenIdRef = useRef<string>('');
 
   const triggerAutoSaveToMySets = useCallback((overrideImg?: string, customLabel?: string) => {
     if (autoSaveTimerRef.current) {
@@ -8002,8 +8015,12 @@ export default function Design() {
 
         setAutoSaveStatus('Saving…');
 
+        if (!currentEditGenIdRef.current) {
+          currentEditGenIdRef.current = crypto.randomUUID();
+        }
+
         const savedGen = await api.saveUserGeneration({
-          id: crypto.randomUUID(),
+          id: currentEditGenIdRef.current,
           type: 'image',
           url: finalImg,
           isEdited: true,
@@ -8022,7 +8039,7 @@ export default function Design() {
         console.warn('[auto-save] Auto-save skipped:', err);
         setAutoSaveStatus('');
       }
-    }, 1200);
+    }, 1000);
   }, [result, activeRenderOption, showHdLogoOverlay, showPantLogo, cleanResultBackup, prompt, quality, loadUserGenerations]);
 
   useEffect(() => {
@@ -8059,8 +8076,12 @@ export default function Design() {
 
       lastSavedUrlRef.current = finalImg;
 
+      if (!currentEditGenIdRef.current) {
+        currentEditGenIdRef.current = crypto.randomUUID();
+      }
+
       const savedGen = await api.saveUserGeneration({
-        id: crypto.randomUUID(),
+        id: currentEditGenIdRef.current,
         type: 'image',
         url: finalImg,
         isEdited: wasEdited,
@@ -11508,6 +11529,7 @@ export default function Design() {
                           <button
                             type="button"
                             onClick={() => {
+                              currentEditGenIdRef.current = '';
                               setSelectedPoseIndex(idx);
                               if (pose.url) {
                                 setResult(pose.url);
@@ -12093,11 +12115,17 @@ export default function Design() {
                         <button
                           type="button"
                           onClick={async () => {
+                            const win = window.open('', '_blank');
+                            if (win) {
+                              try {
+                                win.document.write('<!DOCTYPE html><html><head><title>Loading Shiv-Naresh Preview…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f17;color:#94a3b8;font-family:sans-serif;font-size:14px;}</style></head><body>Preparing high-resolution render preview…</body></html>');
+                              } catch {}
+                            }
                             const baseToUse = cleanResultBackup || result;
                             const viewTarget = activeRenderOption === 'b'
                               ? await stampHdLogoOntoImage(baseToUse)
                               : baseToUse;
-                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`);
+                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
                           }}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                             isLight
