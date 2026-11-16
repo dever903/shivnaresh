@@ -5925,19 +5925,10 @@ setTimeout(runDailyAndExpiryMaintenance, 5000);
 const dist = path.join(ROOT, 'dist');
 const indexPath = path.join(dist, 'index.html');
 
-// If dist/index.html is missing on cold boot, attempt to build synchronously
+// dist/index.html missing = build step didn't run; log and serve boot page (do NOT block event loop with execSync build)
+// shortcut: no auto-rebuild; ensure Render build command is `npm install && npm run build`
 if (!fsSync.existsSync(indexPath)) {
-  console.log('[build] dist/index.html not found, automatically compiling Vite bundle...');
-  try {
-    execSync('npm run build', {
-      cwd: ROOT,
-      stdio: 'inherit',
-      env: { ...process.env, NODE_ENV: 'development' },
-    });
-    console.log('[build] Vite frontend build completed successfully.');
-  } catch (buildErr) {
-    console.error('[build] Vite build failed on boot:', buildErr.message);
-  }
+  console.warn('[boot] dist/index.html not found — serving fallback boot page. Ensure build command includes `npm run build`.');
 }
 
 app.use(express.static(dist));
