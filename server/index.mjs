@@ -4075,10 +4075,41 @@ app.post('/api/user/unlock', auth.requireUser, (req, res) => {
 /* --------------------------------------------------- user generations (library) */
 app.get('/api/user/generations', auth.requireUser, async (req, res) => {
   try {
-    const list = await readGenerations();
     const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const db = await getMongoDb();
+
+    let list = [];
+    if (db) {
+      try {
+        const query = {
+          deleted: { $ne: true },
+          isDeleted: { $ne: true },
+          status: { $ne: 'failed' },
+        };
+        if (!isAdmin) {
+          query.$or = [
+            { userId: currentUserId },
+            { userEmail: currentUserEmail },
+            { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+          ];
+        }
+        const docs = await db.collection('generations').find(query).sort({ createdAt: -1 }).limit(300).toArray();
+        if (docs && docs.length > 0) {
+          list = docs.map((it) => {
+            const clean = { ...it };
+            delete clean._id;
+            return clean;
+          });
+        }
+      } catch (dbErr) {
+        console.warn('[generations] MongoDB direct fetch warning:', dbErr.message);
+      }
+    }
+    if (list.length === 0) {
+      list = await readGenerations();
+    }
 
     const items = list.filter((g) => {
       // Exclude soft-deleted items (preserved safely in Admin Recycle Bin)
@@ -4278,27 +4309,34 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
 
 app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
   try {
-    const list = await readGenerations();
     const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const db = await getMongoDb();
 
-    const index = list.findIndex((g) => {
-      if (g.id !== req.params.id) return false;
-      if (isAdmin) return true;
-      const gUserId = g.userId ? String(g.userId) : '';
-      const gEmail = (g.userEmail || '').toLowerCase().trim();
-      return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
-    });
+    let gen = null;
+    if (db) {
+      try {
+        gen = await db.collection('generations').findOne({ id: req.params.id });
+      } catch {}
+    }
+    const list = await readGenerations();
+    const listGen = list.find((g) => g.id === req.params.id);
+    if (!gen) gen = listGen;
 
-    if (index === -1) {
-      return res.status(404).json({ error: 'not_found', message: 'Item not found.' });
+    if (!gen) {
+      return res.json({ ok: true, deleted: req.params.id, inBin: true, alreadyGone: true });
     }
 
-    const gen = list[index];
+    const gUserId = gen.userId ? String(gen.userId) : '';
+    const gEmail = (gen.userEmail || '').toLowerCase().trim();
+    const isOwner = isAdmin || (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to delete this item.' });
+    }
+
     let refunded = false;
     let refundedCredits = 0;
-    // Auto-refund credit if discarded within 15 minutes or if ?refund=true
     const isRecent = gen.createdAt && (Date.now() - gen.createdAt < 15 * 60 * 1000);
     if ((req.query.refund === 'true' || isRecent) && gen.creditsUsed > 0 && !gen.refunded) {
       const u = await auth.findUserById(req.user._id);
@@ -4313,22 +4351,29 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     }
 
     // Soft delete: move safely into Admin Recycle Bin
+    const now = Date.now();
+    const deletedBy = currentUserEmail || currentUserId || 'user';
     gen.deleted = true;
     gen.isDeleted = true;
-    gen.deletedAt = Date.now();
-    gen.deletedBy = currentUserEmail || currentUserId || 'user';
+    gen.deletedAt = now;
+    gen.deletedBy = deletedBy;
 
-    await writeGenerations(list);
+    if (listGen) {
+      listGen.deleted = true;
+      listGen.isDeleted = true;
+      listGen.deletedAt = now;
+      listGen.deletedBy = deletedBy;
+      await writeGenerations(list);
+    }
 
-    try {
-      const db = await getMongoDb();
-      if (db) {
+    if (db) {
+      try {
         await db.collection('generations').updateOne(
           { id: req.params.id },
-          { $set: { deleted: true, isDeleted: true, deletedAt: gen.deletedAt, deletedBy: gen.deletedBy } }
+          { $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy } }
         );
-      }
-    } catch {}
+      } catch {}
+    }
 
     res.json({ ok: true, deleted: req.params.id, inBin: true, refunded, refundedCredits });
   } catch (error) {
@@ -5206,6 +5251,7 @@ app.delete('/api/admin/deliveries/:id', requireAdmin, async (req, res) => {
 /* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests, Deliveries & Generations) */
 app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
   try {
+    const db = await getMongoDb();
     const [allRequests, allDeliveries, allGenerations] = await Promise.all([
       readCustomRequests(),
       readAdminDeliveries(),
@@ -5213,7 +5259,20 @@ app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
     ]);
     const deletedRequests = allRequests.filter((r) => r.deleted === true);
     const deletedDeliveries = allDeliveries.filter((d) => d.deleted === true);
-    const deletedGenerations = allGenerations.filter((g) => g.deleted === true || g.isDeleted === true);
+    let deletedGenerations = [];
+    if (db) {
+      try {
+        const dbDeleted = await db.collection('generations').find({ $or: [{ deleted: true }, { isDeleted: true }] }).sort({ deletedAt: -1 }).toArray();
+        deletedGenerations = (dbDeleted || []).map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+      } catch {}
+    }
+    if (deletedGenerations.length === 0) {
+      deletedGenerations = allGenerations.filter((g) => g.deleted === true || g.isDeleted === true);
+    }
     deletedRequests.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     deletedDeliveries.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     deletedGenerations.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
@@ -5231,43 +5290,50 @@ app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
 app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
   try {
     const { type, id } = req.body || {};
+    const db = await getMongoDb();
     if (type === 'request' || type === 'custom_request') {
       const all = await readCustomRequests();
       const item = all.find((r) => r.id === id);
-      if (!item) return res.status(404).json({ error: 'not_found' });
-      item.deleted = false;
-      delete item.deletedAt;
-      delete item.deletedBy;
-      await writeCustomRequests(all);
-      return res.json({ ok: true, item });
+      if (item) {
+        item.deleted = false;
+        delete item.deletedAt;
+        delete item.deletedBy;
+        await writeCustomRequests(all);
+      }
+      if (db) {
+        await db.collection('custom_requests').updateOne({ id }, { $unset: { deleted: '', deletedAt: '', deletedBy: '' } });
+      }
+      return res.json({ ok: true, id });
     } else if (type === 'delivery') {
       const all = await readAdminDeliveries();
       const item = all.find((d) => d.id === id);
-      if (!item) return res.status(404).json({ error: 'not_found' });
-      item.deleted = false;
-      delete item.deletedAt;
-      delete item.deletedBy;
-      await writeAdminDeliveries(all);
-      return res.json({ ok: true, item });
+      if (item) {
+        item.deleted = false;
+        delete item.deletedAt;
+        delete item.deletedBy;
+        await writeAdminDeliveries(all);
+      }
+      if (db) {
+        await db.collection('admin_deliveries').updateOne({ id }, { $unset: { deleted: '', deletedAt: '', deletedBy: '' } });
+      }
+      return res.json({ ok: true, id });
     } else if (type === 'generation' || type === 'image') {
       const all = await readGenerations();
       const item = all.find((g) => g.id === id);
-      if (!item) return res.status(404).json({ error: 'not_found' });
-      item.deleted = false;
-      item.isDeleted = false;
-      delete item.deletedAt;
-      delete item.deletedBy;
-      await writeGenerations(all);
-      try {
-        const db = await getMongoDb();
-        if (db) {
-          await db.collection('generations').updateOne(
-            { id },
-            { $unset: { deleted: '', isDeleted: '', deletedAt: '', deletedBy: '' } }
-          );
-        }
-      } catch {}
-      return res.json({ ok: true, item });
+      if (item) {
+        item.deleted = false;
+        item.isDeleted = false;
+        delete item.deletedAt;
+        delete item.deletedBy;
+        await writeGenerations(all);
+      }
+      if (db) {
+        await db.collection('generations').updateOne(
+          { id },
+          { $unset: { deleted: '', isDeleted: '', deletedAt: '', deletedBy: '' } }
+        );
+      }
+      return res.json({ ok: true, id });
     }
     res.status(400).json({ error: 'invalid_type' });
   } catch (err) {

@@ -387,7 +387,13 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export function resolveImageUrl(url: string | null | undefined): string {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  if (url.includes('ibb.co') || url.includes('imgbb.com')) {
+    return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
   if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data'))) {

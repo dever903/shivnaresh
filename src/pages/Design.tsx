@@ -309,13 +309,22 @@ export function ShivNareshSvgLogo({
   color = '#ffffff',
   className = '',
   curved = true,
+  curvatureDepth = 14,
+  curveDirection = 'standard',
 }: {
   color?: string;
   className?: string;
   curved?: boolean;
+  curvatureDepth?: number;
+  curveDirection?: 'standard' | 'left' | 'right';
 }) {
   const curveId = useId();
   const arcPathId = `sn-arc-${curveId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  const yStart = curveDirection === 'left' ? 188 : curveDirection === 'right' ? 180 : 185;
+  const yMid = 185 - Math.max(0, curvatureDepth);
+  const yEnd = curveDirection === 'left' ? 180 : curveDirection === 'right' ? 188 : 185;
+  const emblemRot = curveDirection === 'left' ? -2.5 : curveDirection === 'right' ? +1.5 : -0.8;
 
   return (
     <svg
@@ -327,9 +336,9 @@ export function ShivNareshSvgLogo({
       style={{ color }}
     >
       <defs>
-        <path id={arcPathId} d="M 28,185 Q 180,172 332,185" fill="none" />
+        <path id={arcPathId} d={`M 28,${yStart} Q 180,${yMid} 332,${yEnd}`} fill="none" />
       </defs>
-      <g transform="translate(14, 15) rotate(-0.8, 180, 60)">
+      <g transform={`translate(14, 15) rotate(${emblemRot}, 180, 60)`}>
         <path
           fill="currentColor"
           d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z"
@@ -440,29 +449,19 @@ export function safeOpenMediaInNewTab(
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #f8fafc; }
-    .wrapper { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    img { max-width: 100%; max-height: 86vh; object-fit: contain; border-radius: 12px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8); }
-    .toolbar { margin-top: 18px; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.08); padding: 8px 20px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); }
-    .label { font-size: 13px; font-weight: 600; color: #cbd5e1; max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .dl-btn { font-size: 12px; font-weight: 700; color: #ffffff; background: #e5373f; text-decoration: none; padding: 7px 18px; border-radius: 9999px; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-    .dl-btn:hover { background: #d42d35; }
+    .wrapper { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
+    img { max-width: 100%; max-height: 96vh; object-fit: contain; border-radius: 8px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85); }
   </style>
 </head>
 <body>
   <div class="wrapper">
     <img id="previewImg" alt="Preview" />
-    <div class="toolbar">
-      <span class="label">${title.replace(/</g, '&lt;')}</span>
-      <a id="dlBtn" class="dl-btn" download="shivnaresh-render-1807x3000.png">⬇️ Download (1807 × 3000)</a>
-    </div>
   </div>
 </body>
 </html>`);
       win.document.close();
       const pImg = win.document.getElementById('previewImg') as HTMLImageElement | null;
       if (pImg) pImg.src = resolved;
-      const dBtn = win.document.getElementById('dlBtn') as HTMLAnchorElement | null;
-      if (dBtn) dBtn.href = resolved;
       return;
     } catch (e) {
       console.warn('Direct document write error, navigating to URL:', e);
@@ -2077,8 +2076,8 @@ function MySetsPanel({
   const clothRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
 
-  const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(g.url));
-  const videoGenerations = generations.filter((g) => g.type === 'video' && Boolean(g.url));
+  const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)));
+  const videoGenerations = generations.filter((g) => g.type === 'video' && (Boolean(g.url) || Boolean(g.highResUrl)));
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -2146,10 +2145,11 @@ function MySetsPanel({
     if (!confirm('Move this item to the Admin Recycle Bin? (Admin can restore it anytime or permanently delete it)')) return;
     setDeletingGenId(id);
     try {
-      await api.deleteUserGeneration(id);
       onDeleteGeneration(id);
+      await api.deleteUserGeneration(id);
       refreshGenerations();
     } catch (e) {
+      refreshGenerations();
       setError(e instanceof Error ? e.message : 'Could not delete item');
     } finally {
       setDeletingGenId('');
@@ -2523,10 +2523,6 @@ function MySetsPanel({
                             className="h-3 w-3 accent-[#e5373f] cursor-pointer"
                           />
                         </label>
-                        <span className="absolute bottom-2 right-2 rounded-md bg-black/85 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-md flex items-center gap-1 z-10">
-                          <span className="text-[#38bdf8]">📐</span>
-                          <span>1807 × 3000 px</span>
-                        </span>
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
@@ -2549,37 +2545,35 @@ function MySetsPanel({
                       )}
                     </div>
 
-                    <div className="mt-3.5 pt-3 border-t border-white/10 space-y-2">
-                      {/* Row 1: Primary Actions (Erase/Edit Logo & Download) */}
-                      <div className="flex items-center gap-2">
+                    <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                      {/* Primary Download Action: Full-width premium catalog button (never overflows) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const primary = getBestGenUrl(gen);
+                          const targetUrl = resolveImageUrl(primary);
+                          if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
+                        }}
+                        className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-center py-2 px-3 text-xs font-bold tracking-wide transition-all shadow-md hover:shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/30"
+                        title="Download high-resolution catalog standard image (1807 × 3000 px)"
+                      >
+                        <Download className="h-4 w-4 shrink-0" />
+                        <span>Download 1807 × 3000 px</span>
+                      </button>
+
+                      {/* Secondary Utility Actions (Erase/Edit, Zoom, View, Delete) */}
+                      <div className="flex items-center gap-1.5">
                         {onEditLogo && (
                           <button
                             type="button"
                             onClick={() => onEditLogo(gen)}
-                            className="flex-1 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/40 text-center py-2 px-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                            className="flex-1 min-w-0 rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
                             title="Open in Logo Eraser Studio to erase unwanted AI logos or snap crisp HD vector brand"
                           >
-                            <Eraser className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">Erase / Edit Logo</span>
+                            <Eraser className="h-3 w-3 shrink-0" />
+                            <span className="truncate">Erase/Edit</span>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const primary = getBestGenUrl(gen);
-                            const targetUrl = resolveImageUrl(primary);
-                            if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
-                          }}
-                          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-2.5 text-xs font-bold transition-all shadow-md hover:shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-1.5"
-                          title="Download high-resolution catalog standard image (1807 × 3000 px)"
-                        >
-                          <Download className="h-4 w-4 shrink-0" />
-                          <span>Download (1807×3000)</span>
-                        </button>
-                      </div>
-
-                      {/* Row 2: Secondary Utility Actions (Zoom, View, Delete) */}
-                      <div className="flex items-center justify-between gap-1.5 pt-0.5">
                         {onZoomCrop && (
                           <button
                             type="button"
@@ -2588,7 +2582,7 @@ function MySetsPanel({
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
-                            className={`flex-1 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
                               isLight
                                 ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                                 : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
@@ -2596,7 +2590,7 @@ function MySetsPanel({
                             title="Open interactive Zoom & Macro Crop Studio (1807×3000 px)"
                           >
                             <Maximize2 className="h-3 w-3 text-emerald-400 shrink-0" />
-                            <span>Zoom & Crop</span>
+                            <span className="truncate">Zoom</span>
                           </button>
                         )}
                         <button
@@ -2605,7 +2599,7 @@ function MySetsPanel({
                             const primary = getBestGenUrl(gen);
                             if (primary) safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
                           }}
-                          className={`rounded-lg border p-1.5 text-xs transition cursor-pointer flex items-center justify-center gap-1 ${
+                          className={`rounded-lg border p-1.5 text-xs transition cursor-pointer shrink-0 flex items-center justify-center ${
                             isLight
                               ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                               : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
@@ -2618,8 +2612,8 @@ function MySetsPanel({
                           type="button"
                           onClick={() => void handleDeleteGen(gen.id)}
                           disabled={deletingGenId === gen.id}
-                          className="rounded-lg border border-red-500/20 p-1.5 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition cursor-pointer disabled:opacity-50 flex items-center justify-center"
-                          title="Delete image from My Sets"
+                          className="rounded-lg border border-red-500/20 p-1.5 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center"
+                          title="Delete image from My Sets (moves safely to Admin Recycle Bin)"
                         >
                           {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
                         </button>
@@ -6273,43 +6267,96 @@ export default function Design() {
     return 61;
   });
 
+  // Logo rotation, fabric curvature, and 3D torso perspective states
+  const [hdLogoAngle, setHdLogoAngle] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_chest_logo_angle');
+      if (v) return Number(v);
+    } catch { }
+    return -2.5;
+  });
+  const [hdLogoCurvature, setHdLogoCurvature] = useState<number>(14);
+  const [hdLogoCurveDirection, setHdLogoCurveDirection] = useState<'standard' | 'left' | 'right'>('standard');
+  const [hdLogoPerspective, setHdLogoPerspective] = useState<number>(0.94);
+
+  const [pantLogoAngle, setPantLogoAngle] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('shivnaresh_pant_logo_angle');
+      if (v) return Number(v);
+    } catch { }
+    return -1.0;
+  });
+  const [pantLogoPerspective, setPantLogoPerspective] = useState<number>(0.96);
+
   const autoSaveTriggerRef = useRef<((img?: string, label?: string) => void) | null>(null);
 
   const updateChestScale = (val: number) => {
     setHdLogoScale(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_scale', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
   };
   const updateChestX = (val: number) => {
     setHdLogoX(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_x', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
   };
   const updateChestY = (val: number) => {
     setHdLogoY(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_chest_logo_y', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
+  };
+  const updateChestAngle = (val: number) => {
+    setHdLogoAngle(val);
+    setIsOptionBDirty(true);
+    try { localStorage.setItem('shivnaresh_chest_logo_angle', String(val)); } catch { }
   };
   const updatePantScale = (val: number) => {
     setPantLogoScale(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_scale', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
   };
   const updatePantX = (val: number) => {
     setPantLogoX(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_x', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
   };
   const updatePantY = (val: number) => {
     setPantLogoY(val);
     setIsOptionBDirty(true);
     try { localStorage.setItem('shivnaresh_pant_logo_y', String(val)); } catch { }
-    autoSaveTriggerRef.current?.();
+  };
+  const updatePantAngle = (val: number) => {
+    setPantLogoAngle(val);
+    setIsOptionBDirty(true);
+    try { localStorage.setItem('shivnaresh_pant_logo_angle', String(val)); } catch { }
+  };
+
+  const applyPoseContour = (preset: 'front' | 'angled-left' | 'angled-right') => {
+    setIsOptionBDirty(true);
+    if (preset === 'front') {
+      setHdLogoAngle(-2.5);
+      setHdLogoPerspective(1.0);
+      setHdLogoCurvature(12);
+      setHdLogoCurveDirection('standard');
+      setPantLogoAngle(-1.0);
+      setPantLogoPerspective(1.0);
+    } else if (preset === 'angled-left') {
+      // Model turned towards their left (athlete turned in 3/4 pose like user's photo!)
+      setHdLogoAngle(-7.0);
+      setHdLogoPerspective(0.92);
+      setHdLogoCurvature(18);
+      setHdLogoCurveDirection('left');
+      setPantLogoAngle(-3.0);
+      setPantLogoPerspective(0.94);
+    } else if (preset === 'angled-right') {
+      // Model turned towards their right
+      setHdLogoAngle(+5.5);
+      setHdLogoPerspective(0.92);
+      setHdLogoCurvature(18);
+      setHdLogoCurveDirection('right');
+      setPantLogoAngle(+2.5);
+      setPantLogoPerspective(0.94);
+    }
   };
 
   const [draggingLogo, setDraggingLogo] = useState<'chest' | 'pant' | null>(null);
@@ -7203,17 +7250,34 @@ export default function Design() {
             setShowPantLogo(true);
             autoDetectContrastColor(imgUrl);
             setSelectedPoseIndex(currentIdx);
-            void api.saveUserGeneration({
-              id: next.id,
-              jobId: next.id,
-              type: 'image',
-              url: imgUrl,
-              prompt: prompt.trim() || `${currentItem?.name || 'Studio Render'} (${currentIdx + 1}/${batchCtx.total})`,
-              resolution: quality,
-            }).then((res) => {
-              setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
-              void loadUserGenerations();
-            }).catch(() => { });
+            const saveBatchGen = async () => {
+              const payload = {
+                id: next.id,
+                jobId: next.id,
+                type: 'image' as const,
+                url: imgUrl,
+                prompt: prompt.trim() || `${currentItem?.name || 'Studio Render'} (${currentIdx + 1}/${batchCtx.total})`,
+                resolution: quality,
+              };
+              try {
+                const res = await api.saveUserGeneration(payload);
+                if (res) {
+                  setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+                  void loadUserGenerations();
+                }
+              } catch {
+                try {
+                  const res = await api.saveUserGeneration(payload);
+                  if (res) {
+                    setUserGenerations((prev) => [res, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+                    void loadUserGenerations();
+                  }
+                } catch (saveErr) {
+                  console.warn('[generations] Auto-save failed after retry:', saveErr);
+                }
+              }
+            };
+            void saveBatchGen();
 
             // Find next uncancelled pending item in batch sequence
             let nextItemIdx = -1;
@@ -7373,18 +7437,35 @@ export default function Design() {
             const wasEdit = isEditingRender;
             setIsEditingRender(false);
             sendDesktopNotification('Render Complete', wasEdit ? 'Your edited sportswear render is ready.' : 'Your virtual try-on render is ready.', imgUrl);
-            void api.saveUserGeneration({
-              id: next.id,
-              jobId: next.id,
-              type: 'image',
-              isEdited: wasEdit,
-              url: imgUrl,
-              prompt: wasEdit ? (editPrompt.trim() || 'Studio Sportswear Edit') : (prompt.trim() || (mode === 'swap' ? 'Model Swap' : 'Virtual Try-On')),
-              resolution: quality,
-            }).then((res) => {
-              setUserGenerations((prev) => [{ ...res, isEdited: wasEdit || res.isEdited }, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
-              void loadUserGenerations();
-            }).catch(() => { });
+            const saveSingleGen = async () => {
+              const payload = {
+                id: next.id,
+                jobId: next.id,
+                type: 'image' as const,
+                isEdited: wasEdit,
+                url: imgUrl,
+                prompt: wasEdit ? (editPrompt.trim() || 'Studio Sportswear Edit') : (prompt.trim() || (mode === 'swap' ? 'Model Swap' : 'Virtual Try-On')),
+                resolution: quality,
+              };
+              try {
+                const res = await api.saveUserGeneration(payload);
+                if (res) {
+                  setUserGenerations((prev) => [{ ...res, isEdited: wasEdit || res.isEdited }, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+                  void loadUserGenerations();
+                }
+              } catch {
+                try {
+                  const res = await api.saveUserGeneration(payload);
+                  if (res) {
+                    setUserGenerations((prev) => [{ ...res, isEdited: wasEdit || res.isEdited }, ...prev.filter((g) => g.id !== res.id && g.url !== imgUrl)]);
+                    void loadUserGenerations();
+                  }
+                } catch (saveErr) {
+                  console.warn('[generations] Auto-save failed after retry:', saveErr);
+                }
+              }
+            };
+            void saveSingleGen();
           }
         }
 
@@ -7618,11 +7699,15 @@ export default function Design() {
       logoImg.src = activeCustom;
     } else {
       const cleanColor = color.replace(/[<>"'&]/g, '');
+      const yStart = hdLogoCurveDirection === 'left' ? 188 : hdLogoCurveDirection === 'right' ? 180 : 185;
+      const yMid = 185 - Math.max(0, hdLogoCurvature);
+      const yEnd = hdLogoCurveDirection === 'left' ? 180 : hdLogoCurveDirection === 'right' ? 188 : 185;
+      const emblemRot = hdLogoCurveDirection === 'left' ? -2.5 : hdLogoCurveDirection === 'right' ? +1.5 : -0.8;
       const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
         <defs>
-          <path id="sn-curve-arc" d="M 28,185 Q 180,172 332,185" fill="none" />
+          <path id="sn-curve-arc" d="M 28,${yStart} Q 180,${yMid} 332,${yEnd}" fill="none" />
         </defs>
-        <g transform="translate(14, 15) rotate(-0.8, 180, 60)">
+        <g transform="translate(14, 15) rotate(${emblemRot}, 180, 60)">
           <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
         </g>
         <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="900" letter-spacing="4" fill="${cleanColor}">
@@ -7655,13 +7740,16 @@ export default function Design() {
       const logoH = Math.round((logoW * 210) / 360);
       const centerX = (canvas.width * x) / 100;
       const centerY = (canvas.height * y) / 100;
+      const angleRad = (hdLogoAngle * Math.PI) / 180;
 
       ctx.save();
       ctx.translate(centerX, centerY);
-      ctx.rotate((-2.5 * Math.PI) / 180);
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-      ctx.shadowBlur = Math.max(1, Math.round(logoW * 0.02));
-      ctx.shadowOffsetY = Math.max(1, Math.round(logoW * 0.012));
+      ctx.rotate(angleRad);
+      ctx.scale(hdLogoPerspective, 1.0);
+      ctx.globalAlpha = 0.96;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+      ctx.shadowBlur = Math.max(1, Math.round(logoW * 0.025));
+      ctx.shadowOffsetY = Math.max(1, Math.round(logoW * 0.015));
       ctx.drawImage(logoImg, -logoW / 2, -logoH / 2, logoW, logoH);
       ctx.restore();
     }
@@ -7672,13 +7760,16 @@ export default function Design() {
       const pLogoH = Math.round((pLogoW * 210) / 360);
       const pCenterX = (canvas.width * pX) / 100;
       const pCenterY = (canvas.height * pY) / 100;
+      const pAngleRad = (pantLogoAngle * Math.PI) / 180;
 
       ctx.save();
       ctx.translate(pCenterX, pCenterY);
-      ctx.rotate((-1.0 * Math.PI) / 180);
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-      ctx.shadowBlur = Math.max(1, Math.round(pLogoW * 0.02));
-      ctx.shadowOffsetY = Math.max(1, Math.round(pLogoW * 0.012));
+      ctx.rotate(pAngleRad);
+      ctx.scale(pantLogoPerspective, 1.0);
+      ctx.globalAlpha = 0.96;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+      ctx.shadowBlur = Math.max(1, Math.round(pLogoW * 0.025));
+      ctx.shadowOffsetY = Math.max(1, Math.round(pLogoW * 0.015));
       ctx.drawImage(logoImg, -pLogoW / 2, -pLogoH / 2, pLogoW, pLogoH);
       ctx.restore();
     }
@@ -7984,58 +8075,10 @@ export default function Design() {
   const lastSavedUrlRef = useRef<string>('');
   const currentEditGenIdRef = useRef<string>('');
 
-  const triggerAutoSaveToMySets = useCallback((overrideImg?: string, customLabel?: string) => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        const base = overrideImg || result;
-        if (!base) return;
-
-        let finalImg = base;
-        let promptLabel = customLabel || 'Studio Sportswear Edit';
-
-        if (activeRenderOption === 'b' && (showHdLogoOverlay || showPantLogo)) {
-          const baseToUse = cleanResultBackup || base;
-          finalImg = await stampHdLogoOntoImage(baseToUse);
-          promptLabel = customLabel || `Option B (HD Vector Brand Applied) · ${prompt.trim() || 'Studio Sportswear'}`;
-        } else if (!customLabel) {
-          promptLabel = `Edited & Erased · ${prompt.trim() || 'Clean Fabric Studio'}`;
-        }
-
-        if (lastSavedUrlRef.current === finalImg) return;
-        lastSavedUrlRef.current = finalImg;
-
-        setAutoSaveStatus('Saving…');
-
-        if (!currentEditGenIdRef.current) {
-          currentEditGenIdRef.current = crypto.randomUUID();
-        }
-
-        const savedGen = await api.saveUserGeneration({
-          id: currentEditGenIdRef.current,
-          type: 'image',
-          url: finalImg,
-          isEdited: true,
-          prompt: promptLabel,
-          resolution: quality || '2k',
-        });
-
-        if (savedGen) {
-          setUserGenerations((prev) => [savedGen, ...prev.filter((g) => g.id !== savedGen.id && g.url !== finalImg)]);
-          void loadUserGenerations();
-        }
-
-        setAutoSaveStatus('Auto-saved to My Sets');
-        setTimeout(() => setAutoSaveStatus(''), 3000);
-      } catch (err) {
-        console.warn('[auto-save] Auto-save skipped:', err);
-        setAutoSaveStatus('');
-      }
-    }, 1000);
-  }, [result, activeRenderOption, showHdLogoOverlay, showPantLogo, cleanResultBackup, prompt, quality, loadUserGenerations]);
+  const triggerAutoSaveToMySets = useCallback((_overrideImg?: string, _customLabel?: string) => {
+    // User chooses when to save edited / HD logo images to My Sets via "Save to My Sets" button
+    setIsOptionBDirty(true);
+  }, []);
 
   useEffect(() => {
     autoSaveTriggerRef.current = triggerAutoSaveToMySets;
@@ -11887,9 +11930,10 @@ export default function Design() {
                           position: 'absolute',
                           left: `${hdLogoX}%`,
                           top: `${hdLogoY}%`,
-                          transform: 'translate(-50%, -50%) rotate(-2.5deg)',
-                          filter: 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35))',
+                          transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, 1)`,
+                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${hdLogoScale}px`,
+                          opacity: 0.96,
                           cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
                           touchAction: 'none',
                           zIndex: 20,
@@ -11901,7 +11945,7 @@ export default function Design() {
                         }`}
                         title="Click and drag with mouse to position Chest Logo anywhere"
                       >
-                        <ShivNareshSvgLogo color={hdLogoColor} />
+                        <ShivNareshSvgLogo color={hdLogoColor} curvatureDepth={hdLogoCurvature} curveDirection={hdLogoCurveDirection} />
                         {/* Hover badge indicator */}
                         <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
                           ✥ Drag Chest Logo
@@ -11916,9 +11960,10 @@ export default function Design() {
                           position: 'absolute',
                           left: `${pantLogoX}%`,
                           top: `${pantLogoY}%`,
-                          transform: 'translate(-50%, -50%) rotate(-1deg)',
-                          filter: 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35))',
+                          transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, 1)`,
+                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${pantLogoScale}px`,
+                          opacity: 0.96,
                           cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
                           touchAction: 'none',
                           zIndex: 20,
@@ -11930,7 +11975,7 @@ export default function Design() {
                         }`}
                         title="Click and drag with mouse to position Pant Logo anywhere"
                       >
-                        <ShivNareshSvgLogo color={hdLogoColor} />
+                        <ShivNareshSvgLogo color={hdLogoColor} curvatureDepth={10} curveDirection="standard" />
                         {/* Hover badge indicator */}
                         <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
                           ✥ Drag Pant Logo
@@ -12409,6 +12454,81 @@ export default function Design() {
                         title="Exact Y vertical position in %"
                       />
                     </label>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] opacity-75 font-medium">Tilt °</span>
+                      <input
+                        type="range"
+                        min={-25}
+                        max={25}
+                        step={0.5}
+                        value={activeLogoTarget === 'chest' ? hdLogoAngle : pantLogoAngle}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (activeLogoTarget === 'chest') updateChestAngle(val);
+                          else updatePantAngle(val);
+                        }}
+                        className="w-14 accent-emerald-500 cursor-pointer"
+                        title="Tilt & slant to match athletic shoulder/chest muscle angle"
+                      />
+                      <input
+                        type="number"
+                        min={-25}
+                        max={25}
+                        step={0.5}
+                        value={activeLogoTarget === 'chest' ? hdLogoAngle : pantLogoAngle}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) {
+                            if (activeLogoTarget === 'chest') updateChestAngle(val);
+                            else updatePantAngle(val);
+                          }
+                        }}
+                        className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                        title="Exact Tilt degrees"
+                      />
+                    </label>
+
+                    {/* 3D Model Pose Presets */}
+                    <div className="flex items-center gap-1 bg-black/30 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                      <span className="text-[9px] font-bold text-emerald-400 uppercase">Pose Curve:</span>
+                      <button
+                        type="button"
+                        onClick={() => applyPoseContour('front')}
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
+                          hdLogoCurveDirection === 'standard' && Math.abs(hdLogoAngle) <= 3
+                            ? 'bg-emerald-500 text-white font-bold'
+                            : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                        title="Front facing stance"
+                      >
+                        🧍 Front
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPoseContour('angled-left')}
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
+                          hdLogoCurveDirection === 'left'
+                            ? 'bg-emerald-500 text-white font-bold'
+                            : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                        title="3/4 Turn Left stance (Matches angled photoshoot model)"
+                      >
+                        🏃 3/4 Turn Left
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPoseContour('angled-right')}
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
+                          hdLogoCurveDirection === 'right'
+                            ? 'bg-emerald-500 text-white font-bold'
+                            : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                        title="3/4 Turn Right stance"
+                      >
+                        🚶 3/4 Turn Right
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       disabled={busy}
@@ -12417,7 +12537,7 @@ export default function Design() {
                       title="Permanently burn the vector-sharp official logos into the image file and save to My Sets"
                     >
                       <Bookmark className="w-3 h-3" />
-                      <span>{busy ? 'Saving…' : '💾 Burn & Save to My Sets'}</span>
+                      <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
                     </button>
                     {cleanResultBackup && (
                       <button
