@@ -7,6 +7,7 @@ import {
   Clock,
   Columns,
   Download,
+  Eraser,
   ExternalLink,
   FileArchive,
   Film,
@@ -27,6 +28,7 @@ import {
   Sliders,
   Sparkles,
   Trash2,
+  Undo2,
   Unlock,
   Upload,
   User as UserIcon,
@@ -6247,6 +6249,70 @@ export default function Design() {
     window.addEventListener('touchmove', handleMove, { passive: false });
     window.addEventListener('touchend', handleEnd);
   };
+
+  /* Area-Selective AI Logo Eraser State & Handlers */
+  const [isEraseMode, setIsEraseMode] = useState(false);
+  const [eraseBox, setEraseBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
+  const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
+  const [isErasing, setIsErasing] = useState(false);
+
+  const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isEraseMode || !previewContainerRef.current) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+
+    const rect = previewContainerRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const startClientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const startClientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const startX = Math.max(0, Math.min(100, ((startClientX - rect.left) / rect.width) * 100));
+    const startY = Math.max(0, Math.min(100, ((startClientY - rect.top) / rect.height) * 100));
+
+    setIsDrawingEraseBox(true);
+    setEraseBox({ x: startX, y: startY, width: 0, height: 0 });
+
+    const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
+      if (!previewContainerRef.current) return;
+      const curRect = previewContainerRef.current.getBoundingClientRect();
+      const clientX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
+      const clientY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
+
+      const currX = Math.max(0, Math.min(100, ((clientX - curRect.left) / curRect.width) * 100));
+      const currY = Math.max(0, Math.min(100, ((clientY - curRect.top) / curRect.height) * 100));
+
+      const boxX = Math.min(startX, currX);
+      const boxY = Math.min(startY, currY);
+      const boxW = Math.abs(currX - startX);
+      const boxH = Math.abs(currY - startY);
+
+      setEraseBox({
+        x: Math.round(boxX * 10) / 10,
+        y: Math.round(boxY * 10) / 10,
+        width: Math.round(boxW * 10) / 10,
+        height: Math.round(boxH * 10) / 10,
+      });
+    };
+
+    const handleEnd = () => {
+      setIsDrawingEraseBox(false);
+      setEraseBox((prev) => {
+        if (!prev || prev.width < 1.5 || prev.height < 1.5) return null;
+        return prev;
+      });
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  };
   const [showTierLockModal, setShowTierLockModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -7437,6 +7503,230 @@ export default function Design() {
 
     return canvas.toDataURL('image/png');
   }
+
+  /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact using boundary Coons patch + micro-grain */
+  async function inpaintEraseArea(
+    baseImgUrl: string,
+    box: { x: number; y: number; width: number; height: number }
+  ): Promise<string> {
+    const resolvedUrl = resolveImageUrl(baseImgUrl);
+    const img = new Image();
+    try {
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error('Image load failed'));
+        img.src = resolvedUrl;
+      });
+    } catch {
+      try {
+        const resp = await fetch(resolvedUrl);
+        const blob = await resp.blob();
+        const bUrl = URL.createObjectURL(blob);
+        img.removeAttribute('crossorigin');
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res();
+          img.onerror = () => rej(new Error('Blob image load failed'));
+          img.src = bUrl;
+        });
+        setTimeout(() => URL.revokeObjectURL(bUrl), 3000);
+      } catch {
+        img.removeAttribute('crossorigin');
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res();
+          img.onerror = () => rej(new Error('Fallback direct image load failed'));
+          img.src = resolvedUrl;
+        });
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || 1024;
+    canvas.height = img.naturalHeight || 1024;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Could not get 2d canvas context');
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Convert percentage coordinates to canvas coordinates
+    const bx = Math.max(0, Math.min(canvas.width - 2, Math.round((box.x / 100) * canvas.width)));
+    const by = Math.max(0, Math.min(canvas.height - 2, Math.round((box.y / 100) * canvas.height)));
+    const bw = Math.max(2, Math.min(canvas.width - bx, Math.round((box.width / 100) * canvas.width)));
+    const bh = Math.max(2, Math.min(canvas.height - by, Math.round((box.height / 100) * canvas.height)));
+
+    const band = Math.max(3, Math.min(18, Math.round(Math.min(bw, bh) * 0.15)));
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    const w = canvas.width;
+    const h = canvas.height;
+
+    const getPixel = (px: number, py: number) => {
+      const cx = Math.max(0, Math.min(w - 1, px));
+      const cy = Math.max(0, Math.min(h - 1, py));
+      const idx = (cy * w + cx) * 4;
+      return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+    };
+
+    // Pre-sample top & bottom boundaries
+    const topSamples: number[][] = [];
+    const bottomSamples: number[][] = [];
+    for (let col = 0; col < bw; col++) {
+      const px = bx + col;
+      let rSumT = 0, gSumT = 0, bSumT = 0, cntT = 0;
+      for (let d = 1; d <= band; d++) {
+        const p = getPixel(px, by - d);
+        rSumT += p[0]; gSumT += p[1]; bSumT += p[2]; cntT++;
+      }
+      topSamples.push([rSumT / cntT, gSumT / cntT, bSumT / cntT]);
+
+      let rSumB = 0, gSumB = 0, bSumB = 0, cntB = 0;
+      for (let d = 1; d <= band; d++) {
+        const p = getPixel(px, by + bh + d - 1);
+        rSumB += p[0]; gSumB += p[1]; bSumB += p[2]; cntB++;
+      }
+      bottomSamples.push([rSumB / cntB, gSumB / cntB, bSumB / cntB]);
+    }
+
+    // Pre-sample left & right boundaries
+    const leftSamples: number[][] = [];
+    const rightSamples: number[][] = [];
+    for (let row = 0; row < bh; row++) {
+      const py = by + row;
+      let rSumL = 0, gSumL = 0, bSumL = 0, cntL = 0;
+      for (let d = 1; d <= band; d++) {
+        const p = getPixel(bx - d, py);
+        rSumL += p[0]; gSumL += p[1]; bSumL += p[2]; cntL++;
+      }
+      leftSamples.push([rSumL / cntL, gSumL / cntL, bSumL / cntL]);
+
+      let rSumR = 0, gSumR = 0, bSumR = 0, cntR = 0;
+      for (let d = 1; d <= band; d++) {
+        const p = getPixel(bx + bw + d - 1, py);
+        rSumR += p[0]; gSumR += p[1]; bSumR += p[2]; cntR++;
+      }
+      rightSamples.push([rSumR / cntR, gSumR / cntR, bSumR / cntR]);
+    }
+
+    const tl = topSamples[0];
+    const tr = topSamples[bw - 1];
+    const bl = bottomSamples[0];
+    const br = bottomSamples[bw - 1];
+
+    let varSum = 0;
+    for (let i = 0; i < bw; i++) {
+      varSum += Math.abs(topSamples[i][0] - tl[0]) + Math.abs(topSamples[i][1] - tl[1]) + Math.abs(topSamples[i][2] - tl[2]);
+    }
+    const noiseAmp = Math.max(1.5, Math.min(8.0, varSum / (bw * 3)));
+    const feather = Math.max(2, Math.min(6, Math.round(Math.min(bw, bh) * 0.08)));
+
+    for (let row = 0; row < bh; row++) {
+      const v = bh > 1 ? row / (bh - 1) : 0.5;
+      const lColor = leftSamples[row];
+      const rColor = rightSamples[row];
+
+      for (let col = 0; col < bw; col++) {
+        const u = bw > 1 ? col / (bw - 1) : 0.5;
+        const tColor = topSamples[col];
+        const bColor = bottomSamples[col];
+
+        const vertR = (1 - v) * tColor[0] + v * bColor[0];
+        const vertG = (1 - v) * tColor[1] + v * bColor[1];
+        const vertB = (1 - v) * tColor[2] + v * bColor[2];
+
+        const horizR = (1 - u) * lColor[0] + u * rColor[0];
+        const horizG = (1 - u) * lColor[1] + u * rColor[1];
+        const horizB = (1 - u) * lColor[2] + u * rColor[2];
+
+        const cornerR = (1 - u) * (1 - v) * tl[0] + u * (1 - v) * tr[0] + (1 - u) * v * bl[0] + u * v * br[0];
+        const cornerG = (1 - u) * (1 - v) * tl[1] + u * (1 - v) * tr[1] + (1 - u) * v * bl[1] + u * v * br[1];
+        const cornerB = (1 - u) * (1 - v) * tl[2] + u * (1 - v) * tr[2] + (1 - u) * v * bl[2] + u * v * br[2];
+
+        let r = vertR + horizR - cornerR;
+        let g = vertG + horizG - cornerG;
+        let b = vertB + horizB - cornerB;
+
+        // Micro-weave grain
+        const grain = (Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1;
+        const noise = (grain - 0.5) * noiseAmp;
+        r += noise;
+        g += noise;
+        b += noise;
+
+        // Smooth cosine edge feathering
+        const distToEdge = Math.min(col, bw - 1 - col, row, bh - 1 - row);
+        if (distToEdge < feather) {
+          const t = distToEdge / feather;
+          const orig = getPixel(bx + col, by + row);
+          r = orig[0] * (1 - t) + r * t;
+          g = orig[1] * (1 - t) + g * t;
+          b = orig[2] * (1 - t) + b * t;
+        }
+
+        const pixelIdx = ((by + row) * w + (bx + col)) * 4;
+        data[pixelIdx] = Math.max(0, Math.min(255, Math.round(r)));
+        data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(g)));
+        data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        data[pixelIdx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL('image/png');
+  }
+
+  const handleExecuteErase = async (snapVector = false) => {
+    if (!eraseBox || !result) return;
+    try {
+      setIsErasing(true);
+      const currentImg = result;
+      const inpainted = await inpaintEraseArea(currentImg, eraseBox);
+
+      // Save to undo stack (max 5)
+      setEraseUndoStack((prev) => [currentImg, ...prev.slice(0, 4)]);
+      setResult(inpainted);
+      setCleanResultBackup(inpainted);
+      setFivePoseItems((prev) =>
+        prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: inpainted } : p))
+      );
+
+      if (snapVector) {
+        const centerX = Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
+        const centerY = Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
+
+        if (centerY > 50 || activeLogoTarget === 'pant') {
+          updatePantX(centerX);
+          updatePantY(centerY);
+          setShowPantLogo(true);
+          setActiveLogoTarget('pant');
+        } else {
+          updateChestX(centerX);
+          updateChestY(centerY);
+          setShowHdLogoOverlay(true);
+          setActiveLogoTarget('chest');
+        }
+        setActiveRenderOption('b');
+        setIsOptionBDirty(true);
+      }
+
+      setEraseBox(null);
+      setIsEraseMode(false);
+    } catch (err: any) {
+      alert('Erase failed: ' + (err?.message || err));
+    } finally {
+      setIsErasing(false);
+    }
+  };
+
+  const handleUndoErase = () => {
+    if (eraseUndoStack.length === 0) return;
+    const [previous, ...rest] = eraseUndoStack;
+    setEraseUndoStack(rest);
+    setResult(previous);
+    setCleanResultBackup(previous);
+    setFivePoseItems((prev) =>
+      prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: previous } : p))
+    );
+  };
 
 
 
@@ -10693,7 +10983,11 @@ export default function Design() {
               {/* Main Result Canvas Preview Area */}
               <div
                 ref={previewContainerRef}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none"
+                onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
+                onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
+                className={`relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none ${
+                  isEraseMode ? 'cursor-crosshair' : ''
+                }`}
               >
                 {result ? (
                   <>
@@ -10704,8 +10998,88 @@ export default function Design() {
                       className="h-full w-full object-contain select-none"
                     />
 
+                    {/* Active Erase Mode Helper Pill at top of canvas */}
+                    {isEraseMode && (
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500 text-black text-[11px] font-bold shadow-lg pointer-events-none select-none">
+                        <Eraser className="w-3.5 h-3.5" />
+                        <span>{eraseBox ? 'Adjust box or choose an action below' : 'Drag a box over the unwanted logo on the image'}</span>
+                      </div>
+                    )}
+
+                    {/* Selection Bounding Box */}
+                    {eraseBox && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${eraseBox.x}%`,
+                          top: `${eraseBox.y}%`,
+                          width: `${eraseBox.width}%`,
+                          height: `${eraseBox.height}%`,
+                          zIndex: 30,
+                        }}
+                        className="border-2 border-dashed border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.3)] pointer-events-none"
+                      >
+                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-amber-400 rounded-full" />
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
+                        <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-amber-400 rounded-full" />
+                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
+                      </div>
+                    )}
+
+                    {/* Floating Action Menu for Erase Box */}
+                    {eraseBox && !isDrawingEraseBox && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${Math.max(12, Math.min(88, eraseBox.x + eraseBox.width / 2))}%`,
+                          top: `${Math.min(92, Math.max(8, eraseBox.y + eraseBox.height + 3))}%`,
+                          transform: 'translateX(-50%)',
+                          zIndex: 40,
+                        }}
+                        className="flex items-center gap-1.5 p-1.5 rounded-lg bg-black/90 backdrop-blur-md border border-amber-400/50 shadow-2xl pointer-events-auto"
+                      >
+                        <button
+                          type="button"
+                          disabled={isErasing}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExecuteErase(false);
+                          }}
+                          className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          title="Seamlessly erase unwanted AI logo / text with matching fabric texture"
+                        >
+                          <Eraser className="w-3 h-3" />
+                          <span>{isErasing ? 'Erasing…' : 'Erase Logo'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isErasing}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExecuteErase(true);
+                          }}
+                          className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          title="Erase unwanted AI logo and immediately place crisp HD vector logo in this exact spot"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-300" />
+                          <span>Erase & Snap HD Vector</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEraseBox(null);
+                          }}
+                          className="p-1 rounded hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
+                          title="Cancel selection"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
                     {/* Live HD Logo Overlays (Chest & Pant) for Option B Preview with Direct Mouse & Touch Drag */}
-                    {activeRenderOption === 'b' && showHdLogoOverlay && (
+                    {activeRenderOption === 'b' && showHdLogoOverlay && !isEraseMode && (
                       <div
                         onMouseDown={(e) => handleStartDragLogo(e, 'chest')}
                         onTouchStart={(e) => handleStartDragLogo(e, 'chest')}
@@ -10733,7 +11107,7 @@ export default function Design() {
                         </div>
                       </div>
                     )}
-                    {activeRenderOption === 'b' && showPantLogo && (
+                    {activeRenderOption === 'b' && showPantLogo && !isEraseMode && (
                       <div
                         onMouseDown={(e) => handleStartDragLogo(e, 'pant')}
                         onTouchStart={(e) => handleStartDragLogo(e, 'pant')}
@@ -10853,6 +11227,43 @@ export default function Design() {
                       <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Zoom Studio</span>
                     </button>
+
+                    {/* Erase Logo Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEraseMode((prev) => !prev);
+                        setEraseBox(null);
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                        isEraseMode
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-xs'
+                          : isLight
+                          ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
+                          : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      }`}
+                      title="Select any unwanted AI logo or defect on the garment to erase it cleanly"
+                    >
+                      <Eraser className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isEraseMode ? 'Exit Erase' : 'Erase Logo'}</span>
+                    </button>
+
+                    {/* Undo Erase Button */}
+                    {eraseUndoStack.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleUndoErase}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                          isLight
+                            ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
+                            : 'border-white/20 text-sky-400 hover:text-sky-300 hover:border-sky-400/50'
+                        }`}
+                        title="Undo last logo erasure"
+                      >
+                        <Undo2 className="w-3 h-3" />
+                        <span>Undo Erase</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
