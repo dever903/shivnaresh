@@ -1113,7 +1113,12 @@ export async function scaleToEcommerceCatalog(
     ctx.fillRect(0, 0, targetW, targetH);
 
     // Center and scale proportionally to fit 1807x3000
-    const scale = Math.max(targetW / w, targetH / h);
+    // If the image is close to catalog portrait aspect ratio (within 15%), scale to cover seamlessly.
+    // If wider/square, use contain so the model's entire body, limbs, and garments are never chopped off.
+    const imgAspect = w / h;
+    const targetAspect = targetW / targetH; // 1807 / 3000 = ~0.6023
+    const isPortraitClose = Math.abs(imgAspect - targetAspect) / targetAspect < 0.15;
+    const scale = isPortraitClose ? Math.max(targetW / w, targetH / h) : Math.min(targetW / w, targetH / h);
     const renderW = Math.round(w * scale);
     const renderH = Math.round(h * scale);
     const offsetX = Math.round((targetW - renderW) / 2);

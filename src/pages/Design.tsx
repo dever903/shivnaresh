@@ -973,41 +973,10 @@ function ZoomCropDownloadModal({
 
   const handleExportCrop = async () => {
     const activeImg = resolveImageUrl(currentImage || imageUrl);
-    if (!activeImg || !imgRef.current || !viewportRef.current) return;
+    if (!activeImg || !viewportRef.current) return;
     setIsExporting(true);
     try {
-      const img = imgRef.current;
-      const viewport = viewportRef.current;
-      const vRect = viewport.getBoundingClientRect();
-      const V_w = vRect.width;
-      const V_h = vRect.height;
-      const I_w = img.naturalWidth || img.width;
-      const I_h = img.naturalHeight || img.height;
-
-      // Base scale that fits image inside viewport preserving aspect ratio
-      const baseScale = Math.min(V_w / I_w, V_h / I_h);
-      const unscaledW = I_w * baseScale;
-      const unscaledH = I_h * baseScale;
-
-      // Exact on-screen rendered size & position with pan and zoom
-      const screenW = unscaledW * zoom;
-      const screenH = unscaledH * zoom;
-      const screenX = (V_w / 2 + pan.x) - screenW / 2;
-      const screenY = (V_h / 2 + pan.y) - screenH / 2;
-
-      // Target high-resolution canvas (1807x3000)
-      const canvasW = 1807;
-      const canvasH = 3000;
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasW;
-      canvas.height = canvasH;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2D context not available');
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
-      // Load image for canvas export with robust CORS & Blob fallback
+      // Load source image first to obtain its TRUE full intrinsic dimensions
       const tempImg = new Image();
       try {
         tempImg.crossOrigin = 'anonymous';
@@ -1038,6 +1007,36 @@ function ZoomCropDownloadModal({
         }
       }
 
+      const viewport = viewportRef.current;
+      const vRect = viewport.getBoundingClientRect();
+      const V_w = vRect.width;
+      const V_h = vRect.height;
+      const realW = tempImg.naturalWidth || imgRef.current?.naturalWidth || imgRef.current?.width || 1807;
+      const realH = tempImg.naturalHeight || imgRef.current?.naturalHeight || imgRef.current?.height || 3000;
+
+      // Base scale that fits image inside viewport preserving aspect ratio (contains full vertical portrait)
+      const baseScale = Math.min(V_w / realW, V_h / realH);
+      const unscaledW = realW * baseScale;
+      const unscaledH = realH * baseScale;
+
+      // Exact on-screen rendered size & position with pan and zoom
+      const screenW = unscaledW * zoom;
+      const screenH = unscaledH * zoom;
+      const screenX = (V_w / 2 + pan.x) - screenW / 2;
+      const screenY = (V_h / 2 + pan.y) - screenH / 2;
+
+      // Target high-resolution catalog canvas (1807x3000)
+      const canvasW = 1807;
+      const canvasH = 3000;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context not available');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       // Sample image background corner color to seamlessly fill any margins without harsh borders
       try {
         const bgCanvas = document.createElement('canvas');
@@ -1056,19 +1055,20 @@ function ZoomCropDownloadModal({
       }
       ctx.fillRect(0, 0, canvasW, canvasH);
 
-      // Uniform projection from viewport to high-res canvas (strictly preserves natural aspect ratio)
+      // Uniform projection from viewport to high-res canvas (strictly preserves natural aspect ratio and full framing)
       const projScale = canvasW / V_w;
       const destW = screenW * projScale;
       const destH = screenH * projScale;
       const destX = screenX * projScale;
       const destY = screenY * projScale;
 
+      // Draw the full tempImg (0, 0, realW, realH) to prevent any inadvertent top-left clipping
       ctx.drawImage(
         tempImg,
         0,
         0,
-        I_w,
-        I_h,
+        realW,
+        realH,
         destX,
         destY,
         destW,
@@ -1097,39 +1097,9 @@ function ZoomCropDownloadModal({
 
   const handleApplyCropForGeneration = async () => {
     const activeImg = resolveImageUrl(currentImage || imageUrl);
-    if (!activeImg || !imgRef.current || !viewportRef.current || !onUseCrop) return;
+    if (!activeImg || !viewportRef.current || !onUseCrop) return;
     setIsExporting(true);
     try {
-      const img = imgRef.current;
-      const viewport = viewportRef.current;
-      const vRect = viewport.getBoundingClientRect();
-      const V_w = vRect.width;
-      const V_h = vRect.height;
-      const I_w = img.naturalWidth || img.width;
-      const I_h = img.naturalHeight || img.height;
-
-      const baseScale = Math.min(V_w / I_w, V_h / I_h);
-      const unscaledW = I_w * baseScale;
-      const unscaledH = I_h * baseScale;
-
-      const screenW = unscaledW * zoom;
-      const screenH = unscaledH * zoom;
-      const screenX = (V_w / 2 + pan.x) - screenW / 2;
-      const screenY = (V_h / 2 + pan.y) - screenH / 2;
-
-      const targetW = 1024;
-      const targetH = Math.round((1024 * V_h) / V_w);
-      const canvas = document.createElement('canvas');
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2D context not available');
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, targetW, targetH);
-
       const tempImg = new Image();
       try {
         tempImg.crossOrigin = 'anonymous';
@@ -1160,6 +1130,35 @@ function ZoomCropDownloadModal({
         }
       }
 
+      const viewport = viewportRef.current;
+      const vRect = viewport.getBoundingClientRect();
+      const V_w = vRect.width;
+      const V_h = vRect.height;
+      const realW = tempImg.naturalWidth || imgRef.current?.naturalWidth || imgRef.current?.width || 1024;
+      const realH = tempImg.naturalHeight || imgRef.current?.naturalHeight || imgRef.current?.height || 1700;
+
+      const baseScale = Math.min(V_w / realW, V_h / realH);
+      const unscaledW = realW * baseScale;
+      const unscaledH = realH * baseScale;
+
+      const screenW = unscaledW * zoom;
+      const screenH = unscaledH * zoom;
+      const screenX = (V_w / 2 + pan.x) - screenW / 2;
+      const screenY = (V_h / 2 + pan.y) - screenH / 2;
+
+      const targetW = 1024;
+      const targetH = Math.round((1024 * V_h) / V_w);
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context not available');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, targetW, targetH);
+
       // Sample image background corner color
       try {
         const bgCanvas = document.createElement('canvas');
@@ -1184,8 +1183,8 @@ function ZoomCropDownloadModal({
         tempImg,
         0,
         0,
-        I_w,
-        I_h,
+        realW,
+        realH,
         destX,
         destY,
         destW,
@@ -8043,11 +8042,11 @@ export default function Design() {
     // Get displayed width of preview image on screen to calculate exact 1:1 physical scale
     const dispRect = getImageElementRect();
     const imgElem = document.getElementById('rendered-main-img') as HTMLImageElement | null;
-    const dispW = dispRect?.width || imgElem?.clientWidth || 380;
+    const dispW = Math.max(260, dispRect?.width || imgElem?.clientWidth || 380);
 
     // Direct proportional scale matching on-screen preview 1:1 (supports ultra-small minimum logos)
-    const chestRatio = Math.max(0.005, Math.min(0.60, scale / (dispW || 380)));
-    const pantRatio = Math.max(0.005, Math.min(0.60, pScale / (dispW || 380)));
+    const chestRatio = Math.max(0.005, Math.min(0.60, scale / dispW));
+    const pantRatio = Math.max(0.005, Math.min(0.60, pScale / dispW));
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
@@ -13041,7 +13040,7 @@ export default function Design() {
                         if (!targetUrl) return;
                         if (activeRenderOption === 'b' && (showHdLogoOverlay || showPantLogo)) {
                           try {
-                            targetUrl = await stampHdLogoOntoImage(baseToUse || result);
+                            targetUrl = await stampHdLogoOntoImage(baseToUse || result, { targetWidth: 1807, targetHeight: 3000 });
                           } catch {}
                         }
                         setZoomCropImage(resolveImageUrl(targetUrl));
