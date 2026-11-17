@@ -1926,7 +1926,7 @@ export function getBestGenUrl(g: UserGeneration): string {
     .filter(Boolean)
     .find((u) => typeof u === 'string' && !u.includes('ibb.co') && !u.includes('imgbb.com'));
   if (clean) return clean;
-  return g.url || g.highResUrl || g.remoteUrl || (g.id && g.id.length > 5 && !g.id.startsWith('agent_') ? `/generated/${g.id}-0.png` : '');
+  return g.url || g.highResUrl || g.remoteUrl || '';
 }
 
 function MySetsPanel({
@@ -2524,21 +2524,18 @@ function MySetsPanel({
                             <img
                               src={resolveImageUrl(primary)}
                               alt=""
+                              loading="lazy"
                               className="h-full w-full object-cover"
                               onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
                               onError={(e) => {
                                 const el = e.currentTarget;
-                                if (gen.id && gen.id.length > 5 && !gen.id.startsWith('agent_') && !el.src.includes(`/generated/${gen.id}-0.png`)) {
-                                  el.src = resolveImageUrl(`/generated/${gen.id}-0.png`);
-                                } else {
-                                  el.style.display = 'none';
-                                  const parent = el.parentElement;
-                                  if (parent && !parent.querySelector('.broken-img-placeholder')) {
-                                    const ph = document.createElement('div');
-                                    ph.className = 'broken-img-placeholder absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-900/90 text-zinc-400 select-none';
-                                    ph.innerHTML = '<span class="text-3xl mb-1">🖼️</span><span class="text-xs font-semibold text-zinc-200">Image Expired or Incomplete</span><span class="text-[10px] text-zinc-400 mt-1">Click trash icon below to move to Recycle Bin</span>';
-                                    parent.appendChild(ph);
-                                  }
+                                el.style.display = 'none';
+                                const parent = el.parentElement;
+                                if (parent && !parent.querySelector('.broken-img-placeholder')) {
+                                  const ph = document.createElement('div');
+                                  ph.className = 'broken-img-placeholder absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-900/90 text-zinc-400 select-none';
+                                  ph.innerHTML = '<span class="text-3xl mb-1">🖼️</span><span class="text-xs font-semibold text-zinc-200">Image Expired or Incomplete</span><span class="text-[10px] text-zinc-400 mt-1">Click trash icon below to move to Recycle Bin</span>';
+                                  parent.appendChild(ph);
                                 }
                               }}
                             />
@@ -6167,7 +6164,9 @@ export default function Design() {
       const cached = localStorage.getItem('cached_studio_models');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((g) => Boolean(getBestGenUrl(g)));
+        }
       }
     } catch { }
     return [];
@@ -6178,7 +6177,9 @@ export default function Design() {
       const cached = localStorage.getItem('cached_upload_sets');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((g) => Boolean(getBestGenUrl(g)));
+        }
       }
     } catch { }
     return [];
@@ -6189,7 +6190,9 @@ export default function Design() {
       const cached = localStorage.getItem('cached_user_generations');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((g) => Boolean(getBestGenUrl(g)));
+        }
       }
     } catch { }
     return [];
@@ -7146,11 +7149,11 @@ export default function Design() {
     setLoadingGenerations(true);
     try {
       const res = await api.userGenerations();
-      const items = res.items || [];
+      const items = (res.items || []).filter((g) => Boolean(getBestGenUrl(g)));
       setUserGenerations((prev) => {
         const itemIds = new Set(items.map((it) => it.id));
         const recentOptimistic = prev.filter(
-          (p) => !itemIds.has(p.id) && !p.deleted && !p.isDeleted && Date.now() - (p.createdAt || 0) < 60000
+          (p) => !itemIds.has(p.id) && !p.deleted && !p.isDeleted && Date.now() - (p.createdAt || 0) < 60000 && Boolean(getBestGenUrl(p))
         );
         return [...recentOptimistic, ...items];
       });
@@ -7850,7 +7853,7 @@ export default function Design() {
     baseImgUrl: string,
     box: { x: number; y: number; width: number; height: number },
     mode: 'erase_logo' | 'repair_seam' = 'erase_logo'
-  ): Promise<string> {
+  ): Promise<{ url: string; detected?: { x: number; y: number; scale: number } }> {
     const resolvedUrl = resolveImageUrl(baseImgUrl);
 
     // Always convert to data URL first — remote URLs cause canvas CORS taint on getImageData()
@@ -7941,7 +7944,7 @@ export default function Design() {
       allBorderSamples.push(avgR);
     }
 
-    if (allBorderSamples.length === 0) return canvas.toDataURL('image/png');
+    if (allBorderSamples.length === 0) return { url: canvas.toDataURL('image/png') };
 
     // 1. Dominant background fabric color estimation using channel medians
     const sortedR = allBorderSamples.map((p) => p[0]).sort((a, b) => a - b);
@@ -8067,6 +8070,8 @@ export default function Design() {
     const topLums = topBorder.map(getBorderLum);
     const botLums = botBorder.map(getBorderLum);
 
+    let detectedSpec: { x: number; y: number; scale: number } | undefined;
+
     if (mode === 'repair_seam') {
       // 4A. REPAIR SEAM MODE: Reconnect and restore vertical crease line through a blurred gap
       for (let r = 0; r < bh; r++) {
@@ -8088,7 +8093,12 @@ export default function Design() {
       }
     } else {
       // 4B. ERASE LOGO MODE: Selectively erase ONLY contrasting logo ink with seamless fabric feathering
-      const inkThreshold = Math.max(14, medDist * 1.5);
+      const inkThreshold = Math.max(12, medDist * 1.4);
+      let minInkX = bw;
+      let maxInkX = 0;
+      let minInkY = bh;
+      let maxInkY = 0;
+      let inkPixelCount = 0;
 
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
@@ -8106,41 +8116,52 @@ export default function Design() {
           const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
           const falloff = getBoxFalloff(c, r);
 
-          let eraseWeight = 0;
-          if (isSeamProtect) {
-            if (colorDist > inkThreshold) {
-              eraseWeight = Math.min(1.0, (colorDist - inkThreshold) / 10.0) * falloff;
+          if (colorDist > inkThreshold) {
+            minInkX = Math.min(minInkX, c);
+            maxInkX = Math.max(maxInkX, c);
+            minInkY = Math.min(minInkY, r);
+            maxInkY = Math.max(maxInkY, r);
+            inkPixelCount++;
+
+            const eraseWeight = Math.min(1.0, ((colorDist - inkThreshold) / 8.0)) * falloff;
+            if (eraseWeight > 0.005) {
+              const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
+              const noise = (grain - 0.5) * noiseAmp;
+
+              const finalR = Math.max(0, Math.min(255, synthR + noise));
+              const finalG = Math.max(0, Math.min(255, synthG + noise));
+              const finalB = Math.max(0, Math.min(255, synthB + noise));
+
+              data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
+              data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
+              data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * finalB);
+              data[pixelIdx + 3] = 255;
             }
-          } else {
-            eraseWeight = falloff;
           }
-
-          if (eraseWeight <= 0.005) {
-            // Pixel matches garment fabric / seam: keep original pixel 100% untouched!
-            continue;
-          }
-
-          const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
-          const noise = (grain - 0.5) * noiseAmp;
-
-          const finalR = Math.max(0, Math.min(255, synthR + noise));
-          const finalG = Math.max(0, Math.min(255, synthG + noise));
-          const finalB = Math.max(0, Math.min(255, synthB + noise));
-
-          data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
-          data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
-          data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * finalB);
-          data[pixelIdx + 3] = 255;
+          // If colorDist <= inkThreshold: pixel is clean garment fabric/crease: keep it 100% untouched!
         }
+      }
+
+      if (inkPixelCount >= 8 && maxInkX >= minInkX && maxInkY >= minInkY) {
+        const inkCanvasW = maxInkX - minInkX + 1;
+        const inkCanvasMidX = bx + minInkX + inkCanvasW / 2;
+        const inkCanvasMidY = by + minInkY + (maxInkY - minInkY + 1) / 2;
+        const dispRect = getImageElementRect();
+        const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
+        const detectedScale = Math.max(14, Math.min(75, Math.round((inkCanvasW / canvas.width) * dispW * 1.15)));
+        const detectedX = Math.round(((inkCanvasMidX / canvas.width) * 100) * 10) / 10;
+        const detectedY = Math.round(((inkCanvasMidY / canvas.height) * 100) * 10) / 10;
+        detectedSpec = { x: detectedX, y: detectedY, scale: detectedScale };
       }
     }
 
     ctx.putImageData(imgData, 0, 0);
+    let outUrl = canvas.toDataURL('image/png');
     try {
       const webp = canvas.toDataURL('image/webp', 0.98);
-      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
+      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) outUrl = webp;
     } catch {}
-    return canvas.toDataURL('image/png');
+    return { url: outUrl, detected: detectedSpec };
   }
 
   const handleExecuteErase = async (snapVector = false, isSeamRepair = false) => {
@@ -8148,7 +8169,7 @@ export default function Design() {
     try {
       setIsErasing(true);
       const currentImg = result;
-      const inpainted = await inpaintEraseArea(
+      const { url: inpainted, detected } = await inpaintEraseArea(
         currentImg,
         eraseBox,
         isSeamRepair ? 'repair_seam' : 'erase_logo'
@@ -8164,9 +8185,9 @@ export default function Design() {
 
       const dispRect = getImageElementRect();
       const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
-      const autoScale = Math.max(14, Math.min(80, Math.round((dispW * eraseBox.width) / 100)));
-      const centerX = Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
-      const centerY = Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
+      const autoScale = detected?.scale || Math.max(14, Math.min(80, Math.round((dispW * eraseBox.width) / 100)));
+      const centerX = detected?.x ?? Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
+      const centerY = detected?.y ?? Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
       const isPant = centerY > 50 || activeLogoTarget === 'pant';
       const target = isPant ? 'pant' : 'chest';
 

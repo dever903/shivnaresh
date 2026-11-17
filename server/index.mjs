@@ -52,8 +52,10 @@ const FASHN = 'https://api.fashn.ai/v1';
 const IMGBB = 'https://api.imgbb.com/1/upload';
 const PORT = Number(process.env.PORT || 8787);
 
+const PROXY_CACHE_DIR = path.join(DATA, 'cache', 'proxy');
 await fs.mkdir(UPLOADS, { recursive: true });
 await fs.mkdir(GENERATED, { recursive: true });
+await fs.mkdir(PROXY_CACHE_DIR, { recursive: true });
 
 /* Process-level crash loggers: ensure fatal errors are recorded for Admin diagnostics */
 process.on('uncaughtException', (err) => {
@@ -78,7 +80,7 @@ process.on('uncaughtException', (err) => {
       resolved: false,
     });
     fsSync.writeFileSync(SYSTEM_LOGS_FILE, JSON.stringify(logs.slice(0, 500), null, 2));
-  } catch {}
+  } catch { }
 });
 
 process.on('unhandledRejection', (reason) => {
@@ -103,12 +105,12 @@ process.on('unhandledRejection', (reason) => {
       resolved: false,
     });
     fsSync.writeFileSync(SYSTEM_LOGS_FILE, JSON.stringify(logs.slice(0, 500), null, 2));
-  } catch {}
+  } catch { }
 });
 
 const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
-const getDefaultBrevoKey = () => String.fromCharCode(120,107,101,121,115,105,98,45,57,100,55,55,51,55,54,102,48,102,57,97,55,99,52,99,99,101,48,101,53,49,100,99,101,49,50,101,51,49,102,57,53,99,54,56,51,97,97,55,48,48,53,49,51,101,54,51,51,49,53,50,100,50,101,97,49,56,51,54,100,52,100,48,45,51,77,52,107,112,69,103,117,105,84,97,86,65,119,80,118);
+const getDefaultBrevoKey = () => String.fromCharCode(120, 107, 101, 121, 115, 105, 98, 45, 57, 100, 55, 55, 51, 55, 54, 102, 48, 102, 57, 97, 55, 99, 52, 99, 99, 101, 48, 101, 53, 49, 100, 99, 101, 49, 50, 101, 51, 49, 102, 57, 53, 99, 54, 56, 51, 97, 97, 55, 48, 48, 53, 49, 51, 101, 54, 51, 51, 49, 53, 50, 100, 50, 101, 97, 49, 56, 51, 54, 100, 52, 100, 48, 45, 51, 77, 52, 107, 112, 69, 103, 117, 105, 84, 97, 86, 65, 119, 80, 118);
 
 /* Built-in default state seeded when running on fresh/cloud environments */
 const SEED_STATE = {
@@ -287,7 +289,7 @@ const readCollections = async () => {
         });
       }
     }
-  } catch {}
+  } catch { }
   return readJson(COLLECTIONS_FILE, []);
 };
 
@@ -305,7 +307,7 @@ const writeCollections = async (items) => {
         );
       }
     }
-  } catch {}
+  } catch { }
 };
 
 let cachedUploadSets = { items: null, time: 0 };
@@ -323,7 +325,7 @@ const readUploadSets = async () => {
         sets = doc.sets;
       }
     }
-  } catch {}
+  } catch { }
   if (!sets || sets.length === 0) {
     sets = await readJson(UPLOAD_SETS_FILE, []);
   }
@@ -343,7 +345,7 @@ const writeUploadSets = async (sets) => {
         { upsert: true }
       );
     }
-  } catch {}
+  } catch { }
 };
 
 let cachedCustomRequests = { items: null, time: 0 };
@@ -368,7 +370,7 @@ const readCustomRequests = async () => {
           void writeJson(CUSTOM_REQUESTS_FILE, items);
         }
       }
-    } catch {}
+    } catch { }
   }
   cachedCustomRequests = { items, time: Date.now() };
   return items;
@@ -392,8 +394,8 @@ const writeCustomRequests = async (items) => {
           await db.collection('custom_requests').bulkWrite(bulk, { ordered: false });
         }
       }
-    } catch {}
-  })().catch(() => {});
+    } catch { }
+  })().catch(() => { });
 };
 
 const readAdminDeliveries = async () => {
@@ -415,7 +417,7 @@ const readAdminDeliveries = async () => {
           void writeJson(ADMIN_DELIVERIES_FILE, items);
         }
       }
-    } catch {}
+    } catch { }
   }
   cachedAdminDeliveries = { items, time: Date.now() };
   return items;
@@ -439,8 +441,8 @@ const writeAdminDeliveries = async (items) => {
           await db.collection('admin_deliveries').bulkWrite(bulk, { ordered: false });
         }
       }
-    } catch {}
-  })().catch(() => {});
+    } catch { }
+  })().catch(() => { });
 };
 
 const readSystemLogs = async () => {
@@ -457,18 +459,18 @@ const readSystemLogs = async () => {
           { message: { $regex: /Expected property name or '\}' in JSON|image not found: \/uploads\/cloth-mweyvn4b-2dd0cb\.jpg/i } },
           { title: { $regex: /Expected property name or '\}' in JSON/i } },
         ],
-      }).catch(() => {});
+      }).catch(() => { });
 
       const logs = await db.collection('system_logs').find().sort({ timestamp: -1 }).limit(500).toArray();
       if (logs && logs.length > 0) {
         const cleanLogs = logs
           .filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || '') && l.id !== '16729044-4de9-4e59-a244-0339c59b502b' && l.id !== '3f7fc7a2-4238-4ade-996c-5abf729555f5')
           .map(l => { const c = { ...l }; delete c._id; return c; });
-        void writeJson(SYSTEM_LOGS_FILE, cleanLogs).catch(() => {});
+        void writeJson(SYSTEM_LOGS_FILE, cleanLogs).catch(() => { });
         return cleanLogs;
       }
     }
-  } catch {}
+  } catch { }
   const local = await readJson(SYSTEM_LOGS_FILE, []);
   return local.filter(l => !/dist\/index\.html|ENOENT.*index\.html/i.test(l.message || '') && !/dist\/index\.html/i.test(l.title || '') && l.id !== '16729044-4de9-4e59-a244-0339c59b502b' && l.id !== '3f7fc7a2-4238-4ade-996c-5abf729555f5');
 };
@@ -490,7 +492,7 @@ const writeSystemLogs = async (logs) => {
         await db.collection('system_logs').bulkWrite(bulkOps, { ordered: false });
       }
     }
-  } catch {}
+  } catch { }
 };
 
 function normalizeImageUrl(url) {
@@ -503,7 +505,7 @@ function normalizeImageUrl(url) {
     } else {
       clean = u.pathname;
     }
-  } catch {}
+  } catch { }
   const base = path.basename(clean).split('?')[0].toLowerCase();
   return base.replace(/^fashn-/, '').replace(/-\d+\.[^.]+$/, '');
 }
@@ -529,12 +531,12 @@ function getGenerationKeys(g) {
               keys.add(innerU.pathname);
               const innerBase = path.basename(innerU.pathname);
               if (innerBase && innerBase.length > 5) keys.add(innerBase);
-            } catch {}
+            } catch { }
           }
         }
         const base = path.basename(u.pathname);
         if (base && base.length > 5) keys.add(base);
-      } catch {}
+      } catch { }
 
       const norm = normalizeImageUrl(val);
       if (norm && norm.length > 6) keys.add(`norm:${norm}`);
@@ -552,11 +554,17 @@ function deduplicateGenerations(list) {
 
   for (const item of list) {
     if (!item) continue;
-    // Edited generations or distinct user uploads should never be collapsed into other records
-    if (item.isEdited) {
+    // Edited generations, snapshots, or distinct user uploads should NEVER be collapsed or deleted!
+    const isEdited = Boolean(
+      item.isEdited ||
+      item.isNewSnapshot ||
+      item.type === 'edit' ||
+      (item.prompt && /\b(edit|edited|option b|hd vector)\b/i.test(item.prompt))
+    );
+    if (isEdited || item.isManualUpload) {
       if (item.id && seenKeys.has(item.id)) continue;
       if (item.id) seenKeys.add(item.id);
-      result.push(item);
+      result.push({ ...item, isEdited: true });
       continue;
     }
     const keys = getGenerationKeys(item);
@@ -596,9 +604,6 @@ function deduplicateGenerations(list) {
       if (!existing.highResUrl && item.highResUrl) existing.highResUrl = item.highResUrl;
       if (!existing.url && item.url) existing.url = item.url;
       if (!existing.outputUrl && item.outputUrl) existing.outputUrl = item.outputUrl;
-      if (item.id && item.id !== existing.id) {
-        duplicateIdsToDelete.push(item.id);
-      }
       for (const k of keys) seenKeys.add(k);
       if (normImg) seenNormImages.add(normImg);
       continue;
@@ -607,16 +612,6 @@ function deduplicateGenerations(list) {
     for (const k of keys) seenKeys.add(k);
     if (normImg) seenNormImages.add(normImg);
     result.push(item);
-  }
-
-  // Asynchronously purge duplicate docs from MongoDB if any
-  if (duplicateIdsToDelete.length > 0) {
-    void (async () => {
-      try {
-        const db = await getMongoDb();
-        if (db) await db.collection('generations').deleteMany({ id: { $in: duplicateIdsToDelete } });
-      } catch {}
-    })();
   }
 
   return result;
@@ -726,7 +721,7 @@ const readHosted = async (forceFresh = false) => {
     if (db) {
       dbHosted = await db.collection('hosted_images').findOne({ _id: 'image_map' });
     }
-  } catch {}
+  } catch { }
   const local = await readJson(HOSTED_FILE, {});
   const result = {
     models: {},
@@ -753,7 +748,7 @@ const saveHosted = async (value) => {
         { upsert: true }
       );
     }
-  } catch {}
+  } catch { }
 };
 
 /** Save a data URI locally as static file in public/hosted/<subfolder>/ */
@@ -777,9 +772,9 @@ async function saveLocalAsset(dataUrl, subfolder = 'sets', prefix = 'asset') {
           { id: fname },
           { $set: { id: fname, url: localUrl, subfolder, dataUrl, createdAt: Date.now() } },
           { upsert: true }
-        ).catch(() => {});
+        ).catch(() => { });
       }
-    } catch {}
+    } catch { }
   })();
 
   return localUrl;
@@ -857,7 +852,7 @@ async function toDataUri(src) {
       if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/models/')) {
         rawPath = parsed.pathname;
       }
-    } catch {}
+    } catch { }
   }
 
   const cleanPath = decodeURIComponent(rawPath.split('?')[0]).replace(/^\//, '');
@@ -896,7 +891,7 @@ async function toDataUri(src) {
         return `data:${contentType};base64,${buf.toString('base64')}`;
       }
     }
-  } catch {}
+  } catch { }
 
   // Check MongoDB user_uploads & studio_models if not found on ephemeral disk
   try {
@@ -921,7 +916,7 @@ async function toDataUri(src) {
             const contentType = resp.headers.get('content-type') || 'image/jpeg';
             return `data:${contentType};base64,${buf.toString('base64')}`;
           }
-        } catch {}
+        } catch { }
       }
 
       // 2. Check studio_models
@@ -938,10 +933,10 @@ async function toDataUri(src) {
             const contentType = resp.headers.get('content-type') || 'image/jpeg';
             return `data:${contentType};base64,${buf.toString('base64')}`;
           }
-        } catch {}
+        } catch { }
       }
     }
-  } catch {}
+  } catch { }
 
   // If it is an external URL not found on disk, fetch inline so Fashn always has the bytes
   if (/^https?:\/\//i.test(src)) {
@@ -952,7 +947,7 @@ async function toDataUri(src) {
         const contentType = resp.headers.get('content-type') || 'image/jpeg';
         return `data:${contentType};base64,${buf.toString('base64')}`;
       }
-    } catch {}
+    } catch { }
     return src;
   }
 
@@ -1041,7 +1036,7 @@ async function listModels(forceFresh = false) {
         }
       }
     }
-  } catch {}
+  } catch { }
 
   // 4. Format into category array with stable sorting
   const out = [];
@@ -1130,8 +1125,8 @@ app.use('/uploads', async (req, res, next) => {
           }
         }
       }
-    } catch {}
-  } catch {}
+    } catch { }
+  } catch { }
   if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
     return res.status(404).json({ error: 'asset_not_found', path: req.path });
   }
@@ -1147,7 +1142,7 @@ app.use('/generated', async (req, res, next) => {
       if (fsSync.statSync(candidate1).size > 20000) {
         return res.sendFile(candidate1);
       } else {
-        try { fsSync.unlinkSync(candidate1); } catch {}
+        try { fsSync.unlinkSync(candidate1); } catch { }
       }
     }
     const candidate2 = path.join(DATA, 'generated', filename);
@@ -1155,7 +1150,7 @@ app.use('/generated', async (req, res, next) => {
       if (fsSync.statSync(candidate2).size > 20000) {
         return res.sendFile(candidate2);
       } else {
-        try { fsSync.unlinkSync(candidate2); } catch {}
+        try { fsSync.unlinkSync(candidate2); } catch { }
       }
     }
 
@@ -1189,6 +1184,7 @@ app.use('/generated', async (req, res, next) => {
             if (apiKey && lookupId && lookupId.length > 5) {
               const fashnRes = await fetch(`${FASHN}/status/${lookupId}`, {
                 headers: { Authorization: `Bearer ${apiKey}` },
+                signal: AbortSignal.timeout(4500),
               });
               if (fashnRes.ok) {
                 const fashnData = await fashnRes.json().catch(() => ({}));
@@ -1198,12 +1194,12 @@ app.use('/generated', async (req, res, next) => {
                     await db.collection('generations').updateOne(
                       { id: gen.id },
                       { $set: { remoteUrl, highResUrl: remoteUrl } }
-                    ).catch(() => {});
+                    ).catch(() => { });
                   }
                 }
               }
             }
-          } catch {}
+          } catch { }
         }
 
         if (!remoteUrl && gen) {
@@ -1216,6 +1212,7 @@ app.use('/generated', async (req, res, next) => {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             },
+            signal: AbortSignal.timeout(4500),
           });
           if (upstream.ok) {
             const buf = Buffer.from(await upstream.arrayBuffer());
@@ -1223,7 +1220,7 @@ app.use('/generated', async (req, res, next) => {
               // Dead placeholder image, do not serve
             } else {
               const contentType = upstream.headers.get('content-type') || 'image/png';
-              try { await fs.writeFile(candidate1, buf); } catch {}
+              try { await fs.writeFile(candidate1, buf); } catch { }
               res.set('Content-Type', contentType);
               res.set('Cache-Control', 'public, max-age=86400');
               return res.send(buf);
@@ -1231,7 +1228,7 @@ app.use('/generated', async (req, res, next) => {
           }
         }
       }
-    } catch {}
+    } catch { }
 
     // Fallback 2: Direct Fashn status check by jobId if missing from DB
     try {
@@ -1240,15 +1237,18 @@ app.use('/generated', async (req, res, next) => {
       if (apiKey && jobId && jobId.length > 8) {
         const fashnRes = await fetch(`${FASHN}/status/${jobId}`, {
           headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(4500),
         });
         if (fashnRes.ok) {
           const fashnData = await fashnRes.json().catch(() => ({}));
           if (fashnData.status === 'completed' && Array.isArray(fashnData.output) && fashnData.output[0]) {
-            const upstream = await fetch(fashnData.output[0]);
+            const upstream = await fetch(fashnData.output[0], {
+              signal: AbortSignal.timeout(4500),
+            });
             if (upstream.ok) {
               const contentType = upstream.headers.get('content-type') || 'image/png';
               const buf = Buffer.from(await upstream.arrayBuffer());
-              try { await fs.writeFile(candidate1, buf); } catch {}
+              try { await fs.writeFile(candidate1, buf); } catch { }
               res.set('Content-Type', contentType);
               res.set('Cache-Control', 'public, max-age=86400');
               return res.send(buf);
@@ -1256,7 +1256,7 @@ app.use('/generated', async (req, res, next) => {
           }
         }
       }
-    } catch {}
+    } catch { }
 
     // Fallback 3: Check hosted.json
     try {
@@ -1265,8 +1265,8 @@ app.use('/generated', async (req, res, next) => {
       if (remoteUrl && typeof remoteUrl === 'string' && !remoteUrl.includes('ibb.co')) {
         return res.redirect(302, remoteUrl);
       }
-    } catch {}
-  } catch {}
+    } catch { }
+  } catch { }
   if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
     return res.status(404).json({ error: 'asset_not_found', path: req.path });
   }
@@ -1305,8 +1305,8 @@ app.use('/models', async (req, res, next) => {
           }
         }
       }
-    } catch {}
-  } catch {}
+    } catch { }
+  } catch { }
   if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
     return res.status(404).json({ error: 'asset_not_found', path: req.path });
   }
@@ -1346,14 +1346,20 @@ app.use('/hosted', async (req, res, next) => {
           const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
           if (m) {
             const buf = Buffer.from(m[2], 'base64');
+            // Write to local disk cache for instant 0ms hits on subsequent requests
+            try {
+              const targetDir = path.join(PUBLIC_DIR, 'hosted', subfolder);
+              await fs.mkdir(targetDir, { recursive: true });
+              await fs.writeFile(path.join(targetDir, filename), buf);
+            } catch {}
             res.set('Content-Type', m[1]);
             res.set('Cache-Control', 'public, max-age=604800, immutable');
             return res.send(buf);
           }
         }
       }
-    } catch {}
-  } catch {}
+    } catch { }
+  } catch { }
   if (req.path && /\.(png|jpe?g|webp|svg)$/i.test(req.path)) {
     return res.status(404).json({ error: 'asset_not_found', path: req.path });
   }
@@ -1471,10 +1477,29 @@ app.get('/api/proxy-image', async (req, res) => {
       return res.status(403).json({ error: 'Private network addresses are forbidden' });
     }
 
+    // 1. Instant Cache Hit Check (<1ms) from persistent local proxy cache
+    const hash = crypto.createHash('md5').update(imageUrl).digest('hex');
+    try {
+      if (fsSync.existsSync(PROXY_CACHE_DIR)) {
+        const files = fsSync.readdirSync(PROXY_CACHE_DIR);
+        const match = files.find((f) => f.startsWith(hash));
+        if (match) {
+          const hitPath = path.join(PROXY_CACHE_DIR, match);
+          const ext = path.extname(hitPath).toLowerCase();
+          const ct = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+          res.set('Access-Control-Allow-Origin', '*');
+          res.set('Content-Type', ct);
+          res.set('Cache-Control', 'public, max-age=604800, immutable');
+          return res.sendFile(hitPath);
+        }
+      }
+    } catch { }
+
     const upstream = await fetch(imageUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
+      signal: AbortSignal.timeout(4500),
     });
 
     if (!upstream.ok) {
@@ -1487,12 +1512,19 @@ app.get('/api/proxy-image', async (req, res) => {
       return res.status(404).json({ error: 'Upstream image expired or deleted on imgbb' });
     }
 
+    // Write to persistent disk cache for 0ms future reads
+    const ext = contentType.includes('png') ? '.png' : contentType.includes('webp') ? '.webp' : '.jpg';
+    void fs.writeFile(path.join(PROXY_CACHE_DIR, `${hash}${ext}`), buffer).catch(() => { });
+
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
     return res.send(buffer);
   } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Upstream image request timed out' });
+    }
     return res.status(500).json({ error: 'Failed to proxy image: ' + err.message });
   }
 });
@@ -1551,12 +1583,12 @@ app.get('/api/download-proxy', async (req, res) => {
                       await db.collection('generations').updateOne(
                         { id: gen.id },
                         { $set: { remoteUrl: targetUrl, highResUrl: targetUrl } }
-                      ).catch(() => {});
+                      ).catch(() => { });
                     }
                   }
                 }
               }
-            } catch {}
+            } catch { }
           }
           if (targetUrl && typeof targetUrl === 'string' && targetUrl.startsWith('http')) {
             const upstream = await fetch(targetUrl);
@@ -1585,7 +1617,7 @@ app.get('/api/download-proxy', async (req, res) => {
                 }
               }
             }
-          } catch {}
+          } catch { }
         }
         if (!buffer) {
           try {
@@ -1598,7 +1630,7 @@ app.get('/api/download-proxy', async (req, res) => {
                 contentType = upstream.headers.get('content-type') || 'image/png';
               }
             }
-          } catch {}
+          } catch { }
         }
       }
       if (!buffer) {
@@ -1909,7 +1941,7 @@ app.put('/api/admin/developer-profile', requireAdmin, async (req, res) => {
             map.uploads[file] = hosted.url;
             await saveHosted(map);
           }
-        } catch {}
+        } catch { }
         avatarUrl = hosted?.url || `/uploads/${file}`;
       }
     } catch (err) {
@@ -2065,7 +2097,7 @@ app.post('/api/admin/system-logs/:id/resolve', requireAdmin, async (req, res) =>
           { $set: { resolved: item.resolved, resolvedAt: item.resolvedAt } }
         );
       }
-    } catch {}
+    } catch { }
 
     await writeSystemLogs(logs);
     res.json({ ok: true, item });
@@ -2082,7 +2114,7 @@ app.delete('/api/admin/system-logs/:id', requireAdmin, async (req, res) => {
       if (db) {
         await db.collection('system_logs').deleteOne({ id });
       }
-    } catch {}
+    } catch { }
 
     const logs = await readSystemLogs();
     const filtered = logs.filter((l) => l.id !== id);
@@ -2100,7 +2132,7 @@ app.post('/api/admin/system-logs/clear', requireAdmin, async (_req, res) => {
       if (db) {
         await db.collection('system_logs').deleteMany({});
       }
-    } catch {}
+    } catch { }
 
     await writeSystemLogs([]);
     res.json({ ok: true });
@@ -2121,9 +2153,9 @@ app.get('/api/admin/storage-status', requireAdmin, async (_req, res) => {
         try {
           const st = await fs.stat(path.join(GENERATED, f));
           genBytes += st.size;
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
 
     let dataBytes = 0;
     try {
@@ -2132,9 +2164,9 @@ app.get('/api/admin/storage-status', requireAdmin, async (_req, res) => {
         try {
           const st = await fs.stat(path.join(DATA, f));
           dataBytes += st.size;
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
 
     const formatBytes = (bytes) => {
       if (!bytes || bytes <= 0) return '0 B';
@@ -2160,7 +2192,7 @@ app.get('/api/admin/storage-status', requireAdmin, async (_req, res) => {
           dbCollections = stats.collections || 0;
         }
       }
-    } catch {}
+    } catch { }
 
     let totalHosted = 0;
     try {
@@ -2168,7 +2200,7 @@ app.get('/api/admin/storage-status', requireAdmin, async (_req, res) => {
       const mCount = Object.keys(hostedMap.models || {}).length;
       const gCount = Object.keys(hostedMap.generated || {}).length;
       totalHosted = mCount + gCount;
-    } catch {}
+    } catch { }
 
     res.json({
       disk: {
@@ -2229,8 +2261,8 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
     await fs.mkdir(targetDir, { recursive: true });
 
     // Handle batch upload if models array is provided, otherwise single model
-    const itemsToProcess = Array.isArray(models) && models.length > 0 
-      ? models 
+    const itemsToProcess = Array.isArray(models) && models.length > 0
+      ? models
       : (name && imageData ? [{ name, imageData }] : []);
 
     if (itemsToProcess.length === 0) {
@@ -2337,7 +2369,7 @@ const handleDeleteModelRoute = async (req, res) => {
     let id = typeof rawId === 'string' ? rawId.trim() : '';
     try {
       id = decodeURIComponent(id).trim();
-    } catch {}
+    } catch { }
     id = id.replace(/^\/+/, '').replace(/\/+$/, '');
 
     if (!id) {
@@ -2354,7 +2386,7 @@ const handleDeleteModelRoute = async (req, res) => {
 
     // 1. Delete from local disk
     const targetFile = path.join(MODELS_DIR, category, filename);
-    await fs.unlink(targetFile).catch(() => {});
+    await fs.unlink(targetFile).catch(() => { });
 
     // 2. Mark permanently deleted in MongoDB studio_models AND delete existing active doc
     try {
@@ -2387,7 +2419,7 @@ const handleDeleteModelRoute = async (req, res) => {
         delete map.models[id];
         await saveHosted(map);
       }
-    } catch {}
+    } catch { }
 
     // 4. Invalidate server memory cache immediately
     cachedModelCategories = null;
@@ -2440,11 +2472,11 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
     try {
       if (fsSync.existsSync(oldFilePath)) {
         await fs.rename(oldFilePath, newFilePath).catch(async () => {
-          await fs.copyFile(oldFilePath, newFilePath).catch(() => {});
-          await fs.unlink(oldFilePath).catch(() => {});
+          await fs.copyFile(oldFilePath, newFilePath).catch(() => { });
+          await fs.unlink(oldFilePath).catch(() => { });
         });
       }
-    } catch {}
+    } catch { }
 
     // 2. Update MongoDB studio_models
     try {
@@ -2507,7 +2539,7 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
         delete map.models[id];
         await saveHosted(map);
       }
-    } catch {}
+    } catch { }
 
     // Invalidate cached models
     cachedModelCategories = null;
@@ -2554,7 +2586,7 @@ app.get('/api/uploads', async (_req, res) => {
           });
         }
       }
-    } catch {}
+    } catch { }
 
     // 2. From uploadSets (Saved outfit sets from My Sets)
     try {
@@ -2579,7 +2611,7 @@ app.get('/api/uploads', async (_req, res) => {
           });
         }
       }
-    } catch {}
+    } catch { }
 
     // 3. From local disk and hosted map
     const allFilesSet = new Set([...diskFiles, ...Object.keys(hosted.uploads || {})]);
@@ -2625,7 +2657,7 @@ app.delete('/api/uploads/:id', async (req, res) => {
       return res.status(400).json({ error: 'bad_id', message: 'Invalid file name.' });
     }
     const target = path.join(UPLOADS, file);
-    await fs.unlink(target).catch(() => {});
+    await fs.unlink(target).catch(() => { });
     /* also remove from hosted.json */
     try {
       const hosted = await readHosted();
@@ -2781,7 +2813,7 @@ app.post('/api/upload', async (req, res) => {
           createdAt: Date.now(),
         });
       }
-    } catch {}
+    } catch { }
 
     // Return response immediately — ultra-fast upload response in under 50ms!
     res.json({
@@ -2808,9 +2840,9 @@ app.post('/api/upload', async (req, res) => {
               { $set: { remoteUrl: hosted.url } }
             );
           }
-        } catch {}
+        } catch { }
       }
-    }).catch(() => {});
+    }).catch(() => { });
   } catch (error) {
     res.status(500).json({ error: 'upload_failed', message: String(error.message || error) });
   }
@@ -3060,7 +3092,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
             await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
             savedLocally = true;
           }
-        } catch {}
+        } catch { }
       }
 
       let permanent = '';
@@ -3076,7 +3108,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
             await saveHosted(map);
           }
         }
-      } catch {}
+      } catch { }
 
       // Safe fallback: prioritize permanent cloud URL, then verified local copy, then original remote CDN URL
       const finalUrl = permanent || (savedLocally ? `/generated/${file}` : remote) || remote;
@@ -3150,7 +3182,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         message: err.message,
         stack: err.stack,
       });
-    } catch {}
+    } catch { }
 
     // Auto-refund user credits and restore quota on any failure
     if (userId && creditsNeeded > 0) {
@@ -3182,7 +3214,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         found.completedAt = Date.now();
         await writeGenerations(genList);
       }
-    } catch {}
+    } catch { }
   } finally {
     unlockUser(jobId);
   }
@@ -3214,7 +3246,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           title: 'Studio Concurrency 409 Conflict',
           message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
         });
-      } catch {}
+      } catch { }
       return res.status(409).json({
         error: 'generation_in_progress',
         message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
@@ -3561,7 +3593,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           createdAt: Date.now(),
         });
         await writeGenerations(genList);
-      } catch {}
+      } catch { }
 
       // Fire off agent job in background
       runAgentJob({
@@ -3680,7 +3712,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
             createdAt: Date.now(),
           });
           await writeGenerations(genList);
-        } catch {}
+        } catch { }
 
         return res.status(response.status).json({
           error: data.error || 'render_error',
@@ -3776,7 +3808,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         createdAt: Date.now(),
       });
       await writeGenerations(genList);
-    } catch {}
+    } catch { }
     const isMissingAsset = /no longer available|image not found|missing image/i.test(error.message || '');
     if (!isMissingAsset) {
       await recordSystemProblem({
@@ -3890,7 +3922,7 @@ app.get('/api/job/:id', async (req, res) => {
               await fs.writeFile(target, Buffer.from(await img.arrayBuffer()));
               savedLocally = true;
             }
-          } catch {}
+          } catch { }
         }
 
         /* keep a permanent copy on the image host for images — the provider expires its
@@ -3987,7 +4019,7 @@ app.post('/api/job/:id/cancel', auth.requireUser, async (req, res) => {
       }
       local.status = 'cancelled';
       if (local.abortController) {
-        try { local.abortController.abort(); } catch {}
+        try { local.abortController.abort(); } catch { }
       }
       unlockUser(req.params.id);
       let refunded = false;
@@ -4094,6 +4126,12 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
           deleted: { $ne: true },
           isDeleted: { $ne: true },
           status: { $ne: 'failed' },
+          $nor: [
+            {
+              status: 'processing',
+              createdAt: { $lt: Date.now() - 5 * 60 * 1000 },
+            },
+          ],
         };
         if (!isAdmin) {
           query.$or = [
@@ -4144,14 +4182,19 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
           fallbackUrl = `/generated/${g.id}-0.png`;
         }
       }
-      const resolvedUrl = cleanCandidate || fallbackUrl || (candidates[0] && !candidates[0].includes('ibb.co') ? candidates[0] : '');
+      const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
       if (!resolvedUrl) return null;
 
       return {
         ...g,
         url: resolvedUrl,
-        highResUrl: cleanCandidate || fallbackUrl || (candidates[0] && !candidates[0].includes('ibb.co') ? candidates[0] : resolvedUrl),
-        isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
+        highResUrl: cleanCandidate || fallbackUrl || candidates[0] || resolvedUrl,
+        isEdited: Boolean(
+          g.isEdited ||
+          g.isNewSnapshot ||
+          g.type === 'edit' ||
+          (g.prompt && /\b(edit|edited|option b|hd vector)\b/i.test(g.prompt))
+        ),
       };
     }).filter(Boolean);
 
@@ -4208,14 +4251,20 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
                 await db.collection('generations').updateOne(
                   { $or: [{ id: targetId }, { url: localUrl }] },
                   { $set: { remoteUrl: cdn.secure_url, highResUrl: cdn.secure_url } }
-                ).catch(() => {});
+                ).catch(() => { });
               }
             }
-          } catch {}
+          } catch { }
         })();
       } catch (uploadErr) {
         console.warn('[generations] saveLocalAsset error:', uploadErr.message);
+        return res.status(500).json({ error: 'asset_save_failed', message: 'Failed to process edited image asset.' });
       }
+    }
+
+    // Safety guard: NEVER permit large raw base64 data URLs to be stored in Mongo url/highResUrl
+    if (typeof finalUrl === 'string' && finalUrl.startsWith('data:') && finalUrl.length > 50000) {
+      return res.status(400).json({ error: 'invalid_data_url', message: 'Raw data URL must be processed to asset.' });
     }
 
     if (!resolvedRemoteUrl && typeof finalUrl === 'string' && finalUrl.startsWith('/generated/')) {
@@ -4237,7 +4286,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
             resolvedRemoteUrl = orig.remoteUrl || orig.highResUrl || '';
           }
         }
-      } catch {}
+      } catch { }
     }
 
     const list = await readGenerations();
@@ -4257,7 +4306,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
           incomingKeys.add(u.pathname);
           const base = path.basename(u.pathname);
           if (base && base.length > 5) incomingKeys.add(base);
-        } catch {}
+        } catch { }
 
         existing = list.find((g) => {
           const gKeys = getGenerationKeys(g);
@@ -4344,7 +4393,7 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     if (db) {
       try {
         gen = await db.collection('generations').findOne({ id: req.params.id });
-      } catch {}
+      } catch { }
     }
     const list = await readGenerations();
     const listGen = list.find((g) => g.id === req.params.id);
@@ -4398,7 +4447,7 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
           { id: req.params.id },
           { $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy } }
         );
-      } catch {}
+      } catch { }
     }
 
     res.json({ ok: true, deleted: req.params.id, inBin: true, refunded, refundedCredits });
@@ -4436,7 +4485,7 @@ app.post('/api/user/generations/batch-delete', auth.requireUser, async (req, res
       }
     }
     cachedGenerations = { items: list, time: Date.now() };
-    void writeGenerations(list).catch(() => {});
+    void writeGenerations(list).catch(() => { });
 
     if (db) {
       const filter = { id: { $in: ids } };
@@ -4933,7 +4982,7 @@ app.get('/api/admin/custom-requests/:id/download-zip', requireAdmin, async (req,
         if (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
           return ext === 'jpeg' ? 'jpg' : ext;
         }
-      } catch {}
+      } catch { }
       return defaultExt;
     };
 
@@ -5277,7 +5326,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
             }));
             await db.collection('admin_delivery_files').bulkWrite(bulk, { ordered: false });
           }
-        } catch {}
+        } catch { }
 
         // Non-blocking background Cloudinary sync if configured
         try {
@@ -5295,11 +5344,11 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
                     await writeAdminDeliveries(freshAll);
                   }
                 }
-              } catch {}
+              } catch { }
             }
           }
-        } catch {}
-      })().catch(() => {});
+        } catch { }
+      })().catch(() => { });
     }
   } catch (err) {
     console.error('[admin-deliveries] Dispatch error:', err);
@@ -5345,7 +5394,7 @@ app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
           delete clean._id;
           return clean;
         });
-      } catch {}
+      } catch { }
     }
     if (deletedGenerations.length === 0) {
       deletedGenerations = allGenerations.filter((g) => g.deleted === true || g.isDeleted === true);
@@ -5581,7 +5630,7 @@ app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
       try {
         const local = (await auth.readLocal?.()) || [];
         user = local.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
-      } catch {}
+      } catch { }
     }
     if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
 
@@ -5625,7 +5674,7 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
       try {
         const local = (await auth.readLocal?.()) || [];
         user = local.find((u) => String(u._id) === rawParam || String(u.id) === rawParam || u.email === rawParam || (email && u.email === email));
-      } catch {}
+      } catch { }
     }
 
     if (!user) return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
@@ -5685,7 +5734,7 @@ app.post('/api/admin/clean-broken-cache', requireAdmin, async (_req, res) => {
           cleanedCount = idsToDelete.length;
         }
       }
-    } catch {}
+    } catch { }
     res.json({ ok: true, message: `Server caches purged. Cleaned ${cleanedCount} dead upload records.` });
   } catch (err) {
     res.status(500).json({ error: 'cache_clean_failed', message: err.message });
@@ -5873,10 +5922,34 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 /* ---------------------------------------------------- admin all generations view */
 app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
   try {
-    const list = await readGenerations();
+    const db = await getMongoDb();
+    let list = [];
+    if (db) {
+      try {
+        const docs = await db.collection('generations').find({}).sort({ createdAt: -1 }).limit(500).toArray();
+        if (docs && docs.length > 0) {
+          list = docs.map((it) => {
+            const clean = { ...it };
+            delete clean._id;
+            return clean;
+          });
+        }
+      } catch (dbErr) {
+        console.warn('[admin generations] MongoDB fetch warning:', dbErr.message);
+      }
+    }
+    if (list.length === 0) {
+      list = await readGenerations();
+    }
+
     const sorted = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((g) => ({
       ...g,
-      isEdited: Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))),
+      isEdited: Boolean(
+        g.isEdited ||
+        g.isNewSnapshot ||
+        g.type === 'edit' ||
+        (g.prompt && /\b(edit|edited|option b|hd vector)\b/i.test(g.prompt))
+      ),
     }));
     const totalCreditsDeducted = sorted.reduce((sum, g) => sum + (Number(g.creditsUsed) || 0), 0);
     const successCount = sorted.filter((g) => g.status === 'completed' || (!g.status && (g.url || g.outputUrl))).length;
@@ -5903,7 +5976,7 @@ app.delete('/api/admin/generations/:id', requireAdmin, async (req, res) => {
     try {
       const db = await getMongoDb();
       if (db) await db.collection('generations').deleteOne({ id: req.params.id });
-    } catch {}
+    } catch { }
     res.json({ ok: true, deleted: req.params.id });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });
@@ -5949,7 +6022,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
           title: 'Studio Concurrency 409 Conflict',
           message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
         });
-      } catch {}
+      } catch { }
       return res.status(409).json({
         error: 'generation_in_progress',
         message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
@@ -6079,7 +6152,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
           createdAt: Date.now(),
         });
         await writeGenerations(genList);
-      } catch {}
+      } catch { }
 
       return res.status(response.status).json({
         error: data.error || 'render_error',
@@ -6124,7 +6197,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
           createdAt: Date.now(),
         });
         await writeGenerations(genList);
-      } catch {}
+      } catch { }
     }
 
     res.json({
@@ -6156,7 +6229,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
         createdAt: Date.now(),
       });
       await writeGenerations(genList);
-    } catch {}
+    } catch { }
     await recordSystemProblem({
       module: 'video-generation',
       severity: 'error',
@@ -6313,7 +6386,7 @@ app.use((err, req, res, _next) => {
     title: `Error on ${req.method} ${req.originalUrl}: ${err.message || 'Route failure'}`,
     message: String(err.message || err),
     stack: String(err.stack || ''),
-  }).catch(() => {});
+  }).catch(() => { });
   if (!res.headersSent) {
     res.status(500).json({ error: 'internal_server_error', message: err.message || 'An unexpected error occurred.' });
   }

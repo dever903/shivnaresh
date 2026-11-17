@@ -50,9 +50,12 @@ export async function getMongoDb(uriOverride) {
       db.collection('custom_requests').createIndex({ id: 1 }, { unique: true }),
       db.collection('gateway_orders').createIndex({ order_no: 1 }, { unique: true }),
       db.collection('hosted_images').createIndex({ file: 1 }, { unique: true }),
+      db.collection('generations').createIndex({ id: 1 }, { unique: true }),
       db.collection('generations').createIndex({ createdAt: -1 }),
       db.collection('generations').createIndex({ userId: 1 }),
       db.collection('generations').createIndex({ userEmail: 1 }),
+      db.collection('hosted_assets').createIndex({ id: 1 }, { unique: true }),
+      db.collection('hosted_assets').createIndex({ url: 1 }),
     ]);
 
     cachedClient = client;

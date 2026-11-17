@@ -20,6 +20,8 @@ server/data/generated/
 server/data/cloudinary-sets/
 server/data/system-logs/
 server/data/state.json
+public/hosted/
+dist/hosted/
 
 # Local developer & browser debugging logs
 .cdp*

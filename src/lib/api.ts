@@ -415,7 +415,8 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(targetUrl, { ...init, headers });
+      const signal = init?.signal || AbortSignal.timeout(15000);
+      const response = await fetch(targetUrl, { ...init, headers, signal });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         if (response.status === 502 || response.status === 503 || response.status === 504) {

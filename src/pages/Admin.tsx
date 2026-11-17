@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   api,
+  resolveImageUrl,
   fileToDataUrl,
   getToken,
   setToken,
@@ -336,7 +337,7 @@ export default function Admin() {
   const [generationsLoading, setGenerationsLoading] = useState(false);
   const [genSearch, setGenSearch] = useState('');
   const [genStatusFilter, setGenStatusFilter] = useState<'all' | 'completed' | 'failed' | 'processing' | 'refunded'>('all');
-  const [genTypeFilter, setGenTypeFilter] = useState<'all' | 'tryon' | 'model-swap' | 'video'>('all');
+  const [genTypeFilter, setGenTypeFilter] = useState<'all' | 'tryon' | 'model-swap' | 'video' | 'edited'>('all');
   const [refundingGenId, setRefundingGenId] = useState<string | null>(null);
   const [previewGenItem, setPreviewGenItem] = useState<AdminGeneration | null>(null);
 
@@ -5166,9 +5167,10 @@ ${log.stack || 'None'}
         if (!matchesStatus) return false;
       }
       if (genTypeFilter !== 'all') {
+        if (genTypeFilter === 'edited' && !g.isEdited && g.type !== 'edit') return false;
         if (genTypeFilter === 'video' && g.type !== 'video') return false;
         if (genTypeFilter === 'model-swap' && g.mode !== 'swap' && g.type !== 'model-swap') return false;
-        if (genTypeFilter === 'tryon' && (g.type === 'video' || g.mode === 'swap' || g.type === 'model-swap')) return false;
+        if (genTypeFilter === 'tryon' && (g.type === 'video' || g.mode === 'swap' || g.type === 'model-swap' || g.isEdited || g.type === 'edit')) return false;
       }
       if (genSearch.trim()) {
         const q = genSearch.toLowerCase();
@@ -5271,6 +5273,7 @@ ${log.stack || 'None'}
               }`}
             >
               <option value="all">All Types</option>
+              <option value="edited">Edited &amp; Option B</option>
               <option value="tryon">Virtual Try-On</option>
               <option value="model-swap">Model Swap</option>
               <option value="video">Runway Video</option>
@@ -5301,6 +5304,7 @@ ${log.stack || 'None'}
                 {(() => {
                   const seenKeys = new Set<string>();
                   const uniqueFiltered = filtered.filter((g) => {
+                    if (g.isEdited || g.type === 'edit' || (g as any).isNewSnapshot) return true;
                     const targetUrl = g.outputUrl || g.url || g.highResUrl || g.remoteUrl;
                     if (!targetUrl) return true;
                     const filename = targetUrl.split('?')[0].split('/').pop() || targetUrl;
@@ -5390,14 +5394,15 @@ ${log.stack || 'None'}
                             <div className="flex items-center gap-2 mb-1">
                               {g.type === 'video' ? (
                                 <video
-                                  src={displayUrl}
+                                  src={resolveImageUrl(displayUrl)}
                                   className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20"
                                   onClick={() => setPreviewGenItem(g)}
                                 />
                               ) : (
                                 <img
-                                  src={displayUrl}
+                                  src={resolveImageUrl(displayUrl)}
                                   alt="render"
+                                  loading="lazy"
                                   className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 transition-opacity hover:opacity-90"
                                   onClick={() => setPreviewGenItem(g)}
                                 />
@@ -5487,9 +5492,9 @@ ${log.stack || 'None'}
 
               <div className="max-h-[60vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
                 {previewGenItem.type === 'video' ? (
-                  <video src={previewGenItem.outputUrl || previewGenItem.url || ''} controls autoPlay loop className="max-h-[58vh] rounded-xl object-contain" />
+                  <video src={resolveImageUrl(previewGenItem.outputUrl || previewGenItem.url || '')} controls autoPlay loop className="max-h-[58vh] rounded-xl object-contain" />
                 ) : (
-                  <img src={previewGenItem.outputUrl || previewGenItem.url || ''} alt="generation" className="max-h-[58vh] rounded-xl object-contain" />
+                  <img src={resolveImageUrl(previewGenItem.outputUrl || previewGenItem.url || '')} alt="generation" className="max-h-[58vh] rounded-xl object-contain" />
                 )}
               </div>
 
@@ -5504,7 +5509,7 @@ ${log.stack || 'None'}
                   onClick={() => {
                     const dlUrl = previewGenItem.outputUrl || previewGenItem.url;
                     if (dlUrl) {
-                      void downloadDirectFile(dlUrl, `shivnaresh-admin-output-${previewGenItem.id || Date.now()}.png`);
+                      void downloadDirectFile(resolveImageUrl(dlUrl), `shivnaresh-admin-output-${previewGenItem.id || Date.now()}.png`);
                     }
                   }}
                   className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
@@ -6654,8 +6659,9 @@ ${log.stack || 'None'}
                       } bg-black/40`}>
                         <div className="aspect-[3/4] relative overflow-hidden">
                           <img
-                            src={targetUrl}
+                            src={resolveImageUrl(targetUrl)}
                             alt={g.prompt || 'Render'}
+                            loading="lazy"
                             onError={() => setFailedRenderIds((prev) => new Set(prev).add(g.id))}
                             className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                           />
@@ -7268,8 +7274,9 @@ ${log.stack || 'None'}
                           }`}
                         >
                           <img
-                            src={targetUrl}
+                            src={resolveImageUrl(targetUrl)}
                             alt={g.prompt || 'Render'}
+                            loading="lazy"
                             onError={() => setFailedRenderIds((prev) => new Set(prev).add(g.id))}
                             className="w-full h-full object-cover"
                           />
