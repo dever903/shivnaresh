@@ -2960,24 +2960,7 @@ function getUserLockKey(req) {
   return `ip_${req.ip || req.socket.remoteAddress || 'guest'}`;
 }
 
-function isUserGenerating(req) {
-  const key = getUserLockKey(req);
-  const active = activeUserGenerations.get(key);
-  if (active) {
-    if (active.jobId) {
-      const local = localJobMap.get(active.jobId);
-      if (local && (local.status === 'completed' || local.status === 'failed' || local.status === 'cancelled')) {
-        activeUserGenerations.delete(key);
-        return false;
-      }
-    }
-    // Expire lingering locks after 60s
-    if (Date.now() - active.startedAt > 60000) {
-      activeUserGenerations.delete(key);
-      return false;
-    }
-    return true;
-  }
+function isUserGenerating(_req) {
   return false;
 }
 
@@ -3238,40 +3221,33 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     const isForce = Boolean(req.body?.forceUnlock || req.query?.force === 'true');
 
-    /* Prevent duplicate double-clicks and repeated requests */
+    /* Prevent duplicate rapid double-clicks (within 1 second) */
     const genFingerprint = `${req.user._id}_${req.body?.mode || ''}_${req.body?.cloth || ''}_${req.body?.model || ''}_${req.body?.prompt || ''}`;
     const prevGen = recentUserGenerations.get(req.user._id);
-    if (!isForce && prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 3000) {
-      return res.status(409).json({
+    if (!isForce && prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 1000) {
+      return res.status(429).json({
         error: 'duplicate_generation',
-        message: 'Duplicate render request blocked. A generation with these parameters is already in progress.',
+        message: 'Please wait a moment before sending another render request.',
       });
     }
     recentUserGenerations.set(req.user._id, { key: genFingerprint, time: Date.now() });
 
-    /* Strict single concurrency: only 1 generation active at a time per user */
-    if (isUserGenerating(req)) {
-      if (isForce) {
-        activeUserGenerations.delete(getUserLockKey(req));
-        if (req.user?._id) {
-          activeUserGenerations.delete(`usr_${req.user._id}`);
-          recentUserGenerations.delete(req.user._id);
+    /* Seamless concurrency handling: gracefully abort any previous active job for this user and proceed */
+    const userLockKey = getUserLockKey(req);
+    const existingActive = activeUserGenerations.get(userLockKey) || (req.user?._id ? activeUserGenerations.get(`usr_${req.user._id}`) : null);
+    if (existingActive) {
+      if (existingActive.jobId) {
+        const prevLocal = localJobMap.get(existingActive.jobId);
+        if (prevLocal && prevLocal.status === 'processing') {
+          try {
+            prevLocal.status = 'cancelled';
+            prevLocal.abortController?.abort();
+          } catch { }
         }
-      } else {
-        try {
-          await recordSystemProblem({
-            module: 'generation',
-            severity: 'warning',
-            userEmail: req.user?.email || 'user',
-            userId: req.user?._id || null,
-            title: 'Studio Concurrency 409 Conflict',
-            message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
-          });
-        } catch { }
-        return res.status(409).json({
-          error: 'generation_in_progress',
-          message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
-        });
+      }
+      activeUserGenerations.delete(userLockKey);
+      if (req.user?._id) {
+        activeUserGenerations.delete(`usr_${req.user._id}`);
       }
     }
 
@@ -6035,22 +6011,23 @@ app.post('/api/admin/generations/:id/refund', requireAdmin, async (req, res) => 
 /* ---------------------------------------------------- video preview pipeline */
 app.post('/api/generate-video', auth.requireUser, async (req, res) => {
   try {
-    /* Strict single concurrency: only 1 generation active at a time per user */
-    if (isUserGenerating(req)) {
-      try {
-        await recordSystemProblem({
-          module: 'generation',
-          severity: 'warning',
-          userEmail: req.user?.email || 'user',
-          userId: req.user?._id || null,
-          title: 'Studio Concurrency 409 Conflict',
-          message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
-        });
-      } catch { }
-      return res.status(409).json({
-        error: 'generation_in_progress',
-        message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
-      });
+    /* Seamless concurrency handling: gracefully abort any previous active job for this user and proceed */
+    const userLockKey = getUserLockKey(req);
+    const existingActive = activeUserGenerations.get(userLockKey) || (req.user?._id ? activeUserGenerations.get(`usr_${req.user._id}`) : null);
+    if (existingActive) {
+      if (existingActive.jobId) {
+        const prevLocal = localJobMap.get(existingActive.jobId);
+        if (prevLocal && prevLocal.status === 'processing') {
+          try {
+            prevLocal.status = 'cancelled';
+            prevLocal.abortController?.abort();
+          } catch { }
+        }
+      }
+      activeUserGenerations.delete(userLockKey);
+      if (req.user?._id) {
+        activeUserGenerations.delete(`usr_${req.user._id}`);
+      }
     }
 
     const state = await readState();

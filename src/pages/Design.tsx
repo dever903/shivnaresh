@@ -8992,6 +8992,9 @@ export default function Design() {
         msg = 'The render service key was rejected. Please contact support or try again later.';
       } else if (msg.toLowerCase().includes('failed to fetch')) {
         msg = 'Connection to the studio server was momentarily interrupted. Please click Generate again.';
+      } else if (msg.toLowerCase().includes('in progress') || msg.toLowerCase().includes('concurrency')) {
+        void api.unlockUser().catch(() => {});
+        msg = 'Studio was momentarily busy. Ready now — please click Generate again.';
       }
       setError(msg);
       void api.reportClientError({ title: 'Studio Generation Error', message: msg, details: e });

@@ -484,8 +484,8 @@ export const api = {
     try {
       return await request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>('/api/generate', json(body));
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 409) {
-        // Concurrency lock conflict: automatically clear lingering lock and retry with forceUnlock
+      if (err instanceof ApiError && (err.status === 409 || err.status === 429)) {
+        // Concurrency lock or rate limit conflict: automatically clear lingering lock and retry with forceUnlock
         await api.unlockUser().catch(() => {});
         await new Promise((r) => setTimeout(r, 600));
         return await request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>(
