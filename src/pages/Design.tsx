@@ -985,26 +985,26 @@ function ZoomCropDownloadModal({
 
       // Base scale that fits image inside viewport preserving aspect ratio
       const baseScale = Math.min(V_w / I_w, V_h / I_h);
+      const unscaledW = I_w * baseScale;
+      const unscaledH = I_h * baseScale;
 
-      // Natural pixel dimensions and top-left of viewport region
-      const cropWidthNat = V_w / (zoom * baseScale);
-      const cropHeightNat = V_h / (zoom * baseScale);
-      const xNatTL = (I_w / 2) - ((V_w / 2) + pan.x) / (zoom * baseScale);
-      const yNatTL = (I_h / 2) - ((V_h / 2) + pan.y) / (zoom * baseScale);
+      // Exact on-screen rendered size & position with pan and zoom
+      const screenW = unscaledW * zoom;
+      const screenH = unscaledH * zoom;
+      const screenX = (V_w / 2 + pan.x) - screenW / 2;
+      const screenY = (V_h / 2 + pan.y) - screenH / 2;
 
-      // Target high-resolution canvas
+      // Target high-resolution canvas (1807x3000)
+      const canvasW = 1807;
+      const canvasH = 3000;
       const canvas = document.createElement('canvas');
-      canvas.width = 1807;
-      canvas.height = 3000;
+      canvas.width = canvasW;
+      canvas.height = canvasH;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas 2D context not available');
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-
-      // Clean white background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 1807, 3000);
 
       // Load image for canvas export with robust CORS & Blob fallback
       const tempImg = new Image();
@@ -1037,17 +1037,41 @@ function ZoomCropDownloadModal({
         }
       }
 
-      // Draw exact visible cropped rectangle onto 1807x3000 canvas
+      // Sample image background corner color to seamlessly fill any margins without harsh borders
+      try {
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = 1;
+        bgCanvas.height = 1;
+        const bgCtx = bgCanvas.getContext('2d');
+        if (bgCtx) {
+          bgCtx.drawImage(tempImg, 0, 0, 1, 1, 0, 0, 1, 1);
+          const p = bgCtx.getImageData(0, 0, 1, 1).data;
+          ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+        } else {
+          ctx.fillStyle = '#ffffff';
+        }
+      } catch {
+        ctx.fillStyle = '#ffffff';
+      }
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      // Uniform projection from viewport to high-res canvas (strictly preserves natural aspect ratio)
+      const projScale = canvasW / V_w;
+      const destW = screenW * projScale;
+      const destH = screenH * projScale;
+      const destX = screenX * projScale;
+      const destY = screenY * projScale;
+
       ctx.drawImage(
         tempImg,
-        xNatTL,
-        yNatTL,
-        cropWidthNat,
-        cropHeightNat,
         0,
         0,
-        1807,
-        3000
+        I_w,
+        I_h,
+        destX,
+        destY,
+        destW,
+        destH
       );
 
       canvas.toBlob((blob) => {
@@ -1084,14 +1108,17 @@ function ZoomCropDownloadModal({
       const I_h = img.naturalHeight || img.height;
 
       const baseScale = Math.min(V_w / I_w, V_h / I_h);
-      const cropWidthNat = V_w / (zoom * baseScale);
-      const cropHeightNat = V_h / (zoom * baseScale);
-      const xNatTL = (I_w / 2) - ((V_w / 2) + pan.x) / (zoom * baseScale);
-      const yNatTL = (I_h / 2) - ((V_h / 2) + pan.y) / (zoom * baseScale);
+      const unscaledW = I_w * baseScale;
+      const unscaledH = I_h * baseScale;
 
+      const screenW = unscaledW * zoom;
+      const screenH = unscaledH * zoom;
+      const screenX = (V_w / 2 + pan.x) - screenW / 2;
+      const screenY = (V_h / 2 + pan.y) - screenH / 2;
+
+      const targetW = 1024;
+      const targetH = Math.round((1024 * V_h) / V_w);
       const canvas = document.createElement('canvas');
-      const targetW = Math.min(2048, Math.max(1024, Math.round(cropWidthNat)));
-      const targetH = Math.min(3072, Math.max(1536, Math.round(cropHeightNat)));
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext('2d');
@@ -1132,16 +1159,36 @@ function ZoomCropDownloadModal({
         }
       }
 
+      // Sample image background corner color
+      try {
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = 1;
+        bgCanvas.height = 1;
+        const bgCtx = bgCanvas.getContext('2d');
+        if (bgCtx) {
+          bgCtx.drawImage(tempImg, 0, 0, 1, 1, 0, 0, 1, 1);
+          const p = bgCtx.getImageData(0, 0, 1, 1).data;
+          ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+          ctx.fillRect(0, 0, targetW, targetH);
+        }
+      } catch {}
+
+      const projScale = targetW / V_w;
+      const destW = screenW * projScale;
+      const destH = screenH * projScale;
+      const destX = screenX * projScale;
+      const destY = screenY * projScale;
+
       ctx.drawImage(
         tempImg,
-        xNatTL,
-        yNatTL,
-        cropWidthNat,
-        cropHeightNat,
         0,
         0,
-        targetW,
-        targetH
+        I_w,
+        I_h,
+        destX,
+        destY,
+        destW,
+        destH
       );
 
       const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
@@ -1207,7 +1254,12 @@ function ZoomCropDownloadModal({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onWheel={handleWheel}
-              className={`relative w-[270px] sm:w-[330px] aspect-[1807/3000] max-h-[66vh] rounded-xl overflow-hidden border shadow-inner flex items-center justify-center cursor-grab active:cursor-grabbing bg-black select-none ${isLight ? 'border-zinc-300 ring-1 ring-zinc-200' : 'border-zinc-700/70 ring-1 ring-white/10'
+              style={{
+                width: 'min(330px, calc(66vh * 1807 / 3000))',
+                height: 'min(calc(330px * 3000 / 1807), 66vh)',
+                aspectRatio: '1807 / 3000',
+              }}
+              className={`relative rounded-xl overflow-hidden border shadow-inner flex items-center justify-center cursor-grab active:cursor-grabbing bg-black select-none ${isLight ? 'border-zinc-300 ring-1 ring-zinc-200' : 'border-zinc-700/70 ring-1 ring-white/10'
                 }`}
             >
               {/* Scaled & Panned Image */}
@@ -6504,6 +6556,7 @@ export default function Design() {
   const [isErasing, setIsErasing] = useState(false);
   const [isSeamProtect, setIsSeamProtect] = useState(true);
   const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
+  const [eraseCanvasZoom, setEraseCanvasZoom] = useState<number>(1.0);
 
   const handleSwitchEraseTool = (tool: 'brush' | 'area') => {
     setEraseTool(tool);
@@ -8213,9 +8266,13 @@ export default function Design() {
       }
     }
 
-    // Smooth cosine ease edge falloff across 18% margin ensures zero visible rectangular box outline
-    const featherX = Math.max(4, Math.min(24, Math.round(bw * 0.18)));
-    const featherY = Math.max(4, Math.min(24, Math.round(bh * 0.18)));
+    // Check whether user rubbed strokes (Brush mode) or drew a tight box (Canva Area mode)
+    const hasRubStrokes = Boolean(strokes && strokes.length > 0);
+    const isAreaMode = !hasRubStrokes;
+
+    // Edge falloff: In Canva Area mode, user tightly selects the logo boundary, so use a minimal 6% feather (max 6px) to avoid leaving outer logo edges. In Rub mode, use 18% margin.
+    const featherX = isAreaMode ? Math.max(2, Math.min(6, Math.round(bw * 0.06))) : Math.max(4, Math.min(24, Math.round(bw * 0.18)));
+    const featherY = isAreaMode ? Math.max(2, Math.min(6, Math.round(bh * 0.06))) : Math.max(4, Math.min(24, Math.round(bh * 0.18)));
     const getBoxFalloff = (c: number, r: number) => {
       const edgeDistX = Math.min(c, bw - 1 - c);
       const edgeDistY = Math.min(r, bh - 1 - r);
@@ -8291,7 +8348,6 @@ export default function Design() {
       const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
 
       // Build pixel-accurate mask from user's rubbed brush strokes if present
-      const hasRubStrokes = Boolean(strokes && strokes.length > 0);
       const rubMask = new Uint8Array(bw * bh);
       if (hasRubStrokes && strokes) {
         const strokeCanvas = document.createElement('canvas');
@@ -8331,7 +8387,7 @@ export default function Design() {
         }
       }
 
-      const inkThreshold = Math.max(12, medDist * 1.35);
+      const inkThreshold = isAreaMode ? Math.max(8, medDist * 1.05) : Math.max(12, medDist * 1.35);
       const rawMask = new Uint8Array(bw * bh);
       let minInkX = bw;
       let maxInkX = 0;
@@ -8363,12 +8419,12 @@ export default function Design() {
         }
       }
 
-      // If user rubbed strokes but ink contrast was very faint, fallback to inpainting all rubbed pixels
-      if (inkPixelCount < 5 && hasRubStrokes) {
+      // If user rubbed strokes or selected an area box but ink contrast was faint, fallback to inpainting all targeted pixels
+      if (inkPixelCount < 5) {
         for (let r = 0; r < bh; r++) {
           for (let c = 0; c < bw; c++) {
             const idx = r * bw + c;
-            if (rubMask[idx]) {
+            if (hasRubStrokes ? rubMask[idx] : true) {
               rawMask[idx] = 1;
               minInkX = Math.min(minInkX, c);
               maxInkX = Math.max(maxInkX, c);
@@ -8527,6 +8583,7 @@ export default function Design() {
       handleClearStrokes();
       if (snapVector) {
         setIsEraseMode(false);
+        setEraseCanvasZoom(1.0);
       }
       autoSaveTriggerRef.current?.(inpainted, snapVector ? 'Option B (HD Vector Brand Applied)' : 'Edited & Erased');
     } catch (err: any) {
@@ -12297,7 +12354,7 @@ export default function Design() {
               {/* Main Result Canvas Preview Area */}
               <div
                 ref={previewContainerRef}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none"
+                className={`relative aspect-[3/4] w-full ${isEraseMode && eraseCanvasZoom > 1.0 ? 'overflow-auto' : 'overflow-hidden'} bg-black/40 flex items-center justify-center select-none`}
               >
                 {result ? (
                   <div
@@ -12312,7 +12369,16 @@ export default function Design() {
                     onMouseLeave={() => {
                       if (!isRubbing) setCursorPos(null);
                     }}
-                    style={renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : undefined}
+                    style={{
+                      ...(renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : {}),
+                      ...(isEraseMode && eraseCanvasZoom > 1.0
+                        ? {
+                            transform: `scale(${eraseCanvasZoom})`,
+                            transformOrigin: 'center center',
+                            transition: 'transform 0.15s ease-out',
+                          }
+                        : {}),
+                    }}
                     className={`relative max-h-full max-w-full flex items-center justify-center select-none ${
                       isEraseMode ? (eraseTool === 'brush' ? 'cursor-none' : 'cursor-crosshair') : ''
                     }`}
@@ -12363,14 +12429,15 @@ export default function Design() {
                           height: `${eraseBox.height}%`,
                           zIndex: 30,
                         }}
-                        className="border-2 border-dashed border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.4)] pointer-events-none select-none"
+                        className="border-[1.5px] border-dashed border-amber-400 bg-amber-400/10 shadow-[0_0_8px_rgba(251,191,36,0.25)] pointer-events-none select-none"
                       >
-                        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
-                        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
-                        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
-                        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black/90 text-amber-300 border border-amber-400/50 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow whitespace-nowrap">
-                          {isDrawingEraseBox ? 'Selecting Area…' : `Canva Area: ${Math.round(eraseBox.width)}% × ${Math.round(eraseBox.height)}%`}
+                        {/* Sleek L-shaped corner brackets (never obstruct inner logo pixels) */}
+                        <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
+                        <div className="absolute -top-[1px] -right-[1px] w-2 h-2 border-t-2 border-r-2 border-amber-400 pointer-events-none" />
+                        <div className="absolute -bottom-[1px] -left-[1px] w-2 h-2 border-b-2 border-l-2 border-amber-400 pointer-events-none" />
+                        <div className="absolute -bottom-[1px] -right-[1px] w-2 h-2 border-b-2 border-r-2 border-amber-400 pointer-events-none" />
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-xs text-amber-300 border border-amber-400/40 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap">
+                          {isDrawingEraseBox ? 'Selecting…' : `${Math.round(eraseBox.width)}% × ${Math.round(eraseBox.height)}%`}
                         </div>
                       </div>
                     )}
@@ -12585,6 +12652,38 @@ export default function Design() {
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
                     </button>
+
+                    {/* Canvas Zoom Controls (Erase Studio) */}
+                    <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 border border-white/10 text-xs shrink-0">
+                      <span className="text-[10px] font-mono font-bold text-white/70 px-1 flex items-center gap-1">
+                        <ZoomIn className="w-3 h-3 text-amber-400" />
+                        <span>Zoom:</span>
+                      </span>
+                      {[1.0, 1.5, 2.0, 2.5].map((z) => (
+                        <button
+                          key={z}
+                          type="button"
+                          onClick={() => setEraseCanvasZoom(z)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                            eraseCanvasZoom === z
+                              ? 'bg-amber-400 text-black'
+                              : 'text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          {z}×
+                        </button>
+                      ))}
+                      {eraseCanvasZoom > 1.0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEraseCanvasZoom(1.0)}
+                          className="px-1.5 py-0.5 rounded text-[9px] font-medium text-amber-300 hover:text-white transition cursor-pointer"
+                          title="Reset zoom to 1×"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Row 2: Action Buttons */}
@@ -12683,6 +12782,7 @@ export default function Design() {
                         type="button"
                         onClick={() => {
                           setIsEraseMode(false);
+                          setEraseCanvasZoom(1.0);
                           handleClearStrokes();
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
