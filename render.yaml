@@ -1,7 +1,7 @@
 services:
-  # 1. Full-Stack Web Service (Recommended: Runs Frontend + Backend API together seamlessly)
+  # Full-Stack Web Service: Runs React Frontend (dist) + Node.js Express Backend together on https://shivnaresh-studio.onrender.com
   - type: web
-    name: shivnaresh
+    name: shivnaresh-studio
     runtime: node
     buildCommand: npm install --include=dev && npm run build
     startCommand: node server/index.mjs
@@ -9,13 +9,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-
-  # 2. Static Site Frontend (If using split frontend architecture)
-  - type: static
-    name: shivnaresh-studio
-    buildCommand: npm install --include=dev && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
