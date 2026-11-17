@@ -5,6 +5,7 @@
  * - receives uploads, forwards jobs upstream and caches finished outputs locally
  */
 import express from 'express';
+import compression from 'compression';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
@@ -1055,6 +1056,9 @@ async function listModels(forceFresh = false) {
 
 /* ------------------------------------------------------------- app boot */
 const app = express();
+
+/* Enable Gzip / Brotli response compression to minimize bandwidth usage */
+app.use(compression());
 
 /* Enable Cross-Origin Resource Sharing (CORS) for all Render and web origins */
 app.use((req, res, next) => {
@@ -6390,7 +6394,15 @@ if (!fsSync.existsSync(indexPath)) {
   console.warn('[boot] dist/index.html not found — serving fallback boot page. Ensure build command includes `npm run build`.');
 }
 
-app.use(express.static(dist));
+app.use(express.static(dist, {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    // 1-year immutable caching on hashed assets eliminates repeat asset bandwidth
+    if (filePath.includes(path.sep + 'assets' + path.sep) || filePath.includes('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 app.get(/^\/(?!api|uploads|generated|models|hosted|guidelines).*/, async (_req, res) => {
   if (fsSync.existsSync(indexPath)) {
     return res.sendFile(indexPath, (err) => {

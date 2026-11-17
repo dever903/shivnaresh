@@ -15,6 +15,7 @@
   "dependencies": {
     "@types/nodemailer": "^8.0.2",
     "@types/qrcode": "^1.5.6",
+    "compression": "^1.8.2",
     "express": "^5.3.0",
     "jszip": "^3.10.2",
     "lucide-react": "^0.469.0",
