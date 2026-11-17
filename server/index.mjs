@@ -1091,15 +1091,15 @@ app.use('/uploads', async (req, res, next) => {
     const filename = path.basename(decodeURIComponent(req.path));
     const candidate1 = path.join(UPLOADS, filename);
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
-      return res.sendFile(candidate1);
+      return res.sendFile(candidate1, { maxAge: '7d' });
     }
     const candidate2 = path.join(DATA, 'uploads', filename);
     if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
-      return res.sendFile(candidate2);
+      return res.sendFile(candidate2, { maxAge: '7d' });
     }
     const candidate3 = path.join(ROOT, 'server', 'data', 'uploads', filename);
     if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
-      return res.sendFile(candidate3);
+      return res.sendFile(candidate3, { maxAge: '7d' });
     }
     // Fallback: If local file was deleted by a cloud redeploy, redirect to permanent hosted CDN!
     const hosted = await readHosted();
@@ -1144,7 +1144,7 @@ app.use('/generated', async (req, res, next) => {
     const candidate1 = path.join(GENERATED, filename);
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
       if (fsSync.statSync(candidate1).size > 20000) {
-        return res.sendFile(candidate1);
+        return res.sendFile(candidate1, { maxAge: '7d' });
       } else {
         try { fsSync.unlinkSync(candidate1); } catch { }
       }
@@ -1152,7 +1152,7 @@ app.use('/generated', async (req, res, next) => {
     const candidate2 = path.join(DATA, 'generated', filename);
     if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
       if (fsSync.statSync(candidate2).size > 20000) {
-        return res.sendFile(candidate2);
+        return res.sendFile(candidate2, { maxAge: '7d' });
       } else {
         try { fsSync.unlinkSync(candidate2); } catch { }
       }
@@ -1283,15 +1283,15 @@ app.use('/models', async (req, res, next) => {
     const decodedPath = decodeURIComponent(req.path.replace(/^\//, ''));
     const candidate1 = path.join(MODELS_DIR, decodedPath);
     if (fsSync.existsSync(candidate1) && fsSync.statSync(candidate1).isFile()) {
-      return res.sendFile(candidate1);
+      return res.sendFile(candidate1, { maxAge: '30d' });
     }
     const candidate2 = path.join(ROOT, 'dist', 'models', decodedPath);
     if (fsSync.existsSync(candidate2) && fsSync.statSync(candidate2).isFile()) {
-      return res.sendFile(candidate2);
+      return res.sendFile(candidate2, { maxAge: '30d' });
     }
     const candidate3 = path.join(PUBLIC_DIR, 'models', decodedPath);
     if (fsSync.existsSync(candidate3) && fsSync.statSync(candidate3).isFile()) {
-      return res.sendFile(candidate3);
+      return res.sendFile(candidate3, { maxAge: '30d' });
     }
 
     // Fallback: check MongoDB studio_models if ephemeral disk lost the file
@@ -6405,6 +6405,7 @@ app.use(express.static(dist, {
 }));
 app.get(/^\/(?!api|uploads|generated|models|hosted|guidelines).*/, async (_req, res) => {
   if (fsSync.existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache');
     return res.sendFile(indexPath, (err) => {
       if (err && !res.headersSent) {
         res.status(200).send(renderBootHtml());
