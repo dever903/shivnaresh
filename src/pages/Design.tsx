@@ -6383,7 +6383,7 @@ export default function Design() {
       const v = localStorage.getItem('shivnaresh_chest_logo_scale');
       if (v) {
         const n = Number(v);
-        if (n >= 30) return n;
+        if (n >= 6) return n;
       }
     } catch { }
     return 48;
@@ -6408,7 +6408,7 @@ export default function Design() {
       const v = localStorage.getItem('shivnaresh_pant_logo_scale');
       if (v) {
         const n = Number(v);
-        if (n >= 24) return n;
+        if (n >= 6) return n;
       }
     } catch { }
     return 36;
@@ -8045,9 +8045,9 @@ export default function Design() {
     const imgElem = document.getElementById('rendered-main-img') as HTMLImageElement | null;
     const dispW = dispRect?.width || imgElem?.clientWidth || 380;
 
-    // Direct proportional scale matching on-screen preview 1:1
-    const chestRatio = Math.max(0.02, Math.min(0.60, scale / (dispW || 380)));
-    const pantRatio = Math.max(0.02, Math.min(0.60, pScale / (dispW || 380)));
+    // Direct proportional scale matching on-screen preview 1:1 (supports ultra-small minimum logos)
+    const chestRatio = Math.max(0.005, Math.min(0.60, scale / (dispW || 380)));
+    const pantRatio = Math.max(0.005, Math.min(0.60, pScale / (dispW || 380)));
 
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
@@ -9718,8 +9718,8 @@ export default function Design() {
             setShowHdLogoOverlay(true);
             setShowPantLogo(true);
             setIsEraseMode(false);
-            setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
-            setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
+            setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+            setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
             autoDetectContrastColor(targetUrl);
             currentEditGenIdRef.current = gen.id;
             setIsOptionBDirty(true);
@@ -9951,8 +9951,8 @@ export default function Design() {
                     setShowHdLogoOverlay(true);
                     setShowPantLogo(true);
                     setIsEraseMode(false);
-                    setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
-                    setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
+                    setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+                    setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     activeRenderOption === 'b' || (showHdLogoOverlay || showPantLogo)
@@ -10363,8 +10363,8 @@ export default function Design() {
                         <button
                           type="button"
                           onClick={() => {
-                            if (activeLogoTarget === 'chest') setHdLogoScale((s) => Math.max(10, s - 2));
-                            else setPantLogoScale((s) => Math.max(10, s - 2));
+                            if (activeLogoTarget === 'chest') setHdLogoScale((s) => Math.max(6, s - 2));
+                            else setPantLogoScale((s) => Math.max(6, s - 2));
                           }}
                           className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${
                             isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
@@ -10678,7 +10678,7 @@ export default function Design() {
                         if (nextVal) {
                           setActiveRenderOption('b');
                           setIsEraseMode(false);
-                          setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
+                          setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
                         }
                       }}
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer ${
@@ -10745,8 +10745,8 @@ export default function Design() {
                         </div>
                         <input
                           type="range"
-                          min="14"
-                          max="60"
+                          min="6"
+                          max="70"
                           value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
                           onChange={(e) => {
                             const val = Number(e.target.value);
@@ -12631,7 +12631,7 @@ export default function Design() {
                           top: `${hdLogoY}%`,
                           transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, 1)`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(32, hdLogoScale)}px`,
+                          width: `${Math.max(6, hdLogoScale)}px`,
                           opacity: 0.96,
                           cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
                           touchAction: 'none',
@@ -12661,7 +12661,7 @@ export default function Design() {
                           top: `${pantLogoY}%`,
                           transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, 1)`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(24, pantLogoScale)}px`,
+                          width: `${Math.max(6, pantLogoScale)}px`,
                           opacity: 0.96,
                           cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
                           touchAction: 'none',
@@ -13007,8 +13007,8 @@ export default function Design() {
                           setShowHdLogoOverlay(true);
                           setShowPantLogo(true);
                           setIsEraseMode(false);
-                          setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
-                          setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
+                          setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+                          setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
                         }}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                           activeRenderOption === 'b'
@@ -13317,8 +13317,8 @@ export default function Design() {
                       <span className="text-[10px] opacity-75 font-medium">Size</span>
                       <input
                         type="range"
-                        min={10}
-                        max={60}
+                        min={6}
+                        max={70}
                         step={1}
                         value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
                         onChange={(e) => {
@@ -13330,8 +13330,8 @@ export default function Design() {
                       />
                       <input
                         type="number"
-                        min={10}
-                        max={60}
+                        min={6}
+                        max={70}
                         step={1}
                         value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
                         onChange={(e) => {
