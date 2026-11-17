@@ -1994,7 +1994,11 @@ function MySetsPanel({
   refreshGenerations,
   onDeleteGeneration,
   onZoomCrop,
+  onAddLogo,
   onEditLogo,
+  onBatchAddLogo,
+  isBatchBranding,
+  batchBrandProgress,
   isLight,
 }: {
   uploadSets: UploadSet[];
@@ -2007,7 +2011,11 @@ function MySetsPanel({
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
   onZoomCrop?: (url: string, title: string) => void;
+  onAddLogo?: (gen: UserGeneration) => void;
   onEditLogo?: (gen: UserGeneration) => void;
+  onBatchAddLogo?: (targets: UserGeneration[]) => Promise<void>;
+  isBatchBranding?: boolean;
+  batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
 }) {
   const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'sets'>('all');
@@ -2521,7 +2529,7 @@ function MySetsPanel({
                   <Camera className="h-4 w-4 text-current/70" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider">Generated studio images ({imageGenerations.length})</h3>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -2536,12 +2544,38 @@ function MySetsPanel({
                   >
                     {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
                   </button>
+
+                  {/* Batch Add HD Logo Action */}
+                  {onBatchAddLogo && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targets = selectedGenIds.length > 0
+                          ? imageGenerations.filter((g) => selectedGenIds.includes(g.id))
+                          : imageGenerations;
+                        void onBatchAddLogo(targets);
+                      }}
+                      disabled={isBatchBranding || imageGenerations.length === 0}
+                      className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Automatically stamp official HD vector Shiv-Naresh logo onto all generated images or selected images"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {isBatchBranding
+                          ? `Branding (${batchBrandProgress?.current || 0}/${batchBrandProgress?.total || 0})…`
+                          : selectedGenIds.length > 0
+                            ? `✨ Add HD Logo on Selected (${selectedGenIds.length})`
+                            : `✨ Add HD Logo on All (${imageGenerations.length})`}
+                      </span>
+                    </button>
+                  )}
+
                   {selectedGenIds.length > 0 && (
                     <>
                       <button
                         type="button"
                         onClick={() => void handleDownloadZip()}
-                        disabled={zipping || batchDeleting}
+                        disabled={zipping || batchDeleting || isBatchBranding}
                         className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {zipping ? 'Compressing ZIP…' : `⬇️ Download Selected (${selectedGenIds.length}) as ZIP`}
@@ -2549,7 +2583,7 @@ function MySetsPanel({
                       <button
                         type="button"
                         onClick={() => void handleBatchDelete()}
-                        disabled={batchDeleting || zipping}
+                        disabled={batchDeleting || zipping || isBatchBranding}
                         className="rounded-lg bg-red-600 hover:bg-red-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                         title="Move all selected images to Admin Recycle Bin"
                       >
@@ -2661,19 +2695,34 @@ function MySetsPanel({
                         <span>Download 1807 × 3000 px</span>
                       </button>
 
-                      {/* Secondary Utility Actions (Erase/Edit, Zoom, View, Delete) */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Logo Actions: Add HD Logo & Edit / Erase */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {onAddLogo && (
+                          <button
+                            type="button"
+                            onClick={() => onAddLogo(gen)}
+                            className="w-full rounded-lg bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                            title="Add official HD Vector Shiv-Naresh branding to this image in Studio"
+                          >
+                            <Sparkles className="h-3 w-3 shrink-0 text-amber-300" />
+                            <span className="truncate">Add HD Logo</span>
+                          </button>
+                        )}
                         {onEditLogo && (
                           <button
                             type="button"
                             onClick={() => onEditLogo(gen)}
-                            className="flex-1 min-w-0 rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
-                            title="Open in Logo Eraser Studio to erase unwanted AI logos or snap crisp HD vector brand"
+                            className="w-full rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                            title="Open in Logo Eraser Studio to erase unwanted AI logos or select Canva area"
                           >
                             <Eraser className="h-3 w-3 shrink-0" />
-                            <span className="truncate">Erase/Edit</span>
+                            <span className="truncate">Edit / Erase</span>
                           </button>
                         )}
+                      </div>
+
+                      {/* Secondary Utility Actions (Zoom, View, Delete) */}
+                      <div className="flex items-center gap-1.5">
                         {onZoomCrop && (
                           <button
                             type="button"
@@ -8076,6 +8125,60 @@ export default function Design() {
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
+  const [isBatchBranding, setIsBatchBranding] = useState(false);
+  const [batchBrandProgress, setBatchBrandProgress] = useState<{ current: number; total: number } | null>(null);
+
+  async function handleBatchAddLogo(targetGens: UserGeneration[]) {
+    if (!targetGens || targetGens.length === 0) return;
+    const ok = window.confirm(
+      `Apply crisp HD Vector Shiv-Naresh branding to ${targetGens.length} image${targetGens.length > 1 ? 's' : ''} in high resolution (1807×3000)?\n\nBranded images will be permanently saved to My Sets with the EDITED badge.`
+    );
+    if (!ok) return;
+
+    setIsBatchBranding(true);
+    setBatchBrandProgress({ current: 0, total: targetGens.length });
+
+    let completed = 0;
+    try {
+      for (const gen of targetGens) {
+        const rawUrl = getBestGenUrl(gen);
+        if (!rawUrl) continue;
+        try {
+          const stampedDataUrl = await stampHdLogoOntoImage(rawUrl, {
+            targetWidth: 1807,
+            targetHeight: 3000,
+          });
+
+          const newGenId = `sn-hd-${gen.id.slice(0, 8)}-${Date.now()}`;
+          const savePayload = {
+            id: newGenId,
+            jobId: gen.jobId || gen.id,
+            type: 'image' as const,
+            isEdited: true,
+            isNewSnapshot: true,
+            url: stampedDataUrl,
+            prompt: `${gen.prompt || 'Studio Sportswear'} [Option B HD Vector Brand]`,
+            resolution: '1807x3000',
+          };
+
+          await api.saveUserGeneration(savePayload);
+        } catch (itemErr) {
+          console.warn(`[Batch Brand] Error for gen ${gen.id}:`, itemErr);
+        }
+        completed++;
+        setBatchBrandProgress({ current: completed, total: targetGens.length });
+      }
+
+      await loadUserGenerations();
+      alert(`✅ HD Vector Branding successfully applied to ${completed} image${completed > 1 ? 's' : ''}! They are now available in My Sets.`);
+    } catch (err: any) {
+      alert('Batch branding error: ' + (err?.message || err));
+    } finally {
+      setIsBatchBranding(false);
+      setBatchBrandProgress(null);
+    }
+  }
+
   /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric and crease lines */
   async function inpaintEraseArea(
     baseImgUrl: string,
@@ -9578,6 +9681,23 @@ export default function Design() {
             setZoomCropTitle(title);
             setShowZoomCropModal(true);
           }}
+          onAddLogo={(gen) => {
+            const targetUrl = getBestGenUrl(gen);
+            if (!targetUrl) return;
+            setResult(targetUrl);
+            setCleanResultBackup(targetUrl);
+            setActiveRenderOption('b');
+            setShowHdLogoOverlay(true);
+            setShowPantLogo(true);
+            setIsEraseMode(false);
+            setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
+            setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
+            autoDetectContrastColor(targetUrl);
+            currentEditGenIdRef.current = gen.id;
+            setIsOptionBDirty(true);
+            setPageView('studio');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onEditLogo={(gen) => {
             const targetUrl = getBestGenUrl(gen);
             if (!targetUrl) return;
@@ -9586,13 +9706,18 @@ export default function Design() {
             setMode('removelogo');
             setIsEraseMode(true);
             setEraseBox(null);
+            setRubStrokes([]);
             setActiveRenderOption('a');
             setShowHdLogoOverlay(false);
             setShowPantLogo(false);
             setIsOptionBDirty(false);
+            currentEditGenIdRef.current = gen.id;
             setPageView('studio');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onBatchAddLogo={handleBatchAddLogo}
+          isBatchBranding={isBatchBranding}
+          batchBrandProgress={batchBrandProgress}
           isLight={isLight}
         />
       )}
