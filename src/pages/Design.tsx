@@ -18,6 +18,7 @@ import {
   Maximize2,
   MessageSquare,
   Move,
+  Paintbrush,
   Paperclip,
   Plus,
   RefreshCw,
@@ -6483,24 +6484,31 @@ export default function Design() {
     window.addEventListener('touchend', handleEnd);
   };
 
-  /* Area-Selective AI Logo Eraser State & Handlers (Freehand Rubbing Brush Mode) */
+  /* Area-Selective AI Logo Eraser State & Handlers (Canva-Style Brush & Area Selection) */
   type RubPoint = { x: number; y: number };
   type RubStroke = RubPoint[];
 
   const [isEraseMode, setIsEraseMode] = useState(false);
+  const [eraseTool, setEraseTool] = useState<'brush' | 'area'>('brush');
+  const [brushScalePercent, setBrushScalePercent] = useState<number>(25);
+  const brushRadius = Math.max(4, Math.min(60, Math.round((brushScalePercent / 100) * 50)));
   const [eraseBox, setEraseBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
   const [rubStrokes, setRubStrokes] = useState<RubStroke[]>([]);
   const rubStrokesRef = useRef<RubStroke[]>([]);
   const currentStrokeRef = useRef<RubPoint[]>([]);
   const [isRubbing, setIsRubbing] = useState(false);
-  const [brushRadius, setBrushRadius] = useState<number>(20);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const rubCanvasRef = useRef<HTMLCanvasElement>(null);
   const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
   const [isErasing, setIsErasing] = useState(false);
   const [isSeamProtect, setIsSeamProtect] = useState(true);
   const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
+
+  const handleSwitchEraseTool = (tool: 'brush' | 'area') => {
+    setEraseTool(tool);
+    handleClearStrokes();
+  };
 
   const computeRubBoundingBox = (strokes: RubStroke[], radius: number, rectW: number, rectH: number) => {
     if (!strokes || strokes.length === 0) return null;
@@ -6589,7 +6597,7 @@ export default function Design() {
 
   const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isEraseMode) return;
-    if ((e.target as HTMLElement).closest('button')) return;
+    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -6602,6 +6610,60 @@ export default function Design() {
     const startX = Math.max(0, Math.min(100, ((startClientX - rect.left) / rect.width) * 100));
     const startY = Math.max(0, Math.min(100, ((startClientY - rect.top) / rect.height) * 100));
 
+    if (eraseTool === 'area') {
+      // Area Selection Mode (Canva Area style)
+      setIsDrawingEraseBox(true);
+      setEraseBox({ x: startX, y: startY, width: 0, height: 0 });
+
+      const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
+        const curRect = getImageElementRect();
+        if (!curRect || curRect.width === 0 || curRect.height === 0) return;
+        const clientX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
+        const clientY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
+
+        const currX = Math.max(0, Math.min(100, ((clientX - curRect.left) / curRect.width) * 100));
+        const currY = Math.max(0, Math.min(100, ((clientY - curRect.top) / curRect.height) * 100));
+
+        const boxX = Math.min(startX, currX);
+        const boxY = Math.min(startY, currY);
+        const boxW = Math.abs(currX - startX);
+        const boxH = Math.abs(currY - startY);
+
+        setEraseBox({
+          x: Math.round(boxX * 10) / 10,
+          y: Math.round(boxY * 10) / 10,
+          width: Math.round(boxW * 10) / 10,
+          height: Math.round(boxH * 10) / 10,
+        });
+      };
+
+      const handleEnd = () => {
+        setIsDrawingEraseBox(false);
+        setEraseBox((prev) => {
+          if (!prev || prev.width < 1.5 || prev.height < 1.5) return null;
+          const curRect = getImageElementRect();
+          const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
+          const autoScale = Math.max(14, Math.min(80, Math.round((dispW * prev.width) / 100)));
+          const centerX = Math.round((prev.x + prev.width / 2) * 10) / 10;
+          const centerY = Math.round((prev.y + prev.height / 2) * 10) / 10;
+          const target = centerY > 50 ? 'pant' : 'chest';
+          lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
+          return prev;
+        });
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
+      };
+
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+      return;
+    }
+
+    // Brush (Rubbing) Mode
     const newStroke: RubPoint[] = [{ x: startX, y: startY }];
     currentStrokeRef.current = newStroke;
     setIsRubbing(true);
@@ -8404,11 +8466,12 @@ export default function Design() {
     try {
       setIsErasing(true);
       const currentImg = result;
+      const strokesToPass = eraseTool === 'brush' && rubStrokes.length > 0 ? rubStrokes : undefined;
       const { url: inpainted, detected } = await inpaintEraseArea(
         currentImg,
         curBox,
         isSeamRepair ? 'repair_seam' : 'erase_logo',
-        rubStrokes,
+        strokesToPass,
         brushRadius
       );
 
@@ -10287,20 +10350,24 @@ export default function Design() {
                 {/* 2. Eraser Instructions & Quick Actions */}
                 <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    2 · How to Rub & Erase Logos on Canvas
+                    2 · How to Select & Erase Logos on Canvas
                   </span>
                   <div className={`text-xs space-y-1.5 leading-relaxed ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
                     <p className="flex items-start gap-2">
                       <span className="text-amber-400 font-bold">①</span>
-                      <span><strong>Rub with mouse or finger</strong> directly over the unwanted logo on the clothing.</span>
+                      <span>Choose <strong>Brush (Rub)</strong> or <strong>Area (Canva)</strong> mode from the bottom toolbar.</span>
                     </p>
                     <p className="flex items-start gap-2">
                       <span className="text-amber-400 font-bold">②</span>
-                      <span>Click <strong>"Erase Logo"</strong> to blend seamlessly with surrounding fabric texture.</span>
+                      <span>Rub directly or drag a bounding box tightly over the unwanted logo or text.</span>
                     </p>
                     <p className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold">③</span>
-                      <span>Or click <strong>"Erase & Snap HD Vector"</strong> to simultaneously place official crisp vector branding.</span>
+                      <span className="text-amber-400 font-bold">③</span>
+                      <span>Click <strong>"Erase Logo"</strong> to blend seamlessly with surrounding fabric weave.</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <span className="text-emerald-400 font-bold">④</span>
+                      <span>Or click <strong>"Erase & Snap HD Vector"</strong> to place crisp vector branding at auto-detected scale.</span>
                     </p>
                   </div>
 
@@ -12247,7 +12314,7 @@ export default function Design() {
                     }}
                     style={renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : undefined}
                     className={`relative max-h-full max-w-full flex items-center justify-center select-none ${
-                      isEraseMode ? 'cursor-none' : ''
+                      isEraseMode ? (eraseTool === 'brush' ? 'cursor-none' : 'cursor-crosshair') : ''
                     }`}
                   >
                     <img
@@ -12263,16 +12330,16 @@ export default function Design() {
                       className="w-full h-full object-contain block select-none pointer-events-none"
                     />
 
-                    {/* Realtime Rubbing Overlay Canvas */}
-                    {isEraseMode && (
+                    {/* Realtime Rubbing Overlay Canvas (in Brush mode) */}
+                    {isEraseMode && eraseTool === 'brush' && (
                       <canvas
                         ref={rubCanvasRef}
                         className="absolute inset-0 w-full h-full pointer-events-none z-30"
                       />
                     )}
 
-                    {/* Circular Cursor Brush Follower */}
-                    {isEraseMode && cursorPos && !isErasing && (
+                    {/* Circular Cursor Brush Follower (in Brush mode) */}
+                    {isEraseMode && eraseTool === 'brush' && cursorPos && !isErasing && (
                       <div
                         style={{
                           left: `${cursorPos.x}px`,
@@ -12285,208 +12352,26 @@ export default function Design() {
                       />
                     )}
 
-                    {/* Active Erase Mode Toolbar at top of canvas */}
-                    {isEraseMode && (
-                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/90 backdrop-blur-md border border-amber-500/60 text-white text-xs font-semibold shadow-2xl pointer-events-auto select-none">
-                        <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-                          <Eraser className="w-3.5 h-3.5" />
-                          <span>Rub Eraser</span>
-                        </div>
-                        <span className="text-white/40">|</span>
-                        {/* Brush Size Selector */}
-                        <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 border border-white/15">
-                          {[
-                            { label: 'S', size: 14, title: 'Small Brush (14px)' },
-                            { label: 'M', size: 20, title: 'Medium Brush (20px)' },
-                            { label: 'L', size: 34, title: 'Large Brush (34px)' },
-                          ].map((b) => (
-                            <button
-                              key={b.size}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setBrushRadius(b.size);
-                              }}
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer ${
-                                brushRadius === b.size
-                                  ? 'bg-amber-400 text-black shadow-xs'
-                                  : 'text-white/70 hover:text-white'
-                              }`}
-                              title={b.title}
-                            >
-                              {b.label}
-                            </button>
-                          ))}
-                        </div>
-                        <span className="text-white/40">|</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsSeamProtect((prev) => !prev);
-                          }}
-                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition cursor-pointer border ${
-                            isSeamProtect
-                              ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300'
-                              : 'bg-white/10 border-white/20 text-white/60'
-                          }`}
-                          title="When ON, preserves trouser pleats, creases, piping, and seams 100% and selectively removes only contrasting logo ink"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
-                        </button>
-                        <span className="text-white/40">|</span>
-                        <span className="text-white/80 text-[11px] hidden sm:inline">
-                          {rubStrokes.length > 0 ? 'Rub more or click Erase below' : 'Rub over logo with mouse or finger'}
-                        </span>
-
-                        {rubStrokes.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleClearStrokes();
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-400/40 text-[11px] font-bold transition cursor-pointer"
-                            title="Clear rubbed stroke"
-                          >
-                            <X className="w-3 h-3" />
-                            <span>Clear Rub</span>
-                          </button>
-                        )}
-
-                        {eraseUndoStack.length > 0 && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUndoErase();
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-sky-200 border border-sky-400/40 text-[11px] font-bold transition cursor-pointer"
-                              title="Step back to previous state before last erase"
-                            >
-                              <RotateCcw className="w-3 h-3" />
-                              <span>Step Back ({eraseUndoStack.length})</span>
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleSaveToMySets();
-                              }}
-                              className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition shadow cursor-pointer disabled:opacity-50"
-                              title="Save this erased image to My Sets archive"
-                            >
-                              <Bookmark className="w-3 h-3" />
-                              <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
-                            </button>
-                            {autoSaveStatus && (
-                              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold shadow-xs">
-                                ✓ {autoSaveStatus}
-                              </span>
-                            )}
-                          </>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsEraseMode(false);
-                            handleClearStrokes();
-                          }}
-                          className="ml-1 p-1 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition cursor-pointer"
-                          title="Done / Exit Erase Mode"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Floating Action Menu for Rubbed Logo */}
-                    {eraseBox && !isDrawingEraseBox && !isRubbing && (
+                    {/* Canva-style Area Bounding Box (in Area mode) */}
+                    {isEraseMode && eraseTool === 'area' && eraseBox && (
                       <div
                         style={{
                           position: 'absolute',
-                          left: `${Math.max(12, Math.min(88, eraseBox.x + eraseBox.width / 2))}%`,
-                          top: `${eraseBox.y + eraseBox.height + 4 > 90 ? Math.max(6, eraseBox.y - 8) : Math.min(92, eraseBox.y + eraseBox.height + 3)}%`,
-                          transform: 'translateX(-50%)',
-                          zIndex: 40,
+                          left: `${eraseBox.x}%`,
+                          top: `${eraseBox.y}%`,
+                          width: `${eraseBox.width}%`,
+                          height: `${eraseBox.height}%`,
+                          zIndex: 30,
                         }}
-                        className="flex items-center gap-1.5 p-1.5 rounded-lg bg-black/90 backdrop-blur-md border border-amber-400/50 shadow-2xl pointer-events-auto"
+                        className="border-2 border-dashed border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.4)] pointer-events-none select-none"
                       >
-                        <button
-                          type="button"
-                          disabled={isErasing}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExecuteErase(false);
-                          }}
-                          className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                          title="Seamlessly erase rubbed logo with matching fabric texture"
-                        >
-                          <Eraser className="w-3 h-3" />
-                          <span>{isErasing ? 'Erasing…' : 'Erase Logo'}</span>
-                        </button>
-                        {(() => {
-                          const curRect = getImageElementRect();
-                          const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * eraseBox.width) / 100)));
-                          return (
-                            <button
-                              type="button"
-                              disabled={isErasing}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleExecuteErase(true);
-                              }}
-                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                              title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
-                            >
-                              <Sparkles className="w-3 h-3 text-amber-300" />
-                              <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
-                            </button>
-                          );
-                        })()}
-                        <button
-                          type="button"
-                          disabled={isErasing}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExecuteErase(false, true);
-                          }}
-                          className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                          title="Reconnect and repair a blurred or broken vertical trouser crease/seam line across this selection"
-                        >
-                          <Scissors className="w-3 h-3 text-indigo-300" />
-                          <span>🧵 Restore Seam</span>
-                        </button>
-                        {eraseUndoStack.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUndoErase();
-                            }}
-                            className="px-2 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-sky-200 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
-                            title="Step back to previous image"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Step Back</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClearStrokes();
-                          }}
-                          className="p-1 rounded hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
-                          title="Cancel / clear stroke"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
+                        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
+                        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
+                        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-amber-400 rounded-xs shadow-sm" />
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black/90 text-amber-300 border border-amber-400/50 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow whitespace-nowrap">
+                          {isDrawingEraseBox ? 'Selecting Area…' : `Canva Area: ${Math.round(eraseBox.width)}% × ${Math.round(eraseBox.height)}%`}
+                        </div>
                       </div>
                     )}
 
@@ -12594,6 +12479,226 @@ export default function Design() {
                   </div>
                 )}
               </div>
+
+              {/* Dedicated Bottom Erase Studio Control Bar (Docked under image preview) */}
+              {isEraseMode && result && (
+                <div
+                  className={`p-3 sm:p-4 border-t border-b flex flex-col gap-3 transition-all ${
+                    isLight
+                      ? 'bg-amber-50/80 border-amber-200 text-slate-900 shadow-inner'
+                      : 'bg-gradient-to-r from-amber-950/40 via-neutral-900/90 to-amber-950/40 border-amber-500/30 text-white shadow-xl'
+                  }`}
+                >
+                  {/* Row 1: Mode Switcher (Brush vs Area), Brush Scale % Slider, Crease Protect */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    {/* Canva Mode Selector: Brush (Rub) vs Area */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchEraseTool('brush')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          eraseTool === 'brush'
+                            ? 'bg-amber-500 text-black shadow-xs'
+                            : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                        title="Brush Mode: Rub freehand over any irregular logo, text, or defect"
+                      >
+                        <Paintbrush className="w-3.5 h-3.5" />
+                        <span>Brush (Rub)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchEraseTool('area')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          eraseTool === 'area'
+                            ? 'bg-amber-500 text-black shadow-xs'
+                            : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                        title="Canva Area Mode: Drag a bounding box tightly around any logo or text block"
+                      >
+                        {/* Official Canva Area Sparkles / Magic Wand SVG */}
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M8.128 2.118c.406 1.982 1.284 2.963 3.317 3.37a.254.254 0 1 1 0 .508c-1.983.406-2.91 1.328-3.316 3.361a.25.25 0 0 1-.242.197.25.25 0 0 1-.246-.21c-.406-1.982-1.28-2.942-3.313-3.348a.254.254 0 0 1 0-.509c1.983-.406 2.91-1.334 3.317-3.367a.25.25 0 0 1 .242-.191.25.25 0 0 1 .24.189Zm-2.63 7.55C4.64 9.41 4.14 8.998 3.97 8.14a.187.187 0 0 0-.374 0c-.257.857-.67 1.356-1.528 1.528a.187.187 0 0 0 0 .373c.858.258 1.357.671 1.528 1.528a.187.187 0 1 0 .374 0c.257-.857.67-1.356 1.528-1.528a.187.187 0 1 0 0-.373Zm4.783 5.39 6.144-6.666 1.896 1.635-6.607 6.426a1 1 0 0 1-1.433-1.395Zm9.112-6.087L17.442 7.29l.81-.88a1.322 1.322 0 1 1 1.893 1.844l-.823.8.07-.082Zm-8.31 9.264a2.495 2.495 0 0 0 1.677-.707l8.431-8.2a2.822 2.822 0 1 0-4.042-3.935l-7.97 8.648a2.49 2.49 0 0 0-.66 1.814c-.727-.141-1.395-.029-1.976.323-.908.549-1.365 1.547-1.515 2.376-.04.22-.131.336-.2.38a1.798 1.798 0 0 0-.827 1.485 1.5 1.5 0 0 0 .923 1.401c2.127.918 3.926.573 5.062-.522a3.66 3.66 0 0 0 1.098-3.063Zm-1.636-.247c.316.722.125 1.67-.499 2.271-.57.55-1.657.935-3.368.196-.035-.015-.047-.03-.051-.038a.108.108 0 0 1-.014-.058.25.25 0 0 1 .122-.201c.541-.357.794-.92.881-1.402.106-.585.402-1.093.78-1.322.305-.184.893-.319 1.942.34.118.074.18.152.207.214Z"
+                          />
+                        </svg>
+                        <span>Area (Canva)</span>
+                      </button>
+                    </div>
+
+                    {/* Scale in % Slider (Brush Mode) or Area Drag Guidance (Area Mode) */}
+                    {eraseTool === 'brush' ? (
+                      <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 whitespace-nowrap">
+                          Scale:
+                        </span>
+                        <input
+                          type="range"
+                          min={5}
+                          max={100}
+                          step={1}
+                          value={brushScalePercent}
+                          onChange={(e) => setBrushScalePercent(Number(e.target.value))}
+                          className="flex-1 accent-amber-500 cursor-pointer h-1.5 bg-white/20 rounded-lg"
+                          title={`Eraser brush scale: ${brushScalePercent}% (${brushRadius * 2}px)`}
+                        />
+                        <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md min-w-[46px] text-center">
+                          {brushScalePercent}%
+                        </span>
+                        <div className="hidden sm:flex items-center gap-1">
+                          {[10, 25, 50, 75].map((pct) => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => setBrushScalePercent(pct)}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition cursor-pointer ${
+                                brushScalePercent === pct
+                                  ? 'bg-amber-400 text-black'
+                                  : 'bg-white/10 text-white/60 hover:text-white'
+                              }`}
+                            >
+                              {pct}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-amber-300/80 flex-1">
+                        <span className="text-amber-400 font-bold">🪄 Canva Area Mode:</span>
+                        <span>Drag a rectangle tightly around any logo or text block on the image.</span>
+                      </div>
+                    )}
+
+                    {/* Crease Protect toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsSeamProtect((prev) => !prev)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shrink-0 ${
+                        isSeamProtect
+                          ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                          : 'bg-white/5 border-white/20 text-white/50'
+                      }`}
+                      title="When ON, preserves trouser pleats, creases, piping, and seams 100% and selectively removes only contrasting logo ink"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
+                    </button>
+                  </div>
+
+                  {/* Row 2: Action Buttons */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-white/10">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Erase Logo Button */}
+                      <button
+                        type="button"
+                        disabled={isErasing || (!eraseBox && rubStrokes.length === 0)}
+                        onClick={() => handleExecuteErase(false)}
+                        className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                        title="Seamlessly blend and remove selected logo area with surrounding fabric texture"
+                      >
+                        <Eraser className="w-3.5 h-3.5" />
+                        <span>{isErasing ? 'Erasing…' : eraseTool === 'brush' ? 'Erase Rubbed Logo' : 'Erase Logo Area'}</span>
+                      </button>
+
+                      {/* Erase & Snap HD Vector */}
+                      {(() => {
+                        const curRect = getImageElementRect();
+                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (eraseBox?.width || 12)) / 100)));
+                        return (
+                          <button
+                            type="button"
+                            disabled={isErasing || (!eraseBox && rubStrokes.length === 0)}
+                            onClick={() => handleExecuteErase(true)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                            title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                          </button>
+                        );
+                      })()}
+
+                      {/* Restore Seam */}
+                      <button
+                        type="button"
+                        disabled={isErasing || !eraseBox}
+                        onClick={() => handleExecuteErase(false, true)}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
+                        title="Reconnect and repair a blurred vertical trouser crease line across the selected area"
+                      >
+                        <Scissors className="w-3.5 h-3.5 text-indigo-300" />
+                        <span>🧵 Restore Seam</span>
+                      </button>
+
+                      {/* Clear Rub / Cancel Area */}
+                      {(eraseBox || rubStrokes.length > 0) && (
+                        <button
+                          type="button"
+                          onClick={handleClearStrokes}
+                          className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${
+                            isLight
+                              ? 'border-gray-300 text-slate-700 hover:bg-black/5'
+                              : 'border-white/20 text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                          title="Clear the current selection"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>{eraseTool === 'brush' ? 'Clear Rub' : 'Cancel Area'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Undo Step Back */}
+                      {eraseUndoStack.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleUndoErase}
+                          className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                          title="Step back to previous state before last erase"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Step Back ({eraseUndoStack.length})</span>
+                        </button>
+                      )}
+
+                      {/* Save to My Sets */}
+                      {eraseUndoStack.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleSaveToMySets()}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          title="Save this erased image to My Sets archive"
+                        >
+                          <Bookmark className="w-3.5 h-3.5" />
+                          <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
+                        </button>
+                      )}
+
+                      {/* Done / Exit Erase Mode */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEraseMode(false);
+                          handleClearStrokes();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                          isLight
+                            ? 'bg-black/10 hover:bg-black/15 text-slate-800'
+                            : 'bg-white/10 hover:bg-white/20 text-white'
+                        }`}
+                        title="Done / Exit Erase Mode"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Done</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons bar & Option A / Option B Selector */}
               {result && (
