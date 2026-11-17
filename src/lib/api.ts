@@ -917,11 +917,6 @@ export function getProxiedImageUrl(url: string): string {
     if (typeof window !== 'undefined' && parsed.origin === window.location.origin) {
       return url;
     }
-    // Direct CDN bypass for hosts with native CORS headers (fal, cloudinary, imgbb, etc.)
-    // Direct loading prevents streaming megabytes through Render, saving ~85% outbound bandwidth
-    if (/fal\.media|cloudinary\.com|ibb\.co|fal\.run|storage\.googleapis\.com|unsplash\.com|fashn\.ai/.test(parsed.hostname)) {
-      return url;
-    }
     return `/api/proxy-image?url=${encodeURIComponent(url)}`;
   } catch {
     return url;

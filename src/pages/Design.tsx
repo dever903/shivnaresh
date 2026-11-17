@@ -7220,31 +7220,37 @@ export default function Design() {
     const targetUrl = imgUrl || result || userGenerations[0]?.url;
     if (!targetUrl) return;
     try {
+      const proxied = getProxiedImageUrl(resolveImageUrl(targetUrl));
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || 500;
-        canvas.height = img.naturalHeight || 500;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0);
-        const px = Math.floor((canvas.width * (activeLogoTarget === 'chest' ? hdLogoX : pantLogoX)) / 100);
-        const py = Math.floor((canvas.height * (activeLogoTarget === 'chest' ? hdLogoY : pantLogoY)) / 100);
-        const pData = ctx.getImageData(Math.max(0, px - 6), Math.max(0, py - 6), 12, 12).data;
-        let rTot = 0, gTot = 0, bTot = 0, count = 0;
-        for (let i = 0; i < pData.length; i += 4) {
-          rTot += pData[i];
-          gTot += pData[i + 1];
-          bTot += pData[i + 2];
-          count++;
-        }
-        if (count > 0) {
-          const lum = 0.2126 * (rTot / count) + 0.7152 * (gTot / count) + 0.0722 * (bTot / count);
-          setHdLogoColor(lum > 125 ? '#111111' : '#ffffff');
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(img.naturalWidth || 500, 500);
+          canvas.height = Math.min(img.naturalHeight || 500, 500);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const px = Math.floor((canvas.width * (activeLogoTarget === 'chest' ? hdLogoX : pantLogoX)) / 100);
+          const py = Math.floor((canvas.height * (activeLogoTarget === 'chest' ? hdLogoY : pantLogoY)) / 100);
+          const pData = ctx.getImageData(Math.max(0, px - 6), Math.max(0, py - 6), 12, 12).data;
+          let rTot = 0, gTot = 0, bTot = 0, count = 0;
+          for (let i = 0; i < pData.length; i += 4) {
+            rTot += pData[i];
+            gTot += pData[i + 1];
+            bTot += pData[i + 2];
+            count++;
+          }
+          if (count > 0) {
+            const lum = 0.2126 * (rTot / count) + 0.7152 * (gTot / count) + 0.0722 * (bTot / count);
+            setHdLogoColor(lum > 125 ? '#111111' : '#ffffff');
+          }
+        } catch {
+          // Cross-origin fallback
         }
       };
-      img.src = targetUrl;
+      img.onerror = () => {};
+      img.src = proxied;
     } catch {}
   }, [result, userGenerations, activeLogoTarget, hdLogoX, hdLogoY, pantLogoX, pantLogoY]);
 
@@ -7962,10 +7968,10 @@ export default function Design() {
     const pY = options?.pantY ?? pantLogoY;
     const pScale = options?.pantScale ?? pantLogoScale;
 
-    const resolvedBaseUrl = resolveImageUrl(baseImgUrl);
+    const resolvedBaseUrl = getProxiedImageUrl(resolveImageUrl(baseImgUrl));
     const baseImg = new Image();
+    baseImg.crossOrigin = 'anonymous';
     try {
-      baseImg.crossOrigin = 'anonymous';
       await new Promise<void>((resolve, reject) => {
         baseImg.onload = () => resolve();
         baseImg.onerror = () => reject(new Error('CORS image load failed'));
@@ -7976,7 +7982,6 @@ export default function Design() {
         const res = await fetch(resolvedBaseUrl);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
-        baseImg.removeAttribute('crossorigin');
         await new Promise<void>((resolve, reject) => {
           baseImg.onload = () => resolve();
           baseImg.onerror = () => reject(new Error('Failed to load base image from blob'));
@@ -7984,12 +7989,25 @@ export default function Design() {
         });
         setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
       } catch {
-        baseImg.removeAttribute('crossorigin');
-        await new Promise<void>((resolve, reject) => {
-          baseImg.onload = () => resolve();
-          baseImg.onerror = () => reject(new Error('Failed to load base image'));
-          baseImg.src = resolvedBaseUrl;
-        });
+        try {
+          const directProxy = `/api/proxy-image?url=${encodeURIComponent(baseImgUrl)}`;
+          const pRes = await fetch(directProxy);
+          const pBlob = await pRes.blob();
+          const pBlobUrl = URL.createObjectURL(pBlob);
+          await new Promise<void>((resolve, reject) => {
+            baseImg.onload = () => resolve();
+            baseImg.onerror = () => reject(new Error('Failed to load image via fallback proxy'));
+            baseImg.src = pBlobUrl;
+          });
+          setTimeout(() => URL.revokeObjectURL(pBlobUrl), 3000);
+        } catch {
+          baseImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            baseImg.onload = () => resolve();
+            baseImg.onerror = () => reject(new Error('Failed to load base image'));
+            baseImg.src = resolvedBaseUrl;
+          });
+        }
       }
     }
 
@@ -8119,10 +8137,15 @@ export default function Design() {
     }
 
     try {
-      const webp = canvas.toDataURL('image/webp', 0.85);
-      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
-    } catch {}
-    return canvas.toDataURL('image/jpeg', 0.85);
+      try {
+        const webp = canvas.toDataURL('image/webp', 0.85);
+        if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
+      } catch {}
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } catch (exportErr) {
+      console.warn('[stampHdLogoOntoImage] Canvas export failed, returning base url:', exportErr);
+      return baseImgUrl;
+    }
   }
 
   const [isBatchBranding, setIsBatchBranding] = useState(false);
@@ -8187,7 +8210,7 @@ export default function Design() {
     strokes?: RubStroke[],
     brushRadiusPx?: number
   ): Promise<{ url: string; detected?: { x: number; y: number; scale: number } }> {
-    const resolvedUrl = resolveImageUrl(baseImgUrl);
+    const resolvedUrl = getProxiedImageUrl(resolveImageUrl(baseImgUrl));
 
     // Always convert to data URL first — remote URLs cause canvas CORS taint on getImageData()
     let safeUrl = resolvedUrl;
@@ -8748,7 +8771,12 @@ export default function Design() {
 
       if (activeRenderOption === 'b' && (showHdLogoOverlay || showPantLogo)) {
         const baseToUse = cleanResultBackup || result;
-        finalImg = await stampHdLogoOntoImage(baseToUse);
+        try {
+          finalImg = await stampHdLogoOntoImage(baseToUse);
+        } catch (stampErr) {
+          console.warn('[handleSaveToMySets] Logo stamping fallback:', stampErr);
+          finalImg = baseToUse;
+        }
         setResult(finalImg);
         setCleanResultBackup(baseToUse);
         setFivePoseItems((prev) =>
