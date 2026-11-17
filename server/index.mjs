@@ -2887,7 +2887,7 @@ function buildRequest(mode, state, src, is2k = false) {
       const sourceImg = src.sourceModel || src.model || src.cloth;
       let swapText = text;
       if (src.targetModel) {
-        swapText = `${swapText} · Athletic model swap: swap model appearance to match athletic studio persona with perfect sportswear fit and crisp posture.`.trim();
+        swapText = `${swapText} · Athletic model swap: swap model appearance to match athletic studio persona with perfect sportswear fit and crisp posture. Strictly preserve natural hands, fingers, and any hand-held sports objects, props, or balls intact.`.trim();
       }
       return { model_name: 'model-swap', fields: { model_image: sourceImg, ...(swapText ? { prompt: swapText } : {}) } };
     }
@@ -2964,7 +2964,15 @@ function isUserGenerating(req) {
   const key = getUserLockKey(req);
   const active = activeUserGenerations.get(key);
   if (active) {
-    if (Date.now() - active.startedAt > 180000) {
+    if (active.jobId) {
+      const local = localJobMap.get(active.jobId);
+      if (local && (local.status === 'completed' || local.status === 'failed' || local.status === 'cancelled')) {
+        activeUserGenerations.delete(key);
+        return false;
+      }
+    }
+    // Expire lingering locks after 60s
+    if (Date.now() - active.startedAt > 60000) {
       activeUserGenerations.delete(key);
       return false;
     }
@@ -2976,13 +2984,15 @@ function isUserGenerating(req) {
 function lockUser(req, jobId) {
   const key = getUserLockKey(req);
   activeUserGenerations.set(key, { jobId, startedAt: Date.now() });
+  if (req.user && req.user._id) {
+    activeUserGenerations.set(`usr_${req.user._id}`, { jobId, startedAt: Date.now() });
+  }
 }
 
 function unlockUser(jobId) {
   for (const [key, val] of activeUserGenerations.entries()) {
-    if (val.jobId === jobId) {
+    if (!jobId || val.jobId === jobId) {
       activeUserGenerations.delete(key);
-      break;
     }
   }
 }
@@ -3226,10 +3236,12 @@ const recentUserGenerations = new Map();
 
 app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
+    const isForce = Boolean(req.body?.forceUnlock || req.query?.force === 'true');
+
     /* Prevent duplicate double-clicks and repeated requests */
     const genFingerprint = `${req.user._id}_${req.body?.mode || ''}_${req.body?.cloth || ''}_${req.body?.model || ''}_${req.body?.prompt || ''}`;
     const prevGen = recentUserGenerations.get(req.user._id);
-    if (prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 3000) {
+    if (!isForce && prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 3000) {
       return res.status(409).json({
         error: 'duplicate_generation',
         message: 'Duplicate render request blocked. A generation with these parameters is already in progress.',
@@ -3239,20 +3251,28 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
 
     /* Strict single concurrency: only 1 generation active at a time per user */
     if (isUserGenerating(req)) {
-      try {
-        await recordSystemProblem({
-          module: 'generation',
-          severity: 'warning',
-          userEmail: req.user?.email || 'user',
-          userId: req.user?._id || null,
-          title: 'Studio Concurrency 409 Conflict',
-          message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
+      if (isForce) {
+        activeUserGenerations.delete(getUserLockKey(req));
+        if (req.user?._id) {
+          activeUserGenerations.delete(`usr_${req.user._id}`);
+          recentUserGenerations.delete(req.user._id);
+        }
+      } else {
+        try {
+          await recordSystemProblem({
+            module: 'generation',
+            severity: 'warning',
+            userEmail: req.user?.email || 'user',
+            userId: req.user?._id || null,
+            title: 'Studio Concurrency 409 Conflict',
+            message: 'A studio generation is already in progress for this account. Request was blocked by concurrency lock.',
+          });
+        } catch { }
+        return res.status(409).json({
+          error: 'generation_in_progress',
+          message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
         });
-      } catch { }
-      return res.status(409).json({
-        error: 'generation_in_progress',
-        message: 'A studio generation is already in progress for your account. At one time only one generation is permitted. Please wait for the current render to complete.',
-      });
+      }
     }
 
     const state = await readState();
@@ -3446,7 +3466,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         const targetUri = await toDataUri(body.targetModel || body.model);
         const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
         images = [targetUri, sourceUri];
-        agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ';
+        agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ' +
+          'HAND & HELD OBJECT PRESERVATION: If either model in Image 1 or Image 2 is holding an object, sports ball (basketball, football, volleyball, cricket ball), racket, bat, prop, or equipment in their hands, STRICTLY PRESERVE the object and hand grip intact with 100% fidelity. Do NOT remove or erase hand-held sports objects. ';
       } else if (garmentViews) {
         const modelUri = await toDataUri(body.model);
         const viewsToUse = garmentViews.slice(0, 5);
@@ -3510,7 +3531,8 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all garment patterns, bold curved accent lines, side panels, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. ' +
         'Preserve the prominent royal blue curved accent lines running along both shoulder seams, the dense micro-laser perforated dot pattern across the shoulder yoke and extending fully down both side panels, and the lower body royal blue color gradient with exact 1:1 reproduction, every dot and line sharp and visible without solid-color flattening or omission. ' +
         'If the model in Image 1 is facing backwards (back view), synthesize the back view of the garment: render the back shoulder yoke with the dot cluster, curved royal blue accent lines, back side panels, and lower back blue gradient. ' +
-        'MODEL ACCESSORIES & INTEGRITY: Strictly preserve the model’s natural posture, accessories, watches, wristbands, and shoes from Image 1 intact with 100% fidelity. Do NOT remove worn accessories or alter the model’s natural hands or stance. ' +
+        'MODEL ACCESSORIES & INTEGRITY: Strictly preserve the model’s natural posture, accessories, watches, wristbands, and shoes from Image 1 intact with 100% fidelity. Do NOT remove worn accessories or alter the model’s natural stance. ' +
+        'CRITICAL HANDS & HELD PROPS PRESERVATION: Strictly preserve the model’s hands, fingers, and any object, sports ball (basketball, football, volleyball, cricket ball), racket, bat, bottle, equipment, or prop held in the hands with 100% fidelity. Do NOT erase, blur, alter, or remove hand-held objects or sports equipment. If the model or reference is holding an object in their hand, retain that exact hand-held object with natural fingers and grip. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
         'STRICT VISUAL REFERENCE FIDELITY: Mirror the exact garment shown in the reference photos with complete fidelity. Accurately replicate its cut, sleeve length, closures, textures, and patterns. ';
 
@@ -3529,7 +3551,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
 
       let universalNegative =
-        'no baseball cap, no beanie, no helmet, no visor (unless worn by the reference model in Image 1), no hood behind neck, no draped hood, no bunched fabric at nape, no hanging hoodie pouch, no cap behind neck, no ball, no deformed fingers, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
+        'no baseball cap, no beanie, no helmet, no visor (unless worn by the reference model in Image 1), no hood behind neck, no draped hood, no bunched fabric at nape, no hanging hoodie pouch, no cap behind neck, no deformed fingers, no missing fingers, no mutilated hands, no different face, no plastic skin, no cartoon, no text artefacts, no watermark';
 
       if (userWantsRemoveShivNaresh && !userWantsRemoveAllLogo) {
         universalNegative += ', no shiv-naresh text, no manufacturer animal logo';

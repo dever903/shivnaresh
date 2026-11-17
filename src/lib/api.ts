@@ -480,8 +480,22 @@ export const api = {
       hostError?: string;
       name: string;
     }>('/api/upload', json({ dataUrl, kind, name })),
-  generate: (body: Record<string, unknown>) =>
-    request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>('/api/generate', json(body)),
+  generate: async (body: Record<string, unknown>) => {
+    try {
+      return await request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>('/api/generate', json(body));
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Concurrency lock conflict: automatically clear lingering lock and retry with forceUnlock
+        await api.unlockUser().catch(() => {});
+        await new Promise((r) => setTimeout(r, 600));
+        return await request<{ id: string; mode: string; credits?: number; creditsUsed?: number }>(
+          '/api/generate',
+          json({ ...body, forceUnlock: true })
+        );
+      }
+      throw err;
+    }
+  },
   job: (id: string) => request<Job>(`/api/job/${id}`),
   cancelJob: (id: string) =>
     request<{ ok: boolean; cancelled: boolean; refunded: boolean; refundedCredits: number; message: string }>(

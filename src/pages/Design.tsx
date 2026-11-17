@@ -8751,6 +8751,9 @@ export default function Design() {
     setElapsedSec(0);
 
     try {
+      // Proactively clear any lingering lock from a previously completed or interrupted render
+      await api.unlockUser().catch(() => {});
+
       let effectivePrompt = mode === 'swap' ? swapPrompt.trim() : prompt.trim();
       if (garmentColor.trim() && mode !== 'swap') {
         const colorNote = `Exact fabric color: ${garmentColor.trim()}. Preserve true athletic garment dye and athlete kit tones with accurate color matching.`;
