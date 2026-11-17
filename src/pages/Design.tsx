@@ -7996,13 +7996,6 @@ export default function Design() {
     const lums = allBorderSamples.map((p) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]).sort((a, b) => a - b);
     const medLum = lums[Math.floor(lums.length / 2)];
 
-    // Variance for natural fabric micro-weave texture
-    let varSum = 0;
-    for (const p of allBorderSamples) {
-      varSum += Math.abs(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] - medLum);
-    }
-    const noiseAmp = Math.max(0.6, Math.min(2.8, varSum / allBorderSamples.length));
-
     // 2. Coons Patch Harmonic Inpaint: Bilinear boundary interpolation
     // Guarantees C^0 continuity on all 4 boundaries with zero directional streaks
     const bufR = new Float32Array(bw * bh);
@@ -8098,19 +8091,99 @@ export default function Design() {
         }
       }
     } else {
-      // 4B. ERASE LOGO MODE: Selectively erase ONLY contrasting logo ink with seamless fabric feathering
-      const inkThreshold = Math.max(12, medDist * 1.4);
+      // 4B. ERASE LOGO MODE: Zero-Blur Real Fabric Texture Synthesis
+      // Find cleanest adjacent garment fabric patch to act as real texture & weave donor
+      const candidateDonors = [
+        { dx: bw + 4, dy: 0 },    // Right side of logo
+        { dx: -bw - 4, dy: 0 },   // Left side of logo
+        { dx: 0, dy: bh + 4 },    // Below logo
+        { dx: 0, dy: -bh - 4 },   // Above logo
+      ];
+
+      let bestDonor = candidateDonors[0];
+      let bestDist = Infinity;
+
+      for (const cand of candidateDonors) {
+        const startX = bx + cand.dx;
+        const startY = by + cand.dy;
+        if (startX < 2 || startX + bw >= w - 2 || startY < 2 || startY + bh >= h - 2) continue;
+        let sumDist = 0;
+        let samples = 0;
+        for (let i = 0; i < 15; i++) {
+          const testX = startX + Math.floor((i / 15) * bw);
+          const testY = startY + Math.floor((((i * 7) % 15) / 15) * bh);
+          const p = getPixel(testX, testY);
+          sumDist += Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB);
+          samples++;
+        }
+        const avgD = samples > 0 ? sumDist / samples : Infinity;
+        if (avgD < bestDist) {
+          bestDist = avgD;
+          bestDonor = cand;
+        }
+      }
+
+      const donorStartX = Math.max(0, Math.min(w - bw - 1, bx + bestDonor.dx));
+      const donorStartY = Math.max(0, Math.min(h - bh - 1, by + bestDonor.dy));
+
+      const inkThreshold = Math.max(12, medDist * 1.35);
+      const rawMask = new Uint8Array(bw * bh);
       let minInkX = bw;
       let maxInkX = 0;
       let minInkY = bh;
       let maxInkY = 0;
       let inkPixelCount = 0;
 
+      // Pass 1: Identify ink pixels
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
           const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+          const origR = data[pixelIdx];
+          const origG = data[pixelIdx + 1];
+          const origB = data[pixelIdx + 2];
+          const synthR = bufR[idx];
+          const synthG = bufG[idx];
+          const synthB = bufB[idx];
+          const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
+          if (colorDist > inkThreshold) {
+            rawMask[idx] = 1;
+            minInkX = Math.min(minInkX, c);
+            maxInkX = Math.max(maxInkX, c);
+            minInkY = Math.min(minInkY, r);
+            maxInkY = Math.max(maxInkY, r);
+            inkPixelCount++;
+          }
+        }
+      }
 
+      // Pass 2: Dilate mask by 1px so anti-aliased edge halos are fully cleared without leaving ghost borders
+      const finalMask = new Uint8Array(bw * bh);
+      for (let r = 0; r < bh; r++) {
+        for (let c = 0; c < bw; c++) {
+          const idx = r * bw + c;
+          if (rawMask[idx]) {
+            finalMask[idx] = 255;
+          } else {
+            const topM = r > 0 ? rawMask[idx - bw] : 0;
+            const botM = r < bh - 1 ? rawMask[idx + bw] : 0;
+            const leftM = c > 0 ? rawMask[idx - 1] : 0;
+            const rightM = c < bw - 1 ? rawMask[idx + 1] : 0;
+            if (topM || botM || leftM || rightM) {
+              finalMask[idx] = 210;
+            }
+          }
+        }
+      }
+
+      // Pass 3: Inpaint ink pixels with real physical fabric weave texture (zero blur!)
+      for (let r = 0; r < bh; r++) {
+        for (let c = 0; c < bw; c++) {
+          const idx = r * bw + c;
+          const maskVal = finalMask[idx];
+          if (maskVal === 0) continue; // 100% original fabric untouched!
+
+          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
           const origR = data[pixelIdx];
           const origG = data[pixelIdx + 1];
           const origB = data[pixelIdx + 2];
@@ -8119,32 +8192,25 @@ export default function Design() {
           const synthG = bufG[idx];
           const synthB = bufB[idx];
 
-          const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
           const falloff = getBoxFalloff(c, r);
+          const eraseWeight = (maskVal / 255.0) * falloff;
+          if (eraseWeight <= 0.005) continue;
 
-          if (colorDist > inkThreshold) {
-            minInkX = Math.min(minInkX, c);
-            maxInkX = Math.max(maxInkX, c);
-            minInkY = Math.min(minInkY, r);
-            maxInkY = Math.max(maxInkY, r);
-            inkPixelCount++;
+          // Sample real fabric weave from donor patch
+          const donorP = getPixel(donorStartX + c, donorStartY + r);
+          const texDeltaR = donorP[0] - medFabricR;
+          const texDeltaG = donorP[1] - medFabricG;
+          const texDeltaB = donorP[2] - medFabricB;
 
-            const eraseWeight = Math.min(1.0, ((colorDist - inkThreshold) / 8.0)) * falloff;
-            if (eraseWeight > 0.005) {
-              const grain = (Math.sin(c * 12.9898 + r * 78.233) * 43758.5453) % 1;
-              const noise = (grain - 0.5) * noiseAmp;
+          // Seamless real woven fabric reconstruction (lighting gradient + real cloth thread texture)
+          const finalR = Math.max(0, Math.min(255, Math.round(synthR + texDeltaR)));
+          const finalG = Math.max(0, Math.min(255, Math.round(synthG + texDeltaG)));
+          const finalB = Math.max(0, Math.min(255, Math.round(synthB + texDeltaB)));
 
-              const finalR = Math.max(0, Math.min(255, synthR + noise));
-              const finalG = Math.max(0, Math.min(255, synthG + noise));
-              const finalB = Math.max(0, Math.min(255, synthB + noise));
-
-              data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
-              data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
-              data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * finalB);
-              data[pixelIdx + 3] = 255;
-            }
-          }
-          // If colorDist <= inkThreshold: pixel is clean garment fabric/crease: keep it 100% untouched!
+          data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
+          data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
+          data[pixelIdx + 2] = Math.round((1 - eraseWeight) * origB + eraseWeight * finalB);
+          data[pixelIdx + 3] = 255;
         }
       }
 
