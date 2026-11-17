@@ -2529,6 +2529,12 @@ function MySetsPanel({
                               onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
                               onError={(e) => {
                                 const el = e.currentTarget;
+                                const curSrc = el.src || '';
+                                if (!curSrc.includes('/api/proxy-image') && primary.startsWith('http')) {
+                                  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+                                  el.src = `${apiBase}/api/proxy-image?url=${encodeURIComponent(primary)}`;
+                                  return;
+                                }
                                 el.style.display = 'none';
                                 const parent = el.parentElement;
                                 if (parent && !parent.querySelector('.broken-img-placeholder')) {
