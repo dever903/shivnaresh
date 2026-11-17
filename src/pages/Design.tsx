@@ -6900,8 +6900,18 @@ export default function Design() {
     });
   }
 
-  function toggleModelSelection(item: { url: string; name: string }) {
+  const [isMultiModelBatchEnabled, setIsMultiModelBatchEnabled] = useState(false);
+
+  function handleModelSelect(item: { url: string; name: string }) {
     const pickItem = { url: item.url, preview: item.url, name: item.name };
+    if (!isMultiModelBatchEnabled) {
+      // Single Model Mode (DEFAULT & 100% CREDIT-SAFE): Always selects exclusively 1 model for 1 credit
+      setModel(pickItem);
+      setSelectedModels([pickItem]);
+      return;
+    }
+
+    // Explicit Multi-Model Batch Mode: add/remove from batch
     setSelectedModels((prev) => {
       const isSelected = prev.some((p) => p && p.url === item.url);
       if (isSelected) {
@@ -6915,16 +6925,14 @@ export default function Design() {
           alert('You can select a maximum of 10 model poses for a batch.');
           return prev;
         }
-        let base = [...prev];
-        if (base.length === 0 && model && model.url !== item.url) {
-          base = [{ url: model.url, preview: model.preview || model.url, name: model.name }];
-        }
-        const next = [...base, pickItem];
+        const next = [...prev, pickItem];
         setModel(pickItem);
         return next;
       }
     });
   }
+
+  const toggleModelSelection = handleModelSelect;
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
   const [isAutoLogoColor, setIsAutoLogoColor] = useState(true);
@@ -7252,9 +7260,8 @@ export default function Design() {
     return g ? { url: g.url, preview: g.preview, name: g.name } : null;
   })();
   const hasClassifiedGarments = classifiedGarments.length > 0;
-  const selectedModelCount = selectedModels.length > 0 ? selectedModels.length : (model ? 1 : 0);
-  const multiBatchCount = mode === 'tryon'
-    ? Math.max(1, selectedModelCount)
+  const multiBatchCount = (isMultiModelBatchEnabled && mode === 'tryon' && selectedModels.length > 1)
+    ? selectedModels.length
     : 1;
 
   const validSwapDrafts = swapDrafts.filter((d) => Boolean(d.source?.url && d.target?.url));
@@ -8834,7 +8841,7 @@ export default function Design() {
 
       /* Batch Execution (multi-model/pose batch or multi-swap batch) */
       const isSwapBatch = mode === 'swap' && validSwapDrafts.length > 1;
-      const isMultiModelBatch = (multiBatchCount > 1 || effectiveModels.length > 1) && mode === 'tryon';
+      const isMultiModelBatch = isMultiModelBatchEnabled && selectedModels.length > 1 && mode === 'tryon';
 
       if ((isMultiModelBatch || isSwapBatch) && !isEditingRender) {
         let batchItems: Array<{
@@ -11767,6 +11774,53 @@ export default function Design() {
                     </div>
                   ) : null}
 
+                  {/* Model Selection Mode Toggle: Single Model (Default 1 Credit) vs Multi-Model Batch */}
+                  <div className={`mt-3 rounded-xl border p-2 flex items-center justify-between gap-2 ${
+                    isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
+                  }`}>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMultiModelBatchEnabled(false);
+                          if (model) setSelectedModels([model]);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          !isMultiModelBatchEnabled
+                            ? 'bg-[#e5373f] text-white shadow-xs'
+                            : isLight ? 'text-slate-600 hover:bg-black/5' : 'text-white/60 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>⚡ Single Model (1 Credit)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsMultiModelBatchEnabled(true)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          isMultiModelBatchEnabled
+                            ? 'bg-amber-400 text-black shadow-xs'
+                            : isLight ? 'text-slate-600 hover:bg-black/5' : 'text-white/60 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>👥 Batch Mode ({selectedModels.length})</span>
+                      </button>
+                    </div>
+                    {isMultiModelBatchEnabled && selectedModels.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedModels([]);
+                          setModel(null);
+                        }}
+                        className={`text-[10px] font-medium hover:underline cursor-pointer ${
+                          isLight ? 'text-slate-500' : 'text-white/50'
+                        }`}
+                      >
+                        Reset Batch
+                      </button>
+                    )}
+                  </div>
+
                   {/* Quick Pick from Previous Models */}
                   {previousModelsList.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-white/10">
@@ -11929,8 +11983,7 @@ export default function Design() {
                                   {s.modelUrl ? (
                                     <div
                                       onClick={() => {
-                                        setModel({ url: s.modelUrl, name: s.modelName || 'Set Model' });
-                                        toggleModelSelection({ url: s.modelUrl, name: s.modelName || 'Set Model' });
+                                        handleModelSelect({ url: s.modelUrl, name: s.modelName || 'Set Model' });
                                       }}
                                       className="relative cursor-pointer hover:opacity-90 transition-opacity"
                                       title="Click to select this model"

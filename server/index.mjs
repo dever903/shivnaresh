@@ -2964,11 +2964,11 @@ function isUserGenerating(_req) {
   return false;
 }
 
-function lockUser(req, jobId) {
+function lockUser(req, jobId, fingerprint = '') {
   const key = getUserLockKey(req);
-  activeUserGenerations.set(key, { jobId, startedAt: Date.now() });
+  activeUserGenerations.set(key, { jobId, fingerprint, startedAt: Date.now() });
   if (req.user && req.user._id) {
-    activeUserGenerations.set(`usr_${req.user._id}`, { jobId, startedAt: Date.now() });
+    activeUserGenerations.set(`usr_${req.user._id}`, { jobId, fingerprint, startedAt: Date.now() });
   }
 }
 
@@ -3153,6 +3153,24 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
   } catch (err) {
     if (abortController.signal.aborted) {
       console.log(`[agent] Job ${jobId} was aborted by user cancel.`);
+      const job = localJobMap.get(jobId);
+      if (job && !job.refunded && userId && creditsNeeded > 0) {
+        job.refunded = true;
+        try {
+          const u = await auth.findUserById(userId);
+          if (u) {
+            const restored = (Number(u.credits) || 0) + creditsNeeded;
+            await auth.patchUser(userId, {
+              credits: restored,
+              modelsGenerated: Math.max(0, (Number(u.modelsGenerated) || 1) - 1),
+              dailyModelsUsed: Math.max(0, (Number(u.dailyModelsUsed) || 1) - 1),
+            });
+            console.log(`[billing] Restored ${creditsNeeded} credits to ${userId} on abort. Balance: ${restored}`);
+          }
+        } catch (rfErr) {
+          console.error('[billing] Failed to restore credits on abort:', rfErr.message);
+        }
+      }
       return;
     }
     console.error(`[agent] Job ${jobId} failed:`, err.message);
@@ -3221,10 +3239,28 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
   try {
     const isForce = Boolean(req.body?.forceUnlock || req.query?.force === 'true');
 
-    /* Prevent duplicate rapid double-clicks (within 1 second) */
-    const genFingerprint = `${req.user._id}_${req.body?.mode || ''}_${req.body?.cloth || ''}_${req.body?.model || ''}_${req.body?.prompt || ''}`;
+    /* Prevent duplicate rapid double-clicks (within 2 seconds) */
+    const genFingerprint = `${req.user._id}_${req.body?.mode || ''}_${req.body?.cloth || ''}_${req.body?.model || ''}_${req.body?.prompt || ''}_${req.body?.tryOnTarget || ''}`;
+    const userLockKey = getUserLockKey(req);
+    const existingActive = activeUserGenerations.get(userLockKey) || (req.user?._id ? activeUserGenerations.get(`usr_${req.user._id}`) : null);
+
+    // ZERO-CREDIT-WASTE RULE 1: If an identical generation is currently running, return that active job without deducting new credits
+    if (existingActive?.jobId && existingActive.fingerprint === genFingerprint) {
+      const activeJob = localJobMap.get(existingActive.jobId);
+      if (activeJob && (activeJob.status === 'processing' || activeJob.status === 'starting')) {
+        console.log(`[generate] Identical job ${existingActive.jobId} is already in-flight. Returning without duplicate credit deduction.`);
+        return res.json({
+          id: existingActive.jobId,
+          mode: req.body?.mode || 'tryon',
+          credits: req.user.credits,
+          creditsUsed: 0,
+          dedup: true,
+        });
+      }
+    }
+
     const prevGen = recentUserGenerations.get(req.user._id);
-    if (!isForce && prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 1000) {
+    if (!isForce && prevGen && prevGen.key === genFingerprint && Date.now() - prevGen.time < 2000) {
       return res.status(429).json({
         error: 'duplicate_generation',
         message: 'Please wait a moment before sending another render request.',
@@ -3232,17 +3268,31 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     }
     recentUserGenerations.set(req.user._id, { key: genFingerprint, time: Date.now() });
 
-    /* Seamless concurrency handling: gracefully abort any previous active job for this user and proceed */
-    const userLockKey = getUserLockKey(req);
-    const existingActive = activeUserGenerations.get(userLockKey) || (req.user?._id ? activeUserGenerations.get(`usr_${req.user._id}`) : null);
+    /* Seamless concurrency handling: gracefully abort any previous active job for this user and AUTO-REFUND IT */
     if (existingActive) {
       if (existingActive.jobId) {
         const prevLocal = localJobMap.get(existingActive.jobId);
-        if (prevLocal && prevLocal.status === 'processing') {
+        if (prevLocal && (prevLocal.status === 'processing' || prevLocal.status === 'starting')) {
           try {
             prevLocal.status = 'cancelled';
             prevLocal.abortController?.abort();
-          } catch { }
+            // ZERO-CREDIT-WASTE RULE 2: If previous job is replaced before finishing, auto-refund its credits immediately
+            if (prevLocal.userId && prevLocal.creditsUsed > 0 && !prevLocal.refunded) {
+              prevLocal.refunded = true;
+              const u = await auth.findUserById(prevLocal.userId);
+              if (u) {
+                const restored = (Number(u.credits) || 0) + prevLocal.creditsUsed;
+                await auth.patchUser(prevLocal.userId, {
+                  credits: restored,
+                  modelsGenerated: Math.max(0, (Number(u.modelsGenerated) || 1) - 1),
+                  dailyModelsUsed: Math.max(0, (Number(u.dailyModelsUsed) || 1) - 1),
+                });
+                console.log(`[billing] Auto-refunded ${prevLocal.creditsUsed} credits for cancelled in-flight job ${existingActive.jobId}. Balance: ${restored}`);
+              }
+            }
+          } catch (cancelErr) {
+            console.warn('[billing] Auto-refund warning on cancel:', cancelErr.message);
+          }
         }
       }
       activeUserGenerations.delete(userLockKey);
@@ -3433,7 +3483,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       req.user.credits = remainingCredits;
 
       const agentJobId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      lockUser(req, agentJobId);
+      lockUser(req, agentJobId, genFingerprint);
 
       let images = [];
       let agentPrompt = '';
@@ -3733,7 +3783,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       }
       /* store the job id → key mapping so we can clean up when it completes */
       if (data.id) {
-        lockUser(req, data.id);
+        lockUser(req, data.id, genFingerprint);
         jobKeyMap.set(data.id, {
           requestKey,
           clearTimer,
