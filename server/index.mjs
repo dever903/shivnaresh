@@ -884,7 +884,7 @@ async function toDataUri(src) {
     const hosted = await readHosted();
     const remoteUrl = hosted.uploads?.[basename] || hosted.models?.[basename] || hosted.generated?.[basename];
     if (remoteUrl && typeof remoteUrl === 'string' && /^https?:\/\//i.test(remoteUrl)) {
-      const resp = await fetch(remoteUrl);
+      const resp = await fetch(remoteUrl, { signal: AbortSignal.timeout(6000) });
       if (resp.ok) {
         const buf = Buffer.from(await resp.arrayBuffer());
         const contentType = resp.headers.get('content-type') || 'image/jpeg';
@@ -910,7 +910,7 @@ async function toDataUri(src) {
       if (uploadDoc?.dataUrl) return uploadDoc.dataUrl;
       if (uploadDoc?.remoteUrl && /^https?:\/\//i.test(uploadDoc.remoteUrl)) {
         try {
-          const resp = await fetch(uploadDoc.remoteUrl);
+          const resp = await fetch(uploadDoc.remoteUrl, { signal: AbortSignal.timeout(6000) });
           if (resp.ok) {
             const buf = Buffer.from(await resp.arrayBuffer());
             const contentType = resp.headers.get('content-type') || 'image/jpeg';
@@ -927,7 +927,7 @@ async function toDataUri(src) {
       if (doc?.dataUrl) return doc.dataUrl;
       if (doc?.remoteUrl && /^https?:\/\//i.test(doc.remoteUrl)) {
         try {
-          const resp = await fetch(doc.remoteUrl);
+          const resp = await fetch(doc.remoteUrl, { signal: AbortSignal.timeout(6000) });
           if (resp.ok) {
             const buf = Buffer.from(await resp.arrayBuffer());
             const contentType = resp.headers.get('content-type') || 'image/jpeg';
@@ -941,7 +941,7 @@ async function toDataUri(src) {
   // If it is an external URL not found on disk, fetch inline so Fashn always has the bytes
   if (/^https?:\/\//i.test(src)) {
     try {
-      const resp = await fetch(src);
+      const resp = await fetch(src, { signal: AbortSignal.timeout(6000) });
       if (resp.ok) {
         const buf = Buffer.from(await resp.arrayBuffer());
         const contentType = resp.headers.get('content-type') || 'image/jpeg';
@@ -3439,15 +3439,19 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       let agentPrompt = '';
 
       if (isSwap) {
-        const targetUri = await toDataUri(body.targetModel || body.model);
-        const sourceUri = await toDataUri(body.sourceModel || body.source || body.cloth);
+        const [targetUri, sourceUri] = await Promise.all([
+          toDataUri(body.targetModel || body.model),
+          toDataUri(body.sourceModel || body.source || body.cloth),
+        ]);
         images = [targetUri, sourceUri];
         agentPrompt += 'Model Garment Replacement: Dress the target model in Image 1 with the exact clothing from Image 2, fitted naturally to their pose and physique. ' +
           'HAND & HELD OBJECT PRESERVATION: If either model in Image 1 or Image 2 is holding an object, sports ball (basketball, football, volleyball, cricket ball), racket, bat, prop, or equipment in their hands, STRICTLY PRESERVE the object and hand grip intact with 100% fidelity. Do NOT remove or erase hand-held sports objects. ';
       } else if (garmentViews) {
-        const modelUri = await toDataUri(body.model);
         const viewsToUse = garmentViews.slice(0, 5);
-        const garmentUris = await Promise.all(viewsToUse.map(v => toDataUri(v.url)));
+        const [modelUri, ...garmentUris] = await Promise.all([
+          toDataUri(body.model),
+          ...viewsToUse.map((v) => toDataUri(v.url)),
+        ]);
         images = [modelUri, ...garmentUris];
 
         const viewLabels = viewsToUse.map((v, i) => `Image ${i + 2}: ${v.label || v.role || `View ${i + 1}`}`).join(', ');
@@ -3462,9 +3466,11 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           agentPrompt += 'Target: Upper body. Dress the model’s upper torso with the garment from the reference views, keeping existing pants, shoes, and body intact. ';
         }
       } else if (isOutfit) {
-        const modelUri = await toDataUri(body.model);
-        const topClothUri = await toDataUri(body.topCloth || body.cloth);
-        const bottomClothUri = body.bottomCloth ? await toDataUri(body.bottomCloth) : null;
+        const [modelUri, topClothUri, bottomClothUri] = await Promise.all([
+          toDataUri(body.model),
+          toDataUri(body.topCloth || body.cloth),
+          body.bottomCloth ? toDataUri(body.bottomCloth) : Promise.resolve(null),
+        ]);
         images = bottomClothUri ? [modelUri, topClothUri, bottomClothUri] : [modelUri, topClothUri];
         if (bottomClothUri) {
           agentPrompt += 'Dress the model in Image 1 wearing both garments simultaneously: the top garment from Image 2 and the bottom garment from Image 3 as a complete matching outfit. ';
@@ -3472,8 +3478,10 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           agentPrompt += 'Put the garment from Image 2 onto the model in Image 1 with realistic fit and natural style. ';
         }
       } else {
-        const modelUri = await toDataUri(body.model);
-        const singleClothUri = await toDataUri(body.cloth);
+        const [modelUri, singleClothUri] = await Promise.all([
+          toDataUri(body.model),
+          toDataUri(body.cloth),
+        ]);
         images = [modelUri, singleClothUri];
         const isTracksuitOrSet = Boolean(
           body.category === 'one-pieces' ||
@@ -3623,21 +3631,25 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
       targetModel: body.targetModel,
     }, is2k);
 
-    /* convert every referenced image into a format FASHN can read */
-    const inputs = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (typeof value === 'string' && /^(\/|https?:|data:)/.test(value) && key !== 'prompt') {
-        try {
-          inputs[key] = await toDataUri(value);
-        } catch (imgErr) {
-          return res.status(400).json({
-            error: 'image_error',
-            message: `Could not load the ${key.replace(/_/g, ' ')} — ${imgErr.message}. Please re-upload the image.`,
-          });
-        }
-      } else {
-        inputs[key] = value;
-      }
+    /* convert every referenced image into a format FASHN can read in parallel */
+    const entries = Object.entries(fields);
+    let inputs;
+    try {
+      const convertedEntries = await Promise.all(
+        entries.map(async ([key, value]) => {
+          if (typeof value === 'string' && /^(\/|https?:|data:)/.test(value) && key !== 'prompt') {
+            const uri = await toDataUri(value);
+            return [key, uri];
+          }
+          return [key, value];
+        })
+      );
+      inputs = Object.fromEntries(convertedEntries);
+    } catch (imgErr) {
+      return res.status(400).json({
+        error: 'image_error',
+        message: imgErr.message || 'Could not load input images for rendering. Please re-upload.',
+      });
     }
 
     /* sanitize inputs strictly for Fashn API: Fashn only allows model-specific image/prompt fields */

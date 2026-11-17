@@ -405,11 +405,14 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const isHeavyEndpoint = url.includes('/generate') || url.includes('/upload') || url.includes('/job');
+  const timeoutMs = isHeavyEndpoint ? 90000 : 35000;
+  const effectiveRetries = url.includes('/generate') ? 1 : retries;
 
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  for (let attempt = 0; attempt <= effectiveRetries; attempt++) {
     try {
-      const signal = init?.signal || AbortSignal.timeout(15000);
+      const signal = init?.signal || AbortSignal.timeout(timeoutMs);
       const response = await fetch(targetUrl, { ...init, headers, signal });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
@@ -429,7 +432,7 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
         }
       }
       // Wait and retry with progressive backoff on transient network/502/redeploy errors
-      if (attempt < retries) {
+      if (attempt < effectiveRetries) {
         const delayMs = Math.min(8000, 1500 * (attempt + 1));
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
@@ -437,8 +440,14 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
     }
   }
 
-  if (lastError && (lastError.message?.toLowerCase().includes('failed to fetch') || lastError.name === 'TypeError')) {
-    throw new Error('Server connection was momentarily interrupted. Please try again.');
+  if (lastError) {
+    const msg = lastError.message?.toLowerCase() || '';
+    if (msg.includes('timed out') || lastError.name === 'TimeoutError') {
+      throw new Error('Studio render request timed out. The server is processing your render — please check My Sets or click Generate again.');
+    }
+    if (msg.includes('failed to fetch') || lastError.name === 'TypeError') {
+      throw new Error('Server connection was momentarily interrupted. Please try again.');
+    }
   }
   throw lastError || new Error('Request failed');
 }

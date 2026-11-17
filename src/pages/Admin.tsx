@@ -5167,10 +5167,10 @@ ${log.stack || 'None'}
         if (!matchesStatus) return false;
       }
       if (genTypeFilter !== 'all') {
-        if (genTypeFilter === 'edited' && !g.isEdited && g.type !== 'edit') return false;
+        if (genTypeFilter === 'edited' && !g.isEdited && g.type !== 'edit' && g.mode !== 'edit' && !(g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) return false;
         if (genTypeFilter === 'video' && g.type !== 'video') return false;
         if (genTypeFilter === 'model-swap' && g.mode !== 'swap' && g.type !== 'model-swap') return false;
-        if (genTypeFilter === 'tryon' && (g.type === 'video' || g.mode === 'swap' || g.type === 'model-swap' || g.isEdited || g.type === 'edit')) return false;
+        if (genTypeFilter === 'tryon' && (g.type === 'video' || g.mode === 'swap' || g.type === 'model-swap' || g.isEdited || g.type === 'edit' || g.mode === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt)))) return false;
       }
       if (genSearch.trim()) {
         const q = genSearch.toLowerCase();
