@@ -327,6 +327,7 @@ export function ShivNareshSvgLogo({
   const yMid = 185 - Math.max(0, curvatureDepth);
   const yEnd = curveDirection === 'left' ? 180 : curveDirection === 'right' ? 188 : 185;
   const emblemRot = curveDirection === 'left' ? -2.5 : curveDirection === 'right' ? +1.5 : -0.8;
+  const resolvedColor = color || '#ffffff';
 
   return (
     <svg
@@ -335,14 +336,14 @@ export function ShivNareshSvgLogo({
       width="100%"
       height="100%"
       className={className}
-      style={{ color }}
+      style={{ color: resolvedColor }}
     >
       <defs>
         <path id={arcPathId} d={`M 28,${yStart} Q 180,${yMid} 332,${yEnd}`} fill="none" />
       </defs>
       <g transform={`translate(14, 15) rotate(${emblemRot}, 180, 60)`}>
         <path
-          fill="currentColor"
+          fill={resolvedColor}
           d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z"
         />
       </g>
@@ -352,7 +353,7 @@ export function ShivNareshSvgLogo({
           fontSize="35"
           fontWeight="900"
           letterSpacing="4"
-          fill="currentColor"
+          fill={resolvedColor}
         >
           <textPath href={`#${arcPathId}`} startOffset="50%" textAnchor="middle">
             SHIV-NARESH
@@ -367,7 +368,7 @@ export function ShivNareshSvgLogo({
           fontSize="36"
           fontWeight="900"
           letterSpacing="4"
-          fill="currentColor"
+          fill={resolvedColor}
         >
           SHIV-NARESH
         </text>
@@ -6327,13 +6328,16 @@ export default function Design() {
     return '#ffffff';
   }, []);
   const customLogoUrl: string | null = null;
-  // Chest logo: realistic 24px width, x=43.5% (right on chest pocket area), y=20.5%
+  // Chest logo: default 48px width, x=43.5% (right on chest pocket area), y=20.5%
   const [hdLogoScale, setHdLogoScale] = useState<number>(() => {
     try {
       const v = localStorage.getItem('shivnaresh_chest_logo_scale');
-      if (v) return Number(v);
+      if (v) {
+        const n = Number(v);
+        if (n >= 30) return n;
+      }
     } catch { }
-    return 24;
+    return 48;
   });
   const [hdLogoX, setHdLogoX] = useState<number>(() => {
     try {
@@ -6349,13 +6353,16 @@ export default function Design() {
     } catch { }
     return 20.5;
   });
-  // Pant thigh logo: 20px width, x=63%, y=61%
+  // Pant thigh logo: default 36px width, x=63%, y=61%
   const [pantLogoScale, setPantLogoScale] = useState<number>(() => {
     try {
       const v = localStorage.getItem('shivnaresh_pant_logo_scale');
-      if (v) return Number(v);
+      if (v) {
+        const n = Number(v);
+        if (n >= 24) return n;
+      }
     } catch { }
-    return 20;
+    return 36;
   });
   const [pantLogoX, setPantLogoX] = useState<number>(() => {
     try {
@@ -6900,39 +6907,33 @@ export default function Design() {
     });
   }
 
-  const [isMultiModelBatchEnabled, setIsMultiModelBatchEnabled] = useState(false);
-
-  function handleModelSelect(item: { url: string; name: string }) {
+  function toggleModelSelection(item: { url: string; name: string }) {
     const pickItem = { url: item.url, preview: item.url, name: item.name };
-    if (!isMultiModelBatchEnabled) {
-      // Single Model Mode (DEFAULT & 100% CREDIT-SAFE): Always selects exclusively 1 model for 1 credit
-      setModel(pickItem);
-      setSelectedModels([pickItem]);
-      return;
-    }
-
-    // Explicit Multi-Model Batch Mode: add/remove from batch
     setSelectedModels((prev) => {
       const isSelected = prev.some((p) => p && p.url === item.url);
       if (isSelected) {
         const next = prev.filter((p) => p.url !== item.url);
         if (model?.url === item.url) {
-          setModel(next[0] || null);
+          setModel(next[next.length - 1] || null);
         }
         return next;
       } else {
         if (prev.length >= 10) {
-          alert('You can select a maximum of 10 model poses for a batch.');
+          alert('You can select a maximum of 10 model poses.');
           return prev;
         }
-        const next = [...prev, pickItem];
+        let base = [...prev];
+        if (base.length === 0 && model && model.url !== item.url) {
+          base = [{ url: model.url, preview: model.preview || model.url, name: model.name }];
+        }
+        const next = [...base, pickItem];
         setModel(pickItem);
         return next;
       }
     });
   }
 
-  const toggleModelSelection = handleModelSelect;
+  const handleModelSelect = toggleModelSelection;
   const [prompt, setPrompt] = useState('');
   const [garmentColor, setGarmentColor] = useState('');
   const [isAutoLogoColor, setIsAutoLogoColor] = useState(true);
@@ -7260,8 +7261,8 @@ export default function Design() {
     return g ? { url: g.url, preview: g.preview, name: g.name } : null;
   })();
   const hasClassifiedGarments = classifiedGarments.length > 0;
-  const multiBatchCount = (isMultiModelBatchEnabled && mode === 'tryon' && selectedModels.length > 1)
-    ? selectedModels.length
+  const multiBatchCount = (mode === 'tryon' && effectiveModels.length > 1)
+    ? effectiveModels.length
     : 1;
 
   const validSwapDrafts = swapDrafts.filter((d) => Boolean(d.source?.url && d.target?.url));
@@ -7536,6 +7537,7 @@ export default function Design() {
             setActiveRenderOption('b');
             setShowHdLogoOverlay(true);
             setShowPantLogo(true);
+            setIsEraseMode(false);
             autoDetectContrastColor(imgUrl);
             setSelectedPoseIndex(currentIdx);
             const saveBatchGen = async () => {
@@ -7701,6 +7703,7 @@ export default function Design() {
             setActiveRenderOption('b');
             setShowHdLogoOverlay(true);
             setShowPantLogo(true);
+            setIsEraseMode(false);
             autoDetectContrastColor(imgUrl);
             const activeSingleModel = model || effectiveModels[0];
             setFivePoseItems((prev) =>
@@ -8841,7 +8844,7 @@ export default function Design() {
 
       /* Batch Execution (multi-model/pose batch or multi-swap batch) */
       const isSwapBatch = mode === 'swap' && validSwapDrafts.length > 1;
-      const isMultiModelBatch = isMultiModelBatchEnabled && selectedModels.length > 1 && mode === 'tryon';
+      const isMultiModelBatch = (effectiveModels.length > 1 || selectedModels.length > 1) && mode === 'tryon';
 
       if ((isMultiModelBatch || isSwapBatch) && !isEditingRender) {
         let batchItems: Array<{
@@ -9794,8 +9797,9 @@ export default function Design() {
                     setActiveRenderOption('b');
                     setShowHdLogoOverlay(true);
                     setShowPantLogo(true);
-                    setHdLogoScale(24);
-                    setPantLogoScale(20);
+                    setIsEraseMode(false);
+                    setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
+                    setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     activeRenderOption === 'b' || (showHdLogoOverlay || showPantLogo)
@@ -10516,8 +10520,13 @@ export default function Design() {
                     <button
                       type="button"
                       onClick={() => {
-                        setShowHdLogoOverlay(!showHdLogoOverlay);
-                        setActiveRenderOption('b');
+                        const nextVal = !showHdLogoOverlay;
+                        setShowHdLogoOverlay(nextVal);
+                        if (nextVal) {
+                          setActiveRenderOption('b');
+                          setIsEraseMode(false);
+                          setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
+                        }
                       }}
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer ${
                         showHdLogoOverlay
@@ -11774,52 +11783,6 @@ export default function Design() {
                     </div>
                   ) : null}
 
-                  {/* Model Selection Mode Toggle: Single Model (Default 1 Credit) vs Multi-Model Batch */}
-                  <div className={`mt-3 rounded-xl border p-2 flex items-center justify-between gap-2 ${
-                    isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-white/5'
-                  }`}>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMultiModelBatchEnabled(false);
-                          if (model) setSelectedModels([model]);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                          !isMultiModelBatchEnabled
-                            ? 'bg-[#e5373f] text-white shadow-xs'
-                            : isLight ? 'text-slate-600 hover:bg-black/5' : 'text-white/60 hover:bg-white/10'
-                        }`}
-                      >
-                        <span>⚡ Single Model (1 Credit)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsMultiModelBatchEnabled(true)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                          isMultiModelBatchEnabled
-                            ? 'bg-amber-400 text-black shadow-xs'
-                            : isLight ? 'text-slate-600 hover:bg-black/5' : 'text-white/60 hover:bg-white/10'
-                        }`}
-                      >
-                        <span>👥 Batch Mode ({selectedModels.length})</span>
-                      </button>
-                    </div>
-                    {isMultiModelBatchEnabled && selectedModels.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedModels([]);
-                          setModel(null);
-                        }}
-                        className={`text-[10px] font-medium hover:underline cursor-pointer ${
-                          isLight ? 'text-slate-500' : 'text-white/50'
-                        }`}
-                      >
-                        Reset Batch
-                      </button>
-                    )}
-                  </div>
 
                   {/* Quick Pick from Previous Models */}
                   {previousModelsList.length > 0 && (
@@ -12249,6 +12212,9 @@ export default function Design() {
                                 setResult(pose.url);
                                 setCleanResultBackup(pose.url);
                                 setActiveRenderOption('b');
+                                setShowHdLogoOverlay(true);
+                                setShowPantLogo(true);
+                                setIsEraseMode(false);
                                 autoDetectContrastColor(pose.url);
                               }
                             }}
@@ -12502,7 +12468,7 @@ export default function Design() {
                     )}
 
                     {/* Live HD Logo Overlays (Chest & Pant) for Option B Preview with Direct Mouse & Touch Drag */}
-                    {activeRenderOption === 'b' && showHdLogoOverlay && !isEraseMode && (
+                    {activeRenderOption === 'b' && (showHdLogoOverlay || !showPantLogo) && !isEraseMode && (
                       <div
                         onMouseDown={(e) => handleStartDragLogo(e, 'chest')}
                         onTouchStart={(e) => handleStartDragLogo(e, 'chest')}
@@ -12512,7 +12478,7 @@ export default function Design() {
                           top: `${hdLogoY}%`,
                           transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, 1)`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${hdLogoScale}px`,
+                          width: `${Math.max(32, hdLogoScale)}px`,
                           opacity: 0.96,
                           cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
                           touchAction: 'none',
@@ -12542,7 +12508,7 @@ export default function Design() {
                           top: `${pantLogoY}%`,
                           transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, 1)`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${pantLogoScale}px`,
+                          width: `${Math.max(24, pantLogoScale)}px`,
                           opacity: 0.96,
                           cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
                           touchAction: 'none',
@@ -12887,6 +12853,9 @@ export default function Design() {
                           setActiveRenderOption('b');
                           setShowHdLogoOverlay(true);
                           setShowPantLogo(true);
+                          setIsEraseMode(false);
+                          setHdLogoScale((prev) => (prev && prev >= 32 ? prev : 48));
+                          setPantLogoScale((prev) => (prev && prev >= 24 ? prev : 36));
                         }}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                           activeRenderOption === 'b'
