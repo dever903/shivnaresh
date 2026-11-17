@@ -280,11 +280,23 @@ export default function Admin() {
   const [dispatchMessage, setDispatchMessage] = useState('');
   const [dispatchFile, setDispatchFile] = useState<{ dataUrl: string; name: string; size: number; type: string } | null>(null);
   const [dispatchFiles, setDispatchFiles] = useState<{ dataUrl: string; name: string; size: number; type: string }[]>([]);
+  const [dispatchAssets, setDispatchAssets] = useState<Array<{
+    dataUrl: string;
+    name: string;
+    size: number;
+    type: 'photo' | 'video' | 'zip' | 'folder';
+    mimeType: string;
+    preview?: string;
+  }>>([]);
   const [dispatchFileUrl, setDispatchFileUrl] = useState('');
   const [dispatchSending, setDispatchSending] = useState(false);
   const [dispatchSuccess, setDispatchSuccess] = useState('');
   const [dispatchError, setDispatchError] = useState('');
   const dispatchFileInputRef = useRef<HTMLInputElement>(null);
+  const dispatchPhotoInputRef = useRef<HTMLInputElement>(null);
+  const dispatchVideoInputRef = useRef<HTMLInputElement>(null);
+  const dispatchZipInputRef = useRef<HTMLInputElement>(null);
+  const dispatchFolderInputRef = useRef<HTMLInputElement>(null);
 
   /* User Sets & Assets State (Admin View & Asset Picker for Dispatch) */
   const [adminUploadSetsList, setAdminUploadSetsList] = useState<UploadSet[]>([]);
@@ -1479,26 +1491,62 @@ ${log.stack || 'None'}
     });
   }
 
-  async function handleDispatchFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
+  async function addFilesToDispatch(files: FileList | File[] | null, forceType?: 'photo' | 'video' | 'zip' | 'folder') {
     if (!files || files.length === 0) return;
     const fileArr = Array.from(files);
 
-    if (dispatchType === 'photo') {
-      const processed = await Promise.all(
-        fileArr.map(async (file) => {
+    const processed = await Promise.all(
+      fileArr.map(async (file) => {
+        const isImg = file.type.startsWith('image/');
+        const isVid = file.type.startsWith('video/') || /\.(mp4|mov|webm|mkv)$/i.test(file.name);
+        const isZip = file.type.includes('zip') || file.type.includes('compressed') || /\.(zip|rar|tar\.gz)$/i.test(file.name);
+        const detectedType: 'photo' | 'video' | 'zip' | 'folder' =
+          forceType || (isVid ? 'video' : isZip ? 'zip' : isImg ? 'photo' : 'folder');
+
+        if (isImg) {
           const comp = await compressImageForDispatch(file);
-          return { dataUrl: comp.dataUrl, name: file.name, size: comp.size, type: 'image/jpeg' };
-        })
-      );
-      setDispatchFiles((prev) => [...prev, ...processed]);
-      if (!dispatchTitle.trim()) setDispatchTitle('Photo Delivery');
-    } else {
-      const file = fileArr[0];
-      const comp = await compressImageForDispatch(file);
-      setDispatchFile({ dataUrl: comp.dataUrl, name: file.name, size: comp.size, type: file.type || 'application/octet-stream' });
-      if (!dispatchTitle.trim()) setDispatchTitle(file.name.replace(/\.[^/.]+$/, ''));
+          return {
+            dataUrl: comp.dataUrl,
+            name: file.name,
+            size: comp.size,
+            type: detectedType,
+            mimeType: 'image/jpeg',
+            preview: comp.dataUrl,
+          };
+        } else {
+          // Video, ZIP, or document: read as base64 data URL
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+          return {
+            dataUrl,
+            name: file.name,
+            size: file.size,
+            type: detectedType,
+            mimeType: file.type || (isVid ? 'video/mp4' : isZip ? 'application/zip' : 'application/octet-stream'),
+            preview: isVid ? dataUrl : undefined,
+          };
+        }
+      })
+    );
+
+    setDispatchAssets((prev) => [...prev, ...processed]);
+    if (!dispatchTitle.trim()) {
+      if (processed.length === 1) {
+        setDispatchTitle(processed[0].name.replace(/\.[^/.]+$/, ''));
+      } else {
+        setDispatchTitle(`${processed.length} Production Assets Collection`);
+      }
     }
+  }
+
+  async function handleDispatchFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await addFilesToDispatch(files, dispatchType === 'text' ? undefined : dispatchType);
   }
 
   async function handleSendDispatch() {
@@ -1511,44 +1559,68 @@ ${log.stack || 'None'}
       setDispatchError('Selected user account was not found.');
       return;
     }
+
+    const allAssetsToSend = [...dispatchAssets];
+    if (dispatchFiles.length > 0) {
+      dispatchFiles.forEach((f) => {
+        if (!allAssetsToSend.some((a) => a.name === f.name && a.size === f.size)) {
+          allAssetsToSend.push({ ...f, type: 'photo', mimeType: 'image/jpeg' });
+        }
+      });
+    }
+    if (dispatchFile) {
+      if (!allAssetsToSend.some((a) => a.name === dispatchFile.name && a.size === dispatchFile.size)) {
+        allAssetsToSend.push({ ...dispatchFile, type: dispatchType === 'text' ? 'photo' : dispatchType, mimeType: dispatchFile.type });
+      }
+    }
+
+    if (allAssetsToSend.length === 0 && !dispatchFileUrl.trim() && dispatchType !== 'text') {
+      setDispatchError('Please attach at least one photo, video, ZIP file, or folder.');
+      return;
+    }
+
     setDispatchSending(true);
     setDispatchError('');
     setDispatchSuccess('');
     try {
+      const photoAssets = allAssetsToSend.filter((a) => a.type === 'photo');
+      const mediaUrls = photoAssets.map((f) => f.dataUrl);
+
+      const effectiveType = allAssetsToSend.length > 1 ? 'package' : (allAssetsToSend[0]?.type || dispatchType);
+
       const payload: any = {
         recipientUserId: targetUser.id || (targetUser as any)._id,
         recipientEmail: targetUser.email,
         recipientName: targetUser.name || targetUser.email,
-        type: dispatchType,
-        title: dispatchTitle.trim() || `${dispatchType.toUpperCase()} Dispatch`,
+        type: effectiveType,
+        title: dispatchTitle.trim() || `${allAssetsToSend.length > 0 ? allAssetsToSend.length + ' Item ' : ''}Studio Delivery`,
         textMessage: dispatchMessage.trim() || undefined,
+        assets: allAssetsToSend,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        file: allAssetsToSend[0]?.dataUrl || dispatchFileUrl.trim() || undefined,
+        fileName: allAssetsToSend[0]?.name || dispatchTitle.trim() || undefined,
+        fileSize: allAssetsToSend[0]?.size,
+        fileType: allAssetsToSend[0]?.type,
       };
 
-      // Multi-photo: pass all dataUrls as mediaUrls in one delivery
-      if (dispatchType === 'photo' && dispatchFiles.length > 0) {
-        payload.mediaUrls = dispatchFiles.map((f) => f.dataUrl);
-        payload.file = dispatchFiles[0].dataUrl;
-        payload.fileName = dispatchFiles[0].name;
-        payload.fileSize = dispatchFiles[0].size;
-        payload.fileType = dispatchFiles[0].type;
-      } else if (dispatchFile) {
-        payload.file = dispatchFile.dataUrl;
-        payload.fileName = dispatchFile.name;
-        payload.fileSize = dispatchFile.size;
-        payload.fileType = dispatchFile.type;
-      } else if (dispatchFileUrl.trim()) {
+      if (dispatchFileUrl.trim() && allAssetsToSend.length === 0) {
         payload.file = dispatchFileUrl.trim();
         payload.fileName = dispatchTitle.trim() || 'asset';
       }
 
       const res = await api.createAdminDelivery(payload);
-      setDispatchSuccess(`Successfully dispatched to ${targetUser.email}! Notification sent to client.`);
+      setDispatchSuccess(`Successfully dispatched ${allAssetsToSend.length > 0 ? allAssetsToSend.length + ' asset(s)' : 'delivery'} to ${targetUser.email}! Notification sent to client.`);
       setDispatchTitle('');
       setDispatchMessage('');
       setDispatchFile(null);
       setDispatchFiles([]);
+      setDispatchAssets([]);
       setDispatchFileUrl('');
       if (dispatchFileInputRef.current) dispatchFileInputRef.current.value = '';
+      if (dispatchPhotoInputRef.current) dispatchPhotoInputRef.current.value = '';
+      if (dispatchVideoInputRef.current) dispatchVideoInputRef.current.value = '';
+      if (dispatchZipInputRef.current) dispatchZipInputRef.current.value = '';
+      if (dispatchFolderInputRef.current) dispatchFolderInputRef.current.value = '';
       setAdminDeliveries((prev) => [res, ...prev]);
       setTimeout(() => setDispatchSuccess(''), 5000);
     } catch (err: any) {
@@ -3198,86 +3270,190 @@ ${log.stack || 'None'}
                 </button>
               </div>
 
-              {/* File Attachment & URL */}
+              {/* Multi-Asset Selector: Photos, Videos, ZIP, Folder, Any Files */}
               {dispatchType !== 'text' && (
                 <div className="space-y-3 pt-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider opacity-80">
-                    {dispatchType === 'photo' ? 'Attach Photos (select any number)' : 'Attach File or Enter Hosted URL'}
-                  </label>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <input
-                      type="file"
-                      ref={dispatchFileInputRef}
-                      onChange={handleDispatchFileSelected}
-                      className="hidden"
-                      multiple={dispatchType === 'photo'}
-                      accept={dispatchType === 'photo' ? 'image/*' : undefined}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => dispatchFileInputRef.current?.click()}
-                      className={`py-2.5 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-                        isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
-                      }`}
-                    >
-                      <Paperclip className="w-4 h-4" />
-                      <span>
-                        {dispatchType === 'photo'
-                          ? dispatchFiles.length > 0 ? `${dispatchFiles.length} Photo(s) Selected — Add More` : 'Select Photos'
-                          : dispatchFile ? 'Change File' : 'Browse Local File (Photo, Video, ZIP)'}
-                      </span>
-                    </button>
-
-                    {dispatchFile && dispatchType !== 'photo' && (
-                      <div className="flex-1 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs flex items-center justify-between gap-2">
-                        <span className="font-mono text-emerald-400 truncate">{dispatchFile.name} ({(dispatchFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDispatchFile(null);
-                            if (dispatchFileInputRef.current) dispatchFileInputRef.current.value = '';
-                          }}
-                          className="p-1 rounded-full text-red-400 hover:bg-red-500/20"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider opacity-80">
+                      Attach Production Assets (Any number of photos, videos, ZIPs, or folders)
+                    </label>
+                    {dispatchAssets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDispatchAssets([]);
+                          setDispatchFile(null);
+                          setDispatchFiles([]);
+                        }}
+                        className="text-[11px] text-red-500 hover:underline font-semibold"
+                      >
+                        Clear All ({dispatchAssets.length})
+                      </button>
                     )}
                   </div>
 
-                  {/* Multi-photo grid preview */}
-                  {dispatchType === 'photo' && dispatchFiles.length > 0 && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {dispatchFiles.map((f, idx) => (
-                        <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                          <img src={f.dataUrl} alt={f.name} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setDispatchFiles((prev) => prev.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 rounded-full bg-red-600/90 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Remove photo"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
-                          <span className="absolute bottom-0 left-0 right-0 text-[8px] text-white bg-black/60 px-1 py-0.5 truncate">{f.name}</span>
-                        </div>
-                      ))}
+                  {/* Hidden multi-file inputs */}
+                  <input
+                    type="file"
+                    ref={dispatchPhotoInputRef}
+                    multiple
+                    accept="image/*,.png,.jpg,.jpeg,.webp"
+                    className="hidden"
+                    onChange={(e) => void addFilesToDispatch(e.target.files, 'photo')}
+                  />
+                  <input
+                    type="file"
+                    ref={dispatchVideoInputRef}
+                    multiple
+                    accept="video/*,.mp4,.mov,.webm,.mkv"
+                    className="hidden"
+                    onChange={(e) => void addFilesToDispatch(e.target.files, 'video')}
+                  />
+                  <input
+                    type="file"
+                    ref={dispatchZipInputRef}
+                    multiple
+                    accept=".zip,.rar,.tar,.gz,.7z,application/zip,application/x-zip-compressed"
+                    className="hidden"
+                    onChange={(e) => void addFilesToDispatch(e.target.files, 'zip')}
+                  />
+                  <input
+                    type="file"
+                    ref={dispatchFolderInputRef}
+                    {...({ webkitdirectory: '', directory: '', multiple: true } as any)}
+                    className="hidden"
+                    onChange={(e) => void addFilesToDispatch(e.target.files, 'folder')}
+                  />
+                  <input
+                    type="file"
+                    ref={dispatchFileInputRef}
+                    multiple
+                    className="hidden"
+                    onChange={handleDispatchFileSelected}
+                  />
+
+                  {/* Attachment Action Buttons */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => dispatchPhotoInputRef.current?.click()}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900' : 'border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300'
+                      }`}
+                    >
+                      <Camera className="w-4 h-4 text-purple-400" />
+                      <span>+ Add Photos</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => dispatchVideoInputRef.current?.click()}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-900' : 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300'
+                      }`}
+                    >
+                      <Film className="w-4 h-4 text-blue-400" />
+                      <span>+ Add Videos</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => dispatchZipInputRef.current?.click()}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900' : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300'
+                      }`}
+                    >
+                      <FileArchive className="w-4 h-4 text-amber-400" />
+                      <span>+ Add ZIP</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => dispatchFolderInputRef.current?.click()}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                        isLight ? 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
+                      }`}
+                    >
+                      <Folder className="w-4 h-4 text-emerald-400" />
+                      <span>+ Upload Folder</span>
+                    </button>
+                  </div>
+
+                  {/* Attached Assets Queue List */}
+                  {dispatchAssets.length > 0 && (
+                    <div className="space-y-2 mt-3 pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between text-[11px] opacity-75">
+                        <span className="font-bold">
+                          {dispatchAssets.length} Attached Asset(s):{' '}
+                          {dispatchAssets.filter((a) => a.type === 'photo').length > 0 && `${dispatchAssets.filter((a) => a.type === 'photo').length} Photos `}
+                          {dispatchAssets.filter((a) => a.type === 'video').length > 0 && `· ${dispatchAssets.filter((a) => a.type === 'video').length} Videos `}
+                          {dispatchAssets.filter((a) => a.type === 'zip').length > 0 && `· ${dispatchAssets.filter((a) => a.type === 'zip').length} ZIPs `}
+                          {dispatchAssets.filter((a) => a.type === 'folder').length > 0 && `· ${dispatchAssets.filter((a) => a.type === 'folder').length} Folders `}
+                        </span>
+                        <span>Total: {(dispatchAssets.reduce((acc, a) => acc + (a.size || 0), 0) / (1024 * 1024)).toFixed(2)} MB</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 max-h-64 overflow-y-auto p-2 rounded-2xl border border-white/10 bg-black/20">
+                        {dispatchAssets.map((item, idx) => {
+                          const isPhoto = item.type === 'photo';
+                          const isVid = item.type === 'video';
+                          const isZip = item.type === 'zip';
+                          return (
+                            <div
+                              key={idx}
+                              className="group relative aspect-[3/4] rounded-xl overflow-hidden border border-white/10 bg-black/40 flex flex-col justify-between p-1.5 shadow"
+                            >
+                              {isPhoto ? (
+                                <img src={item.preview || item.dataUrl} alt={item.name} className="w-full h-full object-cover rounded-lg" />
+                              ) : isVid ? (
+                                <div className="w-full h-full rounded-lg bg-blue-950/40 flex flex-col items-center justify-center p-2 text-center text-blue-300">
+                                  <Film className="w-8 h-8 mb-1 opacity-80" />
+                                  <span className="text-[9px] font-mono font-bold uppercase">Video</span>
+                                </div>
+                              ) : isZip ? (
+                                <div className="w-full h-full rounded-lg bg-amber-950/40 flex flex-col items-center justify-center p-2 text-center text-amber-300">
+                                  <FileArchive className="w-8 h-8 mb-1 opacity-80" />
+                                  <span className="text-[9px] font-mono font-bold uppercase">ZIP Package</span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full rounded-lg bg-emerald-950/40 flex flex-col items-center justify-center p-2 text-center text-emerald-300">
+                                  <Folder className="w-8 h-8 mb-1 opacity-80" />
+                                  <span className="text-[9px] font-mono font-bold uppercase">Folder File</span>
+                                </div>
+                              )}
+
+                              {/* Remove Button */}
+                              <button
+                                type="button"
+                                onClick={() => setDispatchAssets((prev) => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-1 right-1 rounded-full bg-red-600/90 hover:bg-red-700 p-1 text-white shadow cursor-pointer transition"
+                                title="Remove asset"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+
+                              {/* Label badge */}
+                              <div className="absolute bottom-0 inset-x-0 bg-black/80 p-1 text-[9px] text-white truncate">
+                                <p className="truncate font-semibold">{item.name}</p>
+                                <p className="text-[8px] opacity-70">{(item.size / (1024 * 1024)).toFixed(2)} MB</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
-                  {dispatchType !== 'photo' && (
-                    <div>
-                      <span className="text-[10px] opacity-60 block mb-1">Or direct file/media URL (Cloudinary / CDN / hosted URL):</span>
-                      <input
-                        type="text"
-                        placeholder="https://... or /uploads/..."
-                        value={dispatchFileUrl}
-                        onChange={(e) => setDispatchFileUrl(e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-[10px] opacity-60 block mb-1">Or direct file/media URL (Cloudinary / CDN / hosted URL):</span>
+                    <input
+                      type="text"
+                      placeholder="https://... or /uploads/..."
+                      value={dispatchFileUrl}
+                      onChange={(e) => setDispatchFileUrl(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -6455,12 +6631,16 @@ ${log.stack || 'None'}
                 type="button"
                 onClick={() => {
                   setDispatchType('photo');
-                  setDispatchFiles(selectedAssetUrls.map((a) => ({
+                  const newAssets = selectedAssetUrls.map((a) => ({
                     dataUrl: a.url,
                     name: a.name,
                     size: 500000,
-                    type: 'image/png'
-                  })));
+                    type: 'photo' as const,
+                    mimeType: 'image/png',
+                    preview: a.url,
+                  }));
+                  setDispatchAssets((prev) => [...prev, ...newAssets]);
+                  setDispatchFiles(newAssets);
                   if (selectedAssetUrls[0]?.userId) setDispatchRecipientId(selectedAssetUrls[0].userId);
                   setAdminRequestsTab('send');
                   setActiveTab('requests');
@@ -7326,12 +7506,16 @@ ${log.stack || 'None'}
                     type="button"
                     onClick={() => {
                       setDispatchType('photo');
-                      setDispatchFiles(selectedAssetUrls.map((a) => ({
+                      const newAssets = selectedAssetUrls.map((a) => ({
                         dataUrl: a.url,
                         name: a.name,
                         size: 500000,
-                        type: 'image/png'
-                      })));
+                        type: 'photo' as const,
+                        mimeType: 'image/png',
+                        preview: a.url,
+                      }));
+                      setDispatchAssets((prev) => [...prev, ...newAssets]);
+                      setDispatchFiles(newAssets);
                       if (selectedAssetUrls[0]?.userId) setDispatchRecipientId(selectedAssetUrls[0].userId);
                       setShowAssetPickerModal(false);
                     }}

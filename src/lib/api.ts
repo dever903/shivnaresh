@@ -155,13 +155,20 @@ export type AdminDelivery = {
   recipientEmail: string;
   recipientName?: string;
   senderEmail: string;
-  type: 'photo' | 'video' | 'zip' | 'folder' | 'text';
+  type: 'photo' | 'video' | 'zip' | 'folder' | 'text' | 'package';
   title: string;
   textMessage?: string;
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
   mediaUrls?: string[];
+  assets?: Array<{
+    url: string;
+    name: string;
+    size: number;
+    type: 'photo' | 'video' | 'zip' | 'folder';
+    mimeType?: string;
+  }>;
   readByUser?: boolean;
   deleted?: boolean;
   deletedAt?: number;
@@ -558,7 +565,7 @@ export const api = {
     recipientUserId?: string;
     recipientEmail: string;
     recipientName?: string;
-    type: 'photo' | 'video' | 'zip' | 'folder' | 'text';
+    type: 'photo' | 'video' | 'zip' | 'folder' | 'text' | 'package';
     title?: string;
     textMessage?: string;
     file?: string;
@@ -566,6 +573,13 @@ export const api = {
     fileType?: string;
     fileSize?: number;
     mediaUrls?: string[];
+    assets?: Array<{
+      dataUrl: string;
+      name: string;
+      size: number;
+      type: 'photo' | 'video' | 'zip' | 'folder';
+      mimeType?: string;
+    }>;
   }) => request<AdminDelivery>('/api/admin/deliveries', json(body)),
   deleteAdminDelivery: (id: string) =>
     request<{ ok: boolean; message: string }>(`/api/admin/deliveries/${id}`, { method: 'DELETE' }),
@@ -849,10 +863,11 @@ export function fileToDataUrl(file: File): Promise<string> {
 
 /**
  * High-fidelity client standardizer:
- * Enforces square dimensions between 1000px and 3000px without compromising image quality.
- * Prevents "Dimensions must be between 1000x1000px and 3000x3000px / Some images too small" errors.
+ * For models: Preserves natural portrait aspect ratio without forced white letterboxing.
+ * For garments: Enforces square catalog dimensions with clean studio backdrop.
+ * Downsamples huge camera files to max 1600-1800px at 0.88-0.90 quality for ultra-fast <100ms uploads.
  */
-export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: string; name: string }> {
+export function prepareAndStandardizeImage(file: File, kind: 'cloth' | 'model' = 'model'): Promise<{ dataUrl: string; name: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Could not read image file'));
@@ -861,16 +876,12 @@ export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: strin
       img.onerror = () => reject(new Error('Invalid image format'));
       img.onload = () => {
         const { naturalWidth: w, naturalHeight: h } = img;
-
-        // Target square dimension: between 1024px and 2400px square
-        // 1600px JPEG at 0.92 quality is crystal-sharp on logos and stitching,
-        // but produces a lightweight ~240KB payload (uploads in <50ms instead of 15 seconds)!
-        const maxSide = Math.max(w, h);
-        const targetSide = Math.min(2400, Math.max(1024, maxSide));
+        if (!w || !h) {
+          resolve({ dataUrl: String(reader.result), name: file.name });
+          return;
+        }
 
         const canvas = document.createElement('canvas');
-        canvas.width = targetSide;
-        canvas.height = targetSide;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           resolve({ dataUrl: String(reader.result), name: file.name });
@@ -879,6 +890,35 @@ export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: strin
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
+
+        if (kind === 'model') {
+          // Model poses: 100% preserve natural aspect ratio (portrait 3:4 / 9:16) with zero white bars
+          const maxDim = 1600;
+          let targetW = w;
+          let targetH = h;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              targetH = Math.round((h * maxDim) / w);
+              targetW = maxDim;
+            } else {
+              targetW = Math.round((w * maxDim) / h);
+              targetH = maxDim;
+            }
+          }
+          canvas.width = targetW;
+          canvas.height = targetH;
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+          const standardizedUrl = canvas.toDataURL('image/jpeg', 0.88);
+          resolve({ dataUrl: standardizedUrl, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
+          return;
+        }
+
+        // Garments (cloth): Standard square e-commerce dimensions
+        const maxSide = Math.max(w, h);
+        const targetSide = Math.min(1800, Math.max(1024, maxSide));
+
+        canvas.width = targetSide;
+        canvas.height = targetSide;
 
         // Clean white studio backdrop
         ctx.fillStyle = '#ffffff';
@@ -893,8 +933,8 @@ export function prepareAndStandardizeImage(file: File): Promise<{ dataUrl: strin
 
         ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
 
-        // High-efficiency JPEG at 0.92 quality: instant network upload with pristine quality
-        const standardizedUrl = canvas.toDataURL('image/jpeg', 0.92);
+        // High-efficiency JPEG at 0.90 quality: instant network upload with pristine quality
+        const standardizedUrl = canvas.toDataURL('image/jpeg', 0.90);
         resolve({ dataUrl: standardizedUrl, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
       };
       img.src = String(reader.result);

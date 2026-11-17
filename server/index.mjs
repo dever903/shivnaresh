@@ -5279,7 +5279,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       recipientUserId,
       recipientEmail,
       recipientName,
-      type = 'photo', // 'photo' | 'video' | 'zip' | 'folder' | 'text'
+      type = 'photo', // 'photo' | 'video' | 'zip' | 'folder' | 'text' | 'package'
       title,
       textMessage,
       file,
@@ -5287,17 +5287,84 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       fileType,
       fileSize,
       mediaUrls = [],
+      assets = [],
     } = body;
 
     if (!recipientEmail && !recipientUserId) {
       return res.status(400).json({ error: 'missing_recipient', message: 'Please select a recipient user.' });
     }
 
+    const mediaToBackup = [];
     let finalFileUrl = '';
     let finalFileName = fileName || '';
     let finalFileSize = fileSize || 0;
 
-    // Fast parallel disk write for base64 file payloads
+    // Fast parallel processing for multi-asset attachments (photos, videos, zip, folders)
+    const incomingAssets = Array.isArray(assets) ? assets.filter(Boolean) : [];
+    const processedAssets = [];
+
+    if (incomingAssets.length > 0) {
+      await Promise.all(
+        incomingAssets.map(async (ast, idx) => {
+          if (!ast) return;
+          const rawName = String(ast.name || `asset-${idx + 1}`);
+          const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+          let aUrl = '';
+          let aSize = Number(ast.size || 0);
+
+          if (typeof ast.dataUrl === 'string' && ast.dataUrl.startsWith('data:')) {
+            const match = /^data:([^;]+);base64,(.+)$/.exec(ast.dataUrl);
+            if (match) {
+              const mime = match[1].toLowerCase();
+              let ext = path.extname(safeName);
+              if (!ext) {
+                if (mime.includes('png')) ext = '.png';
+                else if (mime.includes('webp')) ext = '.webp';
+                else if (mime.includes('zip') || mime.includes('compressed')) ext = '.zip';
+                else if (mime.includes('mp4') || mime.includes('video')) ext = '.mp4';
+                else if (mime.includes('quicktime')) ext = '.mov';
+                else ext = '.jpg';
+              }
+              const filename = `dispatch-asset-${Date.now()}-${idx + 1}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+              const rawBuf = Buffer.from(match[2], 'base64');
+              const filepath = path.join(UPLOADS, filename);
+              await fs.writeFile(filepath, rawBuf);
+              aUrl = `/uploads/${filename}`;
+              aSize = rawBuf.length;
+              mediaToBackup.push({ localUrl: aUrl, filepath, dataUrl: ast.dataUrl, filename });
+            }
+          } else if (typeof ast.dataUrl === 'string' && ast.dataUrl.trim()) {
+            aUrl = ast.dataUrl.trim();
+          } else if (typeof ast.url === 'string' && ast.url.trim()) {
+            aUrl = ast.url.trim();
+          }
+
+          if (aUrl) {
+            const detectedType =
+              ast.type ||
+              (aUrl.match(/\.(mp4|mov|webm|mkv)$/i) || ast.mimeType?.startsWith('video/')
+                ? 'video'
+                : aUrl.match(/\.(zip|rar|tar\.gz)$/i) || ast.mimeType?.includes('zip')
+                  ? 'zip'
+                  : aUrl.match(/\.(png|jpe?g|webp|gif|svg)$/i) || ast.mimeType?.startsWith('image/')
+                    ? 'photo'
+                    : 'folder');
+
+            processedAssets[idx] = {
+              url: aUrl,
+              name: rawName,
+              size: aSize,
+              type: detectedType,
+              mimeType: ast.mimeType || '',
+            };
+          }
+        })
+      );
+    }
+
+    const finalAssets = processedAssets.filter(Boolean);
+
+    // Fast parallel disk write for legacy base64 single file payload
     if (typeof file === 'string' && file.startsWith('data:')) {
       const match = /^data:([^;]+);base64,(.+)$/.exec(file);
       if (match) {
@@ -5316,7 +5383,20 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       finalFileUrl = file.trim();
     }
 
+    if (!finalFileUrl && finalAssets.length > 0) {
+      finalFileUrl = finalAssets[0].url;
+      finalFileName = finalAssets[0].name;
+      finalFileSize = finalAssets[0].size;
+    }
+
     const allMedia = Array.isArray(mediaUrls) ? mediaUrls.filter(Boolean) : [];
+    // Also include any photo assets into mediaUrls for backward compatibility
+    for (const ast of finalAssets) {
+      if ((ast.type === 'photo' || ast.mimeType?.startsWith('image/')) && !allMedia.includes(ast.url)) {
+        allMedia.push(ast.url);
+      }
+    }
+
     const hostedMedia = [];
 
     // Process all mediaUrls in parallel without blocking on slow cloud uploads
@@ -5341,9 +5421,11 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
     );
 
     const cleanHosted = hostedMedia.filter(Boolean);
-    if (finalFileUrl && !cleanHosted.includes(finalFileUrl)) {
+    if (finalFileUrl && !cleanHosted.includes(finalFileUrl) && (type === 'photo' || finalAssets.some(a => a.url === finalFileUrl && a.type === 'photo'))) {
       cleanHosted.unshift(finalFileUrl);
     }
+
+    const effectiveType = finalAssets.length > 1 ? 'package' : (type || (finalAssets[0]?.type ?? 'photo'));
 
     const newDelivery = {
       id: `del_${crypto.randomUUID()}`,
@@ -5351,13 +5433,14 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
       recipientEmail: String(recipientEmail || '').trim().toLowerCase(),
       recipientName: String(recipientName || '').trim(),
       senderEmail: req.user.email,
-      type: String(type || 'photo'), // 'photo' | 'video' | 'zip' | 'folder' | 'text'
-      title: String(title || (type === 'text' ? 'Message from Studio' : `${type.toUpperCase()} Delivery`)).trim(),
+      type: String(effectiveType), // 'photo' | 'video' | 'zip' | 'folder' | 'text' | 'package'
+      title: String(title || (type === 'text' ? 'Message from Studio' : `${effectiveType.toUpperCase()} Delivery`)).trim(),
       textMessage: String(textMessage || '').trim(),
       fileUrl: finalFileUrl,
       fileName: finalFileName,
       fileSize: finalFileSize,
       mediaUrls: cleanHosted,
+      assets: finalAssets,
       readByUser: false,
       createdAt: Date.now(),
     };

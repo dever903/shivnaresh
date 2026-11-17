@@ -4221,11 +4221,15 @@ function CustomRequestsPanel({
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        {isPhoto && (
+                        {delivery.assets && delivery.assets.length > 0 ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+                            📦 {delivery.assets.length} Production Assets
+                          </span>
+                        ) : isPhoto ? (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">
                             📷 {delivery.mediaUrls?.length || (delivery.fileUrl ? 1 : 0)} Photos
                           </span>
-                        )}
+                        ) : null}
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPhoto
                           ? 'bg-purple-500/20 text-purple-300'
                           : isVideo
@@ -4246,7 +4250,7 @@ function CustomRequestsPanel({
                             : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300' : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
                             }`}
                         >
-                          <span>{expandedDeliveryIds.has(delivery.id) ? 'Collapse' : 'View Photos'}</span>
+                          <span>{expandedDeliveryIds.has(delivery.id) ? 'Collapse' : 'Inspect Assets'}</span>
                           {expandedDeliveryIds.has(delivery.id) ? (
                             <ChevronUp className="w-3.5 h-3.5" />
                           ) : (
@@ -4267,7 +4271,39 @@ function CustomRequestsPanel({
                     {/* Collapsed State: Neat Compact Strip */}
                     {!expandedDeliveryIds.has(delivery.id) ? (
                       <div className="mt-3 pt-3 flex items-center justify-between gap-3 flex-wrap">
-                        {isPhoto && delivery.mediaUrls && delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 0 ? (
+                        {delivery.assets && delivery.assets.length > 0 ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {delivery.assets.filter(a => a.type === 'photo' || a.mimeType?.startsWith('image/')).slice(0, 4).map((ast, aIdx) => (
+                              <img
+                                key={aIdx}
+                                src={ast.url}
+                                alt={ast.name}
+                                className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black cursor-pointer hover:opacity-80 transition"
+                                onClick={() => {
+                                  toggleDeliveryExpand(delivery.id);
+                                  setLightboxImg(ast.url);
+                                }}
+                              />
+                            ))}
+                            <div className="flex items-center gap-1.5 text-xs">
+                              {delivery.assets.some(a => a.type === 'video') && (
+                                <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 text-[10px] font-semibold">
+                                  🎬 {delivery.assets.filter(a => a.type === 'video').length} Video(s)
+                                </span>
+                              )}
+                              {delivery.assets.some(a => a.type === 'zip') && (
+                                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-semibold">
+                                  📦 {delivery.assets.filter(a => a.type === 'zip').length} ZIP(s)
+                                </span>
+                              )}
+                              {delivery.assets.some(a => a.type === 'folder') && (
+                                <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
+                                  📁 {delivery.assets.filter(a => a.type === 'folder').length} Folder(s)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : isPhoto && delivery.mediaUrls && delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 0 ? (
                           <div className="flex items-center gap-2">
                             {delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).slice(0, 4).map((url, uIdx) => (
                               <img
@@ -4316,26 +4352,79 @@ function CustomRequestsPanel({
                           onClick={() => toggleDeliveryExpand(delivery.id)}
                           className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ml-auto"
                         >
-                          <span>Open &amp; Inspect Photos</span>
+                          <span>Open &amp; Inspect Assets</span>
                           <ChevronDown className="w-3.5 h-3.5 text-[#e5373f]" />
                         </button>
                       </div>
                     ) : (
                       /* Media / File Content */
-                      <div className="mt-4">
-                        {/* Photo / Images */}
-                        {isPhoto && (
-                          <div className="space-y-3">
-                            {/* Multi-photo grid when mediaUrls has photos */}
-                            {delivery.mediaUrls && delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).length > 1 ? (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {delivery.mediaUrls.filter((u) => !brokenImageUrls.has(u)).map((url, uIdx) => {
+                      <div className="mt-4 space-y-4">
+                        {/* If multi-asset delivery, show download all button */}
+                        {delivery.assets && delivery.assets.length > 1 && (
+                          <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10">
+                            <span className="text-xs font-semibold">
+                              Attached Collection ({delivery.assets.length} items)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const JSZip = (await import('jszip')).default;
+                                  const zip = new JSZip();
+                                  for (let i = 0; i < (delivery.assets?.length || 0); i++) {
+                                    const ast = delivery.assets![i];
+                                    try {
+                                      const resp = await fetch(ast.url);
+                                      if (resp.ok) {
+                                        const blob = await resp.blob();
+                                        zip.file(ast.name || `asset-${i + 1}`, blob);
+                                      }
+                                    } catch {}
+                                  }
+                                  const zipBlob = await zip.generateAsync({ type: 'blob' });
+                                  const blobUrl = URL.createObjectURL(zipBlob);
+                                  const link = document.createElement('a');
+                                  link.href = blobUrl;
+                                  link.download = `${delivery.title.replace(/[^a-zA-Z0-9_-]/g, '_')}-package.zip`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                                } catch (err) {
+                                  console.error('ZIP download failed:', err);
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer transition"
+                            >
+                              <FileArchive className="w-3.5 h-3.5" />
+                              <span>Download All {delivery.assets.length} Assets as ZIP</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 1. Photos Section */}
+                        {(() => {
+                          const photos = delivery.assets && delivery.assets.length > 0
+                            ? delivery.assets.filter(a => a.type === 'photo' || a.mimeType?.startsWith('image/')).map(a => a.url)
+                            : (isPhoto ? (delivery.mediaUrls?.length ? delivery.mediaUrls : (delivery.fileUrl ? [delivery.fileUrl] : [])) : []);
+                          const validPhotos = photos.filter((u) => !brokenImageUrls.has(u));
+                          if (validPhotos.length === 0) return null;
+
+                          return (
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>Photos ({validPhotos.length})</span>
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {validPhotos.map((url, uIdx) => {
                                   const selected = selectedMediaUrls.some((a) => a.url === url);
                                   return (
                                     <div
                                       key={uIdx}
-                                      className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
-                                        } bg-black`}
+                                      className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${
+                                        selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
+                                      } bg-black`}
                                       onClick={() => setLightboxImg(url)}
                                     >
                                       <img
@@ -4347,7 +4436,6 @@ function CustomRequestsPanel({
                                         }}
                                         className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                                       />
-
                                       {/* Selection Checkbox */}
                                       <div
                                         className="absolute top-2 left-2 z-10"
@@ -4367,14 +4455,11 @@ function CustomRequestsPanel({
                                           className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
                                         />
                                       </div>
-
                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition flex items-center justify-center">
                                         <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-semibold flex items-center gap-1 bg-black/60 px-2 py-1 rounded-lg">
                                           <ZoomIn className="w-3.5 h-3.5" /> Inspect
                                         </span>
                                       </div>
-
-                                      {/* Quick Actions */}
                                       <div className="absolute bottom-1.5 inset-x-1.5 opacity-0 group-hover:opacity-100 flex items-center justify-between gap-1 transition">
                                         {onUseAsset && (
                                           <button
@@ -4402,141 +4487,131 @@ function CustomRequestsPanel({
                                   );
                                 })}
                               </div>
-                            ) : delivery.fileUrl && !brokenImageUrls.has(delivery.fileUrl) ? (
-                              <div className={`relative group max-w-sm rounded-2xl overflow-hidden border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/40'}`}>
-                                <div className="aspect-[3/4] relative overflow-hidden bg-black/20 flex items-center justify-center">
-                                  <img
-                                    src={delivery.fileUrl}
-                                    alt={delivery.title}
-                                    onError={(e) => {
-                                      markGlobalBrokenUrl(delivery.fileUrl || '');
-                                      (e.currentTarget.closest('.group') as HTMLElement)?.style.setProperty('display', 'none');
-                                    }}
-                                    className="w-full h-full object-contain cursor-pointer transition hover:scale-102"
-                                    onClick={() => setLightboxImg(delivery.fileUrl || null)}
-                                  />
-                                </div>
-                                <div className="p-3 flex items-center justify-between gap-2 border-t border-white/10">
-                                  <span className="text-xs truncate opacity-75">{delivery.fileName || 'Photo Render'}</span>
-                                  <div className="flex items-center gap-2">
-                                    {onUseAsset && (
+                            </div>
+                          );
+                        })()}
+
+                        {/* 2. Videos Section */}
+                        {(() => {
+                          const videos = delivery.assets && delivery.assets.length > 0
+                            ? delivery.assets.filter(a => a.type === 'video' || a.mimeType?.startsWith('video/') || /\.(mp4|mov|webm|mkv)$/i.test(a.name))
+                            : (isVideo && delivery.fileUrl ? [{ url: delivery.fileUrl, name: delivery.fileName || 'video.mp4', size: delivery.fileSize || 0 }] : []);
+                          if (videos.length === 0) return null;
+
+                          return (
+                            <div className="space-y-3">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                <Film className="w-3.5 h-3.5" />
+                                <span>Videos ({videos.length})</span>
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {videos.map((vid, vIdx) => (
+                                  <div key={vIdx} className="space-y-2 rounded-2xl border border-white/10 p-3 bg-black/40">
+                                    <video
+                                      src={vid.url}
+                                      controls
+                                      className="w-full rounded-xl border border-white/10 bg-black max-h-72"
+                                    />
+                                    <div className="flex items-center justify-between text-xs pt-1">
+                                      <span className="font-semibold truncate max-w-[200px]">{vid.name}</span>
                                       <button
                                         type="button"
-                                        onClick={() => onUseAsset(delivery.fileUrl || '', 'cloth')}
-                                        className="px-3 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold flex items-center gap-1.5 transition shadow cursor-pointer"
+                                        onClick={() => void downloadDirectFile(vid.url, vid.name || `video-${vIdx + 1}.mp4`)}
+                                        className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                                       >
-                                        <Send className="w-3 h-3" />
-                                        <span>Use in Studio</span>
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Download Video</span>
                                       </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'photo.png')}
-                                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* 3. ZIP Archives Section */}
+                        {(() => {
+                          const zips = delivery.assets && delivery.assets.length > 0
+                            ? delivery.assets.filter(a => a.type === 'zip' || a.mimeType?.includes('zip') || /\.(zip|rar|tar\.gz|7z)$/i.test(a.name))
+                            : (isZip && delivery.fileUrl ? [{ url: delivery.fileUrl, name: delivery.fileName || 'Studio-Package.zip', size: delivery.fileSize || 0 }] : []);
+                          if (zips.length === 0) return null;
+
+                          return (
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                                <FileArchive className="w-3.5 h-3.5" />
+                                <span>ZIP Archives ({zips.length})</span>
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {zips.map((zip, zIdx) => (
+                                  <div
+                                    key={zIdx}
+                                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                                      isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 truncate">
+                                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                        <FileArchive className="w-5 h-5" />
+                                      </div>
+                                      <div className="truncate">
+                                        <p className="text-xs font-bold text-amber-500 truncate">{zip.name}</p>
+                                        {zip.size ? (
+                                          <p className="text-[10px] opacity-60">
+                                            Size: {(zip.size / (1024 * 1024)).toFixed(2)} MB
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <a
+                                      href={zip.url}
+                                      download={zip.name}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer shrink-0"
                                     >
                                       <Download className="w-3.5 h-3.5" />
-                                      <span>Download</span>
-                                    </button>
+                                      <span>Download ZIP</span>
+                                    </a>
                                   </div>
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
-
-                        {/* Video */}
-                        {isVideo && delivery.fileUrl && (
-                          <div className="max-w-xl space-y-2">
-                            <video
-                              src={delivery.fileUrl}
-                              controls
-                              className="w-full rounded-2xl border border-white/10 bg-black max-h-96"
-                            />
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => void downloadDirectFile(delivery.fileUrl || '', delivery.fileName || 'video.mp4')}
-                                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Download Video</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ZIP Archive */}
-                        {isZip && (
-                          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
-                            }`}>
-                            <div className="flex items-center gap-3 truncate">
-                              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                                <FileArchive className="w-5 h-5" />
-                              </div>
-                              <div className="truncate">
-                                <p className="text-xs font-bold text-amber-500 truncate">{delivery.fileName || 'Studio-Package.zip'}</p>
-                                {delivery.fileSize ? (
-                                  <p className="text-[10px] opacity-60">
-                                    Size: {(delivery.fileSize / (1024 * 1024)).toFixed(2)} MB
-                                  </p>
-                                ) : null}
+                                ))}
                               </div>
                             </div>
-                            {delivery.fileUrl && (
-                              <a
-                                href={delivery.fileUrl}
-                                download={delivery.fileName || 'Studio-Package.zip'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Download ZIP</span>
-                              </a>
-                            )}
-                          </div>
-                        )}
+                          );
+                        })()}
 
-                        {/* Folder */}
-                        {isFolder && (
-                          <div className={`p-4 rounded-2xl border space-y-3 ${isLight ? 'bg-emerald-50/60 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/25'
-                            }`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                                <Folder className="w-4 h-4" />
-                                <span>{delivery.fileName || 'Folder Asset Collection'}</span>
-                              </div>
-                              {delivery.fileUrl && (
-                                <a
-                                  href={delivery.fileUrl}
-                                  download={delivery.fileName || 'Folder-Assets.zip'}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>Download Folder</span>
-                                </a>
-                              )}
-                            </div>
-                            {delivery.mediaUrls && delivery.mediaUrls.length > 0 && (
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10">
-                                {delivery.mediaUrls.map((url, uIdx) => (
+                        {/* 4. Folders / Other Assets Section */}
+                        {(() => {
+                          const folders = delivery.assets && delivery.assets.length > 0
+                            ? delivery.assets.filter(a => a.type === 'folder' || (!['photo', 'video', 'zip'].includes(a.type) && !/\.(png|jpe?g|webp|mp4|mov|zip|rar)$/i.test(a.name)))
+                            : (isFolder ? [{ url: delivery.fileUrl || '', name: delivery.fileName || 'Folder-Assets.zip' }] : []);
+                          if (folders.length === 0) return null;
+
+                          return (
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                                <Folder className="w-3.5 h-3.5" />
+                                <span>Folder Assets ({folders.length})</span>
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {folders.map((f, fIdx) => (
                                   <a
-                                    key={uIdx}
-                                    href={url}
+                                    key={fIdx}
+                                    href={f.url}
+                                    download={f.name}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="p-2 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 flex items-center justify-between text-[11px] truncate text-slate-300"
+                                    className="p-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 flex items-center justify-between text-xs truncate text-slate-300 transition"
                                   >
-                                    <span className="truncate">File {uIdx + 1}</span>
-                                    <Download className="w-3 h-3 shrink-0 opacity-60" />
+                                    <span className="truncate">{f.name}</span>
+                                    <Download className="w-3.5 h-3.5 shrink-0 opacity-60 ml-1" />
                                   </a>
                                 ))}
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -7347,12 +7422,25 @@ export default function Design() {
     uploads.forEach((u) => {
       const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
       if (isModel && !brokenImageUrls.has(u.url)) {
-        map.set(u.url, { url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
+        const rawName = u.name || '';
+        const cleanName = rawName.replace(/\.[^/.]+$/, '').trim().toLowerCase();
+        // Deduplicate identical model poses (e.g. repeated uploads of 01_three-quarter_hand-at-hip)
+        const key = cleanName && !/^custom model|model|upload$/i.test(cleanName) ? cleanName : u.url;
+        const existing = map.get(key);
+        if (!existing || (u.at || 0) > (existing.at || 0)) {
+          map.set(key, { url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
+        }
       }
     });
     uploadSets.forEach((s) => {
-      if (s.modelUrl && !map.has(s.modelUrl) && !brokenImageUrls.has(s.modelUrl)) {
-        map.set(s.modelUrl, { url: s.modelUrl, name: s.modelName || 'Studio Model', at: s.createdAt || 0 });
+      if (s.modelUrl && !brokenImageUrls.has(s.modelUrl)) {
+        const rawName = s.modelName || '';
+        const cleanName = rawName.replace(/\.[^/.]+$/, '').trim().toLowerCase();
+        const key = cleanName && !/^custom model|model|upload$/i.test(cleanName) ? cleanName : s.modelUrl;
+        const existing = map.get(key);
+        if (!existing || (s.createdAt || 0) > (existing.at || 0)) {
+          map.set(key, { url: s.modelUrl, name: s.modelName || 'Studio Model', at: s.createdAt || 0 });
+        }
       }
     });
     // Sort descending by timestamp: newest / most recently uploaded model is ALWAYS FIRST!
@@ -7864,58 +7952,27 @@ export default function Design() {
       setUploadProgress({ current: 0, total: fileArr.length, kind });
 
       let completed = 0;
+      const orderedPicks: Array<{ url: string; preview: string; name: string } | null> = Array(fileArr.length).fill(null);
+
       const processOne = async (file: File, i: number) => {
-        const standardized = await prepareAndStandardizeImage(file);
-        const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
-        completed++;
-        setUploadProgress({ current: completed, total: fileArr.length, kind });
-        const pick = {
-          url: uploaded.url,
-          preview: standardized.dataUrl || uploaded.preview || uploaded.url,
-          name: file.name,
-        };
-
-        // Prepend immediately to uploads state so newest upload is at the very front
-        setUploads((prev) => [
-          { id: uploaded.url, name: file.name, url: uploaded.url, kind, at: Date.now() },
-          ...prev.filter((p) => p.url !== uploaded.url),
-        ]);
-
-        if (kind === 'cloth') {
-          // Determine smart initial role if multiple files are selected in a batch
-          const heuristicRole = classifyGarmentByHeuristic(file.name);
-          let assignedRole = heuristicRole;
-          if (heuristicRole === 'top-front' && fileArr.length > 1) {
-            const batchAngleRoles: GarmentRole[] = ['top-front', 'top-back', 'logo', 'left-sleeve', 'right-sleeve', 'bottom'];
-            assignedRole = batchAngleRoles[i] || 'top-front';
-          }
-
-          // Add to selected clothes list so multiple garments can be chosen
-          setSelectedClothes((prev) => {
-            const exists = prev.some((p) => p && p.url === pick.url);
-            return exists ? prev : [...prev, pick];
-          });
-          // Also classify and add to smart garments with instant dataUrl preview
-          addClassifiedGarment(pick, assignedRole);
-          // Set as active cloth (first garment in batch)
-          if (i === 0 || !cloth) {
-            setCloth(pick);
-          }
-        } else {
-          // Add to selected models list so multiple models can be chosen (up to 10)
-          setSelectedModels((prev) => {
-            const exists = prev.some((p) => p && p.url === pick.url);
-            if (exists) return prev;
-            if (prev.length >= 10) return prev;
-            return [...prev, pick];
-          });
-          // Set as active model
-          setModel(pick);
+        try {
+          // Fast standardized compression: preserves natural portrait aspect ratio for models
+          const standardized = await prepareAndStandardizeImage(file, kind);
+          const uploaded = await api.upload(standardized.dataUrl, kind, standardized.name);
+          completed++;
+          setUploadProgress({ current: completed, total: fileArr.length, kind });
+          orderedPicks[i] = {
+            url: uploaded.url,
+            preview: standardized.dataUrl || uploaded.preview || uploaded.url,
+            name: file.name,
+          };
+        } catch (err) {
+          console.warn(`[upload] Error uploading ${file.name}:`, err);
         }
       };
 
       let workerIdx = 0;
-      const workers = Array(Math.min(3, fileArr.length)).fill(0).map(async () => {
+      const workers = Array(Math.min(4, fileArr.length)).fill(0).map(async () => {
         while (workerIdx < fileArr.length) {
           const idx = workerIdx++;
           await processOne(fileArr[idx], idx);
@@ -7923,7 +7980,60 @@ export default function Design() {
       });
       await Promise.all(workers);
 
-      if (kind === 'model') {
+      const successfulPicks = orderedPicks.filter(Boolean) as Array<{ url: string; preview: string; name: string }>;
+      if (successfulPicks.length === 0) {
+        throw new Error('Could not upload selected images. Please check file formats and try again.');
+      }
+
+      // Prepend all successful uploads immediately to uploads state
+      const newUploadItems = successfulPicks.map((p) => ({
+        id: p.url,
+        name: p.name,
+        url: p.url,
+        kind,
+        at: Date.now(),
+      }));
+      setUploads((prev) => [
+        ...newUploadItems,
+        ...prev.filter((item) => !successfulPicks.some((p) => p.url === item.url)),
+      ]);
+
+      if (kind === 'cloth') {
+        successfulPicks.forEach((pick, i) => {
+          const heuristicRole = classifyGarmentByHeuristic(pick.name);
+          let assignedRole = heuristicRole;
+          if (heuristicRole === 'top-front' && successfulPicks.length > 1) {
+            const batchAngleRoles: GarmentRole[] = ['top-front', 'top-back', 'logo', 'left-sleeve', 'right-sleeve', 'bottom'];
+            assignedRole = batchAngleRoles[i] || 'top-front';
+          }
+          addClassifiedGarment(pick, assignedRole);
+        });
+
+        setSelectedClothes((prev) => {
+          const existingUrls = new Set(prev.map((p) => p?.url));
+          const additions = successfulPicks.filter((p) => !existingUrls.has(p.url));
+          return [...prev, ...additions];
+        });
+
+        if (successfulPicks[0]) {
+          setCloth(successfulPicks[0]);
+        }
+      } else {
+        // Models: Deterministically set all uploaded models in the exact order selected!
+        setSelectedModels((prev) => {
+          if (successfulPicks.length >= 2) {
+            // User uploaded a multi-pose collection (e.g. 5 poses): preserve all 5 in exact order!
+            return successfulPicks.slice(0, 10);
+          }
+          const existingUrls = new Set(prev.map((p) => p?.url));
+          const additions = successfulPicks.filter((p) => !existingUrls.has(p.url));
+          return [...prev, ...additions].slice(0, 10);
+        });
+
+        // Set the very first model (e.g. 01_three-quarter_hand-at-hip) as the active model
+        if (successfulPicks[0]) {
+          setModel(successfulPicks[0]);
+        }
         setTab('uploads');
       }
 
