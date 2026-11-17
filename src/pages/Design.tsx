@@ -6483,14 +6483,109 @@ export default function Design() {
     window.addEventListener('touchend', handleEnd);
   };
 
-  /* Area-Selective AI Logo Eraser State & Handlers */
+  /* Area-Selective AI Logo Eraser State & Handlers (Freehand Rubbing Brush Mode) */
+  type RubPoint = { x: number; y: number };
+  type RubStroke = RubPoint[];
+
   const [isEraseMode, setIsEraseMode] = useState(false);
   const [eraseBox, setEraseBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
+  const [rubStrokes, setRubStrokes] = useState<RubStroke[]>([]);
+  const rubStrokesRef = useRef<RubStroke[]>([]);
+  const currentStrokeRef = useRef<RubPoint[]>([]);
+  const [isRubbing, setIsRubbing] = useState(false);
+  const [brushRadius, setBrushRadius] = useState<number>(20);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const rubCanvasRef = useRef<HTMLCanvasElement>(null);
   const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
   const [isErasing, setIsErasing] = useState(false);
   const [isSeamProtect, setIsSeamProtect] = useState(true);
   const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
+
+  const computeRubBoundingBox = (strokes: RubStroke[], radius: number, rectW: number, rectH: number) => {
+    if (!strokes || strokes.length === 0) return null;
+    let minX = 100, maxX = 0, minY = 100, maxY = 0, total = 0;
+    for (const s of strokes) {
+      for (const pt of s) {
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+        total++;
+      }
+    }
+    if (total === 0) return null;
+
+    const padX = ((radius + 6) / (rectW || 380)) * 100;
+    const padY = ((radius + 6) / (rectH || 500)) * 100;
+
+    const boxX = Math.max(0, minX - padX);
+    const boxY = Math.max(0, minY - padY);
+    const boxW = Math.min(100 - boxX, Math.max(2, (maxX - minX) + padX * 2));
+    const boxH = Math.min(100 - boxY, Math.max(2, (maxY - minY) + padY * 2));
+
+    return {
+      x: Math.round(boxX * 10) / 10,
+      y: Math.round(boxY * 10) / 10,
+      width: Math.round(boxW * 10) / 10,
+      height: Math.round(boxH * 10) / 10,
+    };
+  };
+
+  const redrawRubCanvas = (strokes: RubStroke[], activeRadius = brushRadius) => {
+    const canvas = rubCanvasRef.current;
+    if (!canvas) return;
+    const curRect = getImageElementRect();
+    if (curRect && curRect.width > 0 && curRect.height > 0) {
+      const targetW = Math.round(curRect.width);
+      const targetH = Math.round(curRect.height);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!strokes || strokes.length === 0) return;
+
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.lineWidth = activeRadius * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const s of strokes) {
+      if (s.length === 0) continue;
+      ctx.beginPath();
+      for (let i = 0; i < s.length; i++) {
+        const px = (s[i].x / 100) * canvas.width;
+        const py = (s[i].y / 100) * canvas.height;
+        if (i === 0) {
+          ctx.moveTo(px, py);
+          ctx.arc(px, py, activeRadius, 0, Math.PI * 2);
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+    }
+  };
+
+  const handleClearStrokes = () => {
+    setRubStrokes([]);
+    rubStrokesRef.current = [];
+    currentStrokeRef.current = [];
+    setEraseBox(null);
+    setIsDrawingEraseBox(false);
+    setIsRubbing(false);
+    const canvas = rubCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
 
   const handleStartEraseSelect = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isEraseMode) return;
@@ -6507,8 +6602,12 @@ export default function Design() {
     const startX = Math.max(0, Math.min(100, ((startClientX - rect.left) / rect.width) * 100));
     const startY = Math.max(0, Math.min(100, ((startClientY - rect.top) / rect.height) * 100));
 
+    const newStroke: RubPoint[] = [{ x: startX, y: startY }];
+    currentStrokeRef.current = newStroke;
+    setIsRubbing(true);
     setIsDrawingEraseBox(true);
-    setEraseBox({ x: startX, y: startY, width: 0, height: 0 });
+    setCursorPos({ x: startClientX - rect.left, y: startClientY - rect.top });
+    redrawRubCanvas([...rubStrokesRef.current, newStroke], brushRadius);
 
     const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
       const curRect = getImageElementRect();
@@ -6519,32 +6618,30 @@ export default function Design() {
       const currX = Math.max(0, Math.min(100, ((clientX - curRect.left) / curRect.width) * 100));
       const currY = Math.max(0, Math.min(100, ((clientY - curRect.top) / curRect.height) * 100));
 
-      const boxX = Math.min(startX, currX);
-      const boxY = Math.min(startY, currY);
-      const boxW = Math.abs(currX - startX);
-      const boxH = Math.abs(currY - startY);
-
-      setEraseBox({
-        x: Math.round(boxX * 10) / 10,
-        y: Math.round(boxY * 10) / 10,
-        width: Math.round(boxW * 10) / 10,
-        height: Math.round(boxH * 10) / 10,
-      });
+      newStroke.push({ x: currX, y: currY });
+      setCursorPos({ x: clientX - curRect.left, y: clientY - curRect.top });
+      redrawRubCanvas([...rubStrokesRef.current, newStroke], brushRadius);
     };
 
     const handleEnd = () => {
+      setIsRubbing(false);
       setIsDrawingEraseBox(false);
-      setEraseBox((prev) => {
-        if (!prev || prev.width < 1.5 || prev.height < 1.5) return null;
+      if (newStroke.length > 0) {
+        const next = [...rubStrokesRef.current, newStroke];
+        rubStrokesRef.current = next;
+        setRubStrokes(next);
         const curRect = getImageElementRect();
-        const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
-        const autoScale = Math.max(14, Math.min(80, Math.round((dispW * prev.width) / 100)));
-        const centerX = Math.round((prev.x + prev.width / 2) * 10) / 10;
-        const centerY = Math.round((prev.y + prev.height / 2) * 10) / 10;
-        const target = centerY > 50 ? 'pant' : 'chest';
-        lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
-        return prev;
-      });
+        const bbox = computeRubBoundingBox(next, brushRadius, curRect?.width || 380, curRect?.height || 500);
+        setEraseBox(bbox);
+        if (bbox) {
+          const autoScale = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * bbox.width) / 100)));
+          const centerX = Math.round((bbox.x + bbox.width / 2) * 10) / 10;
+          const centerY = Math.round((bbox.y + bbox.height / 2) * 10) / 10;
+          const target = centerY > 50 ? 'pant' : 'chest';
+          lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
+        }
+      }
+      currentStrokeRef.current = [];
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchmove', handleMove);
@@ -7858,7 +7955,9 @@ export default function Design() {
   async function inpaintEraseArea(
     baseImgUrl: string,
     box: { x: number; y: number; width: number; height: number },
-    mode: 'erase_logo' | 'repair_seam' = 'erase_logo'
+    mode: 'erase_logo' | 'repair_seam' = 'erase_logo',
+    strokes?: RubStroke[],
+    brushRadiusPx?: number
   ): Promise<{ url: string; detected?: { x: number; y: number; scale: number } }> {
     const resolvedUrl = resolveImageUrl(baseImgUrl);
 
@@ -8126,6 +8225,50 @@ export default function Design() {
       const donorStartX = Math.max(0, Math.min(w - bw - 1, bx + bestDonor.dx));
       const donorStartY = Math.max(0, Math.min(h - bh - 1, by + bestDonor.dy));
 
+      const dispRect = getImageElementRect();
+      const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
+
+      // Build pixel-accurate mask from user's rubbed brush strokes if present
+      const hasRubStrokes = Boolean(strokes && strokes.length > 0);
+      const rubMask = new Uint8Array(bw * bh);
+      if (hasRubStrokes && strokes) {
+        const strokeCanvas = document.createElement('canvas');
+        strokeCanvas.width = bw;
+        strokeCanvas.height = bh;
+        const sctx = strokeCanvas.getContext('2d');
+        if (sctx) {
+          sctx.fillStyle = '#000000';
+          sctx.fillRect(0, 0, bw, bh);
+          sctx.fillStyle = '#ffffff';
+          sctx.strokeStyle = '#ffffff';
+          const canvasRadius = Math.max(4, Math.round(((brushRadiusPx || 20) / dispW) * canvas.width));
+          sctx.lineWidth = canvasRadius * 2;
+          sctx.lineCap = 'round';
+          sctx.lineJoin = 'round';
+
+          for (const strk of strokes) {
+            if (strk.length === 0) continue;
+            sctx.beginPath();
+            for (let i = 0; i < strk.length; i++) {
+              const cx = (strk[i].x / 100) * canvas.width - bx;
+              const cy = (strk[i].y / 100) * canvas.height - by;
+              if (i === 0) {
+                sctx.moveTo(cx, cy);
+                sctx.arc(cx, cy, canvasRadius, 0, Math.PI * 2);
+                sctx.moveTo(cx, cy);
+              } else {
+                sctx.lineTo(cx, cy);
+              }
+            }
+            sctx.stroke();
+          }
+          const sdata = sctx.getImageData(0, 0, bw, bh).data;
+          for (let i = 0; i < bw * bh; i++) {
+            rubMask[i] = sdata[i * 4] > 40 ? 1 : 0;
+          }
+        }
+      }
+
       const inkThreshold = Math.max(12, medDist * 1.35);
       const rawMask = new Uint8Array(bw * bh);
       let minInkX = bw;
@@ -8138,6 +8281,7 @@ export default function Design() {
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
+          if (hasRubStrokes && !rubMask[idx]) continue;
           const pixelIdx = ((by + r) * w + (bx + c)) * 4;
           const origR = data[pixelIdx];
           const origG = data[pixelIdx + 1];
@@ -8157,11 +8301,29 @@ export default function Design() {
         }
       }
 
+      // If user rubbed strokes but ink contrast was very faint, fallback to inpainting all rubbed pixels
+      if (inkPixelCount < 5 && hasRubStrokes) {
+        for (let r = 0; r < bh; r++) {
+          for (let c = 0; c < bw; c++) {
+            const idx = r * bw + c;
+            if (rubMask[idx]) {
+              rawMask[idx] = 1;
+              minInkX = Math.min(minInkX, c);
+              maxInkX = Math.max(maxInkX, c);
+              minInkY = Math.min(minInkY, r);
+              maxInkY = Math.max(maxInkY, r);
+              inkPixelCount++;
+            }
+          }
+        }
+      }
+
       // Pass 2: Dilate mask by 1px so anti-aliased edge halos are fully cleared without leaving ghost borders
       const finalMask = new Uint8Array(bw * bh);
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
+          if (hasRubStrokes && !rubMask[idx]) continue;
           if (rawMask[idx]) {
             finalMask[idx] = 255;
           } else {
@@ -8182,6 +8344,7 @@ export default function Design() {
           const idx = r * bw + c;
           const maskVal = finalMask[idx];
           if (maskVal === 0) continue; // 100% original fabric untouched!
+          if (hasRubStrokes && !rubMask[idx]) continue;
 
           const pixelIdx = ((by + r) * w + (bx + c)) * 4;
           const origR = data[pixelIdx];
@@ -8218,8 +8381,6 @@ export default function Design() {
         const inkCanvasW = maxInkX - minInkX + 1;
         const inkCanvasMidX = bx + minInkX + inkCanvasW / 2;
         const inkCanvasMidY = by + minInkY + (maxInkY - minInkY + 1) / 2;
-        const dispRect = getImageElementRect();
-        const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
         const detectedScale = Math.max(14, Math.min(75, Math.round((inkCanvasW / canvas.width) * dispW * 1.15)));
         const detectedX = Math.round(((inkCanvasMidX / canvas.width) * 100) * 10) / 10;
         const detectedY = Math.round(((inkCanvasMidY / canvas.height) * 100) * 10) / 10;
@@ -8237,14 +8398,18 @@ export default function Design() {
   }
 
   const handleExecuteErase = async (snapVector = false, isSeamRepair = false) => {
-    if (!eraseBox || !result) return;
+    const curRect = getImageElementRect();
+    const curBox = eraseBox || computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500);
+    if (!curBox || !result) return;
     try {
       setIsErasing(true);
       const currentImg = result;
       const { url: inpainted, detected } = await inpaintEraseArea(
         currentImg,
-        eraseBox,
-        isSeamRepair ? 'repair_seam' : 'erase_logo'
+        curBox,
+        isSeamRepair ? 'repair_seam' : 'erase_logo',
+        rubStrokes,
+        brushRadius
       );
 
       // Save to undo stack (max 5)
@@ -8257,9 +8422,9 @@ export default function Design() {
 
       const dispRect = getImageElementRect();
       const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
-      const autoScale = detected?.scale || Math.max(14, Math.min(80, Math.round((dispW * eraseBox.width) / 100)));
-      const centerX = detected?.x ?? Math.round((eraseBox.x + eraseBox.width / 2) * 10) / 10;
-      const centerY = detected?.y ?? Math.round((eraseBox.y + eraseBox.height / 2) * 10) / 10;
+      const autoScale = detected?.scale || Math.max(14, Math.min(80, Math.round((dispW * curBox.width) / 100)));
+      const centerX = detected?.x ?? Math.round((curBox.x + curBox.width / 2) * 10) / 10;
+      const centerY = detected?.y ?? Math.round((curBox.y + curBox.height / 2) * 10) / 10;
       const isPant = centerY > 50 || activeLogoTarget === 'pant';
       const target = isPant ? 'pant' : 'chest';
 
@@ -8283,7 +8448,7 @@ export default function Design() {
         setIsOptionBDirty(true);
       } else if (!isSeamRepair) {
         // User clicked "Erase Logo" -> Turn off vector overlay on that spot so it doesn't block the erased area
-        const centerY = eraseBox.y + eraseBox.height / 2;
+        const centerY = curBox.y + curBox.height / 2;
         if (centerY > 50) {
           setShowPantLogo(false);
         } else {
@@ -8296,7 +8461,7 @@ export default function Design() {
         setIsOptionBDirty(false);
       }
 
-      setEraseBox(null);
+      handleClearStrokes();
       if (snapVector) {
         setIsEraseMode(false);
       }
@@ -8317,7 +8482,7 @@ export default function Design() {
     setFivePoseItems((prev) =>
       prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: previous } : p))
     );
-    setEraseBox(null);
+    handleClearStrokes();
     setIsEraseMode(true);
     autoSaveTriggerRef.current?.(previous, 'Step Back (Undone Erase)');
   };
@@ -10122,12 +10287,12 @@ export default function Design() {
                 {/* 2. Eraser Instructions & Quick Actions */}
                 <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
                   <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    2 · How to Erase Logos on Canvas
+                    2 · How to Rub & Erase Logos on Canvas
                   </span>
                   <div className={`text-xs space-y-1.5 leading-relaxed ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
                     <p className="flex items-start gap-2">
                       <span className="text-amber-400 font-bold">①</span>
-                      <span><strong>Drag a box</strong> with mouse or finger over the unwanted logo on the canvas.</span>
+                      <span><strong>Rub with mouse or finger</strong> directly over the unwanted logo on the clothing.</span>
                     </p>
                     <p className="flex items-start gap-2">
                       <span className="text-amber-400 font-bold">②</span>
@@ -10139,7 +10304,7 @@ export default function Design() {
                     </p>
                   </div>
 
-                  {eraseBox && (
+                  {(eraseBox || rubStrokes.length > 0) && (
                     <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -10148,11 +10313,11 @@ export default function Design() {
                         className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         <Eraser className="w-3.5 h-3.5" />
-                        <span>{isErasing ? 'Erasing…' : 'Erase Selected Area'}</span>
+                        <span>{isErasing ? 'Erasing…' : 'Erase Rubbed Logo'}</span>
                       </button>
                       {(() => {
                         const curRect = getImageElementRect();
-                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * eraseBox.width) / 100)));
+                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (eraseBox?.width || 12)) / 100)));
                         return (
                           <button
                             type="button"
@@ -10168,10 +10333,10 @@ export default function Design() {
                       })()}
                       <button
                         type="button"
-                        onClick={() => setEraseBox(null)}
+                        onClick={handleClearStrokes}
                         className="px-2.5 py-1.5 rounded-lg border border-white/20 text-white/70 hover:text-white text-xs transition cursor-pointer"
                       >
-                        Cancel Box
+                        Clear Rub
                       </button>
                     </div>
                   )}
@@ -12065,20 +12230,24 @@ export default function Design() {
               {/* Main Result Canvas Preview Area */}
               <div
                 ref={previewContainerRef}
-                onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
-                onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
-                className={`relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none ${
-                  isEraseMode ? 'cursor-crosshair' : ''
-                }`}
+                className="relative aspect-[3/4] w-full overflow-hidden bg-black/40 flex items-center justify-center select-none"
               >
                 {result ? (
                   <div
                     ref={imageWrapperRef}
                     onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
                     onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
+                    onMouseMove={(e) => {
+                      if (!isEraseMode) return;
+                      const rect = getImageElementRect();
+                      if (rect) setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                    }}
+                    onMouseLeave={() => {
+                      if (!isRubbing) setCursorPos(null);
+                    }}
                     style={renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : undefined}
                     className={`relative max-h-full max-w-full flex items-center justify-center select-none ${
-                      isEraseMode ? 'cursor-crosshair' : ''
+                      isEraseMode ? 'cursor-none' : ''
                     }`}
                   >
                     <img
@@ -12094,12 +12263,60 @@ export default function Design() {
                       className="w-full h-full object-contain block select-none pointer-events-none"
                     />
 
-                    {/* Active Erase Mode Toolbar at top of canvas with instant 1-click Step Back */}
+                    {/* Realtime Rubbing Overlay Canvas */}
+                    {isEraseMode && (
+                      <canvas
+                        ref={rubCanvasRef}
+                        className="absolute inset-0 w-full h-full pointer-events-none z-30"
+                      />
+                    )}
+
+                    {/* Circular Cursor Brush Follower */}
+                    {isEraseMode && cursorPos && !isErasing && (
+                      <div
+                        style={{
+                          left: `${cursorPos.x}px`,
+                          top: `${cursorPos.y}px`,
+                          width: `${brushRadius * 2}px`,
+                          height: `${brushRadius * 2}px`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                        className="pointer-events-none absolute z-30 rounded-full border-2 border-red-400 bg-red-400/20 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                      />
+                    )}
+
+                    {/* Active Erase Mode Toolbar at top of canvas */}
                     {isEraseMode && (
                       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/90 backdrop-blur-md border border-amber-500/60 text-white text-xs font-semibold shadow-2xl pointer-events-auto select-none">
                         <div className="flex items-center gap-1.5 text-amber-400 font-bold">
                           <Eraser className="w-3.5 h-3.5" />
-                          <span>Erase Mode</span>
+                          <span>Rub Eraser</span>
+                        </div>
+                        <span className="text-white/40">|</span>
+                        {/* Brush Size Selector */}
+                        <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 border border-white/15">
+                          {[
+                            { label: 'S', size: 14, title: 'Small Brush (14px)' },
+                            { label: 'M', size: 20, title: 'Medium Brush (20px)' },
+                            { label: 'L', size: 34, title: 'Large Brush (34px)' },
+                          ].map((b) => (
+                            <button
+                              key={b.size}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBrushRadius(b.size);
+                              }}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer ${
+                                brushRadius === b.size
+                                  ? 'bg-amber-400 text-black shadow-xs'
+                                  : 'text-white/70 hover:text-white'
+                              }`}
+                              title={b.title}
+                            >
+                              {b.label}
+                            </button>
+                          ))}
                         </div>
                         <span className="text-white/40">|</span>
                         <button
@@ -12120,8 +12337,23 @@ export default function Design() {
                         </button>
                         <span className="text-white/40">|</span>
                         <span className="text-white/80 text-[11px] hidden sm:inline">
-                          {eraseBox ? 'Adjust box below' : 'Drag box over unwanted logo to erase'}
+                          {rubStrokes.length > 0 ? 'Rub more or click Erase below' : 'Rub over logo with mouse or finger'}
                         </span>
+
+                        {rubStrokes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClearStrokes();
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-400/40 text-[11px] font-bold transition cursor-pointer"
+                            title="Clear rubbed stroke"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Clear Rub</span>
+                          </button>
+                        )}
 
                         {eraseUndoStack.length > 0 && (
                           <>
@@ -12163,7 +12395,7 @@ export default function Design() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setIsEraseMode(false);
-                            setEraseBox(null);
+                            handleClearStrokes();
                           }}
                           className="ml-1 p-1 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition cursor-pointer"
                           title="Done / Exit Erase Mode"
@@ -12173,33 +12405,13 @@ export default function Design() {
                       </div>
                     )}
 
-                    {/* Selection Bounding Box */}
-                    {eraseBox && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: `${eraseBox.x}%`,
-                          top: `${eraseBox.y}%`,
-                          width: `${eraseBox.width}%`,
-                          height: `${eraseBox.height}%`,
-                          zIndex: 30,
-                        }}
-                        className="border-2 border-dashed border-amber-400 bg-amber-400/20 shadow-[0_0_12px_rgba(251,191,36,0.3)] pointer-events-none"
-                      >
-                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-amber-400 rounded-full" />
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
-                        <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-amber-400 rounded-full" />
-                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
-                      </div>
-                    )}
-
-                    {/* Floating Action Menu for Erase Box */}
-                    {eraseBox && !isDrawingEraseBox && (
+                    {/* Floating Action Menu for Rubbed Logo */}
+                    {eraseBox && !isDrawingEraseBox && !isRubbing && (
                       <div
                         style={{
                           position: 'absolute',
                           left: `${Math.max(12, Math.min(88, eraseBox.x + eraseBox.width / 2))}%`,
-                          top: `${Math.min(92, Math.max(8, eraseBox.y + eraseBox.height + 3))}%`,
+                          top: `${eraseBox.y + eraseBox.height + 4 > 90 ? Math.max(6, eraseBox.y - 8) : Math.min(92, eraseBox.y + eraseBox.height + 3)}%`,
                           transform: 'translateX(-50%)',
                           zIndex: 40,
                         }}
@@ -12213,7 +12425,7 @@ export default function Design() {
                             handleExecuteErase(false);
                           }}
                           className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                          title="Seamlessly erase unwanted AI logo / text with matching fabric texture"
+                          title="Seamlessly erase rubbed logo with matching fabric texture"
                         >
                           <Eraser className="w-3 h-3" />
                           <span>{isErasing ? 'Erasing…' : 'Erase Logo'}</span>
@@ -12268,10 +12480,10 @@ export default function Design() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setEraseBox(null);
+                            handleClearStrokes();
                           }}
                           className="p-1 rounded hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
-                          title="Cancel selection"
+                          title="Cancel / clear stroke"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
