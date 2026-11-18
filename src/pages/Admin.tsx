@@ -3,6 +3,7 @@ import {
   api,
   resolveImageUrl,
   fileToDataUrl,
+  prepareAndStandardizeImage,
   getToken,
   setToken,
   type AdminAccess,
@@ -32,6 +33,7 @@ import {
   Copy,
   CreditCard,
   Download,
+  Edit2,
   ExternalLink,
   FileArchive,
   FileText,
@@ -227,6 +229,9 @@ export default function Admin() {
   const [draggedModel, setDraggedModel] = useState<{ id: string; name: string; currentCategory: string } | null>(null);
   const [dragOverCat, setDragOverCat] = useState<string | null>(null);
   const [modelMessage, setModelMessage] = useState('');
+  const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+  const [newCategoryRenameInput, setNewCategoryRenameInput] = useState('');
+  const [renamingBusy, setRenamingBusy] = useState(false);
   const modelFileInput = useRef<HTMLInputElement>(null);
   const devPhotoFileRef = useRef<HTMLInputElement>(null);
 
@@ -612,8 +617,8 @@ export default function Admin() {
     } catch {
       /* ignore */
     }
-    if (m.categories.length > 0 && !uploadModelCat) {
-      setUploadModelCat(m.categories[0].category);
+    if (!uploadModelCat) {
+      setUploadModelCat('Summer');
     }
   }
 
@@ -1243,6 +1248,9 @@ export default function Admin() {
       setSelectedBatchModels([]);
       setIsNewCat(false);
       setNewCatName('');
+      if (modelFileInput.current) {
+        modelFileInput.current.value = '';
+      }
       const freshModels = await api.models();
       updateCategoriesAndCache(freshModels.categories);
       setTimeout(() => setModelMessage(''), 6000);
@@ -1251,6 +1259,30 @@ export default function Admin() {
     } finally {
       setUploadModelBusy(false);
       setUploadModelProgress(null);
+    }
+  }
+
+  async function handleRenameCategory(oldCat: string, newCat: string) {
+    const trimmedNew = newCat.trim();
+    if (!trimmedNew || trimmedNew === oldCat) {
+      setRenamingCategory(null);
+      return;
+    }
+    setRenamingBusy(true);
+    try {
+      await api.renameAdminModelCategory({ oldCategory: oldCat, newCategory: trimmedNew });
+      const freshModels = await api.models();
+      updateCategoriesAndCache(freshModels.categories);
+      if (uploadModelCat === oldCat) {
+        setUploadModelCat(trimmedNew);
+      }
+      setRenamingCategory(null);
+      setModelMessage(`✓ Successfully renamed category "${oldCat}" to "${trimmedNew}".`);
+      setTimeout(() => setModelMessage(''), 5000);
+    } catch (err: any) {
+      alert(`Could not rename category: ${err.message || err}`);
+    } finally {
+      setRenamingBusy(false);
     }
   }
 
@@ -4724,7 +4756,12 @@ ${log.stack || 'None'}
   );
 
   /* ---------------------------------------------------- TAB 6: MODEL LIBRARY */
-  const renderModels = () => (
+  const renderModels = () => {
+    const availableCategories = Array.from(
+      new Set(['Summer', 'Winter', ...categories.map((c) => c.category)])
+    );
+
+    return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -4770,17 +4807,21 @@ ${log.stack || 'None'}
                 />
               ) : (
                 <select
-                  value={uploadModelCat}
+                  value={uploadModelCat || 'Summer'}
                   onChange={(e) => setUploadModelCat(e.target.value)}
                   className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
                     isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
                   }`}
                 >
-                  {categories.map((c) => (
-                    <option key={c.category} value={c.category}>
-                      {c.category} ({c.items.length} poses)
-                    </option>
-                  ))}
+                  {availableCategories.map((catName) => {
+                    const existing = categories.find((c) => c.category.toLowerCase() === catName.toLowerCase());
+                    const count = existing ? existing.items.length : 0;
+                    return (
+                      <option key={catName} value={catName}>
+                        {catName} {count > 0 ? `(${count} poses)` : '(Default Category)'}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </div>
@@ -4833,17 +4874,17 @@ ${log.stack || 'None'}
                 try {
                   const items: Array<{ name: string; dataUrl: string; size: number }> = [];
                   for (const f of files) {
-                    const d = await fileToDataUrl(f);
+                    const std = await prepareAndStandardizeImage(f, 'model');
                     items.push({
                       name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
-                      dataUrl: d,
+                      dataUrl: std.dataUrl,
                       size: f.size,
                     });
                   }
                   setSelectedBatchModels(items);
-                  setUploadModelDataUrl(items[0].dataUrl);
+                  setUploadModelDataUrl(items[0]?.dataUrl || '');
                   if (items.length === 1) {
-                    setUploadModelName(items[0].name);
+                    setUploadModelName(items[0]?.name || 'Model Pose');
                   } else {
                     setUploadModelName(`${items.length} Poses Batch`);
                   }
@@ -5022,9 +5063,63 @@ ${log.stack || 'None'}
                   : ''
               }`}
             >
-              <div className={`flex items-center justify-between border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
+              <div className={`flex flex-wrap items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {renamingCategory === cat.category ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleRenameCategory(cat.category, newCategoryRenameInput);
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        type="text"
+                        autoFocus
+                        required
+                        disabled={renamingBusy}
+                        value={newCategoryRenameInput}
+                        onChange={(e) => setNewCategoryRenameInput(e.target.value)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-none ${
+                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-white'
+                        }`}
+                        placeholder="New category name"
+                      />
+                      <button
+                        type="submit"
+                        disabled={renamingBusy || !newCategoryRenameInput.trim()}
+                        className="rounded-lg bg-[#e5373f] text-white px-2.5 py-1 text-xs font-bold hover:bg-[#d42d35] transition disabled:opacity-50 cursor-pointer"
+                      >
+                        {renamingBusy ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={renamingBusy}
+                        onClick={() => setRenamingCategory(null)}
+                        className="rounded-lg border border-white/20 px-2 py-1 text-xs text-white/60 hover:text-white transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenamingCategory(cat.category);
+                          setNewCategoryRenameInput(cat.category);
+                        }}
+                        className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${
+                          isLight ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                        }`}
+                        title={`Rename "${cat.category}" category`}
+                      >
+                        <Edit2 size={11} />
+                        <span>Rename</span>
+                      </button>
+                    </>
+                  )}
                   {isOver && (
                     <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full animate-pulse">
                       Drop here to move into "{cat.category}"
@@ -5133,7 +5228,8 @@ ${log.stack || 'None'}
         })}
       </div>
     </div>
-  );
+    );
+  };
 
   /* ---------------------------------------------------- TAB 7: PROBLEM LOGS */
   const renderProblems = () => {

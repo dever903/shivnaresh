@@ -722,6 +722,8 @@ export const api = {
     ),
   moveAdminModel: (body: { id: string; targetCategory: string }) =>
     request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
+  renameAdminModelCategory: (body: { oldCategory: string; newCategory: string }) =>
+    request<{ ok: boolean; oldCategory: string; newCategory: string; filesMoved?: number }>('/api/admin/models/rename-category', json(body)),
 
   /* admin system problem logs */
   systemLogs: () => request<{ logs: SystemLog[]; unresolvedCount: number; total: number }>('/api/admin/system-logs'),

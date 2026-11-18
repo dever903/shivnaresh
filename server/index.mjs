@@ -2286,11 +2286,23 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       const item = itemsToProcess[i];
       const rawName = String(item.name || `model-${i + 1}`).replace(/[^a-zA-Z0-9 _-]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
       const safeName = rawName || `model-${Date.now().toString(36)}-${i + 1}`;
-      const match = /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/.exec(item.imageData || '');
-      if (!match) continue;
+      
+      let rawBuffer = null;
+      let ext = 'jpg';
+      const imgStr = typeof item.imageData === 'string' ? item.imageData.trim() : '';
+      const match = /^data:image\/([a-zA-Z0-9+.-]+)(?:;[a-zA-Z0-9=._-]+)*;base64,(.*)$/is.exec(imgStr);
+      if (match) {
+        const rawExt = match[1].toLowerCase().replace(/svg\+xml/, 'svg');
+        ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
+        rawBuffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
+      } else if (/^[A-Za-z0-9+/=]+$/.test(imgStr.replace(/\s+/g, ''))) {
+        rawBuffer = Buffer.from(imgStr.replace(/\s+/g, ''), 'base64');
+      }
 
-      const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-      const rawBuffer = Buffer.from(match[2], 'base64');
+      if (!rawBuffer || rawBuffer.length === 0) {
+        console.warn(`[admin-model] Invalid image data for item ${i} (${item.name || 'unnamed'})`);
+        continue;
+      }
       // Unique suffix ensures previously uploaded models with similar names are NEVER overwritten
       const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const fileName = `${safeName}-${uniqueSuffix}.${ext}`;
@@ -2342,6 +2354,10 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
         name: item.name || safeName,
         url: publicUrl,
       });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'invalid_image_data', message: 'Could not process any of the provided model images. Please check file format.' });
     }
 
     if (mapChanged) {
@@ -2554,6 +2570,139 @@ app.post('/api/admin/models/move', requireAdmin, async (req, res) => {
     res.json({ ok: true, oldId: id, newId, targetCategory: safeTargetCat });
   } catch (err) {
     res.status(500).json({ error: 'move_model_failed', message: String(err.message || err) });
+  }
+});
+
+app.post('/api/admin/models/rename-category', requireAdmin, async (req, res) => {
+  try {
+    const { oldCategory, newCategory } = req.body || {};
+    if (!oldCategory || typeof oldCategory !== 'string' || !oldCategory.trim()) {
+      return res.status(400).json({ error: 'missing_old_category', message: 'Old category is required.' });
+    }
+    if (!newCategory || typeof newCategory !== 'string' || !newCategory.trim()) {
+      return res.status(400).json({ error: 'missing_new_category', message: 'New category name is required.' });
+    }
+
+    const safeOldCat = String(oldCategory).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const safeNewCat = String(newCategory).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+
+    if (!safeOldCat || !safeNewCat) {
+      return res.status(400).json({ error: 'invalid_category_name', message: 'Category name contains invalid characters.' });
+    }
+    if (safeOldCat === safeNewCat) {
+      return res.json({ ok: true, oldCategory: safeOldCat, newCategory: safeNewCat, filesMoved: 0 });
+    }
+
+    // 1. Move or merge files on disk
+    const oldDir = path.join(MODELS_DIR, safeOldCat);
+    const newDir = path.join(MODELS_DIR, safeNewCat);
+    await fs.mkdir(newDir, { recursive: true });
+
+    let filesMoved = 0;
+    try {
+      if (fsSync.existsSync(oldDir)) {
+        const files = await fs.readdir(oldDir).catch(() => []);
+        for (const f of files) {
+          const oldFilePath = path.join(oldDir, f);
+          const newFilePath = path.join(newDir, f);
+          try {
+            await fs.rename(oldFilePath, newFilePath).catch(async () => {
+              await fs.copyFile(oldFilePath, newFilePath).catch(() => { });
+              await fs.unlink(oldFilePath).catch(() => { });
+            });
+            filesMoved++;
+          } catch (fileErr) {
+            console.warn('[rename-category] File move error:', fileErr.message);
+          }
+        }
+        await fs.rmdir(oldDir).catch(() => { });
+      }
+    } catch (diskErr) {
+      console.warn('[rename-category] Disk error:', diskErr.message);
+    }
+
+    // 2. Update hosted.json
+    try {
+      const map = await readHosted();
+      if (map.models) {
+        let changed = false;
+        const oldPrefix = `${safeOldCat}/`;
+        for (const [key, val] of Object.entries(map.models)) {
+          if (key.startsWith(oldPrefix)) {
+            const newKey = `${safeNewCat}/${key.slice(oldPrefix.length)}`;
+            map.models[newKey] = val;
+            delete map.models[key];
+            changed = true;
+          }
+        }
+        if (changed) {
+          await saveHosted(map);
+        }
+      }
+    } catch (hostErr) {
+      console.warn('[rename-category] Hosted map error:', hostErr.message);
+    }
+
+    // 3. Update MongoDB studio_models
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        const oldModels = await db.collection('studio_models').find({
+          $or: [
+            { category: safeOldCat },
+            { category: safeOldCat.toLowerCase() },
+            { id: new RegExp(`^${safeOldCat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`, 'i') },
+          ],
+        }).toArray();
+
+        for (const doc of oldModels) {
+          const oldId = doc.id || '';
+          const parts = oldId.split('/');
+          const filename = parts.length > 1 ? parts.slice(1).join('/') : doc.name || 'model';
+          const newId = `${safeNewCat}/${filename}`;
+
+          let newUrl = doc.url;
+          if (newUrl && typeof newUrl === 'string' && newUrl.includes(`/models/${encodeURIComponent(safeOldCat)}/`)) {
+            newUrl = newUrl.replace(`/models/${encodeURIComponent(safeOldCat)}/`, `/models/${encodeURIComponent(safeNewCat)}/`);
+          }
+
+          await db.collection('studio_models').deleteOne({ _id: doc._id });
+          await db.collection('studio_models').updateOne(
+            { id: newId },
+            {
+              $set: {
+                id: newId,
+                category: safeNewCat,
+                name: doc.name || filename.replace(/\.[^.]+$/, ''),
+                url: newUrl,
+                remoteUrl: doc.remoteUrl || null,
+                dataUrl: doc.dataUrl || null,
+                deleted: doc.deleted || false,
+                deletedAt: doc.deletedAt || null,
+                createdAt: doc.createdAt || Date.now(),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+            { upsert: true }
+          );
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[rename-category] MongoDB update error:', dbErr.message);
+    }
+
+    // 4. Invalidate memory cache immediately
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
+
+    return res.json({
+      ok: true,
+      oldCategory: safeOldCat,
+      newCategory: safeNewCat,
+      filesMoved,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'rename_category_failed', message: String(err.message || err) });
   }
 });
 
@@ -2797,11 +2946,13 @@ app.post('/api/admin/host', requireAdmin, async (_req, res) => {
 app.post('/api/upload', async (req, res) => {
   try {
     const { name = 'upload', dataUrl, kind = 'cloth' } = req.body || {};
-    const match = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/i.exec(String(dataUrl || ''));
+    const imgStr = String(dataUrl || '').trim();
+    const match = /^data:(image\/(png|jpe?g|webp|svg\+xml));base64,(.*)$/is.exec(imgStr);
     if (!match) return res.status(400).json({ error: 'bad_image', message: 'Not a PNG/JPEG/WEBP data URL' });
-    const ext = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' }[match[1].toLowerCase()] || '.jpg';
+    const rawExt = match[1].toLowerCase();
+    const ext = rawExt === 'image/png' ? '.png' : rawExt === 'image/webp' ? '.webp' : rawExt === 'image/svg+xml' ? '.svg' : '.jpg';
     const file = `${kind}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
-    const buffer = Buffer.from(match[3], 'base64');
+    const buffer = Buffer.from(match[3].replace(/\s+/g, ''), 'base64');
     await fs.writeFile(path.join(UPLOADS, file), buffer);
 
     const localUrl = `/uploads/${file}`;

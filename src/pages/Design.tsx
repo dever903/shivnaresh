@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
   Camera,
@@ -6354,6 +6354,47 @@ export default function Design() {
     } catch { }
     return [];
   });
+  const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'summer' | 'winter' | string>('all');
+
+  const filteredCategories = useMemo(() => {
+    if (modelCategoryFilter === 'all') {
+      return categories;
+    }
+    const target = modelCategoryFilter.toLowerCase();
+    if (target === 'summer') {
+      return categories.filter((c) => {
+        const name = c.category.toLowerCase();
+        return name.includes('summer') || name === 'only shirt' || name === 'tshirt' || name === 'female';
+      });
+    }
+    if (target === 'winter') {
+      return categories.filter((c) => {
+        const name = c.category.toLowerCase();
+        return name.includes('winter') || name === 'tracksuite' || name === 'jacket' || name === 'hoodie';
+      });
+    }
+    return categories.filter((c) => c.category.toLowerCase() === target);
+  }, [categories, modelCategoryFilter]);
+
+  const modelCategoryTabs = useMemo(() => {
+    const defaultTabs: Array<{ id: string; label: string }> = [
+      { id: 'all', label: 'All (Summer + Winter)' },
+      { id: 'summer', label: '☀️ Summer' },
+      { id: 'winter', label: '❄️ Winter' },
+    ];
+    const otherCats = categories
+      .map((c) => c.category)
+      .filter((cat) => {
+        const lc = cat.toLowerCase();
+        return !lc.includes('summer') && !lc.includes('winter') && lc !== 'only shirt' && lc !== 'tshirt' && lc !== 'tracksuite';
+      });
+    for (const c of otherCats) {
+      if (!defaultTabs.some((t) => t.id.toLowerCase() === c.toLowerCase())) {
+        defaultTabs.push({ id: c.toLowerCase(), label: c });
+      }
+    }
+    return defaultTabs;
+  }, [categories]);
   const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
   const [uploadSets, setUploadSets] = useState<UploadSet[]>(() => {
     try {
@@ -11109,27 +11150,63 @@ export default function Design() {
                   )}
 
                   <div className="mt-4 max-h-[360px] overflow-y-auto pr-1">
-                    {swapTab === 'library' &&
-                      categories.map((group) => (
-                        <div key={group.category} className="mb-4">
-                          <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
-                          <div className="grid grid-cols-6 gap-2">
-                            {group.items.map((item) => (
+                    {swapTab === 'library' && (
+                      <>
+                        <div className="mb-3.5 flex flex-wrap items-center gap-1.5 border-b pb-2.5 border-white/10">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                            Season:
+                          </span>
+                          {modelCategoryTabs.map((ct) => {
+                            const isSelected = modelCategoryFilter === ct.id;
+                            return (
                               <button
-                                key={item.id}
+                                key={ct.id}
                                 type="button"
-                                onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                                className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                  ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
-                                  : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                                  }`}
+                                onClick={() => setModelCategoryFilter(ct.id)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#e5373f] text-white shadow-sm'
+                                    : isLight
+                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                      : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                                }`}
                               >
-                                <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                {ct.label}
                               </button>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
-                      ))}
+
+                        {filteredCategories.length === 0 ? (
+                          <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${
+                            isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                          }`}>
+                            No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
+                          </div>
+                        ) : (
+                          filteredCategories.map((group) => (
+                            <div key={group.category} className="mb-4">
+                              <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
+                              <div className="grid grid-cols-6 gap-2">
+                                {group.items.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
+                                    className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                      ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                      : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                      }`}
+                                  >
+                                    <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </>
+                    )}
 
                     {swapTab === 'uploads' &&
                       ((previousModelsList.length > 0 || uploads.length > 0) ? (
@@ -12101,39 +12178,75 @@ export default function Design() {
                   )}
 
                   <div className="mt-4 max-h-[380px] overflow-y-auto pr-1">
-                    {tab === 'library' &&
-                      categories.map((group) => (
-                        <div key={group.category} className="mb-4">
-                          <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
-                          <div className="grid grid-cols-6 gap-2">
-                            {group.items.map((item) => {
-                              const isSelected =
-                                selectedModels.some((p) => p && p.url === item.url) ||
-                                model?.url === item.url;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                  className={`group relative overflow-hidden rounded-md border transition ${isSelected
-                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                    {tab === 'library' && (
+                      <>
+                        <div className="mb-3.5 flex flex-wrap items-center gap-1.5 border-b pb-2.5 border-white/10">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                            Season:
+                          </span>
+                          {modelCategoryTabs.map((ct) => {
+                            const isSelected = modelCategoryFilter === ct.id;
+                            return (
+                              <button
+                                key={ct.id}
+                                type="button"
+                                onClick={() => setModelCategoryFilter(ct.id)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#e5373f] text-white shadow-sm'
                                     : isLight
-                                      ? 'border-gray-200 hover:border-gray-400'
-                                      : 'border-transparent hover:border-white/30'
-                                    }`}
-                                >
-                                  <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
-                                  {isSelected && (
-                                    <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
-                                      ✓
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
+                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                      : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                                }`}
+                              >
+                                {ct.label}
+                              </button>
+                            );
+                          })}
                         </div>
-                      ))}
+
+                        {filteredCategories.length === 0 ? (
+                          <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${
+                            isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                          }`}>
+                            No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
+                          </div>
+                        ) : (
+                          filteredCategories.map((group) => (
+                            <div key={group.category} className="mb-4">
+                              <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
+                              <div className="grid grid-cols-6 gap-2">
+                                {group.items.map((item) => {
+                                  const isSelected =
+                                    selectedModels.some((p) => p && p.url === item.url) ||
+                                    model?.url === item.url;
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                      className={`group relative overflow-hidden rounded-md border transition ${isSelected
+                                        ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                        : isLight
+                                          ? 'border-gray-200 hover:border-gray-400'
+                                          : 'border-transparent hover:border-white/30'
+                                        }`}
+                                    >
+                                      <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                      {isSelected && (
+                                        <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </>
+                    )}
 
                     {tab === 'uploads' &&
                       ((previousModelsList.length > 0 || uploads.length > 0) ? (
