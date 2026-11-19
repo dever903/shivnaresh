@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Bookmark,
   Camera,
+  Check,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -4651,7 +4652,11 @@ function VideoStudioPanel({
   onGenerationSaved?: (gen: UserGeneration) => void;
 }) {
   const [videoPrompt, setVideoPrompt] = useState('');
-  const [videoImg, setVideoImg] = useState<string | null>(null);
+  const [videoImages, setVideoImages] = useState<string[]>([]);
+  const [primaryImgIdx, setPrimaryImgIdx] = useState<number>(0);
+  const [uploadingFiles, setUploadingFiles] = useState<boolean>(false);
+  const videoImg = videoImages[primaryImgIdx] || videoImages[0] || null;
+  const isSubmittingRef = useRef<boolean>(false);
   const [duration, setDuration] = useState<5 | 10>(5);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1' | '4:5'>('9:16');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -4672,7 +4677,7 @@ function VideoStudioPanel({
   const [isEditingVideo, setIsEditingVideo] = useState(false);
   const videoEditFileInput = useRef<HTMLInputElement>(null);
 
-  /* Video credit consumption: 5s = 6 credits max; 10s = 12 credits max */
+  /* Video credit consumption: strictly fixed 5s = 6 credits; 10s = 12 credits regardless of image count */
   const videoCreditCost = duration === 10 ? 12 : 6;
   const userCredits = user ? user.credits : 10;
   const hasEnoughCredits = userCredits >= videoCreditCost;
@@ -4685,12 +4690,36 @@ function VideoStudioPanel({
 
   const isBusy = busy || isGlobalBusy;
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setVideoImg(String(reader.result));
-    reader.readAsDataURL(file);
+  async function handleMultipleVideoFiles(files: FileList | File[] | null | undefined) {
+    if (!files) return;
+    const fileArr = Array.isArray(files) ? files : Array.from(files);
+    if (fileArr.length === 0) return;
+
+    setUploadingFiles(true);
+    setError('');
+    try {
+      const newUrls: string[] = [];
+      for (const f of fileArr) {
+        try {
+          const std = await prepareAndStandardizeImage(f, 'model');
+          if (std.dataUrl) {
+            newUrls.push(std.dataUrl);
+          }
+        } catch (imgErr) {
+          console.warn('Could not compress video frame:', imgErr);
+        }
+      }
+      if (newUrls.length > 0) {
+        setVideoImages((prev) => [...prev, ...newUrls].slice(0, 20));
+      }
+    } catch {
+      setError('Could not process some uploaded images.');
+    } finally {
+      setUploadingFiles(false);
+      if (fileRef.current) {
+        fileRef.current.value = '';
+      }
+    }
   }
 
   /* Poll video job */
@@ -4761,7 +4790,7 @@ function VideoStudioPanel({
     setIsEditingVideo(isEdit);
     const sourceImg = isEdit ? (videoEditRefImage || videoImg) : videoImg;
     if (!sourceImg && !isEdit) {
-      setError('Please upload a source garment or model image first.');
+      setError('Please upload at least one garment or model image first.');
       return;
     }
     if (isLocked) {
@@ -4776,7 +4805,7 @@ function VideoStudioPanel({
       setError(`Insufficient credits. You need ${videoCreditCost} credits for a ${duration}-second video, but have ${userCredits} credits. Please upgrade your plan.`);
       return;
     }
-    if (isBusy) {
+    if (isBusy || isSubmittingRef.current) {
       setError('Another generation is currently in progress. At one time only one generation is allowed.');
       return;
     }
@@ -4785,6 +4814,8 @@ function VideoStudioPanel({
   }
 
   async function runActualVideoGeneration() {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setShowConfirmModal(false);
     setError('');
     setBusy(true);
@@ -4799,9 +4830,13 @@ function VideoStudioPanel({
     setGenStartTime(Date.now());
     setElapsedSec(0);
 
+    const primarySrc = (isEditingVideo && videoEditRefImage) ? videoEditRefImage : (videoImg || undefined);
+    const allImages = (isEditingVideo && videoEditRefImage) ? [videoEditRefImage] : (videoImages.length > 0 ? videoImages : (primarySrc ? [primarySrc] : undefined));
+
     try {
       const res = await api.generateVideo({
-        image: (isEditingVideo && videoEditRefImage) ? videoEditRefImage : (videoImg || undefined),
+        image: primarySrc,
+        images: allImages,
         prompt: promptToSend,
         duration,
         aspect_ratio: aspectRatio,
@@ -4826,6 +4861,8 @@ function VideoStudioPanel({
       setError(e instanceof Error ? e.message : 'Video generation failed');
       setBusy(false);
       setIsGlobalBusy(false);
+    } finally {
+      isSubmittingRef.current = false;
     }
   }
 
@@ -4860,6 +4897,12 @@ function VideoStudioPanel({
                   <span>Selected Duration:</span>
                   <span className="font-bold text-white uppercase">{duration} Seconds ({videoCreditCost} Credits)</span>
                 </div>
+                {videoImages.length > 1 && (
+                  <div className="flex justify-between text-white/60">
+                    <span>Uploaded Angles:</span>
+                    <span className="font-bold text-emerald-400">{videoImages.length} Images (Included at no extra charge)</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-white/60">
                   <span>Aspect Ratio:</span>
                   <span className="font-bold text-white uppercase">{aspectRatio} ({ASPECT_RATIOS.find((a) => a.id === aspectRatio)?.label})</span>
@@ -4969,47 +5012,211 @@ function VideoStudioPanel({
       {/* Form Interface */}
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className={`rounded-3xl border p-6 space-y-5 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-          {/* Step 1: Base Image */}
+          {/* Step 1: Base Images (Upload Any Number) */}
           <div>
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-              1 &middot; Source Garment / Model Image
-            </label>
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFile} />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className={`mt-2 flex aspect-[16/9] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition-colors ${isLight
-                ? 'border-gray-300 bg-gray-50 hover:border-gray-400'
-                : 'border-white/20 bg-black/40 hover:border-white/40'
-                }`}
-            >
-              {videoImg ? (
-                <img src={videoImg} alt="Source" className="h-full w-auto object-contain" />
-              ) : (
-                <>
-                  <Film className="h-8 w-8 mb-2 opacity-40" />
-                  <span className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>Upload base image for video</span>
-                  <span className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-white/35'}`}>High-contrast athletic photos work best</span>
-                </>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                1 &middot; Source Garment / Model Images (Upload Any Number)
+              </label>
+              {videoImages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoImages([]);
+                    setPrimaryImgIdx(0);
+                  }}
+                  className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
+                >
+                  Clear all ({videoImages.length})
+                </button>
               )}
-            </button>
+            </div>
+
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+              onChange={(e) => void handleMultipleVideoFiles(e.target.files)}
+            />
+
+            {/* Drop / Click Upload Zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer.files) {
+                  void handleMultipleVideoFiles(e.dataTransfer.files);
+                }
+              }}
+              onClick={() => fileRef.current?.click()}
+              className={`mt-1.5 rounded-2xl border-2 border-dashed p-4 text-center transition-all cursor-pointer ${
+                isLight
+                  ? 'border-gray-300 bg-gray-50/70 hover:border-gray-400 hover:bg-gray-100/60'
+                  : 'border-white/20 bg-black/40 hover:border-white/40 hover:bg-black/60'
+              }`}
+            >
+              {uploadingFiles ? (
+                <div className="flex flex-col items-center justify-center py-6">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent mb-2" />
+                  <p className={`text-xs font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                    Optimizing & standardizing images…
+                  </p>
+                  <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                    Compressing for ultra-fast GPU upload
+                  </p>
+                </div>
+              ) : videoImages.length === 0 ? (
+                <div className="py-4">
+                  <Film className="h-8 w-8 mx-auto mb-2 opacity-40 text-[#e5373f]" />
+                  <span className={`block text-xs font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                    Click or drop any number of images here
+                  </span>
+                  <span className={`block text-[10px] mt-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                    Upload single garment/pose, or multiple angles (front, back, close-up details) at once
+                  </span>
+                  <span className="inline-block mt-2 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    Fixed {videoCreditCost} credits — Upload unlimited images with zero extra charge
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  {/* Large Primary Preview */}
+                  <div className="relative mx-auto max-w-xs overflow-hidden rounded-xl border border-white/20 bg-black/40">
+                    <img
+                      src={videoImg || videoImages[0]}
+                      alt="Primary Base Frame"
+                      className="h-44 w-full object-contain"
+                    />
+                    <span className="absolute top-2 left-2 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Start Frame (Pose #{primaryImgIdx + 1})
+                    </span>
+                  </div>
+                  <p className={`mt-2 text-[11px] font-medium ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
+                    {videoImages.length} image{videoImages.length > 1 ? 's' : ''} loaded. Click "+ Add More" or select another as Start Frame below.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail Gallery Strip */}
+            {videoImages.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={`font-semibold ${isLight ? 'text-gray-700' : 'text-white/70'}`}>
+                    Uploaded Angles ({videoImages.length}):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileRef.current?.click();
+                    }}
+                    className="text-xs font-semibold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={13} />
+                    <span>Add More Images</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-44 overflow-y-auto p-1.5 rounded-xl border border-white/10 bg-black/20">
+                  {videoImages.map((imgUrl, idx) => {
+                    const isPrimary = idx === primaryImgIdx;
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setPrimaryImgIdx(idx)}
+                        className={`group relative rounded-lg border overflow-hidden transition-all cursor-pointer flex flex-col ${
+                          isPrimary
+                            ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-md scale-[1.02]'
+                            : isLight
+                              ? 'border-gray-200 bg-white hover:border-gray-400'
+                              : 'border-white/10 bg-white/5 hover:border-white/30'
+                        }`}
+                        title={isPrimary ? 'Current Start Frame' : 'Click to set as Start Frame'}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = videoImages.filter((_, i) => i !== idx);
+                            setVideoImages(next);
+                            if (primaryImgIdx >= next.length) {
+                              setPrimaryImgIdx(Math.max(0, next.length - 1));
+                            }
+                          }}
+                          className="absolute top-1 right-1 z-10 h-4 w-4 rounded-full bg-red-600/90 text-white flex items-center justify-center text-[9px] font-bold opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                          title="Remove image"
+                        >
+                          ✕
+                        </button>
+                        <img
+                          src={imgUrl}
+                          alt={`Angle ${idx + 1}`}
+                          className="aspect-[3/4] w-full object-cover"
+                        />
+                        <div className={`p-1 text-center text-[9px] font-semibold truncate ${
+                          isPrimary ? 'bg-emerald-600 text-white font-bold' : (isLight ? 'bg-gray-100 text-gray-700' : 'bg-black/60 text-white/70')
+                        }`}>
+                          {isPrimary ? '★ Start Frame' : `#${idx + 1}`}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Step 2: Instructions */}
+          {/* Step 2: Instructions & Smart Motion Presets */}
           <div>
-            <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-              2 &middot; Runway Motion Instructions (Optional)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                2 &middot; Runway Motion Instructions (Prompt)
+              </label>
+              <span className={`text-[10px] ${isLight ? 'text-gray-400' : 'text-white/30'}`}>
+                Shiv-Naresh branding auto-preserved
+              </span>
+            </div>
             <textarea
               value={videoPrompt}
               onChange={(e) => setVideoPrompt(e.target.value)}
               rows={3}
-              placeholder="e.g. Model walks briskly down an asphalt track, dynamic camera tracking shot, zoom in on jersey logo"
-              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight
+              placeholder="e.g. Model walks briskly down an athletic runway, cinematic tracking shot, dynamic camera orbit, highlighting jersey fabric and logo"
+              className={`w-full rounded-2xl border p-3 text-xs focus:outline-none transition-colors ${isLight
                 ? 'border-gray-300 bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-400'
                 : 'border-white/10 bg-black/50 text-white placeholder:text-white/25 focus:border-white/40'
                 }`}
             />
+
+            {/* Smart Motion Preset Pills */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[
+                { label: '🏃 Dynamic Track Sprint', text: 'Athlete in full dynamic sprint, powerful strides down track, dynamic low tracking camera' },
+                { label: '🚶 Fashion Runway Walk', text: 'Model walks briskly down fashion runway, graceful turn at edge, crisp fabric drape' },
+                { label: '🔄 360° Studio Orbit', text: 'Smooth 360-degree camera orbit revealing front, back, and athletic details seamlessly' },
+                { label: '🔍 Logo & Insignia Zoom', text: 'Smooth steady camera glide zooming in on the chest Shiv-Naresh insignia and technical activewear stitching' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setVideoPrompt(preset.text)}
+                  className={`text-[10px] font-medium rounded-lg px-2 py-1 transition cursor-pointer border ${
+                    isLight
+                      ? 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Step 3: Aspect Ratio / Size Options with Purposes */}
@@ -5092,6 +5299,9 @@ function VideoStudioPanel({
             }`}>
             <div>
               <span>Account balance: <strong className={isLight ? 'text-amber-950 font-semibold' : 'text-amber-500'}>{userCredits} credits</strong></span>
+              <span className="block text-[10px] text-emerald-500 font-medium mt-0.5">
+                ✓ Fixed price: {videoCreditCost} credits only. Zero extra charge for multiple angles.
+              </span>
             </div>
             <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-purple-600 border border-purple-500/20">
               Video quota: {videosGenerated} / {maxVideos > 0 ? maxVideos : 'Unlimited'}
@@ -5122,7 +5332,7 @@ function VideoStudioPanel({
                   ? `Monthly video quota reached (${videosGenerated}/${maxVideos})`
                   : !hasEnoughCredits
                     ? `Insufficient credits (requires ${videoCreditCost})`
-                    : `Generate ${duration}s fashion video (${videoCreditCost} credits)`}
+                    : `Generate ${duration}s fashion video (${videoCreditCost} credits fixed)`}
           </button>
 
           {error && (

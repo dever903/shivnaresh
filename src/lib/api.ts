@@ -681,7 +681,7 @@ export const api = {
     ),
 
   /* video */
-  generateVideo: (body: { image?: string; prompt?: string; duration?: 5 | 10; aspect_ratio?: string }) =>
+  generateVideo: (body: { image?: string; images?: string[]; prompt?: string; duration?: 5 | 10; aspect_ratio?: string }) =>
     request<{
       ok?: boolean;
       id?: string;

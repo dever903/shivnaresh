@@ -6359,15 +6359,20 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
     const dailyVideos = Number(req.user.dailyVideosUsed || 0);
 
     const body = req.body || {};
-    const image = body.image || body.cloth || body.model;
-    if (!image) {
+    const rawImages = Array.isArray(body.images) && body.images.length > 0
+      ? body.images.filter(Boolean)
+      : (body.image || body.cloth || body.model ? [body.image || body.cloth || body.model] : []);
+
+    if (rawImages.length === 0) {
       return res.status(400).json({
         error: 'image_required',
-        message: 'Please provide a garment or model image to generate a fashion video.',
+        message: 'Please provide at least one garment or model image to generate a fashion video.',
       });
     }
 
-    /* Duration: 5 sec = 6 credits max; 10 sec = 12 credits max */
+    const primaryImage = rawImages[0];
+
+    /* Duration: 5 sec = 6 credits max; 10 sec = 12 credits max — strictly fixed regardless of image count */
     const duration = Number(body.duration) === 10 ? 10 : 5;
     const creditsNeeded = duration === 10 ? 12 : 6;
     const aspectRatio = String(body.aspect_ratio || body.aspectRatio || '9:16');
@@ -6382,7 +6387,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
 
     let imageUri;
     try {
-      imageUri = await toDataUri(image);
+      imageUri = await toDataUri(primaryImage);
     } catch (imgErr) {
       return res.status(400).json({
         error: 'image_error',
@@ -6394,6 +6399,9 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
     let prompt = String(body.prompt || '').trim();
     if (!prompt.toLowerCase().includes('shiv-naresh')) {
       prompt = `SHIV-NARESH athletic sportswear presentation: ${prompt || 'fashion runway video with dynamic athletic movements'}`.trim();
+    }
+    if (rawImages.length > 1) {
+      prompt = `${prompt}, highlighting all ${rawImages.length} apparel angles and sportswear features seamlessly in high-definition runway motion`;
     }
     prompt = `${prompt}, maintaining sharp sportswear details, clear athlete motion, exact fabric color tones, and preserving the SHIV-NARESH name and branding`;
 
@@ -6464,6 +6472,8 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
     let remainingCredits = userCredits;
     const newVideosGenerated = videosGenerated + 1;
     const nextDailyVideos = dailyVideos + 1;
+    let creditsDeducted = false;
+
     if (req.user && req.user._id) {
       remainingCredits = Math.max(0, userCredits - creditsNeeded);
       await auth.patchUser(req.user._id, {
@@ -6474,6 +6484,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
       req.user.credits = remainingCredits;
       req.user.videosGenerated = newVideosGenerated;
       req.user.dailyVideosUsed = nextDailyVideos;
+      creditsDeducted = true;
     }
 
     if (data.id) {
@@ -6483,9 +6494,9 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
         const genList = await readGenerations();
         genList.unshift({
           id: data.id,
-          userId: req.user._id,
-          userEmail: req.user.email || '',
-          userName: req.user.name || '',
+          userId: req.user?._id || 'guest',
+          userEmail: req.user?.email || '',
+          userName: req.user?.name || '',
           type: 'video',
           mode: 'runway-video',
           resolution: 'HD',
@@ -6493,12 +6504,15 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
           status: 'processing',
           error: null,
           prompt: prompt || '',
-          model: modelImage || '',
+          model: imageUri || primaryImage || '',
+          images: rawImages.slice(0, 10),
           outputUrl: null,
           createdAt: Date.now(),
         });
         await writeGenerations(genList);
-      } catch { }
+      } catch (genErr) {
+        console.warn('[video] Non-fatal genList write warning:', genErr.message);
+      }
     }
 
     res.json({
@@ -6513,6 +6527,19 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
       status: 'starting',
     });
   } catch (error) {
+    // If credits were deducted before an unexpected error occurred, automatically refund them!
+    if (creditsDeducted && req.user?._id) {
+      try {
+        const currentU = await auth.findUserById(req.user._id);
+        if (currentU) {
+          const restored = (Number(currentU.credits) || 0) + creditsNeeded;
+          await auth.patchUser(req.user._id, { credits: restored });
+          console.log(`[billing] Automatically refunded ${creditsNeeded} credits to user ${req.user._id} due to unexpected video error.`);
+        }
+      } catch (refundErr) {
+        console.error('[billing] Failed to restore credits after error:', refundErr.message);
+      }
+    }
     try {
       const genList = await readGenerations();
       genList.unshift({

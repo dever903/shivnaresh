@@ -48,4 +48,5 @@ preview-*.png
 sn-*/
 image_generate/
 .DS_Store
+.superpowers/
 Thumbs.db
