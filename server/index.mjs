@@ -10,7 +10,9 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { spawn, spawnSync, execSync } from 'node:child_process';
+import busboy from 'busboy';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
@@ -54,9 +56,12 @@ const IMGBB = 'https://api.imgbb.com/1/upload';
 const PORT = Number(process.env.PORT || 8787);
 
 const PROXY_CACHE_DIR = path.join(DATA, 'cache', 'proxy');
+const WATERMARK_JOBS_DIR = path.join(DATA, 'watermark_jobs');
 await fs.mkdir(UPLOADS, { recursive: true });
 await fs.mkdir(GENERATED, { recursive: true });
 await fs.mkdir(PROXY_CACHE_DIR, { recursive: true });
+await fs.mkdir(WATERMARK_JOBS_DIR, { recursive: true });
+const LOCAL_WATERMARK_JOBS = new Map();
 
 /* Process-level crash loggers: ensure fatal errors are recorded for Admin diagnostics */
 process.on('uncaughtException', (err) => {
@@ -3009,22 +3014,213 @@ app.post('/api/upload', async (req, res) => {
 const WATERMARK_API_URL = process.env.WATERMARK_REMOVER_URL || 'http://127.0.0.1:8789';
 const WATERMARK_API_KEY = process.env.WATERMARK_REMOVER_KEY || 'wr_6QiEcsy8Z4y-Mq-RVAiwYyfwNwrcwKitCepRKA';
 
+// FFmpeg binary path detection (bundled @ffmpeg-installer, local D:\, or system PATH)
+let ffmpegPath = ffmpegInstaller?.path || '';
+if (!ffmpegPath || !fsSync.existsSync(ffmpegPath)) {
+  const localD = 'D:\\watermark remover\\ffmpeg\\ffmpeg.exe';
+  if (fsSync.existsSync(localD)) ffmpegPath = localD;
+  else ffmpegPath = 'ffmpeg';
+}
+
+function probeMedia(filePath) {
+  try {
+    const res = spawnSync(ffmpegPath, ['-hide_banner', '-i', filePath], { encoding: 'utf8' });
+    const text = (res.stderr || '') + (res.stdout || '');
+    const dimMatch = /Stream #.*Video:.*,\s*(\d{2,5})x(\d{2,5})/.exec(text);
+    const durMatch = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(text);
+    const fpsMatch = /(\d+(?:\.\d+)?)\s*fps/.exec(text);
+    const hasAudio = /Stream #.*Audio:/.test(text);
+
+    let duration = 0;
+    if (durMatch) {
+      duration = parseInt(durMatch[1], 10) * 3600 + parseInt(durMatch[2], 10) * 60 + parseFloat(durMatch[3]);
+    }
+
+    return {
+      width: dimMatch ? parseInt(dimMatch[1], 10) : 1080,
+      height: dimMatch ? parseInt(dimMatch[2], 10) : 1920,
+      duration,
+      fps: fpsMatch ? parseFloat(fpsMatch[1]) : 30,
+      hasAudio,
+    };
+  } catch {
+    return { width: 1080, height: 1920, duration: 0, fps: 30, hasAudio: false };
+  }
+}
+
+function resolveDelogoRegion(width, height, spec) {
+  if (spec && typeof spec === 'string' && spec.toLowerCase() !== 'auto') {
+    const parts = spec.trim().split(/[,\s]+/).map(Number);
+    if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
+      let [x, y, w, h] = parts;
+      x = Math.max(4, Math.min(x, width - 12));
+      y = Math.max(4, Math.min(y, height - 12));
+      w = Math.max(8, Math.min(w, width - x - 4));
+      h = Math.max(8, Math.min(h, height - y - 4));
+      return { x, y, w, h };
+    }
+  }
+
+  // Standard Gemini / Flow AI watermark position
+  let size, margin;
+  if (width > 1024 && height > 1024) {
+    size = 96;
+    margin = 64;
+  } else {
+    size = 48;
+    margin = 32;
+  }
+  let x = width - margin - size;
+  let y = height - margin - size;
+  x = Math.max(4, Math.min(x, width - size - 4));
+  y = Math.max(4, Math.min(y, height - size - 4));
+  return { x, y, w: size, h: size };
+}
+
+function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress) {
+  return new Promise((resolve, reject) => {
+    const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
+    const args = [
+      '-y', '-hide_banner', '-loglevel', 'error',
+      '-i', inPath,
+      '-vf', vf,
+      '-c:v', 'libx264',
+      '-preset', preset,
+      '-crf', String(crf),
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      '-c:a', 'copy',
+      '-progress', 'pipe:1',
+      '-nostats',
+      outPath,
+    ];
+
+    const proc = spawn(ffmpegPath, args);
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    proc.stdout.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (line.startsWith('out_time_us=') && duration > 0) {
+          const us = parseInt(line.split('=')[1].trim(), 10);
+          if (!isNaN(us)) {
+            const pct = Math.max(1, Math.min(99, Math.round((us / 1000000 / duration) * 100)));
+            if (onProgress) onProgress(pct);
+          }
+        }
+      }
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        if (onProgress) onProgress(100);
+        resolve();
+      } else {
+        // Fallback retry without audio copy (handles special/unsupported audio containers)
+        const retryArgs = [
+          '-y', '-hide_banner', '-loglevel', 'error',
+          '-i', inPath,
+          '-vf', vf,
+          '-c:v', 'libx264',
+          '-preset', preset,
+          '-crf', String(crf),
+          '-pix_fmt', 'yuv420p',
+          '-movflags', '+faststart',
+          '-an',
+          outPath,
+        ];
+        const retry = spawn(ffmpegPath, retryArgs);
+        let rerr = '';
+        retry.stderr.on('data', (d) => { rerr += d.toString(); });
+        retry.on('close', (rcode) => {
+          if (rcode === 0) {
+            if (onProgress) onProgress(100);
+            resolve();
+          } else {
+            reject(new Error(`ffmpeg delogo failed: ${stderr || rerr}`));
+          }
+        });
+      }
+    });
+  });
+}
+
+function runFfmpegImageDelogo(inPath, outPath, region) {
+  return new Promise((resolve, reject) => {
+    const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
+    const args = [
+      '-y', '-hide_banner', '-loglevel', 'error',
+      '-i', inPath,
+      '-vf', vf,
+      '-frames:v', '1',
+      outPath,
+    ];
+    const proc = spawn(ffmpegPath, args);
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg image delogo failed: ${stderr}`));
+    });
+  });
+}
+
+async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionSpec, crf) {
+  const job = LOCAL_WATERMARK_JOBS.get(jid);
+  if (!job) return;
+
+  try {
+    job.status = 'processing';
+    job.progress = 15;
+
+    const info = probeMedia(inPath);
+    const region = resolveDelogoRegion(info.width, info.height, regionSpec);
+
+    if (isVideo) {
+      await runFfmpegDelogo(inPath, outPath, region, crf, 'veryfast', info.duration, (pct) => {
+        job.progress = Math.max(10, Math.min(99, pct));
+      });
+    } else {
+      await runFfmpegImageDelogo(inPath, outPath, region);
+    }
+
+    job.status = 'done';
+    job.progress = 100;
+    job.output = path.basename(outPath);
+    job.bytes = fsSync.statSync(outPath).size;
+    job.meta = {
+      region,
+      width: info.width,
+      height: info.height,
+      fps: info.fps,
+      duration: info.duration,
+    };
+    job.download = `/api/watermark/download/${jid}`;
+  } catch (err) {
+    console.error(`[BUILTIN WATERMARK REMOVER JOB ${jid} ERROR]`, err);
+    job.status = 'error';
+    job.error = err.message || 'Watermark removal failed';
+  }
+}
+
 // 1. Service health check
 app.get('/api/watermark/health', async (_req, res) => {
+  let externalHealthy = false;
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    const r = await fetch(`${WATERMARK_API_URL}/health`, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!r.ok) return res.status(503).json({ ok: false, error: 'service_unavailable' });
-    const data = await r.json();
-    return res.json({ ok: true, ...data });
-  } catch (err) {
-    return res.status(503).json({ ok: false, error: 'service_offline', message: 'Watermark remover service is offline on ' + WATERMARK_API_URL });
-  }
+    const r = await fetch(`${WATERMARK_API_URL}/health`, { signal: AbortSignal.timeout(1000) });
+    if (r.ok) externalHealthy = true;
+  } catch {}
+
+  res.json({
+    ok: true,
+    service: 'watermark-remover',
+    mode: externalHealthy ? 'external-microservice' : 'builtin-ffmpeg-engine',
+    ffmpegReady: Boolean(ffmpegPath),
+  });
 });
 
-// 2. Remove watermark from uploaded file (multipart stream or json dataUrl)
+// 2. Remove watermark from uploaded file (multipart stream with automatic fallback to built-in engine)
 app.post('/api/watermark/remove', async (req, res) => {
   try {
     if (req.user && req.user.watermarkAccess === false) {
@@ -3035,11 +3231,22 @@ app.post('/api/watermark/remove', async (req, res) => {
     }
 
     const contentType = req.headers['content-type'] || '';
-    if (contentType.includes('multipart/form-data')) {
+    if (!contentType.includes('multipart/form-data')) {
+      return res.status(400).json({ error: 'bad_request', message: 'Expected multipart/form-data' });
+    }
+
+    // Check if external microservice on WATERMARK_API_URL is actively running & reachable
+    let useExternal = false;
+    try {
+      const ping = await fetch(`${WATERMARK_API_URL}/health`, { signal: AbortSignal.timeout(600) });
+      if (ping.ok) useExternal = true;
+    } catch {}
+
+    if (useExternal) {
       const url = new URL('/v1/remove', WATERMARK_API_URL);
       const isHttps = url.protocol === 'https:';
       const httpModule = isHttps ? await import('node:https') : await import('node:http');
-      
+
       const upstreamReq = httpModule.request(url, {
         method: 'POST',
         headers: {
@@ -3058,36 +3265,84 @@ app.post('/api/watermark/remove', async (req, res) => {
       });
 
       upstreamReq.on('error', (err) => {
-        console.error('[WATERMARK PROXY ERROR]', err);
+        console.error('[WATERMARK UPSTREAM PROXY ERROR]', err);
         if (!res.headersSent) {
-          res.status(502).json({ error: 'upstream_error', message: 'Failed to communicate with watermark service: ' + err.message });
+          res.status(502).json({ error: 'upstream_error', message: err.message });
         }
       });
 
       req.pipe(upstreamReq);
-    } else if (req.body && req.body.dataUrl) {
-      const { name = 'video.mp4', dataUrl, region = 'auto', mode = 'delogo', crf = 18 } = req.body;
-      const base64Data = dataUrl.replace(/^data:[^;]+;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-      
-      const form = new FormData();
-      form.append('file', new Blob([buffer]), name);
-      if (region) form.append('region', region);
-      if (mode) form.append('mode', mode);
-      if (crf) form.append('crf', String(crf));
-
-      const r = await fetch(`${WATERMARK_API_URL}/v1/remove`, {
-        method: 'POST',
-        headers: { 'X-API-Key': WATERMARK_API_KEY },
-        body: form,
-      });
-
-      const data = await r.json();
-      if (!r.ok) return res.status(r.status).json(data);
-      return res.json(data);
-    } else {
-      return res.status(400).json({ error: 'bad_request', message: 'Send multipart/form-data or json dataUrl' });
+      return;
     }
+
+    // Built-in FFmpeg Delogo Engine (Runs on Render and local without external microservice)
+    const bb = busboy({ headers: req.headers, limits: { fileSize: 400 * 1024 * 1024 } });
+    const jid = crypto.randomUUID().slice(0, 12);
+    const jdir = path.join(WATERMARK_JOBS_DIR, jid);
+    await fs.mkdir(jdir, { recursive: true });
+
+    let inFilePath = '';
+    let originalName = 'video.mp4';
+    let isVideo = true;
+    let mode = 'delogo';
+    let crf = 18;
+    let regionSpec = 'auto';
+    const writePromises = [];
+
+    bb.on('file', (_name, fileStream, info) => {
+      const { filename } = info;
+      originalName = filename || 'video.mp4';
+      const ext = path.extname(originalName).toLowerCase() || '.mp4';
+      isVideo = ['.mp4', '.mov', '.m4v', '.mkv', '.webm'].includes(ext);
+      inFilePath = path.join(jdir, 'in' + ext);
+      const ws = fsSync.createWriteStream(inFilePath);
+      fileStream.pipe(ws);
+      writePromises.push(new Promise((resolve, reject) => {
+        ws.on('finish', resolve);
+        ws.on('error', reject);
+      }));
+    });
+
+    bb.on('field', (name, val) => {
+      if (name === 'mode') mode = val;
+      if (name === 'crf') crf = Number(val) || 18;
+      if (name === 'region') regionSpec = val;
+    });
+
+    bb.on('finish', async () => {
+      try {
+        await Promise.all(writePromises);
+        if (!inFilePath || !fsSync.existsSync(inFilePath)) {
+          return res.status(400).json({ error: 'no_file', message: 'No file received' });
+        }
+
+        const outExt = isVideo ? '.mp4' : path.extname(inFilePath).toLowerCase();
+        const outFilePath = path.join(jdir, 'out' + outExt);
+
+        LOCAL_WATERMARK_JOBS.set(jid, {
+          job_id: jid,
+          status: 'queued',
+          progress: 5,
+          filename: originalName,
+          isVideo,
+          outFilePath,
+          created_at: Date.now(),
+        });
+
+        // Start processing asynchronously in background
+        processBuiltinWatermarkJob(jid, inFilePath, outFilePath, isVideo, regionSpec, crf);
+
+        res.json({
+          job_id: jid,
+          status: 'queued',
+          poll: `/api/watermark/jobs/${jid}`,
+        });
+      } catch (err) {
+        res.status(500).json({ error: 'file_save_failed', message: err.message });
+      }
+    });
+
+    req.pipe(bb);
   } catch (err) {
     console.error('[WATERMARK REMOVE ERROR]', err);
     if (!res.headersSent) {
@@ -3100,14 +3355,21 @@ app.post('/api/watermark/remove', async (req, res) => {
 app.get('/api/watermark/jobs/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    if (LOCAL_WATERMARK_JOBS.has(id)) {
+      return res.json(LOCAL_WATERMARK_JOBS.get(id));
+    }
+
     const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
       headers: { 'X-API-Key': WATERMARK_API_KEY },
+      signal: AbortSignal.timeout(3000),
     });
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json(data);
-    return res.json(data);
+    return res.status(r.status).json(data);
   } catch (err) {
-    return res.status(502).json({ error: 'upstream_error', message: String(err.message || err) });
+    if (LOCAL_WATERMARK_JOBS.has(req.params.id)) {
+      return res.json(LOCAL_WATERMARK_JOBS.get(req.params.id));
+    }
+    return res.status(404).json({ error: 'job_not_found', message: 'Job not found' });
   }
 });
 
@@ -3115,6 +3377,17 @@ app.get('/api/watermark/jobs/:id', async (req, res) => {
 app.get('/api/watermark/download/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    if (LOCAL_WATERMARK_JOBS.has(id)) {
+      const job = LOCAL_WATERMARK_JOBS.get(id);
+      if (job.status !== 'done' || !fsSync.existsSync(job.outFilePath)) {
+        return res.status(404).json({ error: 'not_ready', message: 'Output not ready' });
+      }
+      const media = job.isVideo ? 'video/mp4' : 'image/png';
+      res.setHeader('Content-Type', media);
+      res.setHeader('Content-Disposition', `attachment; filename="clean_${job.filename || 'video.mp4'}"`);
+      return fsSync.createReadStream(job.outFilePath).pipe(res);
+    }
+
     const downloadUrl = `${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}/download?token=${encodeURIComponent(WATERMARK_API_KEY)}`;
     const r = await fetch(downloadUrl);
     if (!r.ok) {
@@ -3124,7 +3397,7 @@ app.get('/api/watermark/download/:id', async (req, res) => {
     const contentDisposition = r.headers.get('content-disposition') || `attachment; filename="clean_${id}.mp4"`;
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', contentDisposition);
-    
+
     const arrayBuffer = await r.arrayBuffer();
     res.send(Buffer.from(arrayBuffer));
   } catch (err) {
