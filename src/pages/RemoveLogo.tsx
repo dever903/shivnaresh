@@ -124,48 +124,53 @@ export function WatermarkRemoverContent({
 
     try {
       const res = await api.watermarkRemove(formData);
-      const newJobId = res.job_id;
+      const newJobId = res?.job_id || (res as any)?.id || (res as any)?.jobId;
+      if (!newJobId) {
+        setStatus('error');
+        setErrorMsg('Failed to initialize processing job. Please try uploading again.');
+        return;
+      }
       setJobId(newJobId);
       setStatus('processing');
-      setStatusMessage('Detecting logo & inpainting frames without quality loss…');
+      setStatusMessage('Detecting logo & inpainting clean frames without quality loss…');
 
       /* Poll job progress with watchdog and consecutive-error recovery */
       let consecutiveErrors = 0;
       const pollStart = Date.now();
-      let lastProgress = 10;
+      let lastProgress = 12;
 
       pollIntervalRef.current = setInterval(async () => {
         try {
-          // Hard client-side timeout after 4 minutes
-          if (Date.now() - pollStart > 240000) {
+          // Hard client-side timeout after 5 minutes
+          if (Date.now() - pollStart > 300000) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
-            setErrorMsg('Watermark removal timed out after 4 minutes. Please try again with a smaller file or different settings.');
+            setErrorMsg('Watermark removal timed out after 5 minutes. Please try again with a smaller file or different preset.');
             return;
           }
 
           const poll: any = await api.watermarkJobStatus(newJobId);
-          consecutiveErrors = 0;
+          if (poll) {
+            consecutiveErrors = 0;
 
-          if (poll.status === 'processing') {
-            const rawPct = typeof poll.progress === 'number' ? poll.progress : 10;
-            lastProgress = Math.max(lastProgress, Math.max(10, Math.min(99, Math.round(rawPct))));
-            setProgress(lastProgress);
-            setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
-          } else if (poll.status === 'done') {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            setProgress(100);
-            setStatus('done');
-            setStatusMessage('Watermark removed successfully!');
-            setOutputMeta(poll.meta || null);
-          } else if (poll.status === 'error' || poll.error) {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            setStatus('error');
-            setErrorMsg(poll.error || 'Failed to remove watermark. Please try again.');
-          } else if (poll.detail || poll.message) {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            setStatus('error');
-            setErrorMsg(poll.detail || poll.message);
+            if (poll.status === 'processing') {
+              const rawPct = typeof poll.progress === 'number' ? poll.progress : 15;
+              lastProgress = Math.max(lastProgress, Math.max(12, Math.min(99, Math.round(rawPct))));
+              setProgress(lastProgress);
+              setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
+            } else if (poll.status === 'queued') {
+              setStatusMessage('Processing queue: Inpainting clean frame buffer…');
+            } else if (poll.status === 'done') {
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              setProgress(100);
+              setStatus('done');
+              setStatusMessage('Watermark removed successfully!');
+              setOutputMeta(poll.meta || null);
+            } else if (poll.status === 'error' || poll.error) {
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              setStatus('error');
+              setErrorMsg(poll.error || 'Failed to remove watermark. Please try again.');
+            }
           }
         } catch (err: any) {
           // If transient 429 rate limit happens, simply back off and wait for the next poll
@@ -173,14 +178,14 @@ export function WatermarkRemoverContent({
             return;
           }
           consecutiveErrors++;
-          // If 8 consecutive polls fail (20 seconds of solid network or server failure)
-          if (consecutiveErrors >= 8) {
+          // Tolerate up to 12 consecutive polling ticks (36 seconds) to accommodate dyno initialization or MongoDB replication
+          if (consecutiveErrors >= 12) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
             setErrorMsg(err?.message || 'Server connection interrupted while processing. Please try again.');
           }
         }
-      }, 2500);
+      }, 3000);
     } catch (err: any) {
       setStatus('error');
       setErrorMsg(err.message || 'Failed to start watermark removal service.');

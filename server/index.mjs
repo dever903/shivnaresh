@@ -3021,26 +3021,76 @@ if (!ffmpegPath || !fsSync.existsSync(ffmpegPath)) {
   if (fsSync.existsSync(localD)) ffmpegPath = localD;
   else ffmpegPath = 'ffmpeg';
 }
+if (ffmpegPath && fsSync.existsSync(ffmpegPath)) {
+  try {
+    fsSync.chmodSync(ffmpegPath, 0o755);
+  } catch {}
+}
 
-function saveLocalWatermarkJob(jid, jobData) {
+const RECENT_WATERMARK_REQUESTS = new Map();
+
+async function saveLocalWatermarkJob(jid, jobData) {
+  if (!jid) return;
   LOCAL_WATERMARK_JOBS.set(jid, jobData);
   try {
     const jdir = path.join(WATERMARK_JOBS_DIR, jid);
     fsSync.mkdirSync(jdir, { recursive: true });
     fsSync.writeFileSync(path.join(jdir, 'job.json'), JSON.stringify(jobData, null, 2));
   } catch {}
+
+  // MongoDB persistence: ensures zero job loss across Render container recycles and dyno routing
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const cleanDoc = { ...jobData, job_id: jid, updatedAt: Date.now() };
+      delete cleanDoc._id;
+      await db.collection('watermark_jobs').updateOne(
+        { job_id: jid },
+        { $set: cleanDoc },
+        { upsert: true }
+      );
+    }
+  } catch (err) {
+    console.warn(`[watermark db save] Warning for ${jid}:`, err.message);
+  }
 }
 
-function getLocalWatermarkJob(jid) {
-  if (LOCAL_WATERMARK_JOBS.has(jid)) return LOCAL_WATERMARK_JOBS.get(jid);
+async function getLocalWatermarkJob(jid) {
+  if (!jid || typeof jid !== 'string') return null;
+  const cleanId = jid.trim();
+  if (!cleanId || cleanId === 'undefined' || cleanId === 'null') return null;
+
+  // 1. In-memory fast cache
+  if (LOCAL_WATERMARK_JOBS.has(cleanId)) {
+    return LOCAL_WATERMARK_JOBS.get(cleanId);
+  }
+
+  // 2. Disk persistence
   try {
-    const p = path.join(WATERMARK_JOBS_DIR, jid, 'job.json');
+    const p = path.join(WATERMARK_JOBS_DIR, cleanId, 'job.json');
     if (fsSync.existsSync(p)) {
       const data = JSON.parse(fsSync.readFileSync(p, 'utf8'));
-      LOCAL_WATERMARK_JOBS.set(jid, data);
+      LOCAL_WATERMARK_JOBS.set(cleanId, data);
       return data;
     }
   } catch {}
+
+  // 3. MongoDB persistence (resilient across restarts and multi-dynos on Render)
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const doc = await db.collection('watermark_jobs').findOne({
+        $or: [{ job_id: cleanId }, { _id: cleanId }]
+      });
+      if (doc) {
+        LOCAL_WATERMARK_JOBS.set(cleanId, doc);
+        return doc;
+      }
+    }
+  } catch (err) {
+    console.warn(`[watermark db get] Warning for ${cleanId}:`, err.message);
+  }
+
   return null;
 }
 
@@ -3264,30 +3314,39 @@ function runFfmpegImageDelogo(inPath, outPath, region) {
 }
 
 async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionSpec, crf) {
-  const job = getLocalWatermarkJob(jid);
+  const job = await getLocalWatermarkJob(jid);
   if (!job) return;
 
   try {
     job.status = 'processing';
-    job.progress = 12;
-    saveLocalWatermarkJob(jid, job);
+    job.progress = 15;
+    await saveLocalWatermarkJob(jid, job);
 
     const info = probeMedia(inPath);
     const region = resolveDelogoRegion(info.width, info.height, regionSpec);
 
     if (isVideo) {
-      await runFfmpegDelogo(inPath, outPath, region, crf, 'veryfast', info.duration, (pct) => {
+      await runFfmpegDelogo(inPath, outPath, region, crf, 'ultrafast', info.duration, async (pct) => {
         job.progress = Math.max(10, Math.min(99, pct));
-        saveLocalWatermarkJob(jid, job);
+        await saveLocalWatermarkJob(jid, job);
       }, info.hasAudio);
     } else {
       await runFfmpegImageDelogo(inPath, outPath, region);
     }
 
+    const outExt = isVideo ? '.mp4' : path.extname(outPath);
+    const cleanFileName = `clean_${jid}${outExt}`;
+    const permanentPath = path.join(UPLOADS, cleanFileName);
+    try {
+      fsSync.copyFileSync(outPath, permanentPath);
+      job.permanentPath = permanentPath;
+      job.staticUrl = `/uploads/${cleanFileName}`;
+    } catch {}
+
     job.status = 'done';
     job.progress = 100;
-    job.output = path.basename(outPath);
-    job.bytes = fsSync.statSync(outPath).size;
+    job.output = cleanFileName;
+    job.bytes = fsSync.existsSync(permanentPath) ? fsSync.statSync(permanentPath).size : (fsSync.existsSync(outPath) ? fsSync.statSync(outPath).size : 0);
     job.meta = {
       region,
       width: info.width,
@@ -3296,12 +3355,12 @@ async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionS
       duration: info.duration,
     };
     job.download = `/api/watermark/download/${jid}`;
-    saveLocalWatermarkJob(jid, job);
+    await saveLocalWatermarkJob(jid, job);
   } catch (err) {
     console.error(`[BUILTIN WATERMARK REMOVER JOB ${jid} ERROR]`, err);
     job.status = 'error';
     job.error = err.message || 'Watermark removal failed';
-    saveLocalWatermarkJob(jid, job);
+    await saveLocalWatermarkJob(jid, job);
   }
 }
 
@@ -3322,6 +3381,7 @@ app.get('/api/watermark/health', async (_req, res) => {
 });
 
 // 2. Remove watermark from uploaded file (multipart stream with automatic fallback to built-in engine)
+// ZERO-CREDIT RULE: Strictly 0 credits deducted, no Fashn.ai calls, unlimited free usage.
 app.post('/api/watermark/remove', async (req, res) => {
   try {
     if (req.user && req.user.watermarkAccess === false) {
@@ -3356,13 +3416,28 @@ app.post('/api/watermark/remove', async (req, res) => {
           'X-API-Key': WATERMARK_API_KEY,
         },
       }, (upstreamRes) => {
-        res.status(upstreamRes.statusCode || 200);
-        for (const [k, v] of Object.entries(upstreamRes.headers)) {
-          if (v && ['content-type', 'content-length'].includes(k.toLowerCase())) {
-            res.setHeader(k, v);
+        let respData = '';
+        upstreamRes.on('data', (chunk) => { respData += chunk; });
+        upstreamRes.on('end', async () => {
+          try {
+            const parsed = JSON.parse(respData);
+            if (parsed.job_id) {
+              await saveLocalWatermarkJob(parsed.job_id, {
+                job_id: parsed.job_id,
+                status: parsed.status || 'queued',
+                progress: 5,
+                mode: 'external',
+                poll: `/api/watermark/jobs/${parsed.job_id}`,
+                download: `/api/watermark/download/${parsed.job_id}`,
+                created_at: Date.now(),
+              });
+              RECENT_WATERMARK_REQUESTS.set(parsed.job_id, Date.now());
+            }
+            res.status(upstreamRes.statusCode || 200).json(parsed);
+          } catch {
+            res.status(upstreamRes.statusCode || 200).send(respData);
           }
-        }
-        upstreamRes.pipe(res);
+        });
       });
 
       upstreamReq.on('error', (err) => {
@@ -3429,7 +3504,8 @@ app.post('/api/watermark/remove', async (req, res) => {
           outFilePath,
           created_at: Date.now(),
         };
-        saveLocalWatermarkJob(jid, initialJob);
+        await saveLocalWatermarkJob(jid, initialJob);
+        RECENT_WATERMARK_REQUESTS.set(jid, Date.now());
 
         // Start processing asynchronously in background
         processBuiltinWatermarkJob(jid, inFilePath, outFilePath, isVideo, regionSpec, crf);
@@ -3453,16 +3529,35 @@ app.post('/api/watermark/remove', async (req, res) => {
   }
 });
 
-// 3. Poll job status
+// 3. Poll job status (MongoDB-backed & multi-dyno resilient)
 app.get('/api/watermark/jobs/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const localJob = getLocalWatermarkJob(id);
+    if (!id || id === 'undefined' || id === 'null') {
+      return res.status(400).json({ error: 'invalid_id', message: 'Invalid job id' });
+    }
+
+    const localJob = await getLocalWatermarkJob(id);
     if (localJob) {
+      // If external and not done, refresh from upstream microservice
+      if (localJob.mode === 'external' && localJob.status !== 'done' && localJob.status !== 'error') {
+        try {
+          const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
+            headers: { 'X-API-Key': WATERMARK_API_KEY },
+            signal: AbortSignal.timeout(2000),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            const merged = { ...localJob, ...data, job_id: id };
+            await saveLocalWatermarkJob(id, merged);
+            return res.json(merged);
+          }
+        } catch {}
+      }
       return res.json(localJob);
     }
 
-    // Try disk search for finished files even if memory was cleared
+    // Disk search for finished files even if memory or container was recycled
     const jdir = path.join(WATERMARK_JOBS_DIR, id);
     if (fsSync.existsSync(jdir)) {
       const files = fsSync.readdirSync(jdir);
@@ -3478,24 +3573,38 @@ app.get('/api/watermark/jobs/:id', async (req, res) => {
           bytes: fsSync.statSync(outFilePath).size,
           download: `/api/watermark/download/${id}`,
         };
-        saveLocalWatermarkJob(id, restored);
+        await saveLocalWatermarkJob(id, restored);
         return res.json(restored);
       }
     }
 
-    // Check upstream microservice if configured
+    // Check upstream microservice if running
     try {
       const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
         headers: { 'X-API-Key': WATERMARK_API_KEY },
         signal: AbortSignal.timeout(3000),
       });
-      const data = await r.json();
-      return res.status(r.status).json(data);
+      if (r.ok) {
+        const data = await r.json();
+        await saveLocalWatermarkJob(id, { ...data, job_id: id });
+        return res.json(data);
+      }
     } catch {}
+
+    // Tolerant queue-init guard: if this job was submitted within the last 60 seconds, return queued
+    const reqTime = RECENT_WATERMARK_REQUESTS.get(id);
+    if (reqTime && Date.now() - reqTime < 60000) {
+      return res.json({
+        job_id: id,
+        status: 'queued',
+        progress: 8,
+        message: 'Job initializing in processing queue…'
+      });
+    }
 
     return res.status(404).json({ status: 'error', error: 'job_not_found', message: 'Job not found or expired.' });
   } catch (err) {
-    return res.status(404).json({ status: 'error', error: 'job_not_found', message: 'Job not found.' });
+    return res.status(500).json({ status: 'error', error: 'server_error', message: err.message });
   }
 });
 
@@ -3503,12 +3612,19 @@ app.get('/api/watermark/jobs/:id', async (req, res) => {
 app.get('/api/watermark/download/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const localJob = getLocalWatermarkJob(id);
+    if (!id || id === 'undefined' || id === 'null') {
+      return res.status(400).json({ error: 'invalid_id', message: 'Invalid job id' });
+    }
+
+    const localJob = await getLocalWatermarkJob(id);
     const jdir = path.join(WATERMARK_JOBS_DIR, id);
 
-    let filePath = localJob?.outFilePath;
+    let filePath = localJob?.permanentPath || localJob?.outFilePath;
     if (!filePath || !fsSync.existsSync(filePath)) {
-      if (fsSync.existsSync(jdir)) {
+      const candidateUpload = path.join(UPLOADS, `clean_${id}.mp4`);
+      if (fsSync.existsSync(candidateUpload)) {
+        filePath = candidateUpload;
+      } else if (fsSync.existsSync(jdir)) {
         const files = fsSync.readdirSync(jdir);
         const found = files.find((f) => f.startsWith('out.'));
         if (found) filePath = path.join(jdir, found);

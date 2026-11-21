@@ -56,6 +56,8 @@ export async function getMongoDb(uriOverride) {
       db.collection('generations').createIndex({ userEmail: 1 }),
       db.collection('hosted_assets').createIndex({ id: 1 }, { unique: true }),
       db.collection('hosted_assets').createIndex({ url: 1 }),
+      db.collection('watermark_jobs').createIndex({ job_id: 1 }, { unique: true }),
+      db.collection('watermark_jobs').createIndex({ created_at: -1 }),
     ]);
 
     cachedClient = client;
