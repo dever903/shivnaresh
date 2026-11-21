@@ -3124,7 +3124,31 @@ function probeMedia(filePath) {
 }
 
 function resolveDelogoRegion(width, height, spec) {
+  // 1. Preset or explicit 4-point coordinates: "x,y,w,h"
   if (spec && typeof spec === 'string' && spec.toLowerCase() !== 'auto') {
+    const s = spec.trim().toLowerCase();
+    if (s === 'bottom-left' || s === 'bl') {
+      const isVertical = height > width * 1.2;
+      const x = Math.max(4, Math.round(width * 0.04));
+      const w = Math.min(width - x - 4, Math.round(width * 0.22));
+      const y = isVertical ? Math.round(height * 0.69) : Math.round(height * 0.80);
+      const h = isVertical ? Math.round(height * 0.125) : Math.round(height * 0.16);
+      return { x, y, w, h };
+    }
+    if (s === 'top-right' || s === 'tr') {
+      const x = Math.max(4, Math.round(width * 0.76));
+      const w = Math.min(width - x - 4, Math.round(width * 0.22));
+      const y = Math.max(4, Math.round(height * 0.04));
+      const h = Math.round(height * 0.12);
+      return { x, y, w, h };
+    }
+    if (s === 'landscape-corner' || s === 'corner') {
+      const x = Math.max(4, Math.round(width * 0.82));
+      const w = Math.min(width - x - 4, Math.round(width * 0.16));
+      const y = Math.max(4, Math.round(height * 0.82));
+      const h = Math.min(height - y - 4, Math.round(height * 0.15));
+      return { x, y, w, h };
+    }
     const parts = spec.trim().split(/[,\s]+/).map(Number);
     if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
       let [x, y, w, h] = parts;
@@ -3136,20 +3160,32 @@ function resolveDelogoRegion(width, height, spec) {
     }
   }
 
-  // Standard Gemini / Flow AI watermark position
-  let size, margin;
-  if (width > 1024 && height > 1024) {
-    size = 96;
-    margin = 64;
-  } else {
-    size = 48;
-    margin = 32;
+  // 2. Intelligent Auto-Detection based on aspect ratio
+  // Vertical 9:16 portrait video (Google Veo, Gemini, Flow AI Reels/Shorts/TikTok)
+  // Sparkle star is placed at 69%-81% of video height (above phone bottom chrome)
+  if (height > width * 1.2) {
+    const x = Math.max(4, Math.round(width * 0.76));
+    const w = Math.min(width - x - 4, Math.round(width * 0.22));
+    const y = Math.max(4, Math.round(height * 0.69));
+    const h = Math.min(height - y - 4, Math.round(height * 0.125));
+    return { x, y, w, h };
   }
-  let x = width - margin - size;
-  let y = height - margin - size;
-  x = Math.max(4, Math.min(x, width - size - 4));
-  y = Math.max(4, Math.min(y, height - size - 4));
-  return { x, y, w: size, h: size };
+
+  // Horizontal 16:9 landscape video
+  if (width >= height * 1.2) {
+    const x = Math.max(4, Math.round(width * 0.82));
+    const w = Math.min(width - x - 4, Math.round(width * 0.16));
+    const y = Math.max(4, Math.round(height * 0.80));
+    const h = Math.min(height - y - 4, Math.round(height * 0.16));
+    return { x, y, w, h };
+  }
+
+  // Square and general video formats
+  const x = Math.max(4, Math.round(width * 0.80));
+  const w = Math.min(width - x - 4, Math.round(width * 0.18));
+  const y = Math.max(4, Math.round(height * 0.80));
+  const h = Math.min(height - y - 4, Math.round(height * 0.18));
+  return { x, y, w, h };
 }
 
 function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress, hasAudio = true) {
@@ -3608,49 +3644,93 @@ app.get('/api/watermark/jobs/:id', async (req, res) => {
   }
 });
 
-// 4. Download clean output
-app.get('/api/watermark/download/:id', async (req, res) => {
+// 4. Stream or download clean output with HTTP Range support for inline video playback
+async function streamWatermarkMedia(req, res, id, isPreview) {
+  if (!id || id === 'undefined' || id === 'null') {
+    return res.status(400).json({ error: 'invalid_id', message: 'Invalid job id' });
+  }
+
+  const localJob = await getLocalWatermarkJob(id);
+  const jdir = path.join(WATERMARK_JOBS_DIR, id);
+
+  let filePath = localJob?.permanentPath || localJob?.outFilePath;
+  if (!filePath || !fsSync.existsSync(filePath)) {
+    const candidateUpload = path.join(UPLOADS, `clean_${id}.mp4`);
+    if (fsSync.existsSync(candidateUpload)) {
+      filePath = candidateUpload;
+    } else if (fsSync.existsSync(jdir)) {
+      const files = fsSync.readdirSync(jdir);
+      const found = files.find((f) => f.startsWith('out.'));
+      if (found) filePath = path.join(jdir, found);
+    }
+  }
+
+  if (filePath && fsSync.existsSync(filePath)) {
+    const isVideo = filePath.endsWith('.mp4');
+    const media = isVideo ? 'video/mp4' : 'image/png';
+    const stat = fsSync.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    // HTTP Range streaming for inline video preview (scrubbing, seeking, player compatibility)
+    if (range && isVideo) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const fileStream = fsSync.createReadStream(filePath, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': media,
+        'Content-Disposition': 'inline',
+      });
+      return fileStream.pipe(res);
+    }
+
+    res.writeHead(200, {
+      'Content-Length': fileSize,
+      'Content-Type': media,
+      'Accept-Ranges': 'bytes',
+      'Content-Disposition': isPreview ? 'inline' : `attachment; filename="clean_${localJob?.filename || (isVideo ? 'video.mp4' : 'image.png')}"`,
+    });
+    return fsSync.createReadStream(filePath).pipe(res);
+  }
+
+  // Fallback to upstream microservice
+  const downloadUrl = `${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}/download?token=${encodeURIComponent(WATERMARK_API_KEY)}`;
   try {
-    const { id } = req.params;
-    if (!id || id === 'undefined' || id === 'null') {
-      return res.status(400).json({ error: 'invalid_id', message: 'Invalid job id' });
-    }
-
-    const localJob = await getLocalWatermarkJob(id);
-    const jdir = path.join(WATERMARK_JOBS_DIR, id);
-
-    let filePath = localJob?.permanentPath || localJob?.outFilePath;
-    if (!filePath || !fsSync.existsSync(filePath)) {
-      const candidateUpload = path.join(UPLOADS, `clean_${id}.mp4`);
-      if (fsSync.existsSync(candidateUpload)) {
-        filePath = candidateUpload;
-      } else if (fsSync.existsSync(jdir)) {
-        const files = fsSync.readdirSync(jdir);
-        const found = files.find((f) => f.startsWith('out.'));
-        if (found) filePath = path.join(jdir, found);
-      }
-    }
-
-    if (filePath && fsSync.existsSync(filePath)) {
-      const isVideo = filePath.endsWith('.mp4');
-      const media = isVideo ? 'video/mp4' : 'image/png';
-      res.setHeader('Content-Type', media);
-      res.setHeader('Content-Disposition', `attachment; filename="clean_${localJob?.filename || (isVideo ? 'video.mp4' : 'image.png')}"`);
-      return fsSync.createReadStream(filePath).pipe(res);
-    }
-
-    const downloadUrl = `${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}/download?token=${encodeURIComponent(WATERMARK_API_KEY)}`;
     const r = await fetch(downloadUrl);
     if (!r.ok) {
       return res.status(r.status).json({ error: 'download_failed', message: 'Output not ready or not found' });
     }
     const contentType = r.headers.get('content-type') || 'video/mp4';
-    const contentDisposition = r.headers.get('content-disposition') || `attachment; filename="clean_${id}.mp4"`;
+    const disposition = isPreview ? 'inline' : (r.headers.get('content-disposition') || `attachment; filename="clean_${id}.mp4"`);
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', contentDisposition);
-
+    res.setHeader('Content-Disposition', disposition);
+    res.setHeader('Accept-Ranges', 'bytes');
     const arrayBuffer = await r.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
+    return res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    return res.status(500).json({ error: 'download_error', message: String(err.message || err) });
+  }
+}
+
+// Preview clean video inline (HTML5 video player streaming)
+app.get('/api/watermark/preview/:id', async (req, res) => {
+  try {
+    return await streamWatermarkMedia(req, res, req.params.id, true);
+  } catch (err) {
+    return res.status(500).json({ error: 'preview_error', message: err.message });
+  }
+});
+
+// Download clean output file
+app.get('/api/watermark/download/:id', async (req, res) => {
+  try {
+    const isPreview = req.query.preview === '1' || req.query.inline === '1';
+    return await streamWatermarkMedia(req, res, req.params.id, isPreview);
   } catch (err) {
     return res.status(500).json({ error: 'download_error', message: String(err.message || err) });
   }

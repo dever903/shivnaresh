@@ -901,6 +901,7 @@ export const api = {
       meta?: any;
     }>(`/api/watermark/jobs/${encodeURIComponent(id)}`),
   watermarkDownloadUrl: (id: string) => (API_BASE ? `${API_BASE}/api/watermark/download/${encodeURIComponent(id)}` : `/api/watermark/download/${encodeURIComponent(id)}`),
+  watermarkPreviewUrl: (id: string) => (API_BASE ? `${API_BASE}/api/watermark/preview/${encodeURIComponent(id)}` : `/api/watermark/preview/${encodeURIComponent(id)}`),
 };
 
 export function fileToDataUrl(file: File): Promise<string> {
