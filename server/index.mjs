@@ -3022,18 +3022,43 @@ if (!ffmpegPath || !fsSync.existsSync(ffmpegPath)) {
   else ffmpegPath = 'ffmpeg';
 }
 
+function saveLocalWatermarkJob(jid, jobData) {
+  LOCAL_WATERMARK_JOBS.set(jid, jobData);
+  try {
+    const jdir = path.join(WATERMARK_JOBS_DIR, jid);
+    fsSync.mkdirSync(jdir, { recursive: true });
+    fsSync.writeFileSync(path.join(jdir, 'job.json'), JSON.stringify(jobData, null, 2));
+  } catch {}
+}
+
+function getLocalWatermarkJob(jid) {
+  if (LOCAL_WATERMARK_JOBS.has(jid)) return LOCAL_WATERMARK_JOBS.get(jid);
+  try {
+    const p = path.join(WATERMARK_JOBS_DIR, jid, 'job.json');
+    if (fsSync.existsSync(p)) {
+      const data = JSON.parse(fsSync.readFileSync(p, 'utf8'));
+      LOCAL_WATERMARK_JOBS.set(jid, data);
+      return data;
+    }
+  } catch {}
+  return null;
+}
+
 function probeMedia(filePath) {
   try {
     const res = spawnSync(ffmpegPath, ['-hide_banner', '-i', filePath], { encoding: 'utf8' });
     const text = (res.stderr || '') + (res.stdout || '');
     const dimMatch = /Stream #.*Video:.*,\s*(\d{2,5})x(\d{2,5})/.exec(text);
-    const durMatch = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(text);
+    const durMatch = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(text);
     const fpsMatch = /(\d+(?:\.\d+)?)\s*fps/.exec(text);
     const hasAudio = /Stream #.*Audio:/.test(text);
 
     let duration = 0;
     if (durMatch) {
       duration = parseInt(durMatch[1], 10) * 3600 + parseInt(durMatch[2], 10) * 60 + parseFloat(durMatch[3]);
+    }
+    if (!duration || isNaN(duration) || duration <= 0) {
+      duration = 10;
     }
 
     return {
@@ -3044,7 +3069,7 @@ function probeMedia(filePath) {
       hasAudio,
     };
   } catch {
-    return { width: 1080, height: 1920, duration: 0, fps: 30, hasAudio: false };
+    return { width: 1080, height: 1920, duration: 10, fps: 30, hasAudio: false };
   }
 }
 
@@ -3077,9 +3102,10 @@ function resolveDelogoRegion(width, height, spec) {
   return { x, y, w: size, h: size };
 }
 
-function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress) {
+function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress, hasAudio = true) {
   return new Promise((resolve, reject) => {
     const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
+    const audioArgs = hasAudio ? ['-c:a', 'copy'] : ['-an'];
     const args = [
       '-y', '-hide_banner', '-loglevel', 'error',
       '-i', inPath,
@@ -3089,35 +3115,80 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
       '-crf', String(crf),
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
-      '-c:a', 'copy',
+      ...audioArgs,
       '-progress', 'pipe:1',
       '-nostats',
       outPath,
     ];
 
-    const proc = spawn(ffmpegPath, args);
-    let stderr = '';
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    let proc = null;
+    let timer = null;
+    let finished = false;
 
-    proc.stdout.on('data', (data) => {
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+    };
+
+    const parseProgress = (data) => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
-        if (line.startsWith('out_time_us=') && duration > 0) {
-          const us = parseInt(line.split('=')[1].trim(), 10);
-          if (!isNaN(us)) {
-            const pct = Math.max(1, Math.min(99, Math.round((us / 1000000 / duration) * 100)));
+        if (duration > 0 && (line.startsWith('out_time_us=') || line.startsWith('out_time_ms='))) {
+          const parts = line.split('=');
+          const val = parseInt(parts[1]?.trim(), 10);
+          if (!isNaN(val)) {
+            const factor = line.startsWith('out_time_us=') ? 1000000 : 1000;
+            const pct = Math.max(10, Math.min(99, Math.round((val / factor / duration) * 100)));
             if (onProgress) onProgress(pct);
           }
+        } else if (duration > 0 && line.startsWith('out_time=')) {
+          const timeStr = line.split('=')[1]?.trim();
+          const tmatch = /^(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(timeStr || '');
+          if (tmatch) {
+            const secs = parseInt(tmatch[1], 10) * 3600 + parseInt(tmatch[2], 10) * 60 + parseFloat(tmatch[3]);
+            const pct = Math.max(10, Math.min(99, Math.round((secs / duration) * 100)));
+            if (onProgress) onProgress(pct);
+          }
+        } else if (line.startsWith('progress=end')) {
+          if (onProgress) onProgress(100);
         }
       }
+    };
+
+    // Watchdog: max 4 minutes for video delogo
+    timer = setTimeout(() => {
+      if (!finished && proc) {
+        finished = true;
+        try { proc.kill('SIGKILL'); } catch {}
+        reject(new Error('Video watermark processing timed out after 4 minutes.'));
+      }
+    }, 240000);
+
+    try {
+      proc = spawn(ffmpegPath, args);
+    } catch (e) {
+      cleanup();
+      return reject(e);
+    }
+
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    proc.stdout.on('data', parseProgress);
+    proc.on('error', (err) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(err);
     });
 
     proc.on('close', (code) => {
+      if (finished) return;
       if (code === 0) {
+        finished = true;
+        cleanup();
         if (onProgress) onProgress(100);
         resolve();
       } else {
-        // Fallback retry without audio copy (handles special/unsupported audio containers)
+        // Fallback retry without audio copy (handles special/unsupported audio containers or silent files)
         const retryArgs = [
           '-y', '-hide_banner', '-loglevel', 'error',
           '-i', inPath,
@@ -3128,17 +3199,37 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
           '-pix_fmt', 'yuv420p',
           '-movflags', '+faststart',
           '-an',
+          '-progress', 'pipe:1',
+          '-nostats',
           outPath,
         ];
-        const retry = spawn(ffmpegPath, retryArgs);
+        let retry = null;
+        try {
+          retry = spawn(ffmpegPath, retryArgs);
+        } catch (re) {
+          finished = true;
+          cleanup();
+          return reject(re);
+        }
+
         let rerr = '';
         retry.stderr.on('data', (d) => { rerr += d.toString(); });
+        retry.stdout.on('data', parseProgress);
+        retry.on('error', (err) => {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          reject(err);
+        });
         retry.on('close', (rcode) => {
+          if (finished) return;
+          finished = true;
+          cleanup();
           if (rcode === 0) {
             if (onProgress) onProgress(100);
             resolve();
           } else {
-            reject(new Error(`ffmpeg delogo failed: ${stderr || rerr}`));
+            reject(new Error(`FFmpeg video watermark removal failed: ${stderr || rerr || 'code ' + rcode}`));
           }
         });
       }
@@ -3156,9 +3247,15 @@ function runFfmpegImageDelogo(inPath, outPath, region) {
       '-frames:v', '1',
       outPath,
     ];
-    const proc = spawn(ffmpegPath, args);
+    let proc = null;
+    try {
+      proc = spawn(ffmpegPath, args);
+    } catch (e) {
+      return reject(e);
+    }
     let stderr = '';
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    proc.on('error', (err) => reject(err));
     proc.on('close', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`ffmpeg image delogo failed: ${stderr}`));
@@ -3167,12 +3264,13 @@ function runFfmpegImageDelogo(inPath, outPath, region) {
 }
 
 async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionSpec, crf) {
-  const job = LOCAL_WATERMARK_JOBS.get(jid);
+  const job = getLocalWatermarkJob(jid);
   if (!job) return;
 
   try {
     job.status = 'processing';
-    job.progress = 15;
+    job.progress = 12;
+    saveLocalWatermarkJob(jid, job);
 
     const info = probeMedia(inPath);
     const region = resolveDelogoRegion(info.width, info.height, regionSpec);
@@ -3180,7 +3278,8 @@ async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionS
     if (isVideo) {
       await runFfmpegDelogo(inPath, outPath, region, crf, 'veryfast', info.duration, (pct) => {
         job.progress = Math.max(10, Math.min(99, pct));
-      });
+        saveLocalWatermarkJob(jid, job);
+      }, info.hasAudio);
     } else {
       await runFfmpegImageDelogo(inPath, outPath, region);
     }
@@ -3197,10 +3296,12 @@ async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionS
       duration: info.duration,
     };
     job.download = `/api/watermark/download/${jid}`;
+    saveLocalWatermarkJob(jid, job);
   } catch (err) {
     console.error(`[BUILTIN WATERMARK REMOVER JOB ${jid} ERROR]`, err);
     job.status = 'error';
     job.error = err.message || 'Watermark removal failed';
+    saveLocalWatermarkJob(jid, job);
   }
 }
 
@@ -3319,7 +3420,7 @@ app.post('/api/watermark/remove', async (req, res) => {
         const outExt = isVideo ? '.mp4' : path.extname(inFilePath).toLowerCase();
         const outFilePath = path.join(jdir, 'out' + outExt);
 
-        LOCAL_WATERMARK_JOBS.set(jid, {
+        const initialJob = {
           job_id: jid,
           status: 'queued',
           progress: 5,
@@ -3327,7 +3428,8 @@ app.post('/api/watermark/remove', async (req, res) => {
           isVideo,
           outFilePath,
           created_at: Date.now(),
-        });
+        };
+        saveLocalWatermarkJob(jid, initialJob);
 
         // Start processing asynchronously in background
         processBuiltinWatermarkJob(jid, inFilePath, outFilePath, isVideo, regionSpec, crf);
@@ -3355,21 +3457,45 @@ app.post('/api/watermark/remove', async (req, res) => {
 app.get('/api/watermark/jobs/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    if (LOCAL_WATERMARK_JOBS.has(id)) {
-      return res.json(LOCAL_WATERMARK_JOBS.get(id));
+    const localJob = getLocalWatermarkJob(id);
+    if (localJob) {
+      return res.json(localJob);
     }
 
-    const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
-      headers: { 'X-API-Key': WATERMARK_API_KEY },
-      signal: AbortSignal.timeout(3000),
-    });
-    const data = await r.json();
-    return res.status(r.status).json(data);
-  } catch (err) {
-    if (LOCAL_WATERMARK_JOBS.has(req.params.id)) {
-      return res.json(LOCAL_WATERMARK_JOBS.get(req.params.id));
+    // Try disk search for finished files even if memory was cleared
+    const jdir = path.join(WATERMARK_JOBS_DIR, id);
+    if (fsSync.existsSync(jdir)) {
+      const files = fsSync.readdirSync(jdir);
+      const outFile = files.find((f) => f.startsWith('out.'));
+      if (outFile) {
+        const outFilePath = path.join(jdir, outFile);
+        const restored = {
+          job_id: id,
+          status: 'done',
+          progress: 100,
+          output: outFile,
+          outFilePath,
+          bytes: fsSync.statSync(outFilePath).size,
+          download: `/api/watermark/download/${id}`,
+        };
+        saveLocalWatermarkJob(id, restored);
+        return res.json(restored);
+      }
     }
-    return res.status(404).json({ error: 'job_not_found', message: 'Job not found' });
+
+    // Check upstream microservice if configured
+    try {
+      const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
+        headers: { 'X-API-Key': WATERMARK_API_KEY },
+        signal: AbortSignal.timeout(3000),
+      });
+      const data = await r.json();
+      return res.status(r.status).json(data);
+    } catch {}
+
+    return res.status(404).json({ status: 'error', error: 'job_not_found', message: 'Job not found or expired.' });
+  } catch (err) {
+    return res.status(404).json({ status: 'error', error: 'job_not_found', message: 'Job not found.' });
   }
 });
 
@@ -3377,15 +3503,24 @@ app.get('/api/watermark/jobs/:id', async (req, res) => {
 app.get('/api/watermark/download/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    if (LOCAL_WATERMARK_JOBS.has(id)) {
-      const job = LOCAL_WATERMARK_JOBS.get(id);
-      if (job.status !== 'done' || !fsSync.existsSync(job.outFilePath)) {
-        return res.status(404).json({ error: 'not_ready', message: 'Output not ready' });
+    const localJob = getLocalWatermarkJob(id);
+    const jdir = path.join(WATERMARK_JOBS_DIR, id);
+
+    let filePath = localJob?.outFilePath;
+    if (!filePath || !fsSync.existsSync(filePath)) {
+      if (fsSync.existsSync(jdir)) {
+        const files = fsSync.readdirSync(jdir);
+        const found = files.find((f) => f.startsWith('out.'));
+        if (found) filePath = path.join(jdir, found);
       }
-      const media = job.isVideo ? 'video/mp4' : 'image/png';
+    }
+
+    if (filePath && fsSync.existsSync(filePath)) {
+      const isVideo = filePath.endsWith('.mp4');
+      const media = isVideo ? 'video/mp4' : 'image/png';
       res.setHeader('Content-Type', media);
-      res.setHeader('Content-Disposition', `attachment; filename="clean_${job.filename || 'video.mp4'}"`);
-      return fsSync.createReadStream(job.outFilePath).pipe(res);
+      res.setHeader('Content-Disposition', `attachment; filename="clean_${localJob?.filename || (isVideo ? 'video.mp4' : 'image.png')}"`);
+      return fsSync.createReadStream(filePath).pipe(res);
     }
 
     const downloadUrl = `${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}/download?token=${encodeURIComponent(WATERMARK_API_KEY)}`;

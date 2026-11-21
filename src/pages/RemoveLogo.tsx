@@ -129,27 +129,52 @@ export function WatermarkRemoverContent({
       setStatus('processing');
       setStatusMessage('Detecting logo & inpainting frames without quality loss…');
 
-      /* Poll job progress */
+      /* Poll job progress with watchdog and consecutive-error recovery */
+      let consecutiveErrors = 0;
+      const pollStart = Date.now();
+      let lastProgress = 10;
+
       pollIntervalRef.current = setInterval(async () => {
         try {
-          const poll = await api.watermarkJobStatus(newJobId);
+          // Hard client-side timeout after 4 minutes
+          if (Date.now() - pollStart > 240000) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setStatus('error');
+            setErrorMsg('Watermark removal timed out after 4 minutes. Please try again with a smaller file or different settings.');
+            return;
+          }
+
+          const poll: any = await api.watermarkJobStatus(newJobId);
+          consecutiveErrors = 0;
+
           if (poll.status === 'processing') {
-            const pct = Math.max(10, Math.min(99, Math.round(poll.progress || 10)));
-            setProgress(pct);
-            setStatusMessage(`Rendering clean frames… ${pct}%`);
+            const rawPct = typeof poll.progress === 'number' ? poll.progress : 10;
+            lastProgress = Math.max(lastProgress, Math.max(10, Math.min(99, Math.round(rawPct))));
+            setProgress(lastProgress);
+            setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
           } else if (poll.status === 'done') {
-            clearInterval(pollIntervalRef.current);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setProgress(100);
             setStatus('done');
             setStatusMessage('Watermark removed successfully!');
             setOutputMeta(poll.meta || null);
-          } else if (poll.status === 'error') {
-            clearInterval(pollIntervalRef.current);
+          } else if (poll.status === 'error' || poll.error) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
             setErrorMsg(poll.error || 'Failed to remove watermark. Please try again.');
+          } else if (poll.detail || poll.message) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setStatus('error');
+            setErrorMsg(poll.detail || poll.message);
           }
-        } catch {
-          /* transient poll error */
+        } catch (err: any) {
+          consecutiveErrors++;
+          // If 6 consecutive polls fail (9 seconds of solid network or server failure)
+          if (consecutiveErrors >= 6) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setStatus('error');
+            setErrorMsg(err?.message || 'Server connection interrupted while processing. Please try again.');
+          }
         }
       }, 1500);
     } catch (err: any) {
@@ -404,6 +429,13 @@ export function WatermarkRemoverContent({
                       />
                     </div>
                     <span className="text-xs font-mono font-bold text-emerald-400 mt-2">{progress}%</span>
+                    <button
+                      type="button"
+                      onClick={resetAll}
+                      className="mt-4 px-4 py-1.5 rounded-full border border-white/20 text-[11px] font-medium text-white/70 hover:text-white hover:border-white/40 bg-white/5 transition"
+                    >
+                      Cancel Processing
+                    </button>
                   </div>
                 )}
               </div>
