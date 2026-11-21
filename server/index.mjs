@@ -3127,12 +3127,27 @@ function resolveDelogoRegion(width, height, spec) {
   // 1. Preset or explicit 4-point coordinates: "x,y,w,h"
   if (spec && typeof spec === 'string' && spec.toLowerCase() !== 'auto') {
     const s = spec.trim().toLowerCase();
+    if (s === 'bottom-right' || s === 'br' || s === 'corner') {
+      const isVertical = height > width * 1.2;
+      const x = Math.max(4, Math.round(width * 0.78));
+      const w = Math.min(width - x - 4, Math.round(width * 0.19));
+      const y = isVertical ? Math.round(height * 0.83) : Math.round(height * 0.80);
+      const h = isVertical ? Math.min(height - y - 4, Math.round(height * 0.14)) : Math.min(height - y - 4, Math.round(height * 0.16));
+      return { x, y, w, h };
+    }
+    if (s === 'mid-star') {
+      const x = Math.max(4, Math.round(width * 0.76));
+      const w = Math.min(width - x - 4, Math.round(width * 0.22));
+      const y = Math.max(4, Math.round(height * 0.69));
+      const h = Math.min(height - y - 4, Math.round(height * 0.125));
+      return { x, y, w, h };
+    }
     if (s === 'bottom-left' || s === 'bl') {
       const isVertical = height > width * 1.2;
-      const x = Math.max(4, Math.round(width * 0.04));
-      const w = Math.min(width - x - 4, Math.round(width * 0.22));
-      const y = isVertical ? Math.round(height * 0.69) : Math.round(height * 0.80);
-      const h = isVertical ? Math.round(height * 0.125) : Math.round(height * 0.16);
+      const x = Math.max(4, Math.round(width * 0.03));
+      const w = Math.min(width - x - 4, Math.round(width * 0.20));
+      const y = isVertical ? Math.round(height * 0.83) : Math.round(height * 0.80);
+      const h = isVertical ? Math.min(height - y - 4, Math.round(height * 0.14)) : Math.min(height - y - 4, Math.round(height * 0.16));
       return { x, y, w, h };
     }
     if (s === 'top-right' || s === 'tr') {
@@ -3142,7 +3157,7 @@ function resolveDelogoRegion(width, height, spec) {
       const h = Math.round(height * 0.12);
       return { x, y, w, h };
     }
-    if (s === 'landscape-corner' || s === 'corner') {
+    if (s === 'landscape-corner') {
       const x = Math.max(4, Math.round(width * 0.82));
       const w = Math.min(width - x - 4, Math.round(width * 0.16));
       const y = Math.max(4, Math.round(height * 0.82));
@@ -3160,10 +3175,10 @@ function resolveDelogoRegion(width, height, spec) {
         w = Math.round(w * factor * width);
         h = Math.round(h * factor * height);
       }
-      x = Math.max(4, Math.min(Math.round(x), width - 12));
-      y = Math.max(4, Math.min(Math.round(y), height - 12));
-      w = Math.max(8, Math.min(Math.round(w), width - x - 4));
-      h = Math.max(8, Math.min(Math.round(h), height - y - 4));
+      x = Math.max(2, Math.min(Math.round(x), width - 10));
+      y = Math.max(2, Math.min(Math.round(y), height - 10));
+      w = Math.max(8, Math.min(Math.round(w), width - x - 2));
+      h = Math.max(8, Math.min(Math.round(h), height - y - 2));
       return { x, y, w, h };
     }
   }

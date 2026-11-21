@@ -12,7 +12,11 @@ import {
   Sun,
   Moon,
   ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Play,
+  Pause,
   Eye,
   Crosshair,
 } from 'lucide-react';
@@ -42,20 +46,23 @@ export function WatermarkRemoverContent({
   /* Advanced options */
   const [showOptions, setShowOptions] = useState(false);
   const [crf, setCrf] = useState(18); // 18 is visually lossless master quality
-  const [regionMode, setRegionMode] = useState<'auto' | 'landscape' | 'bottom-left' | 'top-right' | 'custom'>('auto');
+  const [regionMode, setRegionMode] = useState<'auto' | 'bottom-right' | 'mid-star' | 'landscape' | 'bottom-left' | 'top-right' | 'custom'>('auto');
   const [customRegion, setCustomRegion] = useState('');
   const [viewTab, setViewTab] = useState<'clean' | 'original'>('clean');
 
   /* Interactive visual watermark box */
   const [videoMeta, setVideoMeta] = useState<{ width: number; height: number } | null>(null);
   const [targetBox, setTargetBox] = useState<{ x: number; y: number; w: number; h: number }>({
-    x: 0.76,
-    y: 0.69,
-    w: 0.22,
-    h: 0.125,
+    x: 0.79,
+    y: 0.84,
+    w: 0.19,
+    h: 0.13,
   });
   const [boxSize, setBoxSize] = useState<'compact' | 'standard' | 'large'>('standard');
   const [interactiveBox, setInteractiveBox] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,30 +82,65 @@ export function WatermarkRemoverContent({
     const w = v.videoWidth || 1920;
     const h = v.videoHeight || 1080;
     setVideoMeta({ width: w, height: h });
+    setDuration(v.duration || 0);
     if (regionMode === 'auto') {
       if (h > w * 1.2) {
-        setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+        // Vertical portrait video (Reels/Shorts) - place target on bottom-right star
+        setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
       } else if (w >= h * 1.2) {
-        setTargetBox({ x: 0.82, y: 0.80, w: 0.16, h: 0.16 });
+        setTargetBox({ x: 0.82, y: 0.82, w: 0.16, h: 0.15 });
       } else {
-        setTargetBox({ x: 0.78, y: 0.78, w: 0.18, h: 0.18 });
+        setTargetBox({ x: 0.78, y: 0.82, w: 0.18, h: 0.16 });
       }
     }
   };
 
-  const applyPreset = (mode: 'auto' | 'landscape' | 'bottom-left' | 'top-right') => {
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().catch(() => {});
+      setIsPlaying(true);
+    } else {
+      v.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current;
+    if (v) {
+      setCurrentTime(v.currentTime);
+      setDuration(v.duration || 0);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = videoRef.current;
+    if (v) {
+      const time = Number(e.target.value);
+      v.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const applyPreset = (mode: 'auto' | 'bottom-right' | 'mid-star' | 'landscape' | 'bottom-left' | 'top-right') => {
     setRegionMode(mode);
     const isVert = videoMeta ? videoMeta.height > videoMeta.width * 1.2 : true;
-    let tb = { x: 0.76, y: 0.69, w: 0.22, h: 0.125 };
-    if (mode === 'auto') {
-      tb = isVert ? { x: 0.76, y: 0.69, w: 0.22, h: 0.125 } : { x: 0.82, y: 0.80, w: 0.16, h: 0.16 };
+    let tb = { x: 0.79, y: 0.84, w: 0.19, h: 0.13 };
+    if (mode === 'bottom-right') {
+      tb = { x: 0.79, y: 0.84, w: 0.19, h: 0.13 };
+    } else if (mode === 'mid-star') {
+      tb = { x: 0.76, y: 0.69, w: 0.22, h: 0.125 };
+    } else if (mode === 'auto') {
+      tb = isVert ? { x: 0.79, y: 0.84, w: 0.19, h: 0.13 } : { x: 0.82, y: 0.82, w: 0.16, h: 0.15 };
       setCustomRegion('');
     } else if (mode === 'landscape') {
       tb = { x: 0.82, y: 0.82, w: 0.16, h: 0.15 };
     } else if (mode === 'bottom-left') {
-      tb = isVert ? { x: 0.04, y: 0.69, w: 0.22, h: 0.125 } : { x: 0.04, y: 0.80, w: 0.22, h: 0.16 };
+      tb = { x: 0.02, y: 0.84, w: 0.19, h: 0.13 };
     } else if (mode === 'top-right') {
-      tb = { x: 0.76, y: 0.04, w: 0.22, h: 0.12 };
+      tb = { x: 0.76, y: 0.02, w: 0.20, h: 0.12 };
     }
     setTargetBox(tb);
     if (mode !== 'auto' && videoMeta) {
@@ -107,6 +149,25 @@ export function WatermarkRemoverContent({
       const pxW = Math.round(tb.w * videoMeta.width);
       const pxH = Math.round(tb.h * videoMeta.height);
       setCustomRegion(`${pxX},${pxY},${pxW},${pxH}`);
+    }
+  };
+
+  const nudgeBox = (dx: number, dy: number) => {
+    const newBox = {
+      ...targetBox,
+      x: Math.max(0.005, Math.min(targetBox.x + dx, 0.995 - targetBox.w)),
+      y: Math.max(0.005, Math.min(targetBox.y + dy, 0.995 - targetBox.h)),
+    };
+    setTargetBox(newBox);
+    setRegionMode('custom');
+    if (videoMeta) {
+      const pxX = Math.round(newBox.x * videoMeta.width);
+      const pxY = Math.round(newBox.y * videoMeta.height);
+      const pxW = Math.round(newBox.w * videoMeta.width);
+      const pxH = Math.round(newBox.h * videoMeta.height);
+      setCustomRegion(`${pxX},${pxY},${pxW},${pxH}`);
+    } else {
+      setCustomRegion(`${Math.round(newBox.x * 100)}%,${Math.round(newBox.y * 100)}%,${Math.round(newBox.w * 100)}%,${Math.round(newBox.h * 100)}%`);
     }
   };
 
@@ -121,21 +182,21 @@ export function WatermarkRemoverContent({
     const normX = clickX / wrapperRect.width;
     const normY = clickY / wrapperRect.height;
 
-    let bw = 0.22;
-    let bh = 0.125;
+    let bw = 0.19;
+    let bh = 0.13;
     if (boxSize === 'compact') {
-      bw = 0.16;
+      bw = 0.15;
       bh = 0.09;
     } else if (boxSize === 'large') {
-      bw = 0.28;
+      bw = 0.26;
       bh = 0.16;
     } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
-      bw = 0.18;
-      bh = 0.16;
+      bw = 0.17;
+      bh = 0.15;
     }
 
-    const leftNorm = Math.max(0.01, Math.min(normX - bw / 2, 0.99 - bw));
-    const topNorm = Math.max(0.01, Math.min(normY - bh / 2, 0.99 - bh));
+    const leftNorm = Math.max(0.005, Math.min(normX - bw / 2, 0.995 - bw));
+    const topNorm = Math.max(0.005, Math.min(normY - bh / 2, 0.995 - bh));
 
     const newBox = { x: leftNorm, y: topNorm, w: bw, h: bh };
     setTargetBox(newBox);
@@ -154,24 +215,24 @@ export function WatermarkRemoverContent({
 
   const changeBoxSize = (size: 'compact' | 'standard' | 'large') => {
     setBoxSize(size);
-    let bw = 0.22;
-    let bh = 0.125;
+    let bw = 0.19;
+    let bh = 0.13;
     if (size === 'compact') {
-      bw = 0.16;
+      bw = 0.15;
       bh = 0.09;
     } else if (size === 'large') {
-      bw = 0.28;
+      bw = 0.26;
       bh = 0.16;
     } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
-      bw = 0.18;
-      bh = 0.16;
+      bw = 0.17;
+      bh = 0.15;
     }
     const newBox = {
       ...targetBox,
       w: bw,
       h: bh,
-      x: Math.min(targetBox.x, 0.99 - bw),
-      y: Math.min(targetBox.y, 0.99 - bh),
+      x: Math.min(targetBox.x, 0.995 - bw),
+      y: Math.min(targetBox.y, 0.995 - bh),
     };
     setTargetBox(newBox);
     setRegionMode('custom');
@@ -230,7 +291,10 @@ export function WatermarkRemoverContent({
     setJobId(null);
     setOutputMeta(null);
     setVideoMeta(null);
-    setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
     setCustomRegion('');
     setRegionMode('auto');
 
@@ -254,6 +318,10 @@ export function WatermarkRemoverContent({
     formData.append('crf', String(crf));
     if (regionMode === 'custom' && customRegion.trim()) {
       formData.append('region', customRegion.trim());
+    } else if (regionMode === 'bottom-right') {
+      formData.append('region', 'bottom-right');
+    } else if (regionMode === 'mid-star') {
+      formData.append('region', 'mid-star');
     } else if (regionMode === 'landscape') {
       formData.append('region', 'landscape-corner');
     } else if (regionMode === 'bottom-left') {
@@ -347,7 +415,10 @@ export function WatermarkRemoverContent({
     setOutputMeta(null);
     setErrorMsg(null);
     setVideoMeta(null);
-    setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
     setCustomRegion('');
     setRegionMode('auto');
     if (inputRef.current) inputRef.current.value = '';
@@ -494,14 +565,25 @@ export function WatermarkRemoverContent({
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                         <button
                           type="button"
-                          onClick={() => applyPreset('auto')}
+                          onClick={() => applyPreset('bottom-right')}
                           className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
-                            regionMode === 'auto'
+                            regionMode === 'bottom-right' || regionMode === 'auto'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
                           }`}
                         >
-                          ✨ Auto (AI Star)
+                          ⭐ Bottom-Right Star
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('mid-star')}
+                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                            regionMode === 'mid-star'
+                              ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
+                              : 'opacity-60 border-transparent hover:opacity-100'
+                          }`}
+                        >
+                          ✨ Mid-Lower Star
                         </button>
                         <button
                           type="button"
@@ -539,13 +621,13 @@ export function WatermarkRemoverContent({
                         <button
                           type="button"
                           onClick={() => setRegionMode('custom')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center col-span-2 ${
+                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'custom'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
                           }`}
                         >
-                          ⚙️ Manual Box (x,y,w,h)
+                          ⚙️ Manual Box
                         </button>
                       </div>
                     </div>
@@ -622,14 +704,33 @@ export function WatermarkRemoverContent({
               {/* Visual Watermark Target Control Bar (only when idle and file selected) */}
               {status === 'idle' && (
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-black/40 border border-white/10 text-xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Crosshair size={15} className="text-emerald-400 shrink-0" />
                     <span className="font-semibold text-white/90">
-                      Watermark Target:
+                      Target Watermark:
                     </span>
-                    <span className="text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      {regionMode === 'auto' ? '✨ Auto Star Target' : `Box at ${Math.round(targetBox.x * 100)}%, ${Math.round(targetBox.y * 100)}%`}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('bottom-right')}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+                        regionMode === 'bottom-right' || regionMode === 'auto'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      ⭐ Bottom-Right Star
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('mid-star')}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+                        regionMode === 'mid-star'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      ✨ Mid-Lower Star
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -677,7 +778,7 @@ export function WatermarkRemoverContent({
                 </div>
               )}
 
-              {/* Video Preview Player */}
+              {/* Video Preview Player (Controls removed from video so buttons NEVER overlap the watermark) */}
               <div className="relative w-full max-h-[520px] min-h-[300px] rounded-xl bg-black/95 flex items-center justify-center p-2 sm:p-3 border border-white/10 shadow-xl overflow-hidden">
                 {status === 'done' && jobId ? (
                   viewTab === 'clean' ? (
@@ -703,17 +804,19 @@ export function WatermarkRemoverContent({
                     <video
                       ref={videoRef}
                       src={previewUrl}
-                      controls
+                      controls={false}
                       playsInline
                       onLoadedMetadata={handleLoadedMetadata}
-                      className="max-h-[480px] max-w-full w-auto h-auto block rounded-lg object-contain"
+                      onTimeUpdate={handleTimeUpdate}
+                      onEnded={() => setIsPlaying(false)}
+                      className="max-h-[480px] max-w-full w-auto h-auto block rounded-lg object-contain cursor-crosshair"
                     />
 
-                    {/* Interactive Watermark Bounding Box Overlay */}
+                    {/* Interactive Watermark Bounding Box Overlay with ZERO bottom dead-zone */}
                     {status === 'idle' && interactiveBox && (
                       <div
                         onClick={handleVideoClick}
-                        className="absolute inset-x-0 top-0 bottom-11 cursor-crosshair z-10 select-none overflow-hidden group"
+                        className="absolute inset-0 cursor-crosshair z-10 select-none overflow-hidden group"
                         title="Click directly on the watermark / star in the video to target it"
                       >
                         {/* Target Box with green dashed animated border */}
@@ -734,7 +837,7 @@ export function WatermarkRemoverContent({
                         {/* Top floating instruction pill */}
                         <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white/90 text-[11px] px-3 py-1 rounded-full pointer-events-none shadow-md flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition whitespace-nowrap">
                           <Crosshair size={12} className="text-emerald-400" />
-                          Target box is set on star. Click anywhere on video to reposition.
+                          Controls removed from video frame. Click directly on star to lock box.
                         </div>
                       </div>
                     )}
@@ -742,7 +845,7 @@ export function WatermarkRemoverContent({
                 ) : null}
 
                 {status === 'processing' && (
-                  <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                  <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
                     <RefreshCw size={36} className="text-emerald-500 animate-spin mb-4" />
                     <h4 className="text-base font-semibold text-white">{statusMessage}</h4>
                     <p className="text-xs text-white/60 mt-1 max-w-sm">
@@ -765,6 +868,73 @@ export function WatermarkRemoverContent({
                   </div>
                 )}
               </div>
+
+              {/* Clean External Video Playback Bar (Zero overlap on video pixels) */}
+              {status === 'idle' && previewUrl && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-black/60 border border-white/10 text-xs">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-[200px]">
+                    <button
+                      type="button"
+                      onClick={togglePlay}
+                      className="flex items-center justify-center h-8 w-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition shrink-0 shadow-md"
+                      title={isPlaying ? 'Pause' : 'Play video'}
+                    >
+                      {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+                    <span className="font-mono text-[11px] opacity-75 shrink-0 min-w-[70px]">
+                      {Math.floor(currentTime / 60)}:{String(Math.floor(currentTime % 60)).padStart(2, '0')} / {Math.floor(duration / 60)}:{String(Math.floor(duration % 60)).padStart(2, '0')}
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration || 100}
+                      step={0.05}
+                      value={currentTime}
+                      onChange={handleSeek}
+                      className="flex-1 accent-emerald-500 cursor-pointer h-1.5 rounded bg-white/20"
+                      title="Scrub video timeline"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[11px] opacity-60 mr-1 hidden sm:inline">Nudge Target Box:</span>
+                    <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => nudgeBox(-0.02, 0)}
+                        className="h-6 w-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition"
+                        title="Nudge box Left"
+                      >
+                        <ArrowLeft size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => nudgeBox(0, -0.02)}
+                        className="h-6 w-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition"
+                        title="Nudge box Up"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => nudgeBox(0, 0.02)}
+                        className="h-6 w-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition"
+                        title="Nudge box Down"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => nudgeBox(0.02, 0)}
+                        className="h-6 w-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition"
+                        title="Nudge box Right"
+                      >
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Status / Output Meta */}
               {outputMeta && (
