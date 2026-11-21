@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Play,
   Eye,
+  Crosshair,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { api, type User } from '../lib/api';
@@ -45,6 +46,18 @@ export function WatermarkRemoverContent({
   const [customRegion, setCustomRegion] = useState('');
   const [viewTab, setViewTab] = useState<'clean' | 'original'>('clean');
 
+  /* Interactive visual watermark box */
+  const [videoMeta, setVideoMeta] = useState<{ width: number; height: number } | null>(null);
+  const [targetBox, setTargetBox] = useState<{ x: number; y: number; w: number; h: number }>({
+    x: 0.76,
+    y: 0.69,
+    w: 0.22,
+    h: 0.125,
+  });
+  const [boxSize, setBoxSize] = useState<'compact' | 'standard' | 'large'>('standard');
+  const [interactiveBox, setInteractiveBox] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<any>(null);
 
@@ -56,6 +69,122 @@ export function WatermarkRemoverContent({
       }
     };
   }, [previewUrl]);
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const v = e.currentTarget;
+    const w = v.videoWidth || 1920;
+    const h = v.videoHeight || 1080;
+    setVideoMeta({ width: w, height: h });
+    if (regionMode === 'auto') {
+      if (h > w * 1.2) {
+        setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+      } else if (w >= h * 1.2) {
+        setTargetBox({ x: 0.82, y: 0.80, w: 0.16, h: 0.16 });
+      } else {
+        setTargetBox({ x: 0.78, y: 0.78, w: 0.18, h: 0.18 });
+      }
+    }
+  };
+
+  const applyPreset = (mode: 'auto' | 'landscape' | 'bottom-left' | 'top-right') => {
+    setRegionMode(mode);
+    const isVert = videoMeta ? videoMeta.height > videoMeta.width * 1.2 : true;
+    let tb = { x: 0.76, y: 0.69, w: 0.22, h: 0.125 };
+    if (mode === 'auto') {
+      tb = isVert ? { x: 0.76, y: 0.69, w: 0.22, h: 0.125 } : { x: 0.82, y: 0.80, w: 0.16, h: 0.16 };
+      setCustomRegion('');
+    } else if (mode === 'landscape') {
+      tb = { x: 0.82, y: 0.82, w: 0.16, h: 0.15 };
+    } else if (mode === 'bottom-left') {
+      tb = isVert ? { x: 0.04, y: 0.69, w: 0.22, h: 0.125 } : { x: 0.04, y: 0.80, w: 0.22, h: 0.16 };
+    } else if (mode === 'top-right') {
+      tb = { x: 0.76, y: 0.04, w: 0.22, h: 0.12 };
+    }
+    setTargetBox(tb);
+    if (mode !== 'auto' && videoMeta) {
+      const pxX = Math.round(tb.x * videoMeta.width);
+      const pxY = Math.round(tb.y * videoMeta.height);
+      const pxW = Math.round(tb.w * videoMeta.width);
+      const pxH = Math.round(tb.h * videoMeta.height);
+      setCustomRegion(`${pxX},${pxY},${pxW},${pxH}`);
+    }
+  };
+
+  const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (status !== 'idle' || !interactiveBox) return;
+    const wrapperRect = e.currentTarget.parentElement?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect();
+    if (wrapperRect.width <= 0 || wrapperRect.height <= 0) return;
+
+    const clickX = e.clientX - wrapperRect.left;
+    const clickY = e.clientY - wrapperRect.top;
+
+    const normX = clickX / wrapperRect.width;
+    const normY = clickY / wrapperRect.height;
+
+    let bw = 0.22;
+    let bh = 0.125;
+    if (boxSize === 'compact') {
+      bw = 0.16;
+      bh = 0.09;
+    } else if (boxSize === 'large') {
+      bw = 0.28;
+      bh = 0.16;
+    } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
+      bw = 0.18;
+      bh = 0.16;
+    }
+
+    const leftNorm = Math.max(0.01, Math.min(normX - bw / 2, 0.99 - bw));
+    const topNorm = Math.max(0.01, Math.min(normY - bh / 2, 0.99 - bh));
+
+    const newBox = { x: leftNorm, y: topNorm, w: bw, h: bh };
+    setTargetBox(newBox);
+    setRegionMode('custom');
+
+    if (videoMeta) {
+      const pxX = Math.round(leftNorm * videoMeta.width);
+      const pxY = Math.round(topNorm * videoMeta.height);
+      const pxW = Math.round(bw * videoMeta.width);
+      const pxH = Math.round(bh * videoMeta.height);
+      setCustomRegion(`${pxX},${pxY},${pxW},${pxH}`);
+    } else {
+      setCustomRegion(`${Math.round(leftNorm * 100)}%,${Math.round(topNorm * 100)}%,${Math.round(bw * 100)}%,${Math.round(bh * 100)}%`);
+    }
+  };
+
+  const changeBoxSize = (size: 'compact' | 'standard' | 'large') => {
+    setBoxSize(size);
+    let bw = 0.22;
+    let bh = 0.125;
+    if (size === 'compact') {
+      bw = 0.16;
+      bh = 0.09;
+    } else if (size === 'large') {
+      bw = 0.28;
+      bh = 0.16;
+    } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
+      bw = 0.18;
+      bh = 0.16;
+    }
+    const newBox = {
+      ...targetBox,
+      w: bw,
+      h: bh,
+      x: Math.min(targetBox.x, 0.99 - bw),
+      y: Math.min(targetBox.y, 0.99 - bh),
+    };
+    setTargetBox(newBox);
+    setRegionMode('custom');
+    if (videoMeta) {
+      const pxX = Math.round(newBox.x * videoMeta.width);
+      const pxY = Math.round(newBox.y * videoMeta.height);
+      const pxW = Math.round(newBox.w * videoMeta.width);
+      const pxH = Math.round(newBox.h * videoMeta.height);
+      setCustomRegion(`${pxX},${pxY},${pxW},${pxH}`);
+    } else {
+      setCustomRegion(`${Math.round(newBox.x * 100)}%,${Math.round(newBox.y * 100)}%,${Math.round(bw * 100)}%,${Math.round(bh * 100)}%`);
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -100,6 +229,10 @@ export function WatermarkRemoverContent({
     setProgress(0);
     setJobId(null);
     setOutputMeta(null);
+    setVideoMeta(null);
+    setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+    setCustomRegion('');
+    setRegionMode('auto');
 
     if (previewUrl && previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
@@ -213,6 +346,10 @@ export function WatermarkRemoverContent({
     setJobId(null);
     setOutputMeta(null);
     setErrorMsg(null);
+    setVideoMeta(null);
+    setTargetBox({ x: 0.76, y: 0.69, w: 0.22, h: 0.125 });
+    setCustomRegion('');
+    setRegionMode('auto');
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -357,7 +494,7 @@ export function WatermarkRemoverContent({
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setRegionMode('auto')}
+                          onClick={() => applyPreset('auto')}
                           className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'auto'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
@@ -368,7 +505,7 @@ export function WatermarkRemoverContent({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setRegionMode('landscape')}
+                          onClick={() => applyPreset('landscape')}
                           className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'landscape'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
@@ -379,7 +516,7 @@ export function WatermarkRemoverContent({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setRegionMode('bottom-left')}
+                          onClick={() => applyPreset('bottom-left')}
                           className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'bottom-left'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
@@ -390,7 +527,7 @@ export function WatermarkRemoverContent({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setRegionMode('top-right')}
+                          onClick={() => applyPreset('top-right')}
                           className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'top-right'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
@@ -482,8 +619,66 @@ export function WatermarkRemoverContent({
                 </div>
               )}
 
+              {/* Visual Watermark Target Control Bar (only when idle and file selected) */}
+              {status === 'idle' && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-black/40 border border-white/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Crosshair size={15} className="text-emerald-400 shrink-0" />
+                    <span className="font-semibold text-white/90">
+                      Watermark Target:
+                    </span>
+                    <span className="text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {regionMode === 'auto' ? '✨ Auto Star Target' : `Box at ${Math.round(targetBox.x * 100)}%, ${Math.round(targetBox.y * 100)}%`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] opacity-60">Box Size:</span>
+                    <div className="inline-flex rounded-lg p-0.5 bg-black/60 border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => changeBoxSize('compact')}
+                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                          boxSize === 'compact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                        }`}
+                      >
+                        Compact
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => changeBoxSize('standard')}
+                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                          boxSize === 'standard' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                        }`}
+                      >
+                        Standard (Star)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => changeBoxSize('large')}
+                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                          boxSize === 'large' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                        }`}
+                      >
+                        Wide
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setInteractiveBox(!interactiveBox)}
+                      className={`ml-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
+                        interactiveBox ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-white/5 text-white/50 border-white/10'
+                      }`}
+                    >
+                      {interactiveBox ? 'Target Box: Visible' : 'Target Box: Hidden'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Video Preview Player */}
-              <div className="relative aspect-video max-h-[480px] w-full overflow-hidden rounded-xl bg-black flex items-center justify-center border border-white/10 shadow-lg">
+              <div className="relative w-full max-h-[520px] min-h-[300px] rounded-xl bg-black/95 flex items-center justify-center p-2 sm:p-3 border border-white/10 shadow-xl overflow-hidden">
                 {status === 'done' && jobId ? (
                   viewTab === 'clean' ? (
                     <video
@@ -492,7 +687,7 @@ export function WatermarkRemoverContent({
                       controls
                       autoPlay
                       playsInline
-                      className="h-full w-full object-contain"
+                      className="max-h-[480px] max-w-full w-auto h-auto rounded-lg object-contain shadow-2xl block"
                     />
                   ) : previewUrl ? (
                     <video
@@ -500,16 +695,50 @@ export function WatermarkRemoverContent({
                       src={previewUrl}
                       controls
                       playsInline
-                      className="h-full w-full object-contain"
+                      className="max-h-[480px] max-w-full w-auto h-auto rounded-lg object-contain shadow-2xl block"
                     />
                   ) : null
                 ) : previewUrl ? (
-                  <video
-                    src={previewUrl}
-                    controls
-                    playsInline
-                    className="h-full w-full object-contain"
-                  />
+                  <div className="relative inline-flex items-center justify-center max-h-[480px] max-w-full overflow-hidden rounded-lg shadow-2xl">
+                    <video
+                      ref={videoRef}
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      onLoadedMetadata={handleLoadedMetadata}
+                      className="max-h-[480px] max-w-full w-auto h-auto block rounded-lg object-contain"
+                    />
+
+                    {/* Interactive Watermark Bounding Box Overlay */}
+                    {status === 'idle' && interactiveBox && (
+                      <div
+                        onClick={handleVideoClick}
+                        className="absolute inset-x-0 top-0 bottom-11 cursor-crosshair z-10 select-none overflow-hidden group"
+                        title="Click directly on the watermark / star in the video to target it"
+                      >
+                        {/* Target Box with green dashed animated border */}
+                        <div
+                          style={{
+                            left: `${targetBox.x * 100}%`,
+                            top: `${targetBox.y * 100}%`,
+                            width: `${targetBox.w * 100}%`,
+                            height: `${targetBox.h * 100}%`,
+                          }}
+                          className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/25 rounded pointer-events-none flex flex-col items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.7)] transition-all duration-150 animate-pulse"
+                        >
+                          <span className="text-[10px] font-bold text-white bg-emerald-600/90 px-1.5 py-0.5 rounded shadow whitespace-nowrap">
+                            ✨ Target Watermark
+                          </span>
+                        </div>
+
+                        {/* Top floating instruction pill */}
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white/90 text-[11px] px-3 py-1 rounded-full pointer-events-none shadow-md flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition whitespace-nowrap">
+                          <Crosshair size={12} className="text-emerald-400" />
+                          Target box is set on star. Click anywhere on video to reposition.
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : null}
 
                 {status === 'processing' && (

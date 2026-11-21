@@ -3149,13 +3149,21 @@ function resolveDelogoRegion(width, height, spec) {
       const h = Math.min(height - y - 4, Math.round(height * 0.15));
       return { x, y, w, h };
     }
-    const parts = spec.trim().split(/[,\s]+/).map(Number);
+    const rawParts = spec.trim().split(/[,\s]+/).map((s) => s.replace('%', ''));
+    const parts = rawParts.map(Number);
     if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
       let [x, y, w, h] = parts;
-      x = Math.max(4, Math.min(x, width - 12));
-      y = Math.max(4, Math.min(y, height - 12));
-      w = Math.max(8, Math.min(w, width - x - 4));
-      h = Math.max(8, Math.min(h, height - y - 4));
+      if (spec.includes('%') || (x <= 1 && y <= 1 && w <= 1 && h <= 1 && (x > 0 || y > 0 || w > 0))) {
+        const factor = spec.includes('%') ? 0.01 : 1;
+        x = Math.round(x * factor * width);
+        y = Math.round(y * factor * height);
+        w = Math.round(w * factor * width);
+        h = Math.round(h * factor * height);
+      }
+      x = Math.max(4, Math.min(Math.round(x), width - 12));
+      y = Math.max(4, Math.min(Math.round(y), height - 12));
+      w = Math.max(8, Math.min(Math.round(w), width - x - 4));
+      h = Math.max(8, Math.min(Math.round(h), height - y - 4));
       return { x, y, w, h };
     }
   }
