@@ -3049,14 +3049,34 @@ async function saveLocalWatermarkJob(jid, jobData) {
     } catch {}
   }
 
-  // 2. Non-blocking MongoDB persistence (throttled to 4s, wrapped in background task with 2s timeout)
+  // 2. MongoDB persistence
   const lastDb = LAST_WATERMARK_DB_SAVE.get(jid) || 0;
-  if (isTerminal || now - lastDb >= 4000) {
+  if (isTerminal) {
+    LAST_WATERMARK_DB_SAVE.set(jid, now);
+    try {
+      const dbPromise = getMongoDb();
+      const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+      const db = await Promise.race([dbPromise, timeoutPromise]);
+      if (db) {
+        const cleanDoc = { ...jobData, job_id: jid, updatedAt: Date.now() };
+        delete cleanDoc._id;
+        await db.collection('watermark_jobs').updateOne(
+          { job_id: jid },
+          { $set: cleanDoc },
+          { upsert: true }
+        );
+      }
+    } catch (err) {
+      if (err.message !== 'timeout') {
+        console.warn(`[watermark db save terminal] Warning for ${jid}:`, err.message);
+      }
+    }
+  } else if (now - lastDb >= 3000) {
     LAST_WATERMARK_DB_SAVE.set(jid, now);
     (async () => {
       try {
         const dbPromise = getMongoDb();
-        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
+        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000));
         const db = await Promise.race([dbPromise, timeoutPromise]);
         if (db) {
           const cleanDoc = { ...jobData, job_id: jid, updatedAt: Date.now() };
@@ -3081,25 +3101,16 @@ async function getLocalWatermarkJob(jid) {
   const cleanId = jid.trim();
   if (!cleanId || cleanId === 'undefined' || cleanId === 'null') return null;
 
-  // 1. In-memory fast cache (0ms)
-  if (LOCAL_WATERMARK_JOBS.has(cleanId)) {
-    return LOCAL_WATERMARK_JOBS.get(cleanId);
+  // 1. If actively processing on this local Node worker, return memory cache immediately
+  const mem = LOCAL_WATERMARK_JOBS.get(cleanId);
+  if (mem && mem.isLocalWorker) {
+    return mem;
   }
 
-  // 2. Disk persistence
-  try {
-    const p = path.join(WATERMARK_JOBS_DIR, cleanId, 'job.json');
-    if (fsSync.existsSync(p)) {
-      const data = JSON.parse(fsSync.readFileSync(p, 'utf8'));
-      LOCAL_WATERMARK_JOBS.set(cleanId, data);
-      return data;
-    }
-  } catch {}
-
-  // 3. MongoDB persistence (with strict 2s timeout to prevent hanging API requests)
+  // 2. MongoDB persistence (resilient across multi-worker & container recycles)
   try {
     const dbPromise = getMongoDb();
-    const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000));
+    const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000));
     const db = await Promise.race([dbPromise, timeoutPromise]);
     if (db) {
       const doc = await db.collection('watermark_jobs').findOne({
@@ -3116,12 +3127,25 @@ async function getLocalWatermarkJob(jid) {
     }
   }
 
+  // 3. In-memory fast cache
+  if (mem) return mem;
+
+  // 4. Disk persistence
+  try {
+    const p = path.join(WATERMARK_JOBS_DIR, cleanId, 'job.json');
+    if (fsSync.existsSync(p)) {
+      const data = JSON.parse(fsSync.readFileSync(p, 'utf8'));
+      LOCAL_WATERMARK_JOBS.set(cleanId, data);
+      return data;
+    }
+  } catch {}
+
   return null;
 }
 
 function probeMedia(filePath) {
   try {
-    const res = spawnSync(ffmpegPath, ['-hide_banner', '-i', filePath], { encoding: 'utf8' });
+    const res = spawnSync(ffmpegPath, ['-nostdin', '-hide_banner', '-i', filePath], { encoding: 'utf8', timeout: 15000 });
     const text = (res.stderr || '') + (res.stdout || '');
     const dimMatch = /Stream #.*Video:.*,\s*(\d{2,5})x(\d{2,5})/.exec(text);
     const durMatch = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(text);
@@ -3254,11 +3278,12 @@ function resolveDelogoRegion(width, height, spec) {
 function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress, hasAudio = true) {
   return new Promise((resolve, reject) => {
     const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
-    const audioArgs = hasAudio ? ['-c:a', 'copy'] : ['-an'];
+    const audioArgs = hasAudio ? ['-map', '0:a:0?', '-c:a', 'copy'] : ['-an'];
     const args = [
-      '-y', '-hide_banner', '-loglevel', 'error',
+      '-y', '-nostdin', '-hide_banner', '-loglevel', 'error',
       '-i', inPath,
       '-vf', vf,
+      '-map', '0:v:0',
       '-c:v', 'libx264',
       '-preset', preset,
       '-crf', String(crf),
@@ -3280,16 +3305,16 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
       if (watchdogTimer) clearInterval(watchdogTimer);
     };
 
-    // Activity-based stall watchdog: only kills if FFmpeg produces NO progress for 3 minutes,
-    // or if total encoding duration exceeds 15 minutes.
+    // Activity-based stall watchdog: only kills if FFmpeg produces NO progress for 5 minutes,
+    // or if total encoding duration exceeds 20 minutes (accommodates 4K 60fps renders on cloud dynos).
     watchdogTimer = setInterval(() => {
       if (finished) return;
       const now = Date.now();
-      if (now - lastActivity > 180000 || now - startTime > 900000) {
+      if (now - lastActivity > 300000 || now - startTime > 1200000) {
         finished = true;
         cleanup();
         try { if (currentProc) currentProc.kill('SIGKILL'); } catch {}
-        reject(new Error('Video watermark processing stalled or exceeded 15 minute limit.'));
+        reject(new Error('Video watermark processing stalled or exceeded maximum 20-minute limit.'));
       }
     }, 5000);
 
@@ -3361,9 +3386,10 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
       } else {
         // Fallback retry without audio copy (handles special/unsupported audio containers or silent files)
         const retryArgs = [
-          '-y', '-hide_banner', '-loglevel', 'error',
+          '-y', '-nostdin', '-hide_banner', '-loglevel', 'error',
           '-i', inPath,
           '-vf', vf,
+          '-map', '0:v:0',
           '-c:v', 'libx264',
           '-preset', preset,
           '-crf', String(crf),
@@ -3411,7 +3437,7 @@ function runFfmpegImageDelogo(inPath, outPath, region) {
   return new Promise((resolve, reject) => {
     const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
     const args = [
-      '-y', '-hide_banner', '-loglevel', 'error',
+      '-y', '-nostdin', '-hide_banner', '-loglevel', 'error',
       '-i', inPath,
       '-vf', vf,
       '-frames:v', '1',
@@ -3437,6 +3463,7 @@ async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionS
   const job = await getLocalWatermarkJob(jid);
   if (!job) return;
 
+  job.isLocalWorker = true;
   try {
     job.status = 'processing';
     job.progress = 15;

@@ -346,19 +346,14 @@ export function WatermarkRemoverContent({
       let consecutiveErrors = 0;
       const pollStart = Date.now();
       let lastProgress = 12;
-      let lastProgressChangeTime = Date.now();
 
       pollIntervalRef.current = setInterval(async () => {
         try {
-          // Client-side stall watchdog: only timeout if progress is frozen for > 3 minutes, or total job exceeds 15 minutes
-          const isStalled = Date.now() - lastProgressChangeTime > 180000;
-          const isMaxTimeout = Date.now() - pollStart > 900000;
-          if (isStalled || isMaxTimeout) {
+          // Hard safety limit: 15 minutes overall (allows large 4K / 60fps renders to finish without being prematurely killed)
+          if (Date.now() - pollStart > 900000) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
-            setErrorMsg(isStalled
-              ? 'Processing stalled. Please try again with a different clip or preset.'
-              : 'Watermark removal timed out after 15 minutes.');
+            setErrorMsg('Watermark removal timed out after 15 minutes. Please try again with a smaller file or different preset.');
             return;
           }
 
@@ -368,10 +363,12 @@ export function WatermarkRemoverContent({
 
             if (poll.status === 'processing') {
               const rawPct = typeof poll.progress === 'number' ? poll.progress : 15;
-              const newPct = Math.max(lastProgress, Math.max(12, Math.min(99, Math.round(rawPct))));
-              if (newPct > lastProgress) {
-                lastProgress = newPct;
-                lastProgressChangeTime = Date.now();
+              const targetPct = Math.max(lastProgress, Math.min(99, Math.round(rawPct)));
+              if (targetPct > lastProgress) {
+                lastProgress = targetPct;
+              } else if (lastProgress < 95) {
+                // Gently advance progress so UI stays responsive while the server encodes frames
+                lastProgress = Math.min(95, lastProgress + 1);
               }
               setProgress(lastProgress);
               setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
@@ -395,8 +392,8 @@ export function WatermarkRemoverContent({
             return;
           }
           consecutiveErrors++;
-          // Tolerate up to 12 consecutive polling ticks (36 seconds) to accommodate dyno initialization or MongoDB replication
-          if (consecutiveErrors >= 12) {
+          // Tolerate up to 20 consecutive polling ticks (60 seconds) to accommodate dyno initialization or MongoDB replication
+          if (consecutiveErrors >= 20) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
             setErrorMsg(err?.message || 'Server connection interrupted while processing. Please try again.');
