@@ -6937,8 +6937,8 @@ export default function Design() {
 
   const [isEraseMode, setIsEraseMode] = useState(false);
   const [eraseTool, setEraseTool] = useState<'brush' | 'area'>('brush');
-  const [brushScalePercent, setBrushScalePercent] = useState<number>(25);
-  const brushRadius = Math.max(4, Math.min(60, Math.round((brushScalePercent / 100) * 50)));
+  const [brushScalePercent, setBrushScalePercent] = useState<number>(10);
+  const brushRadius = Math.max(2, Math.min(45, Math.round((brushScalePercent / 100) * 35)));
   const [eraseBox, setEraseBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
   const [rubStrokes, setRubStrokes] = useState<RubStroke[]>([]);
@@ -6972,13 +6972,13 @@ export default function Design() {
     }
     if (total === 0) return null;
 
-    const padX = ((radius + 6) / (rectW || 380)) * 100;
-    const padY = ((radius + 6) / (rectH || 500)) * 100;
+    const padX = ((radius + 2) / (rectW || 380)) * 100;
+    const padY = ((radius + 2) / (rectH || 500)) * 100;
 
     const boxX = Math.max(0, minX - padX);
     const boxY = Math.max(0, minY - padY);
-    const boxW = Math.min(100 - boxX, Math.max(2, (maxX - minX) + padX * 2));
-    const boxH = Math.min(100 - boxY, Math.max(2, (maxY - minY) + padY * 2));
+    const boxW = Math.min(100 - boxX, Math.max(1, (maxX - minX) + padX * 2));
+    const boxH = Math.min(100 - boxY, Math.max(1, (maxY - minY) + padY * 2));
 
     return {
       x: Math.round(boxX * 10) / 10,
@@ -7088,7 +7088,7 @@ export default function Design() {
       const handleEnd = () => {
         setIsDrawingEraseBox(false);
         setEraseBox((prev) => {
-          if (!prev || prev.width < 1.5 || prev.height < 1.5) return null;
+          if (!prev || prev.width < 0.5 || prev.height < 0.5) return null;
           const curRect = getImageElementRect();
           const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
           const autoScale = Math.max(14, Math.min(80, Math.round((dispW * prev.width) / 100)));
@@ -13054,7 +13054,7 @@ export default function Design() {
                           height: `${brushRadius * 2}px`,
                           transform: 'translate(-50%, -50%)',
                         }}
-                        className="pointer-events-none absolute z-30 rounded-full border-2 border-red-400 bg-red-400/20 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                        className="pointer-events-none absolute z-30 rounded-full border border-red-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-red-400/10"
                       />
                     )}
 
@@ -13069,16 +13069,13 @@ export default function Design() {
                           height: `${eraseBox.height}%`,
                           zIndex: 30,
                         }}
-                        className="border-[1.5px] border-dashed border-amber-400 bg-amber-400/10 shadow-[0_0_8px_rgba(251,191,36,0.25)] pointer-events-none select-none"
+                        className="border border-amber-300 shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-transparent pointer-events-none select-none"
                       >
-                        {/* Sleek L-shaped corner brackets (never obstruct inner logo pixels) */}
-                        <div className="absolute -top-[1px] -left-[1px] w-2 h-2 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
-                        <div className="absolute -top-[1px] -right-[1px] w-2 h-2 border-t-2 border-r-2 border-amber-400 pointer-events-none" />
-                        <div className="absolute -bottom-[1px] -left-[1px] w-2 h-2 border-b-2 border-l-2 border-amber-400 pointer-events-none" />
-                        <div className="absolute -bottom-[1px] -right-[1px] w-2 h-2 border-b-2 border-r-2 border-amber-400 pointer-events-none" />
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-xs text-amber-300 border border-amber-400/40 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap">
-                          {isDrawingEraseBox ? 'Selecting…' : `${Math.round(eraseBox.width)}% × ${Math.round(eraseBox.height)}%`}
-                        </div>
+                        {isDrawingEraseBox && (
+                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black/80 text-amber-300 border border-amber-400/30 text-[8px] font-mono px-1 py-0 rounded pointer-events-none whitespace-nowrap shadow-sm">
+                            {Math.round(eraseBox.width)}% × {Math.round(eraseBox.height)}%
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -13243,7 +13240,7 @@ export default function Design() {
                         </span>
                         <input
                           type="range"
-                          min={5}
+                          min={2}
                           max={100}
                           step={1}
                           value={brushScalePercent}
@@ -13255,7 +13252,7 @@ export default function Design() {
                           {brushScalePercent}%
                         </span>
                         <div className="hidden sm:flex items-center gap-1">
-                          {[10, 25, 50, 75].map((pct) => (
+                          {[5, 10, 20, 40].map((pct) => (
                             <button
                               key={pct}
                               type="button"
@@ -13274,7 +13271,13 @@ export default function Design() {
                     ) : (
                       <div className="flex items-center gap-2 text-xs text-amber-300/80 flex-1">
                         <span className="text-amber-400 font-bold">🪄 Canva Area Mode:</span>
-                        <span>Drag a rectangle tightly around any logo or text block on the image.</span>
+                        <span>
+                          {eraseBox ? (
+                            <span>Selected <strong className="text-amber-300 font-mono">{Math.round(eraseBox.width)}% × {Math.round(eraseBox.height)}%</strong> area — ready to erase</span>
+                          ) : (
+                            'Drag a rectangle tightly around any logo or text block on the image.'
+                          )}
+                        </span>
                       </div>
                     )}
 
