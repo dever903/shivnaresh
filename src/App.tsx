@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Menu, X } from 'lucide-react';
 import Design from './pages/Design';
+import RemoveLogo from './pages/RemoveLogo';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 import Pricing from './pages/Pricing';
@@ -25,6 +26,7 @@ const BRAND_MARK = '/brand-mark-white.png';
 const NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Design', href: '/design' },
+  { label: 'Remove Logo', href: '/remove-logo' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -647,6 +649,7 @@ export default function App() {
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/$/, "") || "/";
 
   if (path === "/design" || path.startsWith("/design/")) return <Design />;
+  if (path === "/remove-logo" || path.startsWith("/remove-logo/")) return <RemoveLogo />;
   if (path === "/admin" || path.startsWith("/admin/")) return <Admin />;
   if (path === "/login" || path.startsWith("/login/")) return <Login />;
   if (path === "/pricing" || path.startsWith("/pricing/")) return <Pricing />;

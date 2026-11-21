@@ -3005,6 +3005,133 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
+/* --------------------------------------------------- WATERMARK REMOVER */
+const WATERMARK_API_URL = process.env.WATERMARK_REMOVER_URL || 'http://127.0.0.1:8789';
+const WATERMARK_API_KEY = process.env.WATERMARK_REMOVER_KEY || 'wr_6QiEcsy8Z4y-Mq-RVAiwYyfwNwrcwKitCepRKA';
+
+// 1. Service health check
+app.get('/api/watermark/health', async (_req, res) => {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const r = await fetch(`${WATERMARK_API_URL}/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) return res.status(503).json({ ok: false, error: 'service_unavailable' });
+    const data = await r.json();
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return res.status(503).json({ ok: false, error: 'service_offline', message: 'Watermark remover service is offline on ' + WATERMARK_API_URL });
+  }
+});
+
+// 2. Remove watermark from uploaded file (multipart stream or json dataUrl)
+app.post('/api/watermark/remove', async (req, res) => {
+  try {
+    if (req.user && req.user.watermarkAccess === false) {
+      return res.status(403).json({
+        error: 'watermark_access_disabled',
+        message: 'Watermark remover feature is disabled for your account by administrator.'
+      });
+    }
+
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      const url = new URL('/v1/remove', WATERMARK_API_URL);
+      const isHttps = url.protocol === 'https:';
+      const httpModule = isHttps ? await import('node:https') : await import('node:http');
+      
+      const upstreamReq = httpModule.request(url, {
+        method: 'POST',
+        headers: {
+          'content-type': req.headers['content-type'],
+          'content-length': req.headers['content-length'] || undefined,
+          'X-API-Key': WATERMARK_API_KEY,
+        },
+      }, (upstreamRes) => {
+        res.status(upstreamRes.statusCode || 200);
+        for (const [k, v] of Object.entries(upstreamRes.headers)) {
+          if (v && ['content-type', 'content-length'].includes(k.toLowerCase())) {
+            res.setHeader(k, v);
+          }
+        }
+        upstreamRes.pipe(res);
+      });
+
+      upstreamReq.on('error', (err) => {
+        console.error('[WATERMARK PROXY ERROR]', err);
+        if (!res.headersSent) {
+          res.status(502).json({ error: 'upstream_error', message: 'Failed to communicate with watermark service: ' + err.message });
+        }
+      });
+
+      req.pipe(upstreamReq);
+    } else if (req.body && req.body.dataUrl) {
+      const { name = 'video.mp4', dataUrl, region = 'auto', mode = 'delogo', crf = 18 } = req.body;
+      const base64Data = dataUrl.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      const form = new FormData();
+      form.append('file', new Blob([buffer]), name);
+      if (region) form.append('region', region);
+      if (mode) form.append('mode', mode);
+      if (crf) form.append('crf', String(crf));
+
+      const r = await fetch(`${WATERMARK_API_URL}/v1/remove`, {
+        method: 'POST',
+        headers: { 'X-API-Key': WATERMARK_API_KEY },
+        body: form,
+      });
+
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      return res.json(data);
+    } else {
+      return res.status(400).json({ error: 'bad_request', message: 'Send multipart/form-data or json dataUrl' });
+    }
+  } catch (err) {
+    console.error('[WATERMARK REMOVE ERROR]', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'server_error', message: String(err.message || err) });
+    }
+  }
+});
+
+// 3. Poll job status
+app.get('/api/watermark/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await fetch(`${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}`, {
+      headers: { 'X-API-Key': WATERMARK_API_KEY },
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json(data);
+    return res.json(data);
+  } catch (err) {
+    return res.status(502).json({ error: 'upstream_error', message: String(err.message || err) });
+  }
+});
+
+// 4. Download clean output
+app.get('/api/watermark/download/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const downloadUrl = `${WATERMARK_API_URL}/v1/jobs/${encodeURIComponent(id)}/download?token=${encodeURIComponent(WATERMARK_API_KEY)}`;
+    const r = await fetch(downloadUrl);
+    if (!r.ok) {
+      return res.status(r.status).json({ error: 'download_failed', message: 'Output not ready or not found' });
+    }
+    const contentType = r.headers.get('content-type') || 'video/mp4';
+    const contentDisposition = r.headers.get('content-disposition') || `attachment; filename="clean_${id}.mp4"`;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', contentDisposition);
+    
+    const arrayBuffer = await r.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    return res.status(500).json({ error: 'download_error', message: String(err.message || err) });
+  }
+});
+
 /* -------------------------------------------------------------- FASHN */
 /* NOTE: Fashn API only accepts specific fields inside `inputs`:
    - product_image, model_image, prompt (for tryon-max)
@@ -6168,6 +6295,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.modelsGenerated === 'number') patch.modelsGenerated = Math.max(0, Math.floor(body.modelsGenerated));
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
+    if (typeof body.watermarkAccess === 'boolean') patch.watermarkAccess = body.watermarkAccess;
     if (typeof body.planExpiresAt === 'number') patch.planExpiresAt = body.planExpiresAt;
 
     const targetTier = patch.tier || user.tier || 'free';

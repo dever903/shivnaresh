@@ -390,6 +390,7 @@ export default function Admin() {
     maxVideos?: number;
     maxModels?: number;
     creditsLocked?: boolean;
+    watermarkAccess?: boolean;
     features?: { hd2k?: boolean; fivePose?: boolean; video?: boolean; customRequests?: boolean };
     saving?: boolean;
     saved?: boolean;
@@ -1773,6 +1774,7 @@ ${log.stack || 'None'}
       maxVideos: edits.maxVideos !== undefined ? edits.maxVideos : (user.maxVideos ?? (chosenTier === 'ultra' ? 30 : chosenTier === 'pro' ? 15 : chosenTier === 'ondemand' ? 10 : 3)),
       maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? (chosenTier === 'ultra' ? 100 : chosenTier === 'pro' ? 50 : chosenTier === 'ondemand' ? 25 : 5)),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
+      watermarkAccess: edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false),
       features: edits.features !== undefined ? {
         ...edits.features,
         customRequests: Boolean(edits.features.customRequests !== undefined ? edits.features.customRequests : isUltra),
@@ -4162,6 +4164,26 @@ ${log.stack || 'None'}
                               title="Toggle Bespoke Custom Requests"
                             >
                               Custom {currentFeatures.customRequests ? 'On' : 'Off'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false);
+                                setUserRowEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: { ...(prev[user.id] || {}), watermarkAccess: !current },
+                                }));
+                              }}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
+                                (edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false))
+                                  ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40'
+                                  : isLight
+                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                    : 'bg-white/5 text-white/30 border border-white/10'
+                              }`}
+                              title="Enable or Disable Logo / Watermark Remover"
+                            >
+                              Logo {(edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false)) ? 'On' : 'Off'}
                             </button>
                           </div>
                         );

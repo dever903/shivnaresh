@@ -113,11 +113,13 @@ export type User = {
   maxModels?: number;
   modelsGenerated?: number;
   photoshootOffer?: PhotoshootOffer | null;
+  watermarkAccess?: boolean;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
     video?: boolean;
     customRequests?: boolean;
+    watermarkRemover?: boolean;
   };
 };
 
@@ -260,11 +262,13 @@ export type AdminUser = {
   videosGenerated?: number;
   modelsGenerated?: number;
   photoshootOffer?: PhotoshootOffer | null;
+  watermarkAccess?: boolean;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
     video?: boolean;
     customRequests?: boolean;
+    watermarkRemover?: boolean;
   };
   createdAt: string | null;
 };
@@ -852,6 +856,39 @@ export const api = {
         totalHostedImages: number;
       };
     }>('/api/admin/storage-status'),
+
+  /* watermark remover */
+  watermarkHealth: () => request<{ ok: boolean; service?: string }>('/api/watermark/health'),
+  watermarkRemove: async (formData: FormData): Promise<{ job_id: string; status: string; kind?: string }> => {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch('/api/watermark/remove', {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      let errDetail = 'Failed to process media';
+      try {
+        const errJson = await res.json();
+        errDetail = errJson.message || errJson.detail || errJson.error || errDetail;
+      } catch {}
+      throw new Error(errDetail);
+    }
+    return res.json();
+  },
+  watermarkJobStatus: (id: string) =>
+    request<{
+      job_id: string;
+      status: 'queued' | 'processing' | 'done' | 'error';
+      progress: number;
+      output?: string;
+      bytes?: number;
+      error?: string;
+      meta?: any;
+    }>(`/api/watermark/jobs/${encodeURIComponent(id)}`),
+  watermarkDownloadUrl: (id: string) => `/api/watermark/download/${encodeURIComponent(id)}`,
 };
 
 export function fileToDataUrl(file: File): Promise<string> {

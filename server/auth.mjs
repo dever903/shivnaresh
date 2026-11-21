@@ -427,11 +427,13 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         modelsGenerated: typeof user.modelsGenerated === 'number' ? user.modelsGenerated : 0,
         photoshootOffer: user.photoshootOffer || null,
         admin2fa: Boolean(user.admin2fa),
+        watermarkAccess: user.watermarkAccess !== false,
         features: {
           hd2k: Boolean(user.features?.hd2k || user.tier === 'ultra'),
           fivePose: Boolean(user.features?.fivePose || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
           video: Boolean(user.features?.video || ['ondemand', 'pro', 'ultra'].includes(user.tier)),
           customRequests: Boolean(user.features?.customRequests || ['pro', 'ultra'].includes(user.tier)),
+          watermarkRemover: Boolean(user.watermarkAccess !== false),
         },
       }
       : null;
