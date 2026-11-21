@@ -17,11 +17,13 @@ import { useTheme } from '../lib/theme';
 import { api, type User } from '../lib/api';
 import SiteFooter from '../components/SiteFooter';
 
-export default function RemoveLogo() {
-  const { theme, toggleTheme } = useTheme();
-  const isLight = theme === 'light';
-
-  const [me, setMe] = useState<User | null>(null);
+export function WatermarkRemoverContent({
+  user,
+  isLight = false,
+}: {
+  user?: User | null;
+  isLight?: boolean;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -44,23 +46,8 @@ export default function RemoveLogo() {
   const pollIntervalRef = useRef<any>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.me();
-        setMe(res.user);
-      } catch {
-        /* guest / unauthenticated */
-      }
-    })();
-
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, []);
-
-  /* Cleanup object URLs when component unmounts */
-  useEffect(() => {
-    return () => {
       if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -161,8 +148,8 @@ export default function RemoveLogo() {
             setStatus('error');
             setErrorMsg(poll.error || 'Failed to remove watermark. Please try again.');
           }
-        } catch (err: any) {
-          /* transient poll error - continue polling */
+        } catch {
+          /* transient poll error */
         }
       }, 1500);
     } catch (err: any) {
@@ -197,8 +184,310 @@ export default function RemoveLogo() {
     document.body.removeChild(a);
   };
 
-  /* Access check: if logged in user has watermarkAccess === false, show restricted access */
-  const isAccessBlocked = me && me.watermarkAccess === false;
+  const isAccessBlocked = user && user.watermarkAccess === false;
+
+  return (
+    <div className="space-y-6 w-full">
+      {/* Title Header */}
+      <div className="text-center space-y-3 mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+          <Sparkles size={13} />
+          Lossless Zero-Footprint Inpainting
+        </div>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight">
+          Remove Video Logo & Watermark
+        </h1>
+        <p className="mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed opacity-75">
+          Upload video in any format (MP4, MOV, MKV, WEBM). Our AI edge-matching engine removes watermarks, sparkles, and hallucinated logos without degrading video resolution, framerate, or audio fidelity.
+        </p>
+      </div>
+
+      {/* Access Restricted Banner if disabled by Admin */}
+      {isAccessBlocked ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center space-y-4 max-w-lg mx-auto">
+          <ShieldAlert size={40} className="mx-auto text-red-500" />
+          <h2 className="text-lg font-bold text-red-400">Access Restricted by Administrator</h2>
+          <p className="text-xs leading-relaxed opacity-80">
+            The Logo Remover feature is currently disabled for your account. Please reach out to your administrator to request activation.
+          </p>
+          <a
+            href="/contact"
+            className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
+          >
+            Contact Support
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Upload Box / Drag & Drop */}
+          {!file ? (
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => inputRef.current?.click()}
+              className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 text-center transition-all ${
+                dragActive
+                  ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01]'
+                  : isLight
+                  ? 'border-gray-400/60 bg-white/60 hover:bg-white/90 hover:border-gray-600'
+                  : 'border-white/15 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/30'
+              }`}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept="video/*,image/*,.mp4,.mov,.m4v,.mkv,.webm"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4 border border-emerald-500/20">
+                <UploadCloud size={32} />
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold tracking-tight">
+                Drag & drop video here, or <span className="text-emerald-500 underline underline-offset-4">browse</span>
+              </h3>
+              <p className="mt-2 text-xs opacity-60">
+                Supports MP4, MOV, WEBM, MKV (up to 400 MB). Resolution and audio tracks are 100% preserved.
+              </p>
+            </div>
+          ) : (
+            /* Selected Video / Progress / Result View */
+            <div
+              className={`rounded-2xl border p-6 sm:p-8 space-y-6 transition-colors ${
+                isLight ? 'border-gray-300 bg-white/90 shadow-sm' : 'border-white/10 bg-white/[0.03]'
+              }`}
+            >
+              {/* File Info Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <FileVideo size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-semibold truncate max-w-[280px] sm:max-w-md">
+                      {file.name}
+                    </h4>
+                    <p className="text-[11px] opacity-60">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type || 'Video'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {status === 'idle' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowOptions(!showOptions)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        showOptions
+                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-500'
+                          : isLight
+                          ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      <Sliders size={13} />
+                      Settings
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    disabled={status === 'uploading' || status === 'processing'}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+                      isLight ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Change Video
+                  </button>
+                </div>
+              </div>
+
+              {/* Collapsible Quality / Region Settings */}
+              {showOptions && status === 'idle' && (
+                <div className={`p-4 rounded-xl border space-y-4 text-xs ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-black/30 border-white/10'}`}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold mb-1 opacity-80">Watermark Detection Mode</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRegionMode('auto')}
+                          className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition ${
+                            regionMode === 'auto'
+                              ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
+                              : 'opacity-60 border-transparent hover:opacity-100'
+                          }`}
+                        >
+                          Auto Detect (Corner)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRegionMode('custom')}
+                          className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition ${
+                            regionMode === 'custom'
+                              ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
+                              : 'opacity-60 border-transparent hover:opacity-100'
+                          }`}
+                        >
+                          Manual Box (x,y,w,h)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold mb-1 opacity-80">Output Video Quality (CRF)</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="14"
+                          max="24"
+                          step="1"
+                          value={crf}
+                          onChange={(e) => setCrf(Number(e.target.value))}
+                          className="flex-1 accent-emerald-500"
+                        />
+                        <span className="font-mono text-emerald-500 font-bold">{crf} {crf <= 18 ? '(Master)' : '(Compact)'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {regionMode === 'custom' && (
+                    <div>
+                      <label className="block font-semibold mb-1 opacity-80">Coordinates: x, y, width, height (e.g. 863,1703,80,80)</label>
+                      <input
+                        type="text"
+                        value={customRegion}
+                        onChange={(e) => setCustomRegion(e.target.value)}
+                        placeholder="x, y, width, height"
+                        className={`w-full rounded-lg px-3 py-1.5 border text-xs font-mono ${
+                          isLight ? 'bg-white border-gray-300' : 'bg-black/60 border-white/20'
+                        }`}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Video Preview or Comparison */}
+              <div className="relative aspect-video max-h-[460px] w-full overflow-hidden rounded-xl bg-black flex items-center justify-center border border-white/10">
+                {status === 'done' && jobId ? (
+                  <video
+                    src={api.watermarkDownloadUrl(jobId)}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="h-full w-full object-contain"
+                  />
+                ) : previewUrl ? (
+                  <video
+                    src={previewUrl}
+                    controls
+                    playsInline
+                    className="h-full w-full object-contain"
+                  />
+                ) : null}
+
+                {status === 'processing' && (
+                  <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                    <RefreshCw size={36} className="text-emerald-500 animate-spin mb-4" />
+                    <h4 className="text-base font-semibold text-white">{statusMessage}</h4>
+                    <p className="text-xs text-white/60 mt-1 max-w-sm">
+                      Preserving 100% video resolution and audio stream...
+                    </p>
+                    <div className="w-full max-w-xs mt-4 bg-white/10 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full transition-all duration-300 ease-out"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono font-bold text-emerald-400 mt-2">{progress}%</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Status / Output Meta */}
+              {outputMeta && (
+                <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4 text-xs font-mono ${isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-500" />
+                    <span>Resolution: {outputMeta.width}×{outputMeta.height}</span>
+                  </div>
+                  <span>FPS: {Math.round(outputMeta.fps || 30)}</span>
+                  <span>Duration: {Number(outputMeta.duration || 0).toFixed(1)}s</span>
+                  <span>Region Cleaned: [{outputMeta.region?.w}×{outputMeta.region?.h}px]</span>
+                </div>
+              )}
+
+              {/* Error Banner */}
+              {errorMsg && (
+                <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 flex items-center gap-3 text-xs">
+                  <AlertCircle size={18} className="shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* Primary Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                {status === 'done' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={resetAll}
+                      className={`w-full sm:w-auto rounded-full border px-6 py-2.5 text-xs font-semibold transition-colors ${
+                        isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      Process Another Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadCleanVideo}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-7 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
+                    >
+                      <Download size={14} />
+                      Download Clean Video
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startRemoval}
+                    disabled={status === 'uploading' || status === 'processing'}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-8 py-3 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                  >
+                    {status === 'uploading' || status === 'processing' ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        Processing…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        Remove Logo & Watermark
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function RemoveLogo() {
+  const { theme, toggleTheme } = useTheme();
+  const isLight = theme === 'light';
+  const [me, setMe] = useState<User | null>(null);
+
+  useEffect(() => {
+    api.me().then((res) => setMe(res.user)).catch(() => {});
+  }, []);
 
   return (
     <div
@@ -269,294 +558,7 @@ export default function RemoveLogo() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-4 sm:px-6 py-12 flex-1 w-full">
-        {/* Title Header */}
-        <div className="text-center space-y-3 mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <Sparkles size={13} />
-            Lossless Zero-Footprint Inpainting
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight">
-            Remove Logo & Watermark
-          </h1>
-          <p className="mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed opacity-75">
-            Upload video in any format (MP4, MOV, MKV, WEBM). Our AI edge-matching engine removes watermarks, sparkles, and hallucinated logos without degrading video resolution, framerate, or audio fidelity.
-          </p>
-        </div>
-
-        {/* Access Restricted Banner if disabled by Admin */}
-        {isAccessBlocked ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center space-y-4 max-w-lg mx-auto">
-            <ShieldAlert size={40} className="mx-auto text-red-500" />
-            <h2 className="text-lg font-bold text-red-400">Access Restricted by Administrator</h2>
-            <p className="text-xs leading-relaxed opacity-80">
-              The Logo Remover feature is currently disabled for your account. Please reach out to your administrator to request activation.
-            </p>
-            <a
-              href="/contact"
-              className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-2.5 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
-            >
-              Contact Support
-            </a>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Upload Box / Drag & Drop */}
-            {!file ? (
-              <div
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
-                className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 text-center transition-all ${
-                  dragActive
-                    ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01]'
-                    : isLight
-                    ? 'border-gray-400/60 bg-white/60 hover:bg-white/90 hover:border-gray-600'
-                    : 'border-white/15 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/30'
-                }`}
-              >
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="video/*,image/*,.mp4,.mov,.m4v,.mkv,.webm"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4 border border-emerald-500/20">
-                  <UploadCloud size={32} />
-                </div>
-                <h3 className="text-base sm:text-lg font-semibold tracking-tight">
-                  Drag & drop video here, or <span className="text-emerald-500 underline underline-offset-4">browse</span>
-                </h3>
-                <p className="mt-2 text-xs opacity-60">
-                  Supports MP4, MOV, WEBM, MKV (up to 400 MB). Resolution and audio tracks are 100% preserved.
-                </p>
-              </div>
-            ) : (
-              /* Selected Video / Progress / Result View */
-              <div
-                className={`rounded-2xl border p-6 sm:p-8 space-y-6 transition-colors ${
-                  isLight ? 'border-gray-300 bg-white/90 shadow-sm' : 'border-white/10 bg-white/[0.03]'
-                }`}
-              >
-                {/* File Info Bar */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <FileVideo size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-semibold truncate max-w-[280px] sm:max-w-md">
-                        {file.name}
-                      </h4>
-                      <p className="text-[11px] opacity-60">
-                        {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type || 'Video'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {status === 'idle' && (
-                      <button
-                        type="button"
-                        onClick={() => setShowOptions(!showOptions)}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          showOptions
-                            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-500'
-                            : isLight
-                            ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                            : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
-                        }`}
-                      >
-                        <Sliders size={13} />
-                        Settings
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={resetAll}
-                      disabled={status === 'uploading' || status === 'processing'}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
-                        isLight ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
-                      }`}
-                    >
-                      Change Video
-                    </button>
-                  </div>
-                </div>
-
-                {/* Collapsible Quality / Region Settings */}
-                {showOptions && status === 'idle' && (
-                  <div className={`p-4 rounded-xl border space-y-4 text-xs ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-black/30 border-white/10'}`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block font-semibold mb-1 opacity-80">Watermark Detection Mode</label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setRegionMode('auto')}
-                            className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition ${
-                              regionMode === 'auto'
-                                ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
-                                : 'opacity-60 border-transparent hover:opacity-100'
-                            }`}
-                          >
-                            Auto Detect (Corner)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRegionMode('custom')}
-                            className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition ${
-                              regionMode === 'custom'
-                                ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
-                                : 'opacity-60 border-transparent hover:opacity-100'
-                            }`}
-                          >
-                            Manual Box (x,y,w,h)
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block font-semibold mb-1 opacity-80">Output Video Quality (CRF)</label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="14"
-                            max="24"
-                            step="1"
-                            value={crf}
-                            onChange={(e) => setCrf(Number(e.target.value))}
-                            className="flex-1 accent-emerald-500"
-                          />
-                          <span className="font-mono text-emerald-500 font-bold">{crf} {crf <= 18 ? '(Master)' : '(Compact)'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {regionMode === 'custom' && (
-                      <div>
-                        <label className="block font-semibold mb-1 opacity-80">Coordinates: x, y, width, height (e.g. 863,1703,80,80)</label>
-                        <input
-                          type="text"
-                          value={customRegion}
-                          onChange={(e) => setCustomRegion(e.target.value)}
-                          placeholder="x, y, width, height"
-                          className={`w-full rounded-lg px-3 py-1.5 border text-xs font-mono ${
-                            isLight ? 'bg-white border-gray-300' : 'bg-black/60 border-white/20'
-                          }`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Video Preview or Comparison */}
-                <div className="relative aspect-video max-h-[460px] w-full overflow-hidden rounded-xl bg-black flex items-center justify-center border border-white/10">
-                  {status === 'done' && jobId ? (
-                    <video
-                      src={api.watermarkDownloadUrl(jobId)}
-                      controls
-                      autoPlay
-                      playsInline
-                      className="h-full w-full object-contain"
-                    />
-                  ) : previewUrl ? (
-                    <video
-                      src={previewUrl}
-                      controls
-                      playsInline
-                      className="h-full w-full object-contain"
-                    />
-                  ) : null}
-
-                  {status === 'processing' && (
-                    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
-                      <RefreshCw size={36} className="text-emerald-500 animate-spin mb-4" />
-                      <h4 className="text-base font-semibold text-white">{statusMessage}</h4>
-                      <p className="text-xs text-white/60 mt-1 max-w-sm">
-                        Preserving 100% video resolution and audio stream...
-                      </p>
-                      <div className="w-full max-w-xs mt-4 bg-white/10 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-emerald-500 h-full transition-all duration-300 ease-out"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono font-bold text-emerald-400 mt-2">{progress}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Status / Output Meta */}
-                {outputMeta && (
-                  <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4 text-xs font-mono ${isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                      <span>Resolution: {outputMeta.width}×{outputMeta.height}</span>
-                    </div>
-                    <span>FPS: {Math.round(outputMeta.fps || 30)}</span>
-                    <span>Duration: {Number(outputMeta.duration || 0).toFixed(1)}s</span>
-                    <span>Region Cleaned: [{outputMeta.region?.w}×{outputMeta.region?.h}px]</span>
-                  </div>
-                )}
-
-                {/* Error Banner */}
-                {errorMsg && (
-                  <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 flex items-center gap-3 text-xs">
-                    <AlertCircle size={18} className="shrink-0" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
-
-                {/* Primary Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
-                  {status === 'done' ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={resetAll}
-                        className={`w-full sm:w-auto rounded-full border px-6 py-2.5 text-xs font-semibold transition-colors ${
-                          isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
-                        }`}
-                      >
-                        Process Another Video
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadCleanVideo}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-7 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
-                      >
-                        <Download size={14} />
-                        Download Clean Video
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={startRemoval}
-                      disabled={status === 'uploading' || status === 'processing'}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-8 py-3 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20"
-                    >
-                      {status === 'uploading' || status === 'processing' ? (
-                        <>
-                          <RefreshCw size={14} className="animate-spin" />
-                          Processing…
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={14} />
-                          Remove Logo & Watermark
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <WatermarkRemoverContent user={me} isLight={isLight} />
       </main>
 
       <SiteFooter />

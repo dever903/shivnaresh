@@ -60,6 +60,7 @@ import {
   type User,
   type UserGeneration,
 } from '../lib/api';
+import { WatermarkRemoverContent } from './RemoveLogo';
 
 type Pick = { url: string; name: string; preview?: string } | null;
 
@@ -6662,7 +6663,19 @@ export default function Design() {
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
-  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'compare'>('studio');
+  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'watermark' || window.location.hash === '#watermark') return 'watermark';
+      if (tab === 'video') return 'video';
+      if (tab === 'my-sets') return 'my-sets';
+      if (tab === 'custom-requests') return 'custom-requests';
+      if (tab === 'deliveries') return 'deliveries';
+      if (tab === 'compare') return 'compare';
+    } catch { }
+    return 'studio';
+  });
 
   const [mode, setMode] = useState<ModeId>('tryon');
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
@@ -9929,6 +9942,7 @@ export default function Design() {
                 unread: deliveriesUnreadCount,
               },
               { id: 'video', label: 'Video Studio' },
+              { id: 'watermark', label: 'Remove Watermark' },
               { id: 'compare', label: 'Split Compare' },
             ].map((v) => (
               <button
@@ -10163,6 +10177,13 @@ export default function Design() {
           onClose={() => setPageView('studio')}
           onSetCloth={setCloth}
         />
+      )}
+
+      {/* ============= WATERMARK REMOVER VIEW ============= */}
+      {pageView === 'watermark' && (
+        <div className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
+          <WatermarkRemoverContent user={user} isLight={isLight} />
+        </div>
       )}
 
       {/* ============= STUDIO VIEW ============= */}
