@@ -3279,10 +3279,11 @@ function resolveDelogoRegion(width, height, spec) {
   return { x, y, w, h };
 }
 
-function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast', duration = 0, onProgress, hasAudio = true) {
+function runFfmpegDelogo(inPath, outPath, region, crf = 20, preset = 'ultrafast', duration = 0, onProgress, hasAudio = true) {
   return new Promise((resolve, reject) => {
     const vf = `delogo=x=${region.x}:y=${region.y}:w=${region.w}:h=${region.h}`;
     const audioArgs = hasAudio ? ['-map', '0:a:0?', '-c:a', 'copy'] : ['-an'];
+    const safeThreads = '2';
     const args = [
       '-y', '-nostdin', '-hide_banner', '-loglevel', 'error',
       '-i', inPath,
@@ -3291,10 +3292,11 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
       '-c:v', 'libx264',
       '-preset', preset,
       '-tune', 'fastdecode',
-      '-threads', '0',
+      '-threads', safeThreads,
       '-crf', String(crf),
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
+      '-max_muxing_queue_size', '2048',
       ...audioArgs,
       '-progress', 'pipe:1',
       '-nostats',
@@ -3399,10 +3401,11 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
           '-c:v', 'libx264',
           '-preset', preset,
           '-tune', 'fastdecode',
-          '-threads', '0',
+          '-threads', safeThreads,
           '-crf', String(crf),
           '-pix_fmt', 'yuv420p',
           '-movflags', '+faststart',
+          '-max_muxing_queue_size', '2048',
           '-an',
           '-progress', 'pipe:1',
           '-nostats',
@@ -3479,9 +3482,11 @@ async function processBuiltinWatermarkJob(jid, inPath, outPath, isVideo, regionS
 
     const info = probeMedia(inPath);
     const region = resolveDelogoRegion(info.width, info.height, regionSpec);
+    // Optimize CRF for video dimensions to avoid huge encoding delays on high-resolution streams
+    const effectiveCrf = (info.width > 1280 || info.height > 1280) ? Math.max(crf || 18, 22) : (crf || 18);
 
     if (isVideo) {
-      await runFfmpegDelogo(inPath, outPath, region, crf, 'ultrafast', info.duration, async (pct) => {
+      await runFfmpegDelogo(inPath, outPath, region, effectiveCrf, 'ultrafast', info.duration, async (pct) => {
         job.progress = Math.max(10, Math.min(99, pct));
         await saveLocalWatermarkJob(jid, job);
       }, info.hasAudio);

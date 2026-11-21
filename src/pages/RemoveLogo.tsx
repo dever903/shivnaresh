@@ -346,14 +346,17 @@ export function WatermarkRemoverContent({
       let consecutiveErrors = 0;
       const pollStart = Date.now();
       let lastProgress = 12;
+      let lastAdvanceTime = Date.now();
 
       pollIntervalRef.current = setInterval(async () => {
         try {
-          // Hard safety limit: 15 minutes overall (allows large 4K / 60fps renders to finish without being prematurely killed)
-          if (Date.now() - pollStart > 900000) {
+          const now = Date.now();
+          // Dynamic stall watchdog: only times out if NO progress has been made for 6 minutes,
+          // OR if total job time exceeds 25 minutes.
+          if (now - lastAdvanceTime > 360000 || now - pollStart > 1500000) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
-            setErrorMsg('Watermark removal timed out after 15 minutes. Please try again with a smaller file or different preset.');
+            setErrorMsg('Watermark removal took longer than expected. Please click "Remove Logo & Watermark" to retry or try a shorter clip.');
             return;
           }
 
@@ -366,6 +369,7 @@ export function WatermarkRemoverContent({
               const targetPct = Math.max(lastProgress, Math.min(99, Math.round(rawPct)));
               if (targetPct > lastProgress) {
                 lastProgress = targetPct;
+                lastAdvanceTime = Date.now();
               } else if (lastProgress < 95) {
                 // Gently advance progress so UI stays responsive while the server encodes frames
                 lastProgress = Math.min(95, lastProgress + 1);
