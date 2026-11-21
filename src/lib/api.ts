@@ -397,7 +397,9 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
+// Ignore dead/suspended external domains to ensure reliable unified same-origin routing
+const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
 
 export function resolveImageUrl(url: string | null | undefined): string {
   if (!url) return '';
@@ -427,6 +429,9 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
       const response = await fetch(targetUrl, { ...init, headers, signal });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new ApiError('Server rate limit reached (429). Retrying automatically…', 429);
+        }
         if (response.status === 502 || response.status === 503 || response.status === 504) {
           throw new ApiError(`Server waking up or redeploying (${response.status})`, response.status);
         }
@@ -437,14 +442,14 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
     } catch (err: any) {
       lastError = err;
       if (err instanceof ApiError) {
-        // Do not retry predictable client errors (400 Bad Request, 401 Unauthorized, 403 Forbidden, 409 Conflict)
-        if (err.status < 500 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
+        // Do not retry predictable client errors (400, 401, 403, 404), BUT DO RETRY 429 & 502/503/504
+        if (err.status < 500 && err.status !== 429 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
           throw err;
         }
       }
-      // Wait and retry with progressive backoff on transient network/502/redeploy errors
+      // Wait and retry with progressive backoff on transient network/429/502/redeploy errors
       if (attempt < effectiveRetries) {
-        const delayMs = Math.min(8000, 1500 * (attempt + 1));
+        const delayMs = err?.status === 429 ? 2500 * (attempt + 1) : Math.min(8000, 1500 * (attempt + 1));
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
@@ -458,6 +463,9 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
     }
     if (msg.includes('failed to fetch') || lastError.name === 'TypeError') {
       throw new Error('Server connection was momentarily interrupted. Please try again.');
+    }
+    if (lastError instanceof ApiError && lastError.status === 429) {
+      throw new Error('Server is temporarily busy (429). Please wait a moment and try again.');
     }
   }
   throw lastError || new Error('Request failed');
@@ -863,13 +871,17 @@ export const api = {
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch('/api/watermark/remove', {
+    const targetUrl = API_BASE ? `${API_BASE}/api/watermark/remove` : '/api/watermark/remove';
+    const res = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body: formData,
     });
     if (!res.ok) {
-      let errDetail = 'Failed to process media';
+      if (res.status === 429) {
+        throw new Error('Watermark processing queue is temporarily busy (429). Please wait a moment and try again.');
+      }
+      let errDetail = `Failed to process media (${res.status})`;
       try {
         const errJson = await res.json();
         errDetail = errJson.message || errJson.detail || errJson.error || errDetail;
@@ -888,7 +900,7 @@ export const api = {
       error?: string;
       meta?: any;
     }>(`/api/watermark/jobs/${encodeURIComponent(id)}`),
-  watermarkDownloadUrl: (id: string) => `/api/watermark/download/${encodeURIComponent(id)}`,
+  watermarkDownloadUrl: (id: string) => (API_BASE ? `${API_BASE}/api/watermark/download/${encodeURIComponent(id)}` : `/api/watermark/download/${encodeURIComponent(id)}`),
 };
 
 export function fileToDataUrl(file: File): Promise<string> {

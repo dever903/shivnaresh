@@ -2620,7 +2620,8 @@ function MySetsPanel({
                                 const el = e.currentTarget;
                                 const curSrc = el.src || '';
                                 if (!curSrc.includes('/api/proxy-image') && primary.startsWith('http')) {
-                                  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+                                  const rawBase = (import.meta.env.VITE_API_URL || '').trim();
+                                  const apiBase = rawBase.includes('shivnaresh-api.onrender.com') ? '' : rawBase.replace(/\/+$/, '');
                                   el.src = `${apiBase}/api/proxy-image?url=${encodeURIComponent(primary)}`;
                                   return;
                                 }

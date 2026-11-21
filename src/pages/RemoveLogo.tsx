@@ -168,15 +168,19 @@ export function WatermarkRemoverContent({
             setErrorMsg(poll.detail || poll.message);
           }
         } catch (err: any) {
+          // If transient 429 rate limit happens, simply back off and wait for the next poll
+          if (err?.status === 429 || String(err?.message || '').includes('429')) {
+            return;
+          }
           consecutiveErrors++;
-          // If 6 consecutive polls fail (9 seconds of solid network or server failure)
-          if (consecutiveErrors >= 6) {
+          // If 8 consecutive polls fail (20 seconds of solid network or server failure)
+          if (consecutiveErrors >= 8) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
             setErrorMsg(err?.message || 'Server connection interrupted while processing. Please try again.');
           }
         }
-      }, 1500);
+      }, 2500);
     } catch (err: any) {
       setStatus('error');
       setErrorMsg(err.message || 'Failed to start watermark removal service.');
@@ -217,13 +221,13 @@ export function WatermarkRemoverContent({
       <div className="text-center space-y-3 mb-8">
         <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
           <Sparkles size={13} />
-          Lossless Zero-Footprint Inpainting
+          0 Credits Used · 100% Free · Lossless Video Inpainting
         </div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight">
           Remove Video Logo & Watermark
         </h1>
         <p className="mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed opacity-75">
-          Upload video in any format (MP4, MOV, MKV, WEBM). Our AI edge-matching engine removes watermarks, sparkles, and hallucinated logos without degrading video resolution, framerate, or audio fidelity.
+          Upload video in any format (MP4, MOV, MKV, WEBM). Runs on high-speed dedicated FFmpeg without consuming any account credits, Fashn.ai limits, or degrading original 100% resolution, framerate, or audio.
         </p>
       </div>
 

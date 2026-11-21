@@ -3,7 +3,8 @@ import { Eye, EyeOff, KeyRound, Mail, ShieldCheck, ArrowLeft, RefreshCw, X } fro
 import { api, ApiError, getToken, setToken, type User } from '../lib/api';
 import { useTheme, ThemeToggle } from '../lib/theme';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
+const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
 
 const FIELD =
   'mt-2 w-full rounded-xl border border-white/12 bg-black/50 px-3.5 py-3 pr-11 text-sm text-white placeholder:text-white/25 focus:border-white/45 focus:outline-none focus:ring-0';
