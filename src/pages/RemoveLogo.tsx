@@ -53,12 +53,12 @@ export function WatermarkRemoverContent({
   /* Interactive visual watermark box */
   const [videoMeta, setVideoMeta] = useState<{ width: number; height: number } | null>(null);
   const [targetBox, setTargetBox] = useState<{ x: number; y: number; w: number; h: number }>({
-    x: 0.79,
-    y: 0.84,
-    w: 0.19,
-    h: 0.13,
+    x: 0.77,
+    y: 0.69,
+    w: 0.075,
+    h: 0.045,
   });
-  const [boxSize, setBoxSize] = useState<'compact' | 'standard' | 'large'>('standard');
+  const [boxSize, setBoxSize] = useState<'tight' | 'standard' | 'wide'>('tight');
   const [interactiveBox, setInteractiveBox] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -85,12 +85,12 @@ export function WatermarkRemoverContent({
     setDuration(v.duration || 0);
     if (regionMode === 'auto') {
       if (h > w * 1.2) {
-        // Vertical portrait video (Reels/Shorts) - place target on bottom-right star
-        setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
+        // Vertical portrait video (Reels/Shorts) - place tight target on star
+        setTargetBox({ x: 0.77, y: 0.69, w: 0.075, h: 0.045 });
       } else if (w >= h * 1.2) {
-        setTargetBox({ x: 0.82, y: 0.82, w: 0.16, h: 0.15 });
+        setTargetBox({ x: 0.82, y: 0.82, w: 0.08, h: 0.06 });
       } else {
-        setTargetBox({ x: 0.78, y: 0.82, w: 0.18, h: 0.16 });
+        setTargetBox({ x: 0.78, y: 0.82, w: 0.08, h: 0.06 });
       }
     }
   };
@@ -127,20 +127,20 @@ export function WatermarkRemoverContent({
   const applyPreset = (mode: 'auto' | 'bottom-right' | 'mid-star' | 'landscape' | 'bottom-left' | 'top-right') => {
     setRegionMode(mode);
     const isVert = videoMeta ? videoMeta.height > videoMeta.width * 1.2 : true;
-    let tb = { x: 0.79, y: 0.84, w: 0.19, h: 0.13 };
+    let tb = { x: 0.77, y: 0.69, w: 0.075, h: 0.045 };
     if (mode === 'bottom-right') {
-      tb = { x: 0.79, y: 0.84, w: 0.19, h: 0.13 };
+      tb = { x: 0.78, y: 0.83, w: 0.075, h: 0.045 };
     } else if (mode === 'mid-star') {
-      tb = { x: 0.76, y: 0.69, w: 0.22, h: 0.125 };
+      tb = { x: 0.77, y: 0.69, w: 0.075, h: 0.045 };
     } else if (mode === 'auto') {
-      tb = isVert ? { x: 0.79, y: 0.84, w: 0.19, h: 0.13 } : { x: 0.82, y: 0.82, w: 0.16, h: 0.15 };
+      tb = isVert ? { x: 0.77, y: 0.69, w: 0.075, h: 0.045 } : { x: 0.82, y: 0.82, w: 0.08, h: 0.06 };
       setCustomRegion('');
     } else if (mode === 'landscape') {
-      tb = { x: 0.82, y: 0.82, w: 0.16, h: 0.15 };
+      tb = { x: 0.82, y: 0.82, w: 0.08, h: 0.06 };
     } else if (mode === 'bottom-left') {
-      tb = { x: 0.02, y: 0.84, w: 0.19, h: 0.13 };
+      tb = { x: 0.03, y: 0.83, w: 0.075, h: 0.045 };
     } else if (mode === 'top-right') {
-      tb = { x: 0.76, y: 0.02, w: 0.20, h: 0.12 };
+      tb = { x: 0.77, y: 0.03, w: 0.075, h: 0.045 };
     }
     setTargetBox(tb);
     if (mode !== 'auto' && videoMeta) {
@@ -182,17 +182,17 @@ export function WatermarkRemoverContent({
     const normX = clickX / wrapperRect.width;
     const normY = clickY / wrapperRect.height;
 
-    let bw = 0.19;
-    let bh = 0.13;
-    if (boxSize === 'compact') {
-      bw = 0.15;
-      bh = 0.09;
-    } else if (boxSize === 'large') {
-      bw = 0.26;
-      bh = 0.16;
-    } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
-      bw = 0.17;
-      bh = 0.15;
+    let bw = 0.075;
+    let bh = 0.045;
+    if (boxSize === 'tight') {
+      bw = 0.065;
+      bh = 0.04;
+    } else if (boxSize === 'wide') {
+      bw = 0.11;
+      bh = 0.07;
+    } else if (boxSize === 'standard') {
+      bw = 0.085;
+      bh = 0.055;
     }
 
     const leftNorm = Math.max(0.005, Math.min(normX - bw / 2, 0.995 - bw));
@@ -213,19 +213,16 @@ export function WatermarkRemoverContent({
     }
   };
 
-  const changeBoxSize = (size: 'compact' | 'standard' | 'large') => {
+  const changeBoxSize = (size: 'tight' | 'standard' | 'wide') => {
     setBoxSize(size);
-    let bw = 0.19;
-    let bh = 0.13;
-    if (size === 'compact') {
-      bw = 0.15;
-      bh = 0.09;
-    } else if (size === 'large') {
-      bw = 0.26;
-      bh = 0.16;
-    } else if (videoMeta && videoMeta.width > videoMeta.height * 1.2) {
-      bw = 0.17;
-      bh = 0.15;
+    let bw = 0.065;
+    let bh = 0.04;
+    if (size === 'standard') {
+      bw = 0.085;
+      bh = 0.055;
+    } else if (size === 'wide') {
+      bw = 0.11;
+      bh = 0.07;
     }
     const newBox = {
       ...targetBox,
@@ -294,7 +291,8 @@ export function WatermarkRemoverContent({
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
-    setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
+    setTargetBox({ x: 0.77, y: 0.69, w: 0.075, h: 0.045 });
+    setBoxSize('tight');
     setCustomRegion('');
     setRegionMode('auto');
 
@@ -418,7 +416,8 @@ export function WatermarkRemoverContent({
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
-    setTargetBox({ x: 0.79, y: 0.84, w: 0.19, h: 0.13 });
+    setTargetBox({ x: 0.77, y: 0.69, w: 0.075, h: 0.045 });
+    setBoxSize('tight');
     setCustomRegion('');
     setRegionMode('auto');
     if (inputRef.current) inputRef.current.value = '';
@@ -738,27 +737,27 @@ export function WatermarkRemoverContent({
                     <div className="inline-flex rounded-lg p-0.5 bg-black/60 border border-white/10">
                       <button
                         type="button"
-                        onClick={() => changeBoxSize('compact')}
+                        onClick={() => changeBoxSize('tight')}
                         className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
-                          boxSize === 'compact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                          boxSize === 'tight' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
-                        Compact
+                        ⭐ Tight (Zero Blur)
                       </button>
                       <button
                         type="button"
                         onClick={() => changeBoxSize('standard')}
                         className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
-                          boxSize === 'standard' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                          boxSize === 'standard' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
-                        Standard (Star)
+                        Standard
                       </button>
                       <button
                         type="button"
-                        onClick={() => changeBoxSize('large')}
+                        onClick={() => changeBoxSize('wide')}
                         className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
-                          boxSize === 'large' ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/60 hover:text-white'
+                          boxSize === 'wide' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
                         Wide

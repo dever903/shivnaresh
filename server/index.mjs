@@ -3124,46 +3124,50 @@ function probeMedia(filePath) {
 }
 
 function resolveDelogoRegion(width, height, spec) {
+  const isVertical = height > width * 1.2;
+  // Precise tight star dimensions: ~7% of width, ~4.5% of height
+  const tightW = Math.max(28, Math.round(width * 0.075));
+  const tightH = Math.max(24, Math.round(height * 0.045));
+
   // 1. Preset or explicit 4-point coordinates: "x,y,w,h"
   if (spec && typeof spec === 'string' && spec.toLowerCase() !== 'auto') {
     const s = spec.trim().toLowerCase();
-    if (s === 'bottom-right' || s === 'br' || s === 'corner') {
-      const isVertical = height > width * 1.2;
-      const x = Math.max(4, Math.round(width * 0.78));
-      const w = Math.min(width - x - 4, Math.round(width * 0.19));
-      const y = isVertical ? Math.round(height * 0.83) : Math.round(height * 0.80);
-      const h = isVertical ? Math.min(height - y - 4, Math.round(height * 0.14)) : Math.min(height - y - 4, Math.round(height * 0.16));
+    if (s === 'bottom-right' || s === 'br') {
+      const w = isVertical ? tightW : Math.round(width * 0.09);
+      const h = isVertical ? tightH : Math.round(height * 0.06);
+      const x = Math.max(2, Math.round(width * 0.82 - w / 2));
+      const y = Math.max(2, Math.round(height * 0.85 - h / 2));
       return { x, y, w, h };
     }
-    if (s === 'mid-star') {
-      const x = Math.max(4, Math.round(width * 0.76));
-      const w = Math.min(width - x - 4, Math.round(width * 0.22));
-      const y = Math.max(4, Math.round(height * 0.69));
-      const h = Math.min(height - y - 4, Math.round(height * 0.125));
+    if (s === 'mid-star' || s === 'star') {
+      const w = tightW;
+      const h = tightH;
+      const x = Math.max(2, Math.round(width * 0.81 - w / 2));
+      const y = Math.max(2, Math.round(height * 0.715 - h / 2));
       return { x, y, w, h };
     }
     if (s === 'bottom-left' || s === 'bl') {
-      const isVertical = height > width * 1.2;
-      const x = Math.max(4, Math.round(width * 0.03));
-      const w = Math.min(width - x - 4, Math.round(width * 0.20));
-      const y = isVertical ? Math.round(height * 0.83) : Math.round(height * 0.80);
-      const h = isVertical ? Math.min(height - y - 4, Math.round(height * 0.14)) : Math.min(height - y - 4, Math.round(height * 0.16));
+      const w = isVertical ? tightW : Math.round(width * 0.09);
+      const h = isVertical ? tightH : Math.round(height * 0.06);
+      const x = Math.max(2, Math.round(width * 0.04));
+      const y = Math.max(2, Math.round(height * (isVertical ? 0.85 : 0.82) - h / 2));
       return { x, y, w, h };
     }
     if (s === 'top-right' || s === 'tr') {
-      const x = Math.max(4, Math.round(width * 0.76));
-      const w = Math.min(width - x - 4, Math.round(width * 0.22));
-      const y = Math.max(4, Math.round(height * 0.04));
-      const h = Math.round(height * 0.12);
+      const w = isVertical ? tightW : Math.round(width * 0.09);
+      const h = isVertical ? tightH : Math.round(height * 0.06);
+      const x = Math.max(2, Math.round(width * 0.81 - w / 2));
+      const y = Math.max(2, Math.round(height * 0.04));
       return { x, y, w, h };
     }
-    if (s === 'landscape-corner') {
-      const x = Math.max(4, Math.round(width * 0.82));
-      const w = Math.min(width - x - 4, Math.round(width * 0.16));
-      const y = Math.max(4, Math.round(height * 0.82));
-      const h = Math.min(height - y - 4, Math.round(height * 0.15));
+    if (s === 'landscape-corner' || s === 'corner') {
+      const w = Math.round(width * 0.09);
+      const h = Math.round(height * 0.06);
+      const x = Math.max(2, Math.round(width * 0.82));
+      const y = Math.max(2, Math.round(height * 0.82));
       return { x, y, w, h };
     }
+
     const rawParts = spec.trim().split(/[,\s]+/).map((s) => s.replace('%', ''));
     const parts = rawParts.map(Number);
     if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
@@ -3175,6 +3179,17 @@ function resolveDelogoRegion(width, height, spec) {
         w = Math.round(w * factor * width);
         h = Math.round(h * factor * height);
       }
+      // Tighten oversized boxes around their center to prevent background blur smears when hands or objects move
+      const maxW = Math.max(48, Math.round(width * 0.10));
+      const maxH = Math.max(40, Math.round(height * 0.065));
+      if (w > maxW || h > maxH) {
+        const cx = x + Math.round(w / 2);
+        const cy = y + Math.round(h / 2);
+        w = Math.min(w, maxW);
+        h = Math.min(h, maxH);
+        x = cx - Math.round(w / 2);
+        y = cy - Math.round(h / 2);
+      }
       x = Math.max(2, Math.min(Math.round(x), width - 10));
       y = Math.max(2, Math.min(Math.round(y), height - 10));
       w = Math.max(8, Math.min(Math.round(w), width - x - 2));
@@ -3185,29 +3200,29 @@ function resolveDelogoRegion(width, height, spec) {
 
   // 2. Intelligent Auto-Detection based on aspect ratio
   // Vertical 9:16 portrait video (Google Veo, Gemini, Flow AI Reels/Shorts/TikTok)
-  // Sparkle star is placed at 69%-81% of video height (above phone bottom chrome)
-  if (height > width * 1.2) {
-    const x = Math.max(4, Math.round(width * 0.76));
-    const w = Math.min(width - x - 4, Math.round(width * 0.22));
-    const y = Math.max(4, Math.round(height * 0.69));
-    const h = Math.min(height - y - 4, Math.round(height * 0.125));
+  // Tight star box placed directly on the sparkle (x~81%, y~71.5%)
+  if (isVertical) {
+    const w = tightW;
+    const h = tightH;
+    const x = Math.max(2, Math.round(width * 0.81 - w / 2));
+    const y = Math.max(2, Math.round(height * 0.715 - h / 2));
     return { x, y, w, h };
   }
 
   // Horizontal 16:9 landscape video
   if (width >= height * 1.2) {
-    const x = Math.max(4, Math.round(width * 0.82));
-    const w = Math.min(width - x - 4, Math.round(width * 0.16));
-    const y = Math.max(4, Math.round(height * 0.80));
-    const h = Math.min(height - y - 4, Math.round(height * 0.16));
+    const w = Math.round(width * 0.09);
+    const h = Math.round(height * 0.06);
+    const x = Math.max(2, Math.round(width * 0.84 - w / 2));
+    const y = Math.max(2, Math.round(height * 0.84 - h / 2));
     return { x, y, w, h };
   }
 
   // Square and general video formats
-  const x = Math.max(4, Math.round(width * 0.80));
-  const w = Math.min(width - x - 4, Math.round(width * 0.18));
-  const y = Math.max(4, Math.round(height * 0.80));
-  const h = Math.min(height - y - 4, Math.round(height * 0.18));
+  const w = Math.round(width * 0.09);
+  const h = Math.round(height * 0.06);
+  const x = Math.max(2, Math.round(width * 0.82 - w / 2));
+  const y = Math.max(2, Math.round(height * 0.82 - h / 2));
   return { x, y, w, h };
 }
 
