@@ -346,14 +346,19 @@ export function WatermarkRemoverContent({
       let consecutiveErrors = 0;
       const pollStart = Date.now();
       let lastProgress = 12;
+      let lastProgressChangeTime = Date.now();
 
       pollIntervalRef.current = setInterval(async () => {
         try {
-          // Hard client-side timeout after 5 minutes
-          if (Date.now() - pollStart > 300000) {
+          // Client-side stall watchdog: only timeout if progress is frozen for > 3 minutes, or total job exceeds 15 minutes
+          const isStalled = Date.now() - lastProgressChangeTime > 180000;
+          const isMaxTimeout = Date.now() - pollStart > 900000;
+          if (isStalled || isMaxTimeout) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
-            setErrorMsg('Watermark removal timed out after 5 minutes. Please try again with a smaller file or different preset.');
+            setErrorMsg(isStalled
+              ? 'Processing stalled. Please try again with a different clip or preset.'
+              : 'Watermark removal timed out after 15 minutes.');
             return;
           }
 
@@ -363,7 +368,11 @@ export function WatermarkRemoverContent({
 
             if (poll.status === 'processing') {
               const rawPct = typeof poll.progress === 'number' ? poll.progress : 15;
-              lastProgress = Math.max(lastProgress, Math.max(12, Math.min(99, Math.round(rawPct))));
+              const newPct = Math.max(lastProgress, Math.max(12, Math.min(99, Math.round(rawPct))));
+              if (newPct > lastProgress) {
+                lastProgress = newPct;
+                lastProgressChangeTime = Date.now();
+              }
               setProgress(lastProgress);
               setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
             } else if (poll.status === 'queued') {
