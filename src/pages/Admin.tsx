@@ -5180,6 +5180,15 @@ ${log.stack || 'None'}
                         <img
                           src={item.url}
                           alt={item.name}
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
+                              el.src = `/models/${encodeURIComponent(item.id)}`;
+                            } else {
+                              const parent = el.closest('div');
+                              if (parent) (parent as HTMLElement).style.display = 'none';
+                            }
+                          }}
                           className="aspect-[3/4] w-full object-cover cursor-pointer"
                           onClick={() => setLightboxImg(item.url)}
                         />

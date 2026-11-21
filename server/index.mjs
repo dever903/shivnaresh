@@ -962,8 +962,39 @@ async function toDataUri(src) {
 
 let cachedModelCategories = null;
 let cachedModelsTime = 0;
+let hasSyncedModelsDisk = false;
+
+async function syncStudioModelsToDisk() {
+  if (hasSyncedModelsDisk) return;
+  hasSyncedModelsDisk = true;
+  try {
+    const db = await getMongoDb();
+    if (!db) return;
+    const cursor = db.collection('studio_models').find({ deleted: { $ne: true }, dataUrl: { $exists: true } }).batchSize(10);
+    while (await cursor.hasNext()) {
+      const m = await cursor.next();
+      if (!m || !m.category || !m.id || !m.dataUrl) continue;
+      const parts = String(m.id).split('/');
+      const fileName = parts.length > 1 ? parts[1] : (m.name || 'model');
+      const safeCat = String(m.category).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+      if (!safeCat) continue;
+      const targetDir = path.join(MODELS_DIR, safeCat);
+      const targetFile = path.join(targetDir, fileName);
+      if (!fsSync.existsSync(targetFile)) {
+        const match = /^data:image\/([a-zA-Z0-9+.-]+)(?:;[a-zA-Z0-9=._-]+)*;base64,(.*)$/is.exec(m.dataUrl);
+        if (match) {
+          await fs.mkdir(targetDir, { recursive: true });
+          await fs.writeFile(targetFile, Buffer.from(match[2].replace(/\s+/g, ''), 'base64')).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[sync] studio_models auto-sync error:', err.message);
+  }
+}
 
 async function listModels(forceFresh = false) {
+  void syncStudioModelsToDisk();
   const now = Date.now();
   if (!forceFresh && cachedModelCategories && now - cachedModelsTime < 30_000) {
     return cachedModelCategories;
@@ -984,13 +1015,20 @@ async function listModels(forceFresh = false) {
           deletedSet.add(m.id);
           continue;
         }
+        if (!m.name || m.name === 'undefined' || !m.category) continue;
         if (!categoriesMap.has(m.category)) {
           categoriesMap.set(m.category, new Map());
         }
+        const parts = String(m.id || '').split('/');
+        const fileName = parts.length > 1 ? parts[1] : (m.name || 'model');
+        const safeLocalUrl = `/models/${encodeURIComponent(m.category)}/${encodeURIComponent(fileName)}`;
+        const validRemote = (m.remoteUrl && !m.remoteUrl.includes('ibb.co') && !m.remoteUrl.includes('imgbb')) ? m.remoteUrl : null;
+        const validUrl = (m.url && !m.url.includes('ibb.co') && !m.url.includes('imgbb')) ? m.url : null;
+
         categoriesMap.get(m.category).set(m.id, {
           id: m.id,
-          name: m.name,
-          url: m.remoteUrl || m.url || `/models/${encodeURIComponent(m.category)}/${encodeURIComponent(m.name || 'model')}`,
+          name: m.name || fileName.replace(/\.[^.]+$/, ''),
+          url: validRemote || validUrl || safeLocalUrl,
           createdAt: m.createdAt || 0,
         });
       }
@@ -1038,7 +1076,9 @@ async function listModels(forceFresh = false) {
       for (const catItems of categoriesMap.values()) {
         for (const item of catItems.values()) {
           const remote = hosted.models[item.id];
-          if (remote) item.url = remote;
+          if (remote && !remote.includes('ibb.co') && !remote.includes('imgbb')) {
+            item.url = remote;
+          }
         }
       }
     }
@@ -1303,14 +1343,20 @@ app.use('/models', async (req, res, next) => {
     try {
       const db = await getMongoDb();
       if (db) {
-        const doc = await db.collection('studio_models').findOne({ id: decodedPath });
+        const doc = await db.collection('studio_models').findOne({
+          $or: [{ id: decodedPath }, { id: req.path.replace(/^\//, '') }]
+        });
         if (doc?.dataUrl) {
-          const match = /^data:image\/([a-zA-Z0-9]+);base64,(.+)$/.exec(doc.dataUrl);
+          const match = /^data:image\/([a-zA-Z0-9+.-]+)(?:;[a-zA-Z0-9=._-]+)*;base64,(.*)$/is.exec(doc.dataUrl);
           if (match) {
-            const ext = match[1].toLowerCase() === 'jpg' ? 'jpeg' : match[1].toLowerCase();
+            const rawExt = match[1].toLowerCase().replace(/svg\+xml/, 'svg');
+            const ext = rawExt === 'jpg' ? 'jpeg' : rawExt;
+            const buf = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
+            // Cache on disk so subsequent requests serve directly
+            fs.mkdir(path.dirname(candidate1), { recursive: true }).then(() => fs.writeFile(candidate1, buf)).catch(() => {});
             res.setHeader('Content-Type', `image/${ext}`);
             res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
-            return res.send(Buffer.from(match[2], 'base64'));
+            return res.send(buf);
           }
         }
       }
@@ -2318,15 +2364,17 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       let publicUrl = `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(fileName)}`;
       let remoteUrl = null;
       try {
-        const hosted = await hostImage(rawBuffer, `${safeCat}-${fileName}`);
-        if (hosted?.url) {
-          publicUrl = hosted.url;
-          remoteUrl = hosted.url;
-          map.models[modelId] = hosted.url;
-          mapChanged = true;
+        if (item.imageData) {
+          const cdn = await uploadToCloudinary(item.imageData, 'admin-models', `${safeCat}-${fileName}`);
+          if (cdn?.url && !cdn.url.startsWith('/') && !cdn.url.includes('ibb.co')) {
+            publicUrl = cdn.url;
+            remoteUrl = cdn.url;
+            map.models[modelId] = cdn.url;
+            mapChanged = true;
+          }
         }
       } catch (hostErr) {
-        console.warn('[admin-model] Image hosting fallback to local:', hostErr.message);
+        console.warn('[admin-model] Cloudinary upload fallback to local static:', hostErr?.message || hostErr);
       }
 
       // Persist in MongoDB studio_models so models survive Render redeploys and container restarts

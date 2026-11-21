@@ -11438,7 +11438,21 @@ export default function Design() {
                                       : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
                                       }`}
                                   >
-                                    <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                    <img
+                                      src={item.url}
+                                      alt={item.name}
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        const el = e.currentTarget;
+                                        if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
+                                          el.src = `/models/${encodeURIComponent(item.id)}`;
+                                        } else {
+                                          const parent = el.closest('button, div');
+                                          if (parent) (parent as HTMLElement).style.display = 'none';
+                                        }
+                                      }}
+                                      className="aspect-[3/4] w-full object-cover"
+                                    />
                                   </button>
                                 ))}
                               </div>
@@ -12472,7 +12486,21 @@ export default function Design() {
                                           : 'border-transparent hover:border-white/30'
                                         }`}
                                     >
-                                      <img src={item.url} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-cover" />
+                                      <img
+                                      src={item.url}
+                                      alt={item.name}
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        const el = e.currentTarget;
+                                        if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
+                                          el.src = `/models/${encodeURIComponent(item.id)}`;
+                                        } else {
+                                          const parent = el.closest('button, div');
+                                          if (parent) (parent as HTMLElement).style.display = 'none';
+                                        }
+                                      }}
+                                      className="aspect-[3/4] w-full object-cover"
+                                    />
                                       {isSelected && (
                                         <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
                                           ✓
