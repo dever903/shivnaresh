@@ -373,7 +373,11 @@ export function WatermarkRemoverContent({
               setProgress(lastProgress);
               setStatusMessage(`Rendering clean frames… ${lastProgress}%`);
             } else if (poll.status === 'queued') {
-              setStatusMessage('Processing queue: Inpainting clean frame buffer…');
+              if (lastProgress < 15) {
+                lastProgress += 1;
+                setProgress(lastProgress);
+              }
+              setStatusMessage('Inpainting clean frame buffer…');
             } else if (poll.status === 'done') {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
               setProgress(100);

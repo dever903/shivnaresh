@@ -3030,17 +3030,21 @@ if (ffmpegPath && fsSync.existsSync(ffmpegPath)) {
 const RECENT_WATERMARK_REQUESTS = new Map();
 const LAST_WATERMARK_DISK_SAVE = new Map();
 const LAST_WATERMARK_DB_SAVE = new Map();
+const LAST_SAVED_STATUS = new Map();
 
 async function saveLocalWatermarkJob(jid, jobData) {
   if (!jid) return;
   LOCAL_WATERMARK_JOBS.set(jid, jobData);
 
   const now = Date.now();
-  const isTerminal = jobData.status === 'done' || jobData.status === 'error' || jobData.status === 'queued';
+  const currentStatus = jobData.status;
+  const prevStatus = LAST_SAVED_STATUS.get(jid);
+  const statusChanged = Boolean(currentStatus && currentStatus !== prevStatus);
+  const isTerminal = currentStatus === 'done' || currentStatus === 'error';
 
-  // 1. Disk persistence (throttled during per-frame progress to avoid I/O thrashing)
+  // 1. Disk persistence (always on status change or terminal, throttled to 1s otherwise)
   const lastDisk = LAST_WATERMARK_DISK_SAVE.get(jid) || 0;
-  if (isTerminal || now - lastDisk >= 1000) {
+  if (statusChanged || isTerminal || now - lastDisk >= 1000) {
     LAST_WATERMARK_DISK_SAVE.set(jid, now);
     try {
       const jdir = path.join(WATERMARK_JOBS_DIR, jid);
@@ -3050,8 +3054,10 @@ async function saveLocalWatermarkJob(jid, jobData) {
   }
 
   // 2. MongoDB persistence
+  // When a milestone status change occurs (e.g. queued -> processing, processing -> done/error), ALWAYS persist immediately!
   const lastDb = LAST_WATERMARK_DB_SAVE.get(jid) || 0;
-  if (isTerminal) {
+  if (statusChanged || isTerminal) {
+    LAST_SAVED_STATUS.set(jid, currentStatus);
     LAST_WATERMARK_DB_SAVE.set(jid, now);
     try {
       const dbPromise = getMongoDb();
@@ -3068,10 +3074,10 @@ async function saveLocalWatermarkJob(jid, jobData) {
       }
     } catch (err) {
       if (err.message !== 'timeout') {
-        console.warn(`[watermark db save terminal] Warning for ${jid}:`, err.message);
+        console.warn(`[watermark db save milestone] Warning for ${jid}:`, err.message);
       }
     }
-  } else if (now - lastDb >= 3000) {
+  } else if (now - lastDb >= 2500) {
     LAST_WATERMARK_DB_SAVE.set(jid, now);
     (async () => {
       try {
@@ -3089,7 +3095,7 @@ async function saveLocalWatermarkJob(jid, jobData) {
         }
       } catch (err) {
         if (err.message !== 'timeout') {
-          console.warn(`[watermark db save] Warning for ${jid}:`, err.message);
+          console.warn(`[watermark db save progress] Warning for ${jid}:`, err.message);
         }
       }
     })();
@@ -3103,7 +3109,7 @@ async function getLocalWatermarkJob(jid) {
 
   // 1. If actively processing on this local Node worker, return memory cache immediately
   const mem = LOCAL_WATERMARK_JOBS.get(cleanId);
-  if (mem && mem.isLocalWorker) {
+  if (mem && mem.isLocalWorker && mem.status !== 'done' && mem.status !== 'error') {
     return mem;
   }
 
@@ -3117,7 +3123,7 @@ async function getLocalWatermarkJob(jid) {
         $or: [{ job_id: cleanId }, { _id: cleanId }]
       });
       if (doc) {
-        LOCAL_WATERMARK_JOBS.set(cleanId, doc);
+        LOCAL_WATERMARK_JOBS.set(cleanId, { ...mem, ...doc });
         return doc;
       }
     }
@@ -3127,10 +3133,8 @@ async function getLocalWatermarkJob(jid) {
     }
   }
 
-  // 3. In-memory fast cache
+  // 3. Fallback to memory or disk
   if (mem) return mem;
-
-  // 4. Disk persistence
   try {
     const p = path.join(WATERMARK_JOBS_DIR, cleanId, 'job.json');
     if (fsSync.existsSync(p)) {
@@ -3286,6 +3290,8 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
       '-map', '0:v:0',
       '-c:v', 'libx264',
       '-preset', preset,
+      '-tune', 'fastdecode',
+      '-threads', '0',
       '-crf', String(crf),
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
@@ -3392,6 +3398,8 @@ function runFfmpegDelogo(inPath, outPath, region, crf = 18, preset = 'veryfast',
           '-map', '0:v:0',
           '-c:v', 'libx264',
           '-preset', preset,
+          '-tune', 'fastdecode',
+          '-threads', '0',
           '-crf', String(crf),
           '-pix_fmt', 'yuv420p',
           '-movflags', '+faststart',
