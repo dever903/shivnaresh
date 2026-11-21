@@ -8676,33 +8676,62 @@ export default function Design() {
 
     if (allBorderSamples.length === 0) return { url: canvas.toDataURL('image/png') };
 
-    // 1. Dominant background fabric color estimation using channel medians
-    const sortedR = allBorderSamples.map((p) => p[0]).sort((a, b) => a - b);
-    const sortedG = allBorderSamples.map((p) => p[1]).sort((a, b) => a - b);
-    const sortedB = allBorderSamples.map((p) => p[2]).sort((a, b) => a - b);
-    const midIdx = Math.floor(allBorderSamples.length / 2);
-    const medFabricR = sortedR[midIdx];
-    const medFabricG = sortedG[midIdx];
-    const medFabricB = sortedB[midIdx];
+    // 1. Dominant garment fabric color estimation via 16-bin quantization clustering
+    // Correctly isolates true garment fabric even when borders touch the model's skin, hands, or gray studio background
+    const binCounts = new Map<string, { count: number; samples: number[][] }>();
+    for (const p of allBorderSamples) {
+      const key = `${Math.floor(p[0] / 16)}_${Math.floor(p[1] / 16)}_${Math.floor(p[2] / 16)}`;
+      let entry = binCounts.get(key);
+      if (!entry) {
+        entry = { count: 0, samples: [] };
+        binCounts.set(key, entry);
+      }
+      entry.count++;
+      entry.samples.push(p);
+    }
+
+    let dominantBinSamples = allBorderSamples;
+    let maxBinCount = 0;
+    for (const entry of binCounts.values()) {
+      if (entry.count > maxBinCount) {
+        maxBinCount = entry.count;
+        dominantBinSamples = entry.samples;
+      }
+    }
+
+    // Compute median of dominant garment fabric cluster
+    const fabricRList = dominantBinSamples.map((p) => p[0]).sort((a, b) => a - b);
+    const fabricGList = dominantBinSamples.map((p) => p[1]).sort((a, b) => a - b);
+    const fabricBList = dominantBinSamples.map((p) => p[2]).sort((a, b) => a - b);
+    const midIdx = Math.floor(dominantBinSamples.length / 2);
+    const medFabricR = fabricRList[midIdx];
+    const medFabricG = fabricGList[midIdx];
+    const medFabricB = fabricBList[midIdx];
     const dominantFabric = [medFabricR, medFabricG, medFabricB];
 
-    // Compute median color distance from dominant fabric to determine true fabric variance
-    const borderDists = allBorderSamples.map((p) => Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB)).sort((a, b) => a - b);
-    const medDist = borderDists[Math.floor(borderDists.length / 2)];
-    // Threshold to catch pattern dots (cyan chevron), zippers, and logo edges touching the boundary
-    const outlierThreshold = Math.max(16, medDist * 2.2);
+    // Compute standard deviation of dominant cluster
+    const clusterDists = dominantBinSamples.map((p) => Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB)).sort((a, b) => a - b);
+    const fabricStd = Math.max(2.0, clusterDists[Math.floor(clusterDists.length / 2)] || 2.0);
+    // Strict outlier cutoff: any border point > max(16, 2.5 * fabricStd) is non-fabric (background wall, hand/skin, zipper)
+    const outlierThreshold = Math.max(16, fabricStd * 2.5);
 
-    // Sanitize borders by replacing non-fabric pattern dots / zippers with clean fabric
+    // Sanitize borders: replace non-fabric points with clean garment fabric
     const sanitizeBorder = (arr: number[][]) => {
       for (let i = 0; i < arr.length; i++) {
         const dist = Math.hypot(arr[i][0] - medFabricR, arr[i][1] - medFabricG, arr[i][2] - medFabricB);
         if (dist > outlierThreshold) {
-          const neighbor = i > 0 && Math.hypot(arr[i - 1][0] - medFabricR, arr[i - 1][1] - medFabricG, arr[i - 1][2] - medFabricB) <= outlierThreshold
-            ? arr[i - 1]
-            : i < arr.length - 1 && Math.hypot(arr[i + 1][0] - medFabricR, arr[i + 1][1] - medFabricG, arr[i + 1][2] - medFabricB) <= outlierThreshold
-            ? arr[i + 1]
-            : dominantFabric;
-          arr[i] = [...neighbor];
+          let cleanNeighbor: number[] | null = null;
+          for (let offset = 1; offset < arr.length; offset++) {
+            if (i - offset >= 0 && Math.hypot(arr[i - offset][0] - medFabricR, arr[i - offset][1] - medFabricG, arr[i - offset][2] - medFabricB) <= outlierThreshold) {
+              cleanNeighbor = arr[i - offset];
+              break;
+            }
+            if (i + offset < arr.length && Math.hypot(arr[i + offset][0] - medFabricR, arr[i + offset][1] - medFabricG, arr[i + offset][2] - medFabricB) <= outlierThreshold) {
+              cleanNeighbor = arr[i + offset];
+              break;
+            }
+          }
+          arr[i] = [...(cleanNeighbor || dominantFabric)];
         }
       }
     };
@@ -8778,20 +8807,6 @@ export default function Design() {
 
     // Check whether user rubbed strokes (Brush mode) or drew a tight box (Canva Area mode)
     const hasRubStrokes = Boolean(strokes && strokes.length > 0);
-    const isAreaMode = !hasRubStrokes;
-
-    // Edge falloff: In Canva Area mode, user tightly selects the logo boundary, so use a minimal 6% feather (max 6px) to avoid leaving outer logo edges. In Rub mode, use 18% margin.
-    const featherX = isAreaMode ? Math.max(2, Math.min(6, Math.round(bw * 0.06))) : Math.max(4, Math.min(24, Math.round(bw * 0.18)));
-    const featherY = isAreaMode ? Math.max(2, Math.min(6, Math.round(bh * 0.06))) : Math.max(4, Math.min(24, Math.round(bh * 0.18)));
-    const getBoxFalloff = (c: number, r: number) => {
-      const edgeDistX = Math.min(c, bw - 1 - c);
-      const edgeDistY = Math.min(r, bh - 1 - r);
-      const fx = Math.min(1.0, edgeDistX / featherX);
-      const fy = Math.min(1.0, edgeDistY / featherY);
-      const easeX = 0.5 * (1 - Math.cos(Math.PI * fx));
-      const easeY = 0.5 * (1 - Math.cos(Math.PI * fy));
-      return easeX * easeY;
-    };
 
     const getBorderLum = (p: number[]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
     const topLums = topBorder.map(getBorderLum);
@@ -8809,7 +8824,8 @@ export default function Design() {
           const botSeamOffset = botLums[c] - medLum;
           const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
 
-          const falloff = getBoxFalloff(c, r);
+          const edgeDist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
+          const falloff = Math.min(1.0, edgeDist / 3.0);
 
           if (Math.abs(seamOffset) > 2) {
             data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * falloff)));
@@ -8820,40 +8836,6 @@ export default function Design() {
       }
     } else {
       // 4B. ERASE LOGO MODE: Zero-Blur Real Fabric Texture Synthesis
-      // Find cleanest adjacent garment fabric patch to act as real texture & weave donor
-      const candidateDonors = [
-        { dx: bw + 4, dy: 0 },    // Right side of logo
-        { dx: -bw - 4, dy: 0 },   // Left side of logo
-        { dx: 0, dy: bh + 4 },    // Below logo
-        { dx: 0, dy: -bh - 4 },   // Above logo
-      ];
-
-      let bestDonor = candidateDonors[0];
-      let bestDist = Infinity;
-
-      for (const cand of candidateDonors) {
-        const startX = bx + cand.dx;
-        const startY = by + cand.dy;
-        if (startX < 2 || startX + bw >= w - 2 || startY < 2 || startY + bh >= h - 2) continue;
-        let sumDist = 0;
-        let samples = 0;
-        for (let i = 0; i < 15; i++) {
-          const testX = startX + Math.floor((i / 15) * bw);
-          const testY = startY + Math.floor((((i * 7) % 15) / 15) * bh);
-          const p = getPixel(testX, testY);
-          sumDist += Math.hypot(p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB);
-          samples++;
-        }
-        const avgD = samples > 0 ? sumDist / samples : Infinity;
-        if (avgD < bestDist) {
-          bestDist = avgD;
-          bestDonor = cand;
-        }
-      }
-
-      const donorStartX = Math.max(0, Math.min(w - bw - 1, bx + bestDonor.dx));
-      const donorStartY = Math.max(0, Math.min(h - bh - 1, by + bestDonor.dy));
-
       const dispRect = getImageElementRect();
       const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
 
@@ -8897,7 +8879,6 @@ export default function Design() {
         }
       }
 
-      const inkThreshold = isAreaMode ? Math.max(8, medDist * 1.05) : Math.max(12, medDist * 1.35);
       const rawMask = new Uint8Array(bw * bh);
       let minInkX = bw;
       let maxInkX = 0;
@@ -8906,35 +8887,31 @@ export default function Design() {
       let inkPixelCount = 0;
 
       // Pass 1: Identify ink pixels
+      // In Brush mode: every pixel rubbed by user is targeted for complete erasure.
+      // In Area mode: identify any pixel differing from clean fabric by more than natural fabric variance.
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
-          if (hasRubStrokes && !rubMask[idx]) continue;
-          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-          const origR = data[pixelIdx];
-          const origG = data[pixelIdx + 1];
-          const origB = data[pixelIdx + 2];
-          const synthR = bufR[idx];
-          const synthG = bufG[idx];
-          const synthB = bufB[idx];
-          const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
-          if (colorDist > inkThreshold) {
-            rawMask[idx] = 1;
-            minInkX = Math.min(minInkX, c);
-            maxInkX = Math.max(maxInkX, c);
-            minInkY = Math.min(minInkY, r);
-            maxInkY = Math.max(maxInkY, r);
-            inkPixelCount++;
-          }
-        }
-      }
-
-      // If user rubbed strokes or selected an area box but ink contrast was faint, fallback to inpainting all targeted pixels
-      if (inkPixelCount < 5) {
-        for (let r = 0; r < bh; r++) {
-          for (let c = 0; c < bw; c++) {
-            const idx = r * bw + c;
-            if (hasRubStrokes ? rubMask[idx] : true) {
+          if (hasRubStrokes) {
+            if (rubMask[idx]) {
+              rawMask[idx] = 1;
+              minInkX = Math.min(minInkX, c);
+              maxInkX = Math.max(maxInkX, c);
+              minInkY = Math.min(minInkY, r);
+              maxInkY = Math.max(maxInkY, r);
+              inkPixelCount++;
+            }
+          } else {
+            const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+            const origR = data[pixelIdx];
+            const origG = data[pixelIdx + 1];
+            const origB = data[pixelIdx + 2];
+            const synthR = bufR[idx];
+            const synthG = bufG[idx];
+            const synthB = bufB[idx];
+            const colorDist = Math.hypot(origR - synthR, origG - synthG, origB - synthB);
+            const fabricDist = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
+            if (colorDist > Math.max(6, fabricStd * 1.5) || fabricDist > Math.max(8, fabricStd * 1.8)) {
               rawMask[idx] = 1;
               minInkX = Math.min(minInkX, c);
               maxInkX = Math.max(maxInkX, c);
@@ -8946,33 +8923,61 @@ export default function Design() {
         }
       }
 
-      // Pass 2: Dilate mask by 1px so anti-aliased edge halos are fully cleared without leaving ghost borders
-      const finalMask = new Uint8Array(bw * bh);
-      for (let r = 0; r < bh; r++) {
-        for (let c = 0; c < bw; c++) {
-          const idx = r * bw + c;
-          if (hasRubStrokes && !rubMask[idx]) continue;
-          if (rawMask[idx]) {
-            finalMask[idx] = 255;
-          } else {
-            const topM = r > 0 ? rawMask[idx - bw] : 0;
-            const botM = r < bh - 1 ? rawMask[idx + bw] : 0;
-            const leftM = c > 0 ? rawMask[idx - 1] : 0;
-            const rightM = c < bw - 1 ? rawMask[idx + 1] : 0;
-            if (topM || botM || leftM || rightM) {
-              finalMask[idx] = 210;
+      // If user selected an area box over a low-contrast/dark-on-dark logo, inpaint all interior pixels
+      if (inkPixelCount < 10) {
+        for (let r = 0; r < bh; r++) {
+          for (let c = 0; c < bw; c++) {
+            const idx = r * bw + c;
+            if (hasRubStrokes ? rubMask[idx] : (c >= 1 && c < bw - 1 && r >= 1 && r < bh - 1)) {
+              rawMask[idx] = 1;
+              minInkX = Math.min(minInkX, c);
+              maxInkX = Math.max(maxInkX, c);
+              minInkY = Math.min(minInkY, r);
+              maxInkY = Math.max(maxInkY, r);
+              inkPixelCount++;
             }
           }
         }
       }
 
-      // Pass 3: Inpaint ink pixels with real physical fabric weave texture (zero blur!)
+      // Pass 2: Dilate mask by 2px so anti-aliased edge halos and embroidery shadow fringes are 100% cleared
+      const finalMask = new Uint8Array(bw * bh);
+      for (let r = 0; r < bh; r++) {
+        for (let c = 0; c < bw; c++) {
+          const idx = r * bw + c;
+          if (rawMask[idx]) {
+            finalMask[idx] = 255;
+          } else {
+            let isNear = false;
+            for (let dy = -2; dy <= 2 && !isNear; dy++) {
+              for (let dx = -2; dx <= 2 && !isNear; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nr = r + dy;
+                const nc = c + dx;
+                if (nr >= 0 && nr < bh && nc >= 0 && nc < bw) {
+                  if (rawMask[nr * bw + nc]) isNear = true;
+                }
+              }
+            }
+            if (isNear) {
+              finalMask[idx] = 255;
+            }
+          }
+        }
+      }
+
+      // Calculate real garment micro-texture grain residuals from dominant fabric cluster (Zero-Blur!)
+      const grainResiduals = dominantBinSamples.map((p) => [p[0] - medFabricR, p[1] - medFabricG, p[2] - medFabricB]);
+      const grainStdR = Math.max(1.0, Math.min(5.0, Math.hypot(...grainResiduals.map((gr) => gr[0])) / Math.sqrt(grainResiduals.length || 1)));
+      const grainStdG = Math.max(1.0, Math.min(5.0, Math.hypot(...grainResiduals.map((gr) => gr[1])) / Math.sqrt(grainResiduals.length || 1)));
+      const grainStdB = Math.max(1.0, Math.min(5.0, Math.hypot(...grainResiduals.map((gr) => gr[2])) / Math.sqrt(grainResiduals.length || 1)));
+
+      // Pass 3: Reconstruct clean fabric with matching lighting gradient and real yarn weave grain
       for (let r = 0; r < bh; r++) {
         for (let c = 0; c < bw; c++) {
           const idx = r * bw + c;
           const maskVal = finalMask[idx];
-          if (maskVal === 0) continue; // 100% original fabric untouched!
-          if (hasRubStrokes && !rubMask[idx]) continue;
+          if (maskVal === 0) continue; // Original clean garment untouched!
 
           const pixelIdx = ((by + r) * w + (bx + c)) * 4;
           const origR = data[pixelIdx];
@@ -8983,20 +8988,23 @@ export default function Design() {
           const synthG = bufG[idx];
           const synthB = bufB[idx];
 
-          const falloff = getBoxFalloff(c, r);
-          const eraseWeight = (maskVal / 255.0) * falloff;
-          if (eraseWeight <= 0.005) continue;
+          // High-frequency pseudo-random weave texture matching physical cloth yarn standard deviation
+          const seed = ((bx + c) * 374761393 + (by + r) * 668265263) >>> 0;
+          const n1 = (((seed ^ (seed >>> 13)) * 1274126177 & 0x7fffffff) / 0x7fffffff) - 0.5;
+          const n2 = ((((seed + 1) ^ ((seed + 1) >>> 13)) * 1274126177 & 0x7fffffff) / 0x7fffffff) - 0.5;
+          const n3 = ((((seed + 2) ^ ((seed + 2) >>> 13)) * 1274126177 & 0x7fffffff) / 0x7fffffff) - 0.5;
 
-          // Sample real fabric weave from donor patch
-          const donorP = getPixel(donorStartX + c, donorStartY + r);
-          const texDeltaR = donorP[0] - medFabricR;
-          const texDeltaG = donorP[1] - medFabricG;
-          const texDeltaB = donorP[2] - medFabricB;
+          const grainR = n1 * grainStdR * 2.2;
+          const grainG = n2 * grainStdG * 2.2;
+          const grainB = n3 * grainStdB * 2.2;
 
-          // Seamless real woven fabric reconstruction (lighting gradient + real cloth thread texture)
-          const finalR = Math.max(0, Math.min(255, Math.round(synthR + texDeltaR)));
-          const finalG = Math.max(0, Math.min(255, Math.round(synthG + texDeltaG)));
-          const finalB = Math.max(0, Math.min(255, Math.round(synthB + texDeltaB)));
+          const finalR = Math.max(0, Math.min(255, Math.round(synthR + grainR)));
+          const finalG = Math.max(0, Math.min(255, Math.round(synthG + grainG)));
+          const finalB = Math.max(0, Math.min(255, Math.round(synthB + grainB)));
+
+          // Smooth 2px transition boundary with surrounding original fabric
+          const edgeDist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
+          const eraseWeight = Math.min(1.0, edgeDist / 2.0);
 
           data[pixelIdx] = Math.round((1 - eraseWeight) * origR + eraseWeight * finalR);
           data[pixelIdx + 1] = Math.round((1 - eraseWeight) * origG + eraseWeight * finalG);
