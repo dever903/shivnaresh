@@ -796,7 +796,7 @@ async function uploadToCloudinary(dataUrl, userId, kind) {
     return { url: dataUrl, secure_url: dataUrl, publicId: dataUrl };
   }
 
-  const s = await getSettings();
+  const s = await readState().catch(() => ({}));
   const cloudName = String(s.cloudinaryCloudName || process.env.CLOUDINARY_CLOUD_NAME || '').trim();
   const apiKey = String(s.cloudinaryApiKey || process.env.CLOUDINARY_API_KEY || '').trim();
   const apiSecret = String(s.cloudinaryApiSecret || process.env.CLOUDINARY_API_SECRET || '').trim();
@@ -4436,7 +4436,7 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
     }
 
     const body = req.body || {};
-    const mode = body.mode || state.defaultMode;
+    let mode = body.mode || state.defaultMode;
     const resolution = String(body.resolution || state.resolution || '1k').toLowerCase();
     const is2k = resolution === '2k' || resolution === '4k';
     const creditsNeeded = is2k ? 3 : 1; // Strictly 3 credits for 2K Ultra HD, 1 credit for 1K Standard
@@ -5056,6 +5056,7 @@ app.get('/api/job/:id', async (req, res) => {
       return res.json({ id: req.params.id, status: 'processing' });
     }
 
+    const mapping = jobKeyMap.get(req.params.id);
     const state = await readState();
     if (!state.apiKey) {
       return res.status(400).json({ error: 'not_ready', message: 'No API key configured.' });
@@ -5067,7 +5068,6 @@ app.get('/api/job/:id', async (req, res) => {
     if (!response.ok) {
       /* clean up active job on error */
       unlockUser(req.params.id);
-      const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
         if (mapping.userLockKey) activeUserGenerations.delete(mapping.userLockKey);
         if (mapping.userId) activeUserGenerations.delete(`usr_${mapping.userId}`);
@@ -5082,7 +5082,6 @@ app.get('/api/job/:id', async (req, res) => {
     /* clean up active job on completion or failure */
     if (data.status === 'completed' || data.status === 'failed') {
       unlockUser(req.params.id);
-      const mapping = jobKeyMap.get(req.params.id);
       if (mapping) {
         if (mapping.userLockKey) activeUserGenerations.delete(mapping.userLockKey);
         if (mapping.userId) activeUserGenerations.delete(`usr_${mapping.userId}`);
@@ -6619,7 +6618,7 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
 
         // Non-blocking background Cloudinary sync if configured
         try {
-          const s = await getSettings().catch(() => ({}));
+          const s = await readState().catch(() => ({}));
           if (s.cloudinaryCloudName && s.cloudinaryApiKey && /^\d+$/.test(s.cloudinaryApiKey)) {
             for (const item of mediaToBackup) {
               try {
@@ -7300,6 +7299,8 @@ app.post('/api/admin/generations/:id/refund', requireAdmin, async (req, res) => 
 
 /* ---------------------------------------------------- video preview pipeline */
 app.post('/api/generate-video', auth.requireUser, async (req, res) => {
+  let creditsDeducted = false;
+  let creditsNeeded = 6;
   try {
     /* Seamless concurrency handling: gracefully abort any previous active job for this user and proceed */
     const userLockKey = getUserLockKey(req);
@@ -7364,7 +7365,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
 
     /* Duration: 5 sec = 6 credits max; 10 sec = 12 credits max — strictly fixed regardless of image count */
     const duration = Number(body.duration) === 10 ? 10 : 5;
-    const creditsNeeded = duration === 10 ? 12 : 6;
+    creditsNeeded = duration === 10 ? 12 : 6;
     const aspectRatio = String(body.aspect_ratio || body.aspectRatio || '9:16');
 
     const userCredits = req.user ? (typeof req.user.credits === 'number' ? req.user.credits : 10) : 10;
@@ -7462,7 +7463,7 @@ app.post('/api/generate-video', auth.requireUser, async (req, res) => {
     let remainingCredits = userCredits;
     const newVideosGenerated = videosGenerated + 1;
     const nextDailyVideos = dailyVideos + 1;
-    let creditsDeducted = false;
+    creditsDeducted = false;
 
     if (req.user && req.user._id) {
       remainingCredits = Math.max(0, userCredits - creditsNeeded);
