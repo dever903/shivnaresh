@@ -140,6 +140,7 @@ const SEED_STATE = {
   resendFromEmail: process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>',
   admin2faEnabled: false,
   developerImageUrl: '',
+  seasons: ['Summer', 'Winter'],
 };
 
 export const DEFAULT_PLANS = {
@@ -1029,6 +1030,8 @@ async function listModels(forceFresh = false) {
           id: m.id,
           name: m.name || fileName.replace(/\.[^.]+$/, ''),
           url: validRemote || validUrl || safeLocalUrl,
+          season: m.season || '',
+          category: m.category,
           createdAt: m.createdAt || 0,
         });
       }
@@ -1063,6 +1066,8 @@ async function listModels(forceFresh = false) {
           id: modelId,
           name: file.replace(/\.[^.]+$/, ''),
           url: `/models/${encodeURIComponent(catName)}/${encodeURIComponent(file)}`,
+          season: '',
+          category: catName,
           createdAt: 0,
         });
       }
@@ -2378,6 +2383,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       }
 
       // Persist in MongoDB studio_models so models survive Render redeploys and container restarts
+      const modelSeason = String(item.season || req.body.season || '').trim();
       if (db) {
         try {
           await db.collection('studio_models').updateOne(
@@ -2386,6 +2392,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
               $set: {
                 id: modelId,
                 category: safeCat,
+                season: modelSeason,
                 name: item.name || safeName,
                 url: publicUrl,
                 remoteUrl,
@@ -2406,6 +2413,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
         id: modelId,
         name: item.name || safeName,
         url: publicUrl,
+        season: modelSeason,
       });
     }
 
@@ -2759,12 +2767,55 @@ app.post('/api/admin/models/rename-category', requireAdmin, async (req, res) => 
   }
 });
 
+app.post('/api/admin/models/season', requireAdmin, async (req, res) => {
+  try {
+    const { id, season } = req.body || {};
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'missing_id', message: 'Model id is required.' });
+    }
+    const cleanSeason = String(season || '').trim();
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('studio_models').updateOne(
+        { id },
+        { $set: { season: cleanSeason, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+    }
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
+    res.json({ ok: true, id, season: cleanSeason });
+  } catch (err) {
+    res.status(500).json({ error: 'season_update_failed', message: String(err.message || err) });
+  }
+});
+
+app.post('/api/admin/seasons', requireAdmin, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'invalid_name', message: 'Season name is required.' });
+    }
+    const state = await readState();
+    const currentSeasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? [...state.seasons] : ['Summer', 'Winter'];
+    if (!currentSeasons.some((s) => s.toLowerCase() === name.toLowerCase())) {
+      currentSeasons.push(name);
+      await patchState({ seasons: currentSeasons });
+    }
+    res.json({ ok: true, seasons: currentSeasons });
+  } catch (err) {
+    res.status(500).json({ error: 'create_season_failed', message: String(err.message || err) });
+  }
+});
+
 app.get('/api/models', async (_req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   const categories = await listModels();
-  res.json({ categories });
+  const state = await readState();
+  const seasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? state.seasons : ['Summer', 'Winter'];
+  res.json({ categories, seasons });
 });
 
 app.get('/api/uploads', async (_req, res) => {
@@ -4463,7 +4514,38 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
        targets (upper/lower/both), and prompt before generating.
        ============================================================== */
     const garmentViews = Array.isArray(body.garmentViews) && body.garmentViews.length > 0 ? body.garmentViews : null;
-    const isOutfit = mode === 'outfit' || (mode === 'tryon' && (body.tryOnTarget === 'both' || (body.topCloth && body.bottomCloth)));
+
+    // Strict Auto-Target Determination from garment views:
+    // If only bottoms/lower views are present, force lower body try-on!
+    // If only tops/upper views are present, force upper body try-on!
+    // If both exist, allow full outfit!
+    if (garmentViews && garmentViews.length > 0) {
+      const hasLower = garmentViews.some(v => /bottom|lower|pant|short|trouser|thigh|leg/i.test(`${v.role || ''} ${v.label || ''}`));
+      const hasUpper = garmentViews.some(v => /top|upper|shirt|jacket|hoodie|jersey|chest|sleeve|collar/i.test(`${v.role || ''} ${v.label || ''}`));
+      if (hasLower && !hasUpper) {
+        body.tryOnTarget = 'lower';
+        body.category = 'bottoms';
+        mode = 'tryon';
+      } else if (hasUpper && !hasLower) {
+        body.tryOnTarget = 'upper';
+        body.category = 'tops';
+        mode = 'tryon';
+      } else if (hasLower && hasUpper) {
+        body.tryOnTarget = 'both';
+        mode = 'outfit';
+      }
+    } else {
+      if (body.category === 'bottoms' || body.tryOnTarget === 'lower') {
+        body.tryOnTarget = 'lower';
+        body.category = 'bottoms';
+        mode = 'tryon';
+      }
+    }
+
+    let isOutfit = mode === 'outfit' || (mode === 'tryon' && (body.tryOnTarget === 'both' || (body.topCloth && body.bottomCloth)));
+    if (body.tryOnTarget === 'lower' || body.category === 'bottoms') {
+      isOutfit = false;
+    }
     const isSwap = mode === 'swap' && Boolean((body.sourceModel || body.source || body.cloth) && (body.targetModel || body.model));
 
     if (body.dryRun || req.query.dryRun === 'true') {
@@ -4667,6 +4749,10 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
           .replace(/ACTIVE SPORTS \([^)]+\):[^.]*\./gi, '')
           .replace(/WINDCHEATER JACKET \([^)]+\):[^.]*\./gi, '')
           .replace(/PULLOVER HOODIE \([^)]+\):[^.]*\./gi, '')
+          .replace(/do not change the clothing['’]?s shape[^.]*\./gi, '')
+          .replace(/do not add any new logo[^.]*\./gi, '')
+          .replace(/STRICT RULE: Remove ONLY the company logo[^.]*\./gi, '')
+          .replace(/The final result must look like a real, unbranded version of the original clothing[^.]*\./gi, '')
           .replace(/·\s*·/g, '·')
           .trim();
         if (cleanedUserPrompt) {
@@ -7633,8 +7719,63 @@ app.use((err, req, res, _next) => {
   }
 });
 
+/* Stalled Generation Watchdog: Detects orphaned/interrupted generations and restores credits */
+async function recoverStaleGenerations() {
+  try {
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return;
+    const staleThreshold = Date.now() - 10 * 60 * 1000; // 10 minutes
+    const staleGens = await db.collection('generations').find({
+      status: 'processing',
+      createdAt: { $lt: staleThreshold },
+    }).toArray();
+
+    for (const g of staleGens) {
+      console.log(`[watchdog] Auto-recovering stalled generation ${g.id}`);
+      await db.collection('generations').updateOne(
+        { id: g.id },
+        {
+          $set: {
+            status: 'failed',
+            error: 'Render timed out or server restarted while processing. Credits automatically restored.',
+            completedAt: Date.now(),
+          },
+        }
+      );
+      if (g.userId && (Number(g.creditsUsed) || 0) > 0) {
+        try {
+          const u = await auth.findUserById(g.userId);
+          if (u) {
+            const restored = (Number(u.credits) || 0) + Number(g.creditsUsed);
+            await auth.patchUser(g.userId, {
+              credits: restored,
+              modelsGenerated: Math.max(0, (Number(u.modelsGenerated) || 1) - 1),
+            });
+            console.log(`[watchdog] Restored ${g.creditsUsed} credits to user ${g.userId}`);
+          }
+        } catch {}
+      }
+      await recordSystemProblem({
+        module: 'image-generation',
+        severity: 'warning',
+        userEmail: g.userEmail || 'user',
+        userId: g.userId || null,
+        title: 'Stalled Generation Automatically Recovered',
+        message: `Generation job ${g.id} was stalled in processing state. System marked it as failed and restored user credits.`,
+        details: { jobId: g.id, model: g.model, mode: g.mode, createdAt: g.createdAt },
+      });
+    }
+  } catch (err) {
+    console.warn('[watchdog] Error checking stale generations:', err.message);
+  }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[shivnaresh] api listening on 0.0.0.0:${PORT}`);
+
+  // Run watchdog immediately on startup, then every 60 seconds
+  void recoverStaleGenerations();
+  setInterval(recoverStaleGenerations, 60_000);
 
   // Automated Self Keep-Alive: Pings server public URL every 10 minutes to prevent Render idle spin-down
   const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || process.env.VITE_API_URL || 'https://shivnaresh-api.onrender.com';

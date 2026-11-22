@@ -309,27 +309,135 @@ export const HOOD_STYLE_OPTIONS = [
   },
 ];
 
+export type LogoStyle = 'classic' | 'modern' | 'embroidered';
+
+export const MODERN_SLASH_PATHS = [
+  "M 301.1 81.6 L 299.5 78.4 L 291.6 75.2 L 286.8 75.2 L 282.1 72.1 L 258.3 68.9 L 239.3 68.9 L 210.7 72.1 L 206.0 75.2 L 199.6 75.2 L 193.3 78.4 L 131.5 76.8 L 107.7 83.2 L 104.5 86.3 L 98.2 87.9 L 96.6 91.1 L 107.7 86.3 L 136.2 81.6 L 158.4 83.2 L 174.3 86.3 L 190.1 94.3 L 202.8 107.0 L 225.0 124.4 L 247.2 137.1 L 250.4 137.1 L 253.5 140.2 L 259.9 141.8 L 263.0 145.0 L 267.8 141.8 L 266.2 138.7 L 256.7 133.9 L 247.2 126.0 L 242.4 124.4 L 236.1 118.0 L 229.8 114.9 L 220.2 103.8 L 213.9 92.7 L 215.5 86.3 L 220.2 81.6 L 229.8 76.8 L 247.2 73.7 L 266.2 73.7 L 288.4 76.8 L 293.2 80.0 Z",
+  "M 145.7 70.5 L 155.2 68.9 L 172.7 70.5 L 182.2 73.7 L 194.9 73.7 L 196.5 72.1 L 199.6 70.5 L 182.2 70.5 L 175.9 67.3 L 167.9 65.7 L 153.7 65.7 L 148.9 67.3 Z",
+  "M 77.6 54.6 L 72.8 49.9 L 68.0 46.7 L 55.4 40.4 L 55.4 43.5 L 58.5 46.7 L 53.8 49.9 L 41.1 49.9 L 42.7 53.0 L 52.2 53.0 L 66.5 59.4 L 69.6 62.6 L 71.2 62.6 L 72.8 67.3 L 63.3 80.0 L 57.0 86.3 L 44.3 92.7 L 39.5 94.3 L 22.1 94.3 L 18.9 95.9 L 18.9 102.2 L 22.1 103.8 L 30.0 103.8 L 33.2 100.6 L 45.9 100.6 L 57.0 95.9 L 61.7 92.7 L 76.0 78.4 L 80.7 70.5 L 80.7 64.1 Z",
+  "M 220.2 64.1 L 213.9 59.4 L 206.0 59.4 L 199.6 56.2 L 177.4 53.0 L 179.0 49.9 L 161.6 49.9 L 152.1 48.3 L 134.6 43.5 L 123.5 37.2 L 120.4 37.2 L 125.1 42.0 L 139.4 48.3 L 145.7 48.3 L 156.8 53.0 L 141.0 54.6 L 115.6 61.0 L 109.3 65.7 L 106.1 65.7 L 87.1 76.8 L 60.1 100.6 L 49.0 103.8 L 37.9 103.8 L 34.8 105.4 L 34.8 108.5 L 37.9 108.5 L 39.5 110.1 L 63.3 108.5 L 104.5 76.8 L 125.1 65.7 L 129.9 64.1 L 136.2 64.1 L 145.7 59.4 L 160.0 57.8 L 188.5 57.8 L 201.2 59.4 L 209.1 62.6 L 215.5 62.6 L 217.1 64.1 Z",
+  "M 102.9 29.3 L 104.5 32.4 L 99.8 34.0 L 101.3 37.2 L 102.9 37.2 L 109.3 42.0 L 114.0 46.7 L 117.2 53.0 L 120.4 53.0 L 118.8 45.1 L 115.6 38.8 L 109.3 32.4 Z",
+  "M 63.3 35.6 L 68.0 42.0 L 72.8 43.5 L 77.6 46.7 L 83.9 53.0 L 90.2 65.7 L 90.2 59.4 L 88.7 54.6 L 85.5 49.9 L 82.3 46.7 L 74.4 42.0 L 79.1 40.4 L 87.1 43.5 L 98.2 54.6 L 99.8 59.4 L 99.8 42.0 L 96.6 38.8 L 96.6 37.2 L 95.0 35.6 L 77.6 27.7 L 79.1 35.6 L 74.4 37.2 L 71.2 37.2 Z",
+  "M 23.7 35.6 L 23.7 42.0 L 28.4 40.4 L 28.4 38.8 L 34.8 38.8 L 34.8 42.0 L 31.6 45.1 L 34.8 51.5 L 47.4 37.2 L 60.1 29.3 L 68.0 26.1 L 80.7 22.9 L 91.8 21.3 L 109.3 26.1 L 125.1 32.4 L 128.3 35.6 L 144.1 42.0 L 148.9 42.0 L 145.7 38.8 L 137.8 37.2 L 134.6 34.0 L 117.2 26.1 L 112.4 26.1 L 104.5 21.3 L 90.2 18.2 L 66.5 15.0 L 42.7 15.0 L 42.7 19.8 L 36.3 22.9 Z"
+];
+
+export const EMBROIDERED_BODY_PATH =
+  "M 14.1 130.1 L 14.1 132.7 L 29.2 138.0 L 76.3 133.4 L 103.1 127.5 L 141.1 110.5 L 159.4 105.9 L 167.2 99.3 L 201.3 88.9 L 202.6 86.3 L 218.3 85.6 L 222.9 82.3 L 242.5 82.3 L 251.0 84.9 L 271.3 102.0 L 296.2 117.7 L 336.7 130.8 L 351.1 140.6 L 362.2 143.2 L 365.5 141.9 L 366.8 135.3 L 333.5 107.9 L 307.3 94.1 L 283.1 70.6 L 278.5 58.8 L 279.1 54.8 L 294.8 57.5 L 339.3 56.8 L 349.2 52.9 L 347.2 49.0 L 286.3 47.6 L 281.1 44.4 L 230.1 38.5 L 182.9 42.4 L 160.7 39.1 L 151.5 34.6 L 86.1 24.1 L 73.0 27.4 L 63.2 33.9 L 58.6 41.1 L 57.3 57.5 L 59.9 62.0 L 69.1 64.7 L 68.4 71.9 L 71.7 77.8 L 90.0 73.2 L 96.6 75.8 L 99.2 79.7 L 99.2 93.5 L 88.1 107.2 L 75.6 115.1 Z";
+
 export function ShivNareshSvgLogo({
   color = '#ffffff',
   className = '',
   curved = true,
   curvatureDepth = 14,
   curveDirection = 'standard',
+  logoStyle = 'classic',
 }: {
   color?: string;
   className?: string;
   curved?: boolean;
   curvatureDepth?: number;
   curveDirection?: 'standard' | 'left' | 'right';
+  logoStyle?: LogoStyle;
 }) {
   const curveId = useId();
-  const arcPathId = `sn-arc-${curveId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const rawId = curveId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const arcPathId = `sn-arc-${rawId}`;
+  const stitchDiagId = `sn-stitch-diag-${rawId}`;
+  const stitchVertId = `sn-stitch-vert-${rawId}`;
+  const threadFilterId = `sn-thread-3d-${rawId}`;
 
+  const resolvedColor = color || (logoStyle === 'embroidered' ? '#e52b38' : '#ffffff');
+
+  if (logoStyle === 'modern') {
+    // 1. Modern Speed-Slash Cheetah Icon (Negative Space Claw Cuts - No text)
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 320 160"
+        width="100%"
+        height="100%"
+        className={className}
+        style={{ color: resolvedColor }}
+      >
+        <g fill={resolvedColor}>
+          {MODERN_SLASH_PATHS.map((d, i) => (
+            <path key={i} d={d} />
+          ))}
+        </g>
+      </svg>
+    );
+  }
+
+  if (logoStyle === 'embroidered') {
+    // 2. Authentic Needle & Thread Embroidered Cheetah + Straight Athletic Block Lettering
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 360 200"
+        width="100%"
+        height="100%"
+        className={className}
+        style={{ color: resolvedColor }}
+      >
+        <defs>
+          <pattern id={stitchDiagId} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" stroke="rgba(255,255,255,0.40)" strokeWidth="0.8" />
+            <line x1="2" y1="0" x2="2" y2="4" stroke="rgba(0,0,0,0.35)" strokeWidth="0.8" />
+          </pattern>
+          <pattern id={stitchVertId} width="3" height="3" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="3" stroke="rgba(255,255,255,0.38)" strokeWidth="0.75" />
+            <line x1="1.5" y1="0" x2="1.5" y2="3" stroke="rgba(0,0,0,0.32)" strokeWidth="0.75" />
+          </pattern>
+          <filter id={threadFilterId} x="-15%" y="-15%" width="130%" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="0.65" result="blur" />
+            <feSpecularLighting in="blur" surfaceScale="2.4" specularConstant="1.1" specularExponent="18" result="spec">
+              <fePointLight x="-50" y="-70" z="150" />
+            </feSpecularLighting>
+            <feComposite in="spec" in2="SourceAlpha" operator="in" result="spec" />
+            <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="lit" />
+            <feDropShadow dx="0.5" dy="1.5" stdDeviation="1.0" floodColor="#000000" floodOpacity="0.65" />
+          </filter>
+        </defs>
+
+        <g fill={resolvedColor} filter={`url(#${threadFilterId})`}>
+          <path d={EMBROIDERED_BODY_PATH} />
+          <text
+            x="180"
+            y="178"
+            textAnchor="middle"
+            fontFamily="Arial, 'Arial Black', -apple-system, sans-serif"
+            fontSize="31"
+            fontWeight="900"
+            letterSpacing="5"
+          >
+            SHIV-NARESH
+          </text>
+        </g>
+        <g fill={`url(#${stitchDiagId})`} opacity="0.65" style={{ mixBlendMode: 'overlay', pointerEvents: 'none' }}>
+          <path d={EMBROIDERED_BODY_PATH} />
+        </g>
+        <g fill={`url(#${stitchVertId})`} opacity="0.70" style={{ mixBlendMode: 'overlay', pointerEvents: 'none' }}>
+          <text
+            x="180"
+            y="178"
+            textAnchor="middle"
+            fontFamily="Arial, 'Arial Black', -apple-system, sans-serif"
+            fontSize="31"
+            fontWeight="900"
+            letterSpacing="5"
+          >
+            SHIV-NARESH
+          </text>
+        </g>
+      </svg>
+    );
+  }
+
+  // 3. Classic Cheetah Logo + Curved/Straight SHIV-NARESH
   const yStart = curveDirection === 'left' ? 188 : curveDirection === 'right' ? 180 : 185;
   const yMid = 185 - Math.max(0, curvatureDepth);
   const yEnd = curveDirection === 'left' ? 180 : curveDirection === 'right' ? 188 : 185;
   const emblemRot = curveDirection === 'left' ? -2.5 : curveDirection === 'right' ? +1.5 : -0.8;
-  const resolvedColor = color || '#ffffff';
 
   return (
     <svg
@@ -6687,6 +6795,13 @@ export default function Design() {
   const [activeRenderOption, setActiveRenderOption] = useState<'a' | 'b'>('b');
   const [activeLogoTarget, setActiveLogoTarget] = useState<'chest' | 'pant'>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
+  const [hdLogoStyle, setHdLogoStyle] = useState<LogoStyle>(() => {
+    try {
+      return (localStorage.getItem('shivnaresh_logo_style') as LogoStyle) || 'classic';
+    } catch {
+      return 'classic';
+    }
+  });
   const [isOptionBDirty, setIsOptionBDirty] = useState(false);
 
   const getAutoContrastColor = useCallback((colorStr: string) => {
@@ -8426,26 +8541,75 @@ export default function Design() {
     const logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
 
+    const logoAspect = hdLogoStyle === 'modern' ? 160 / 320 : hdLogoStyle === 'embroidered' ? 200 / 360 : 210 / 360;
     let blobUrl = '';
     if (activeCustom) {
       logoImg.src = activeCustom;
     } else {
-      const cleanColor = color.replace(/[<>"'&]/g, '');
-      const yStart = hdLogoCurveDirection === 'left' ? 188 : hdLogoCurveDirection === 'right' ? 180 : 185;
-      const yMid = 185 - Math.max(0, hdLogoCurvature);
-      const yEnd = hdLogoCurveDirection === 'left' ? 180 : hdLogoCurveDirection === 'right' ? 188 : 185;
-      const emblemRot = hdLogoCurveDirection === 'left' ? -2.5 : hdLogoCurveDirection === 'right' ? +1.5 : -0.8;
-      const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
-        <defs>
-          <path id="sn-curve-arc" d="M 28,${yStart} Q 180,${yMid} 332,${yEnd}" fill="none" />
-        </defs>
-        <g transform="translate(14, 15) rotate(${emblemRot}, 180, 60)">
-          <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
-        </g>
-        <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="900" letter-spacing="4" fill="${cleanColor}">
-          <textPath href="#sn-curve-arc" startOffset="50%" text-anchor="middle">SHIV-NARESH</textPath>
-        </text>
-      </svg>`;
+      const cleanColor = (color || (hdLogoStyle === 'embroidered' ? '#e52b38' : '#ffffff')).replace(/[<>"'&]/g, '');
+      let svgMarkup = '';
+
+      if (hdLogoStyle === 'modern') {
+        const pathsXml = MODERN_SLASH_PATHS.map((d) => `<path d="${d}" />`).join('\n');
+        svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" width="1280" height="640">
+          <g fill="${cleanColor}">
+            ${pathsXml}
+          </g>
+        </svg>`;
+      } else if (hdLogoStyle === 'embroidered') {
+        svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" width="1440" height="800">
+          <defs>
+            <pattern id="stamp-stitch-diag" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="4" stroke="rgba(255,255,255,0.40)" stroke-width="0.8" />
+              <line x1="2" y1="0" x2="2" y2="4" stroke="rgba(0,0,0,0.35)" stroke-width="0.8" />
+            </pattern>
+            <pattern id="stamp-stitch-vert" width="3" height="3" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="3" stroke="rgba(255,255,255,0.38)" stroke-width="0.75" />
+              <line x1="1.5" y1="0" x2="1.5" y2="3" stroke="rgba(0,0,0,0.32)" stroke-width="0.75" />
+            </pattern>
+            <filter id="stamp-thread-3d" x="-15%" y="-15%" width="130%" height="130%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="0.65" result="blur" />
+              <feSpecularLighting in="blur" surfaceScale="2.4" specularConstant="1.1" specularExponent="18" result="spec">
+                <fePointLight x="-50" y="-70" z="150" />
+              </feSpecularLighting>
+              <feComposite in="spec" in2="SourceAlpha" operator="in" result="spec" />
+              <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="lit" />
+              <feDropShadow dx="0.5" dy="1.5" stdDeviation="1.0" flood-color="#000000" flood-opacity="0.65" />
+            </filter>
+          </defs>
+          <g fill="${cleanColor}" filter="url(#stamp-thread-3d)">
+            <path d="${EMBROIDERED_BODY_PATH}" />
+            <text x="180" y="178" text-anchor="middle" font-family="Arial, 'Arial Black', -apple-system, sans-serif" font-size="31" font-weight="900" letter-spacing="5">
+              SHIV-NARESH
+            </text>
+          </g>
+          <g fill="url(#stamp-stitch-diag)" opacity="0.65" style="mix-blend-mode: overlay;">
+            <path d="${EMBROIDERED_BODY_PATH}" />
+          </g>
+          <g fill="url(#stamp-stitch-vert)" opacity="0.70" style="mix-blend-mode: overlay;">
+            <text x="180" y="178" text-anchor="middle" font-family="Arial, 'Arial Black', -apple-system, sans-serif" font-size="31" font-weight="900" letter-spacing="5">
+              SHIV-NARESH
+            </text>
+          </g>
+        </svg>`;
+      } else {
+        const yStart = hdLogoCurveDirection === 'left' ? 188 : hdLogoCurveDirection === 'right' ? 180 : 185;
+        const yMid = 185 - Math.max(0, hdLogoCurvature);
+        const yEnd = hdLogoCurveDirection === 'left' ? 180 : hdLogoCurveDirection === 'right' ? 188 : 185;
+        const emblemRot = hdLogoCurveDirection === 'left' ? -2.5 : hdLogoCurveDirection === 'right' ? +1.5 : -0.8;
+        svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
+          <defs>
+            <path id="sn-curve-arc" d="M 28,${yStart} Q 180,${yMid} 332,${yEnd}" fill="none" />
+          </defs>
+          <g transform="translate(14, 15) rotate(${emblemRot}, 180, 60)">
+            <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
+          </g>
+          <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="900" letter-spacing="4" fill="${cleanColor}">
+            <textPath href="#sn-curve-arc" startOffset="50%" text-anchor="middle">SHIV-NARESH</textPath>
+          </text>
+        </svg>`;
+      }
+
       const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
       blobUrl = URL.createObjectURL(blob);
       logoImg.src = blobUrl;
@@ -8469,7 +8633,7 @@ export default function Design() {
     // 1. Stamp Chest Logo (if enabled)
     if (showHdLogoOverlay) {
       const logoW = Math.round(canvas.width * chestRatio);
-      const logoH = Math.round((logoW * 210) / 360);
+      const logoH = Math.round(logoW * logoAspect);
       const centerX = (canvas.width * x) / 100;
       const centerY = (canvas.height * y) / 100;
       const angleRad = (hdLogoAngle * Math.PI) / 180;
@@ -8489,7 +8653,7 @@ export default function Design() {
     // 2. Stamp Pant Thigh Logo (if enabled)
     if (stampPant) {
       const pLogoW = Math.round(canvas.width * pantRatio);
-      const pLogoH = Math.round((pLogoW * 210) / 360);
+      const pLogoH = Math.round(pLogoW * logoAspect);
       const pCenterX = (canvas.width * pX) / 100;
       const pCenterY = (canvas.height * pY) / 100;
       const pAngleRad = (pantLogoAngle * Math.PI) / 180;
@@ -10439,7 +10603,63 @@ export default function Design() {
                     </button>
                   </div>
 
-                  {/* 1. Color Selection: Auto-Detect + 10 Sports Presets + 16.7M Color Wheel + Hex Input */}
+                  {/* 1. Logo Style / Variant: Classic vs Speed-Slash vs Embroidered */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                        Logo Style / Variant:
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('classic');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'classic'); } catch {}
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          hdLogoStyle === 'classic'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                        title="Classic Cheetah + Curved SHIV-NARESH Text"
+                      >
+                        <span>🐅 Classic</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('modern');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'modern'); } catch {}
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          hdLogoStyle === 'modern'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                        title="Modern Speed-Slash Icon (Negative Space Claw Cuts - Trackpant/Athlete Edition)"
+                      >
+                        <span>⚡ Speed-Slash</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('embroidered');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'embroidered'); } catch {}
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          hdLogoStyle === 'embroidered'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                        title="Authentic Needle & Thread Embroidered Cheetah + Block Lettering (3D Stitch Weave)"
+                      >
+                        <span>🧵 Embroidered</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Color Selection: Auto-Detect + 10 Sports Presets + 16.7M Color Wheel + Hex Input */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
                       <div className="flex items-center gap-2">
@@ -10795,7 +11015,7 @@ export default function Design() {
                   <div className={`flex items-center justify-between rounded-xl p-2.5 border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                        <ShivNareshSvgLogo color={hdLogoColor} className="max-h-full max-w-full" />
+                        <ShivNareshSvgLogo color={hdLogoColor} logoStyle={hdLogoStyle} className="max-h-full max-w-full" />
                       </div>
                       <div className="text-[10px]">
                         <p className="font-bold text-white/90">
@@ -13131,7 +13351,7 @@ export default function Design() {
                         }`}
                         title="Click and drag with mouse to position Chest Logo anywhere"
                       >
-                        <ShivNareshSvgLogo color={hdLogoColor} curvatureDepth={hdLogoCurvature} curveDirection={hdLogoCurveDirection} />
+                        <ShivNareshSvgLogo color={hdLogoColor} logoStyle={hdLogoStyle} curvatureDepth={hdLogoCurvature} curveDirection={hdLogoCurveDirection} />
                         {/* Hover badge indicator */}
                         <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
                           ✥ Drag Chest Logo
@@ -13161,7 +13381,7 @@ export default function Design() {
                         }`}
                         title="Click and drag with mouse to position Pant Logo anywhere"
                       >
-                        <ShivNareshSvgLogo color={hdLogoColor} curvatureDepth={10} curveDirection="standard" />
+                        <ShivNareshSvgLogo color={hdLogoColor} logoStyle={hdLogoStyle} curvatureDepth={10} curveDirection="standard" />
                         {/* Hover badge indicator */}
                         <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
                           ✥ Drag Pant Logo
@@ -13711,6 +13931,49 @@ export default function Design() {
                         }`}
                       >
                         👖 Pant {showPantLogo ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+
+                    {/* Logo Style Selector */}
+                    <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/30">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('classic');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'classic'); } catch {}
+                        }}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          hdLogoStyle === 'classic' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                        title="Classic Cheetah + Curved Text"
+                      >
+                        Classic
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('modern');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'modern'); } catch {}
+                        }}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          hdLogoStyle === 'modern' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                        title="Modern Speed-Slash Icon"
+                      >
+                        ⚡ Speed
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHdLogoStyle('embroidered');
+                          try { localStorage.setItem('shivnaresh_logo_style', 'embroidered'); } catch {}
+                        }}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          hdLogoStyle === 'embroidered' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                        title="Authentic Needle & Thread Embroidered (3D Stitch Weave)"
+                      >
+                        🧵 Thread
                       </button>
                     </div>
 

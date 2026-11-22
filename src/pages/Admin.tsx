@@ -216,6 +216,13 @@ export default function Admin() {
   const [developerImageUrl, setDeveloperImageUrl] = useState('');
 
   /* Model Upload & Management State (Single or Multiple) */
+  const [seasons, setSeasons] = useState<string[]>(['Summer', 'Winter']);
+  const [uploadModelSeason, setUploadModelSeason] = useState<string>('Summer');
+  const [adminSeasonFilter, setAdminSeasonFilter] = useState<string>('all');
+  const [showNewSeasonModal, setShowNewSeasonModal] = useState<boolean>(false);
+  const [newSeasonInput, setNewSeasonInput] = useState<string>('');
+  const [updatingModelSeasonId, setUpdatingModelSeasonId] = useState<string | null>(null);
+
   const [uploadModelCat, setUploadModelCat] = useState('');
   const [isNewCat, setIsNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
@@ -583,6 +590,9 @@ export default function Admin() {
     const [s, m] = await Promise.all([api.adminSettings(), api.models()]);
     setSettings(s);
     updateCategoriesAndCache(m.categories);
+    if (m.seasons && m.seasons.length > 0) {
+      setSeasons(m.seasons);
+    }
     setDefaultPrompt(s.defaultPrompt);
     setDefaultModel(s.defaultModel);
     setResolution(s.resolution || '1k');
@@ -1232,17 +1242,19 @@ export default function Admin() {
         setUploadModelProgress({ current: 0, total: selectedBatchModels.length });
         await api.uploadAdminModel({
           category: finalCat,
-          models: selectedBatchModels.map((m) => ({ name: m.name, imageData: m.dataUrl })),
+          season: uploadModelSeason,
+          models: selectedBatchModels.map((m) => ({ name: m.name, imageData: m.dataUrl, season: uploadModelSeason })),
         });
-        setModelMessage(`✓ Successfully added all ${selectedBatchModels.length} models into category "${finalCat}".`);
+        setModelMessage(`✓ Successfully added all ${selectedBatchModels.length} models into category "${finalCat}" (Season: ${uploadModelSeason || 'All Seasons'}).`);
       } else {
         const item = selectedBatchModels[0] || { name: uploadModelName.trim(), dataUrl: uploadModelDataUrl };
         await api.uploadAdminModel({
           category: finalCat,
+          season: uploadModelSeason,
           name: item.name || uploadModelName.trim(),
           imageData: item.dataUrl || uploadModelDataUrl,
         });
-        setModelMessage(`✓ Successfully added model "${item.name || uploadModelName}" into category "${finalCat}".`);
+        setModelMessage(`✓ Successfully added model "${item.name || uploadModelName}" into category "${finalCat}" (Season: ${uploadModelSeason || 'All Seasons'}).`);
       }
       setUploadModelName('');
       setUploadModelDataUrl('');
@@ -1254,12 +1266,51 @@ export default function Admin() {
       }
       const freshModels = await api.models();
       updateCategoriesAndCache(freshModels.categories);
+      if (freshModels.seasons) setSeasons(freshModels.seasons);
       setTimeout(() => setModelMessage(''), 6000);
     } catch (err: any) {
       setModelMessage(err.message || 'Could not upload model(s).');
     } finally {
       setUploadModelBusy(false);
       setUploadModelProgress(null);
+    }
+  }
+
+  async function handleUpdateModelSeason(modelId: string, season: string) {
+    setUpdatingModelSeasonId(modelId);
+    try {
+      await api.updateModelSeason({ id: modelId, season: season === 'All Seasons' ? '' : season });
+      // Optimistically update local categories state
+      setCategories((prev) =>
+        prev.map((cat) => ({
+          ...cat,
+          items: cat.items.map((item) => (item.id === modelId ? { ...item, season: season === 'All Seasons' ? '' : season } : item)),
+        }))
+      );
+      const fresh = await api.models();
+      updateCategoriesAndCache(fresh.categories);
+      if (fresh.seasons) setSeasons(fresh.seasons);
+    } catch (err: any) {
+      alert('Could not update model season: ' + err.message);
+    } finally {
+      setUpdatingModelSeasonId(null);
+    }
+  }
+
+  async function handleCreateSeason(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newSeasonInput.trim();
+    if (!name) return;
+    try {
+      const res = await api.createSeason({ name });
+      if (res.seasons) setSeasons(res.seasons);
+      setUploadModelSeason(name);
+      setNewSeasonInput('');
+      setShowNewSeasonModal(false);
+      setModelMessage(`✓ New season "${name}" created successfully.`);
+      setTimeout(() => setModelMessage(''), 5000);
+    } catch (err: any) {
+      alert('Could not create season: ' + err.message);
     }
   }
 
@@ -4805,7 +4856,7 @@ ${log.stack || 'None'}
         </div>
 
         <form onSubmit={handleUploadModel} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Category</label>
@@ -4844,6 +4895,53 @@ ${log.stack || 'None'}
                       </option>
                     );
                   })}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Season (Collection)</label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewSeasonModal(!showNewSeasonModal)}
+                  className="text-[10px] font-semibold text-[#e5373f] hover:underline cursor-pointer"
+                >
+                  {showNewSeasonModal ? 'Choose season' : '+ New Season'}
+                </button>
+              </div>
+
+              {showNewSeasonModal ? (
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newSeasonInput}
+                    onChange={(e) => setNewSeasonInput(e.target.value)}
+                    placeholder="e.g. Monsoon, Spring"
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => void handleCreateSeason(e)}
+                    className="px-3 rounded-xl bg-[#e5373f] text-white text-xs font-bold hover:bg-[#d42d35] cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={uploadModelSeason || 'All Seasons'}
+                  onChange={(e) => setUploadModelSeason(e.target.value)}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
+                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
+                >
+                  <option value="All Seasons">🌐 All Seasons (Universal)</option>
+                  {seasons.map((s) => (
+                    <option key={s} value={s}>
+                      {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ '}{s}
+                    </option>
+                  ))}
                 </select>
               )}
             </div>
@@ -5049,10 +5147,80 @@ ${log.stack || 'None'}
         </form>
       </section>
 
+      {/* Season Filter Bar for Admin */}
+      <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
+        isLight ? 'bg-gray-50 border-gray-200' : 'bg-white/[0.02] border-white/10'
+      }`}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">Season Filter:</span>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAdminSeasonFilter('all')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
+                adminSeasonFilter === 'all'
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight
+                  ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-white/5 text-white/70 hover:bg-white/10'
+              }`}
+            >
+              🌐 All Seasons
+            </button>
+            {seasons.map((s) => {
+              const isActive = adminSeasonFilter.toLowerCase() === s.toLowerCase();
+              const icon = s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ ';
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setAdminSeasonFilter(s)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                    isActive
+                      ? 'bg-[#e5373f] text-white shadow-sm'
+                      : isLight
+                      ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  <span>{icon}{s}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const name = window.prompt('Enter new season name (e.g. Monsoon, Autumn, Spring):');
+            if (name && name.trim()) {
+              void (async () => {
+                try {
+                  const res = await api.createSeason({ name: name.trim() });
+                  if (res.seasons) setSeasons(res.seasons);
+                  setModelMessage(`✓ New season "${name.trim()}" created successfully.`);
+                  setTimeout(() => setModelMessage(''), 4000);
+                } catch (err: any) {
+                  alert(err.message || 'Could not create season');
+                }
+              })();
+            }
+          }}
+          className="text-xs font-bold text-[#e5373f] hover:underline cursor-pointer flex items-center gap-1"
+        >
+          + Add New Season
+        </button>
+      </div>
+
       {/* Categories & Models Grid with Drag-and-Drop and Quick Move */}
       <div className="grid gap-6">
         {categories.map((cat) => {
           const isOver = dragOverCat === cat.category;
+          const filteredItems = cat.items.filter((item) => {
+            if (adminSeasonFilter === 'all') return true;
+            return !item.season || item.season.toLowerCase() === adminSeasonFilter.toLowerCase();
+          });
           return (
             <div
               key={cat.category}
@@ -5148,18 +5316,23 @@ ${log.stack || 'None'}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] opacity-50">{cat.items.length} poses</span>
+                <span className="text-[11px] opacity-50">
+                  {filteredItems.length} {filteredItems.length !== cat.items.length ? `of ${cat.items.length} ` : ''}poses
+                </span>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 min-h-[90px]">
-                {cat.items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <div className="col-span-full border border-dashed border-white/10 rounded-xl p-4 text-center text-xs opacity-40">
-                    No models in this category yet. Drag and drop any model here to add it.
+                    {cat.items.length === 0
+                      ? 'No models in this category yet. Drag and drop any model here to add it.'
+                      : `No models match season "${adminSeasonFilter}". Drag and drop or assign models to this season.`}
                   </div>
                 ) : (
-                  cat.items.map((item) => {
+                  filteredItems.map((item) => {
                     const isDraggingThis = draggedModel?.id === item.id;
                     const isMovingThis = movingModelId === item.id;
+                    const isUpdatingSeason = updatingModelSeasonId === item.id;
                     return (
                       <div
                         key={item.id}
@@ -5175,7 +5348,7 @@ ${log.stack || 'None'}
                         className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
                           isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
                         } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
-                        title="Drag to another category or select from the move menu"
+                        title="Drag to another category or use dropdowns to change Category or Season"
                       >
                         <img
                           src={item.url}
@@ -5193,7 +5366,7 @@ ${log.stack || 'None'}
                           onClick={() => setLightboxImg(item.url)}
                         />
 
-                        {/* Drag Icon & Move Dropdown */}
+                        {/* Top Overlay: Category Move & Season Badge */}
                         <div className="absolute top-2 left-2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                           <span
                             className="p-1 rounded-md bg-black/80 text-white/70 shadow text-[9px] flex items-center gap-0.5 border border-white/10"
@@ -5238,17 +5411,37 @@ ${log.stack || 'None'}
                           <Trash2 size={13} />
                         </button>
 
-                        {/* Moving Spinner */}
-                        {isMovingThis && (
+                        {/* Moving / Updating Spinner */}
+                        {(isMovingThis || isUpdatingSeason) && (
                           <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1.5 z-20">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            <span className="text-[9px] font-bold text-white">Moving…</span>
+                            <span className="text-[9px] font-bold text-white">
+                              {isMovingThis ? 'Moving…' : 'Saving Season…'}
+                            </span>
                           </div>
                         )}
 
-                        <p className="absolute bottom-0 inset-x-0 bg-black/70 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                          {item.name}
-                        </p>
+                        {/* Bottom Overlay: Model Name + Quick Season Switcher */}
+                        <div className="absolute bottom-0 inset-x-0 bg-black/80 backdrop-blur-sm px-1.5 py-1 flex items-center justify-between gap-1">
+                          <p className="truncate text-[9px] text-white/90 font-medium max-w-[55%]">
+                            {item.name}
+                          </p>
+                          <select
+                            value={item.season || 'All Seasons'}
+                            disabled={isUpdatingSeason}
+                            onChange={(e) => void handleUpdateModelSeason(item.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[8px] font-bold rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 px-1 py-0.5 cursor-pointer outline-none shrink-0"
+                            title="Assign model to season"
+                          >
+                            <option value="All Seasons" className="bg-neutral-900 text-white">🌐 All</option>
+                            {seasons.map((s) => (
+                              <option key={s} value={s} className="bg-neutral-900 text-white">
+                                {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : ''}{s}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     );
                   })

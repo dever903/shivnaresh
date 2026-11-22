@@ -1,4 +1,13 @@
-export type ModelCategory = { category: string; items: { id: string; name: string; url: string }[] };
+export type ModelItem = {
+  id: string;
+  name: string;
+  url: string;
+  season?: string;
+  category?: string;
+  createdAt?: number;
+};
+
+export type ModelCategory = { category: string; items: ModelItem[] };
 
 /** Everything the customer-facing studio is allowed to know. */
 export type Studio = {
@@ -497,7 +506,7 @@ export const api = {
 
   /* customer studio */
   studio: () => request<Studio>('/api/studio'),
-  models: () => request<{ categories: ModelCategory[] }>('/api/models'),
+  models: () => request<{ categories: ModelCategory[]; seasons?: string[] }>('/api/models'),
   uploads: () => request<{ items: { id: string; name: string; url: string; kind?: string; at?: number }[] }>('/api/uploads'),
   upload: (dataUrl: string, kind: 'cloth' | 'model', name: string) =>
     request<{
@@ -718,7 +727,7 @@ export const api = {
   adminUploadSets: () => request<{ items: UploadSet[]; total: number }>('/api/admin/upload-sets'),
 
   /* admin studio models */
-  uploadAdminModel: (body: { category: string; name?: string; imageData?: string; models?: { name: string; imageData: string }[] }) =>
+  uploadAdminModel: (body: { category: string; season?: string; name?: string; imageData?: string; models?: { name: string; imageData: string; season?: string }[] }) =>
     request<{ ok: boolean; category: string; count?: number; model?: { id: string; name: string; url: string }; models?: { id: string; name: string; url: string }[] }>(
       '/api/admin/models',
       json(body),
@@ -736,6 +745,10 @@ export const api = {
     request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
   renameAdminModelCategory: (body: { oldCategory: string; newCategory: string }) =>
     request<{ ok: boolean; oldCategory: string; newCategory: string; filesMoved?: number }>('/api/admin/models/rename-category', json(body)),
+  updateModelSeason: (body: { id: string; season: string }) =>
+    request<{ ok: boolean; id: string; season: string }>('/api/admin/models/season', json(body)),
+  createSeason: (body: { name: string }) =>
+    request<{ ok: boolean; seasons: string[] }>('/api/admin/seasons', json(body)),
 
   /* admin system problem logs */
   systemLogs: () => request<{ logs: SystemLog[]; unresolvedCount: number; total: number }>('/api/admin/system-logs'),
