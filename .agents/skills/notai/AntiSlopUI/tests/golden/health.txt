@@ -1,0 +1,55 @@
++-----------------------------------------------------------------------------------------+
+|  TARGET: HealthApp - RECOMMENDED DESIGN SYSTEM                                          |
++-----------------------------------------------------------------------------------------+
+|                                                                                          |
+|  PATTERN: Peer Story Showcase                                                           |
+|     CTA: Above fold                                                                     |
+|     Sections:                                                                           |
+|       1. Hero                                                                           |
+|       2. Features                                                                       |
+|       3. CTA                                                                            |
+|                                                                                          |
+|  STYLE: Accessible & Ethical                                                            |
+|     Keywords: High contrast, large text (16px+), keyboard navigation, screen reader     |
+|     friendly, WCAG compliant, focus state, semantic                                     |
+|     Best For: Government, healthcare, education, inclusive products, large audience,    |
+|     legal compliance, public                                                            |
+|     Performance: ⚡ Excellent | Accessibility: ✓ WCAG AAA                                |
+|                                                                                          |
+|  COLORS:                                                                                |
+|     Primary:    #0E7490                                                                 |
+|     Secondary:  #22D3EE                                                                 |
+|     CTA:        #059669                                                                 |
+|     Background: #ECFEFF                                                                 |
+|     Text:       #164E63                                                                 |
+|     Notes: Primary follows the product-domain table; secondary and CTA are inherited    |
+|     from the vendor row unless banned, and each is recorded when replaced.              |
+|                                                                                          |
+|  TYPOGRAPHY: Fraunces / Raleway                                                         |
+|     Mood: calm, wellness, health, relaxing, natural, organic                            |
+|     Best For: Health apps, wellness, spa, meditation, yoga, organic brands              |
+|     Google Fonts: https://fonts.google.com/share?selection.family=Fraunces:wght@400;600;700|Raleway:wght@400;500|
+|     CSS Import: @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;7...|
+|                                                                                          |
+|  KEY EFFECTS:                                                                           |
+|     Clear focus rings (3-4px), ARIA labels, skip links, responsive design, reduced      |
+|     motion, 44x44px touch targets                                                       |
+|                                                                                          |
+|  AVOID (Anti-patterns):                                                                 |
+|     Bright neon colors + Motion-heavy animations + AI purple/pink gradients             |
+|                                                                                          |
+|  PRE-DELIVERY CHECKLIST:                                                                |
+|     [ ] No emojis as icons (use SVG: Heroicons/Lucide)                                  |
+|     [ ] cursor-pointer on all clickable elements                                        |
+|     [ ] Hover timing follows the motion table in SKILL.md                               |
+|     [ ] Light mode: text contrast 4.5:1 minimum                                         |
+|     [ ] Focus states visible for keyboard nav                                           |
+|     [ ] prefers-reduced-motion respected                                                |
+|     [ ] Responsive: 375px, 768px, 1024px, 1440px                                        |
+|                                                                                          |
++-----------------------------------------------------------------------------------------+
+## Post-filter overrides
+
+- OVERRIDE: vendor primary #0891B2 → #0E7490 [domain table]
+- OVERRIDE: Lora / Raleway → Fraunces / Raleway [display table]
+

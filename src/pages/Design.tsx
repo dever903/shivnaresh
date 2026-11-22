@@ -346,8 +346,6 @@ export function ShivNareshSvgLogo({
   const curveId = useId();
   const rawId = curveId.replace(/[^a-zA-Z0-9_-]/g, '');
   const arcPathId = `sn-arc-${rawId}`;
-  const stitchDiagId = `sn-stitch-diag-${rawId}`;
-  const stitchVertId = `sn-stitch-vert-${rawId}`;
   const threadFilterId = `sn-thread-3d-${rawId}`;
 
   const resolvedColor = color || (logoStyle === 'embroidered' ? '#e52b38' : '#ffffff');
@@ -373,55 +371,33 @@ export function ShivNareshSvgLogo({
   }
 
   if (logoStyle === 'embroidered') {
-    // 2. Authentic Needle & Thread Embroidered Cheetah + Straight Athletic Block Lettering
+    // 2. Authentic Needle & Thread Embroidered Cheetah + Block Lettering from Transparent Master Asset
+    const isRed = resolvedColor.toLowerCase() === '#e52b38' || resolvedColor.toLowerCase() === '#e5373f' || resolvedColor.toLowerCase() === '#ff0000';
+    const isWhite = resolvedColor.toLowerCase() === '#ffffff' || resolvedColor.toLowerCase() === '#fff';
+    const logoSrc = isRed ? '/logos/shivnaresh-embroidery-red.png' : '/logos/shivnaresh-embroidery-white.png';
+
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 558 276"
+        viewBox="0 0 939 409"
         width="100%"
         height="100%"
         className={className}
         style={{ color: resolvedColor }}
       >
         <defs>
-          {/* Authentic Interlocking Tatami Stitch Weave (Herringbone embroidery pattern at 35 degrees) */}
-          <pattern id={stitchDiagId} width="8" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-            <line x1="0" y1="1" x2="8" y2="1" stroke="rgba(255,255,255,0.60)" strokeWidth="1.6" />
-            <line x1="0" y1="2.5" x2="8" y2="2.5" stroke="rgba(0,0,0,0.38)" strokeWidth="1.4" />
-            <line x1="0" y1="4" x2="8" y2="4" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" />
-            <line x1="0" y1="5.5" x2="8" y2="5.5" stroke="rgba(0,0,0,0.38)" strokeWidth="1.4" />
-            <circle cx="2" cy="1.8" r="0.8" fill="rgba(0,0,0,0.48)" />
-            <circle cx="6" cy="4.8" r="0.8" fill="rgba(0,0,0,0.48)" />
-          </pattern>
-          {/* Dense Vertical Satin Stitch Pattern for Letters */}
-          <pattern id={stitchVertId} width="3" height="3" patternUnits="userSpaceOnUse">
-            <line x1="0.8" y1="0" x2="0.8" y2="3" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" />
-            <line x1="2.2" y1="0" x2="2.2" y2="3" stroke="rgba(0,0,0,0.42)" strokeWidth="1.2" />
-          </pattern>
-          {/* Authentic 3D Embroidery Thread Specular & Depth Filter */}
-          <filter id={threadFilterId} x="-15%" y="-15%" width="130%" height="130%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="0.85" result="thread-blur" />
-            <feSpecularLighting in="thread-blur" surfaceScale="3.6" specularConstant="1.3" specularExponent="24" result="thread-spec">
-              <fePointLight x="-120" y="-140" z="200" />
-            </feSpecularLighting>
-            <feComposite in="thread-spec" in2="SourceAlpha" operator="in" result="thread-spec-masked" />
-            <feComposite in="SourceGraphic" in2="thread-spec-masked" operator="arithmetic" k1="0" k2="1" k3="0.88" k4="0" result="thread-lit" />
-            <feDropShadow dx="0.6" dy="2.0" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.70" />
+          <filter id={threadFilterId} colorInterpolationFilters="sRGB">
+            <feFlood floodColor={resolvedColor} result="flood" />
+            <feComposite in="flood" in2="SourceGraphic" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="tinted" />
+            <feComposite in="tinted" in2="SourceAlpha" operator="in" />
           </filter>
         </defs>
-
-        {/* 1. Base 3D Thread Layer */}
-        <g fill={resolvedColor} filter={`url(#${threadFilterId})`}>
-          <path d={EMBROIDERED_BODY_PATH} />
-          <path d={EMBROIDERED_TEXT_PATH} fillRule="evenodd" />
-        </g>
-        {/* 2. Physical Weave Texture Overlays */}
-        <g fill={`url(#${stitchDiagId})`} opacity="0.85" style={{ mixBlendMode: 'overlay', pointerEvents: 'none' }}>
-          <path d={EMBROIDERED_BODY_PATH} />
-        </g>
-        <g fill={`url(#${stitchVertId})`} opacity="0.85" style={{ mixBlendMode: 'overlay', pointerEvents: 'none' }}>
-          <path d={EMBROIDERED_TEXT_PATH} fillRule="evenodd" />
-        </g>
+        <image
+          href={logoSrc}
+          filter={!isRed && !isWhite ? `url(#${threadFilterId})` : undefined}
+          width="939"
+          height="409"
+        />
       </svg>
     );
   }
@@ -7128,6 +7104,22 @@ export default function Design() {
     else updateExtraAngle(val);
   };
 
+  const getActivePerspective = (): number => {
+    if (activeLogoTarget === 'chest') return hdLogoPerspective;
+    if (activeLogoTarget === 'pant') return pantLogoPerspective;
+    if (activeLogoTarget === 'back') return backLogoPerspective;
+    return extraLogoPerspective;
+  };
+
+  const updateActivePerspective = (val: number) => {
+    const clamped = Math.round(val * 100) / 100;
+    if (activeLogoTarget === 'chest') setHdLogoPerspective(clamped);
+    else if (activeLogoTarget === 'pant') setPantLogoPerspective(clamped);
+    else if (activeLogoTarget === 'back') setBackLogoPerspective(clamped);
+    else setExtraLogoPerspective(clamped);
+    setIsOptionBDirty(true);
+  };
+
   const isTargetEnabled = (t: LogoTarget): boolean => {
     if (t === 'chest') return showHdLogoOverlay;
     if (t === 'pant') return showPantLogo;
@@ -8759,7 +8751,7 @@ export default function Design() {
     const buildLogoImg = async (style: LogoStyle, colorStr: string, customLogoUrl?: string | null) => {
       const logoImg = new Image();
       logoImg.crossOrigin = 'anonymous';
-      const logoAspect = style === 'modern' ? 160 / 320 : style === 'embroidered' ? 276 / 558 : 210 / 360;
+      const logoAspect = style === 'modern' ? 160 / 320 : style === 'embroidered' ? 409 / 939 : 210 / 360;
       let blobUrl = '';
 
       if (customLogoUrl) {
@@ -8776,40 +8768,19 @@ export default function Design() {
             </g>
           </svg>`;
         } else if (style === 'embroidered') {
-          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 558 276" width="1116" height="552">
+          const isRed = cleanColor.toLowerCase() === '#e52b38' || cleanColor.toLowerCase() === '#e5373f' || cleanColor.toLowerCase() === '#ff0000';
+          const isWhite = cleanColor.toLowerCase() === '#ffffff' || cleanColor.toLowerCase() === '#fff';
+          const logoSrc = isRed ? '/logos/shivnaresh-embroidery-red.png' : '/logos/shivnaresh-embroidery-white.png';
+
+          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 939 409" width="1878" height="818">
             <defs>
-              <pattern id="stamp-stitch-diag" width="8" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-                <line x1="0" y1="1" x2="8" y2="1" stroke="rgba(255,255,255,0.60)" stroke-width="1.6" />
-                <line x1="0" y1="2.5" x2="8" y2="2.5" stroke="rgba(0,0,0,0.38)" stroke-width="1.4" />
-                <line x1="0" y1="4" x2="8" y2="4" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" />
-                <line x1="0" y1="5.5" x2="8" y2="5.5" stroke="rgba(0,0,0,0.38)" stroke-width="1.4" />
-                <circle cx="2" cy="1.8" r="0.8" fill="rgba(0,0,0,0.48)" />
-                <circle cx="6" cy="4.8" r="0.8" fill="rgba(0,0,0,0.48)" />
-              </pattern>
-              <pattern id="stamp-stitch-vert" width="3" height="3" patternUnits="userSpaceOnUse">
-                <line x1="0.8" y1="0" x2="0.8" y2="3" stroke="rgba(255,255,255,0.65)" stroke-width="1.2" />
-                <line x1="2.2" y1="0" x2="2.2" y2="3" stroke="rgba(0,0,0,0.42)" stroke-width="1.2" />
-              </pattern>
-              <filter id="stamp-thread-3d" x="-15%" y="-15%" width="130%" height="130%">
-                <feGaussianBlur in="SourceAlpha" stdDeviation="0.85" result="blur" />
-                <feSpecularLighting in="blur" surfaceScale="3.6" specularConstant="1.3" specularExponent="24" result="spec">
-                  <fePointLight x="-120" y="-140" z="200" />
-                </feSpecularLighting>
-                <feComposite in="spec" in2="SourceAlpha" operator="in" result="spec" />
-                <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="0.88" k4="0" result="lit" />
-                <feDropShadow dx="0.6" dy="2.0" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.70" />
+              <filter id="stamp-thread-tint" color-interpolation-filters="sRGB">
+                <feFlood flood-color="${cleanColor}" result="flood" />
+                <feComposite in="flood" in2="SourceGraphic" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="tinted" />
+                <feComposite in="tinted" in2="SourceAlpha" operator="in" />
               </filter>
             </defs>
-            <g fill="${cleanColor}" filter="url(#stamp-thread-3d)">
-              <path d="${EMBROIDERED_BODY_PATH}" />
-              <path d="${EMBROIDERED_TEXT_PATH}" fill-rule="evenodd" />
-            </g>
-            <g fill="url(#stamp-stitch-diag)" opacity="0.85" style="mix-blend-mode: overlay;">
-              <path d="${EMBROIDERED_BODY_PATH}" />
-            </g>
-            <g fill="url(#stamp-stitch-vert)" opacity="0.85" style="mix-blend-mode: overlay;">
-              <path d="${EMBROIDERED_TEXT_PATH}" fill-rule="evenodd" />
-            </g>
+            <image href="${logoSrc}" ${!isRed && !isWhite ? 'filter="url(#stamp-thread-tint)"' : ''} width="939" height="409" />
           </svg>`;
         } else {
           const yStart = hdLogoCurveDirection === 'left' ? 188 : hdLogoCurveDirection === 'right' ? 180 : 185;
@@ -11266,6 +11237,92 @@ export default function Design() {
 
                       <div className="text-[9px] font-mono opacity-60">
                         X: {getActiveX()}% · Y: {getActiveY()}%
+                      </div>
+                    </div>
+
+                    {/* 3.1 360° Rotation & 3D Edge-On Turn Controls (Rotates on same position) */}
+                    <div className={`p-2.5 rounded-xl border space-y-2.5 ${
+                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                    }`}>
+                      {/* 2D 360° Surface Rotation */}
+                      <div>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                            🔄 360° Surface Rotation:
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-emerald-400 font-bold">
+                              {Math.round(getActiveAngle())}°
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateActiveAngle((getActiveAngle() - 1 + 360) % 360)}
+                            className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                              isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                            }`}
+                            title="Rotate Left 1°"
+                          >
+                            ↺
+                          </button>
+                          <input
+                            type="range"
+                            min="0"
+                            max="360"
+                            step="1"
+                            value={(Math.round(getActiveAngle()) % 360 + 360) % 360}
+                            onChange={(e) => updateActiveAngle(Number(e.target.value))}
+                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateActiveAngle((getActiveAngle() + 1) % 360)}
+                            className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
+                              isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                            }`}
+                            title="Rotate Right 1°"
+                          >
+                            ↻
+                          </button>
+                        </div>
+                        {/* 360 Quick Presets */}
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap text-[9px]">
+                          <button type="button" onClick={() => updateActiveAngle(0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">0° (Straight)</button>
+                          <button type="button" onClick={() => updateActiveAngle(90)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">90° (Vertical)</button>
+                          <button type="button" onClick={() => updateActiveAngle(180)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">180° (Inverted / Ulta)</button>
+                          <button type="button" onClick={() => updateActiveAngle(270)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">270° (Vertical 2)</button>
+                          <button type="button" onClick={() => updateActiveAngle(360)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">360° (Full Circle)</button>
+                        </div>
+                      </div>
+
+                      {/* 3D Torso Angle / Horizontal Perspective */}
+                      <div className="pt-2 border-t border-white/10">
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                            📐 3D Horizontal Turn / Edge Perspective:
+                          </span>
+                          <span className="font-mono text-emerald-400 font-bold">
+                            {getActivePerspective() === 0 ? 'Straight Line (0%)' : `${getActivePerspective() > 0 ? '+' : ''}${Math.round(getActivePerspective() * 100)}%`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="-1.0"
+                            max="1.0"
+                            step="0.02"
+                            value={getActivePerspective()}
+                            onChange={(e) => updateActivePerspective(Number(e.target.value))}
+                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
+                          <button type="button" onClick={() => updateActivePerspective(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Front Facing (+100%)</button>
+                          <button type="button" onClick={() => updateActivePerspective(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
+                          <button type="button" onClick={() => updateActivePerspective(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Flipped Horizontally (-100%)</button>
+                        </div>
                       </div>
                     </div>
 

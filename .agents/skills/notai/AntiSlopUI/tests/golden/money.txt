@@ -1,0 +1,55 @@
++-----------------------------------------------------------------------------------------+
+|  TARGET: MoneyApp - RECOMMENDED DESIGN SYSTEM                                           |
++-----------------------------------------------------------------------------------------+
+|                                                                                          |
+|  PATTERN: Feature-Rich + Conversion                                                     |
+|     CTA: Above fold                                                                     |
+|     Sections:                                                                           |
+|       1. Hero                                                                           |
+|       2. Features                                                                       |
+|       3. CTA                                                                            |
+|                                                                                          |
+|  STYLE: Minimalism & Swiss Style                                                        |
+|     Keywords: Clean, simple, spacious, functional, white space, high contrast,          |
+|     geometric, sans-serif, grid-based, essential                                        |
+|     Best For: Enterprise apps, dashboards, documentation sites, SaaS platforms,         |
+|     professional tools                                                                  |
+|     Performance: ⚡ Excellent | Accessibility: ✓ WCAG AAA                                |
+|                                                                                          |
+|  COLORS:                                                                                |
+|     Primary:    #0F766E                                                                 |
+|     Secondary:  #3B82F6                                                                 |
+|     CTA:        #F97316                                                                 |
+|     Background: #F8FAFC                                                                 |
+|     Text:       #1E293B                                                                 |
+|                                                                                          |
+|  TYPOGRAPHY: Bricolage Grotesque / Inter                                                |
+|     Mood: Clear + Professional typography                                               |
+|     Google Fonts: https://fonts.google.com/share?selection.family=Bricolage+Grotesque:wght@400;600;700|Inter:wght@400;500|
+|     CSS Import: @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wgh...|
+|                                                                                          |
+|  KEY EFFECTS:                                                                           |
+|     Subtle hover (150-250ms), smooth transitions, sharp shadows if any, clear type      |
+|     hierarchy, fast loading                                                             |
+|                                                                                          |
+|  AVOID (Anti-patterns):                                                                 |
+|     Poor profiles + No reviews                                                          |
+|                                                                                          |
+|  PRE-DELIVERY CHECKLIST:                                                                |
+|     [ ] No emojis as icons (use SVG: Heroicons/Lucide)                                  |
+|     [ ] cursor-pointer on all clickable elements                                        |
+|     [ ] Hover timing follows the motion table in SKILL.md                               |
+|     [ ] Light mode: text contrast 4.5:1 minimum                                         |
+|     [ ] Focus states visible for keyboard nav                                           |
+|     [ ] prefers-reduced-motion respected                                                |
+|     [ ] Responsive: 375px, 768px, 1024px, 1440px                                        |
+|                                                                                          |
++-----------------------------------------------------------------------------------------+
+## Post-filter overrides
+
+- OVERRIDE: vendor primary #2563EB → #0F766E [domain table]
+- OVERRIDE: Inter / Inter → Bricolage Grotesque / Inter [catalog T1]
+- OVERRIDE: vendor prose "hover (200-250ms)" → "hover (100-150ms)" [prose]
+- OVERRIDE: vendor prose "100-150ms" → "150-250ms" [prose]
+- OVERRIDE: vendor prose "hover (150-250ms)" → "hover (100-150ms)" [prose]
+
