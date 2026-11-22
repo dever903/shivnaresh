@@ -2697,7 +2697,7 @@ function MySetsPanel({
                                 const el = e.currentTarget;
                                 const curSrc = el.src || '';
                                 if (!curSrc.includes('/api/proxy-image') && primary.startsWith('http')) {
-                                  const rawBase = (import.meta.env.VITE_API_URL || '').trim();
+                                  const rawBase = ((import.meta as any).env?.VITE_API_URL || '').trim();
                                   const apiBase = rawBase.includes('shivnaresh-api.onrender.com') ? '' : rawBase.replace(/\/+$/, '');
                                   el.src = `${apiBase}/api/proxy-image?url=${encodeURIComponent(primary)}`;
                                   return;
@@ -8772,16 +8772,36 @@ export default function Design() {
           const isWhite = cleanColor.toLowerCase() === '#ffffff' || cleanColor.toLowerCase() === '#fff';
           const logoSrc = isRed ? '/logos/shivnaresh-embroidery-red.png' : '/logos/shivnaresh-embroidery-white.png';
 
-          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 939 409" width="1878" height="818">
-            <defs>
-              <filter id="stamp-thread-tint" color-interpolation-filters="sRGB">
-                <feFlood flood-color="${cleanColor}" result="flood" />
-                <feComposite in="flood" in2="SourceGraphic" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="tinted" />
-                <feComposite in="tinted" in2="SourceAlpha" operator="in" />
-              </filter>
-            </defs>
-            <image href="${logoSrc}" ${!isRed && !isWhite ? 'filter="url(#stamp-thread-tint)"' : ''} width="939" height="409" />
-          </svg>`;
+          if (isRed || isWhite) {
+            logoImg.src = logoSrc;
+          } else {
+            try {
+              const baseMaster = new Image();
+              baseMaster.crossOrigin = 'anonymous';
+              baseMaster.src = '/logos/shivnaresh-embroidery-white.png';
+              await new Promise<void>((res, rej) => {
+                baseMaster.onload = () => res();
+                baseMaster.onerror = rej;
+              });
+              const tCanvas = document.createElement('canvas');
+              tCanvas.width = 939;
+              tCanvas.height = 409;
+              const tCtx = tCanvas.getContext('2d');
+              if (tCtx) {
+                tCtx.drawImage(baseMaster, 0, 0);
+                tCtx.globalCompositeOperation = 'source-in';
+                tCtx.fillStyle = cleanColor;
+                tCtx.fillRect(0, 0, 939, 409);
+                tCtx.globalCompositeOperation = 'multiply';
+                tCtx.drawImage(baseMaster, 0, 0);
+                logoImg.src = tCanvas.toDataURL('image/png');
+              } else {
+                logoImg.src = logoSrc;
+              }
+            } catch {
+              logoImg.src = logoSrc;
+            }
+          }
         } else {
           const yStart = hdLogoCurveDirection === 'left' ? 188 : hdLogoCurveDirection === 'right' ? 180 : 185;
           const yMid = 185 - Math.max(0, hdLogoCurvature);
@@ -8800,9 +8820,11 @@ export default function Design() {
           </svg>`;
         }
 
-        const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-        blobUrl = URL.createObjectURL(blob);
-        logoImg.src = blobUrl;
+        if (svgMarkup) {
+          const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+          blobUrl = URL.createObjectURL(blob);
+          logoImg.src = blobUrl;
+        }
       }
 
       try {
@@ -10767,8 +10789,8 @@ export default function Design() {
                           setShowBackLogo(false);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('chest');
-                          setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(24);
-                          setPantLogoX(63); setPantLogoY(61); setPantLogoScale(20);
+                          updateChestX(43.5); updateChestY(20.5); updateChestScale(24);
+                          updatePantX(63); updatePantY(61); updatePantScale(20);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
@@ -10786,7 +10808,7 @@ export default function Design() {
                           setShowBackLogo(false);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('chest');
-                          setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
+                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           showHdLogoOverlay && !showPantLogo && !showBackLogo && !showExtraLogo
@@ -10804,7 +10826,7 @@ export default function Design() {
                           setShowBackLogo(false);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('pant');
-                          setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
+                          updatePantX(63); updatePantY(61); updatePantScale(18);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           !showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
@@ -10822,7 +10844,7 @@ export default function Design() {
                           setShowBackLogo(true);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('back');
-                          setBackLogoX(50); setBackLogoY(26); setBackLogoScale(56);
+                          updateBackX(50); updateBackY(26); updateBackScale(56);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           !showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
@@ -10840,8 +10862,8 @@ export default function Design() {
                           setShowBackLogo(true);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('chest');
-                          setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
-                          setBackLogoX(50); setBackLogoY(26); setBackLogoScale(56);
+                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                          updateBackX(50); updateBackY(26); updateBackScale(56);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
@@ -10859,9 +10881,9 @@ export default function Design() {
                           setShowBackLogo(true);
                           setShowExtraLogo(false);
                           setActiveLogoTarget('chest');
-                          setHdLogoX(43.5); setHdLogoY(20.5); setHdLogoScale(22);
-                          setPantLogoX(63); setPantLogoY(61); setPantLogoScale(18);
-                          setBackLogoX(50); setBackLogoY(26); setBackLogoScale(56);
+                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                          updatePantX(63); updatePantY(61); updatePantScale(18);
+                          updateBackX(50); updateBackY(26); updateBackScale(56);
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
                           showHdLogoOverlay && showPantLogo && showBackLogo
