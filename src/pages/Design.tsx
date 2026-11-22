@@ -7912,6 +7912,7 @@ export default function Design() {
   const [fivePoseItems, setFivePoseItems] = useState<PoseItem[]>([]);
   const [selectedPoseIndex, setSelectedPoseIndex] = useState<number>(0);
   const activePoseIndexRef = useRef<number>(-1);
+  const isPollingRef = useRef<boolean>(false);
   const batchPayloadRef = useRef<{
     isFivePose: boolean;
     total: number;
@@ -7961,6 +7962,10 @@ export default function Design() {
     }
     return null;
   })();
+  const bottomBackGarment: Pick | null = (() => {
+    const g = classifiedGarments.find((g) => (g.role as string) === 'bottom_back' || (g.role as string) === 'bottom-back' || /bottom.*back|back.*bottom|back.*pant|pant.*back|back.*pocket/i.test(`${g.role || ''} ${g.name || ''}`)) ?? explicitBottom;
+    return g ? { url: g.url, preview: g.preview, name: g.name } : null;
+  })();
   const topFrontGarment: Pick | null = (() => {
     const g = classifiedGarments.find((g) => g.role === 'top-front' || g.role === 'tops-front') ?? classifiedGarments[0];
     return g ? { url: g.url, preview: g.preview, name: g.name } : null;
@@ -7979,6 +7984,88 @@ export default function Design() {
   const totalRequiredCredits = mode === 'swap'
     ? (validSwapDrafts.length > 1 ? validSwapDrafts.length * creditCost : creditCost)
     : (multiBatchCount > 1 ? (multiBatchCount * creditCost) : creditCost);
+
+  async function handleRetrySinglePose(idx: number) {
+    const targetPose = fivePoseItems[idx];
+    if (!targetPose || busy) return;
+    try {
+      setBusy(true);
+      generatingRef.current = true;
+      setError('');
+      setProgress(5);
+      setProgressLabel(`Retrying ${targetPose.name}…`);
+      setFivePoseItems((prev) =>
+        prev.map((p, i) => (i === idx ? { ...p, status: 'generating' } : p))
+      );
+      setSelectedPoseIndex(idx);
+      activePoseIndexRef.current = idx;
+
+      const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(
+        `${targetPose.model?.name || ''} ${targetPose.model?.url || ''} ${targetPose.promptSuffix || ''}`
+      );
+
+      const effectiveCloth = tryOnTarget === 'lower'
+        ? (isBack && bottomBackGarment ? bottomBackGarment : (bottomGarment || cloth))
+        : (isBack && topBackGarment ? topBackGarment : (topFrontGarment || cloth));
+
+      const payload: Record<string, unknown> = {
+        mode: tryOnTarget === 'both' ? (bottomGarment?.url ? 'outfit' : 'tryon') : 'tryon',
+        resolution: quality,
+        poseAngle: isBack ? 'back' : 'front',
+        tryOnTarget,
+        category: tryOnTarget === 'lower' ? 'bottoms' : tryOnTarget === 'both' ? 'one-pieces' : 'tops',
+        ...(targetPose.model?.url ? { model: targetPose.model.url } : {}),
+        ...(tryOnTarget === 'both' ? (
+          bottomGarment?.url ? {
+            mode: 'outfit',
+            topCloth: (isBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+            bottomCloth: bottomGarment.url,
+          } : {
+            mode: 'tryon',
+            cloth: (isBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+            source: (isBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
+            category: 'one-pieces',
+          }
+        ) : tryOnTarget === 'lower' ? {
+          mode: 'tryon',
+          category: 'bottoms',
+          tryOnTarget: 'lower',
+          cloth: (isBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || effectiveCloth?.url),
+          source: (isBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || effectiveCloth?.url),
+        } : {
+          ...(effectiveCloth?.url ? { cloth: effectiveCloth.url, source: effectiveCloth.url } : {}),
+        }),
+      };
+
+      if (hasClassifiedGarments && classifiedGarments.length > 0) {
+        payload.garmentViews = classifiedGarments.map((g, vIdx) => ({
+          url: g.url,
+          role: g.role,
+          label: (g.role === 'custom' && g.customLabel?.trim())
+            ? g.customLabel.trim()
+            : (GARMENT_ROLE_LABELS[g.role] || `View ${vIdx + 1}`),
+        }));
+      }
+
+      payload.prompt = `${prompt.trim()} ${targetPose.promptSuffix || ''}`.trim();
+
+      await api.unlockUser().catch(() => {});
+      const res = await api.generate(payload);
+      if (typeof res.credits === 'number') {
+        setUser((prev) => (prev ? { ...prev, credits: res.credits! } : null));
+      }
+      setJob({ id: res.id, status: 'starting' });
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Retry failed';
+      setError(`Retry for ${targetPose.name} failed: ${errMsg}`);
+      setFivePoseItems((prev) =>
+        prev.map((p, i) => (i === idx ? { ...p, status: 'failed' } : p))
+      );
+      setBusy(false);
+      generatingRef.current = false;
+      activePoseIndexRef.current = -1;
+    }
+  }
 
   const previousGarmentsList = (() => {
     const map = new Map<string, { url: string; name: string; at: number }>();
@@ -8227,9 +8314,16 @@ export default function Design() {
   useEffect(() => {
     if (!job || job.status === 'completed' || job.status === 'failed') return;
 
+    let isSubscribed = true;
+
     const timer = setInterval(async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
+
       try {
+        if (!isSubscribed) return;
         const next = await api.job(job.id);
+        if (!isSubscribed) return;
 
         const isBatchRunning = activePoseIndexRef.current >= 0 && Boolean(batchPayloadRef.current);
 
@@ -8243,6 +8337,7 @@ export default function Design() {
         }
 
         if (next.status === 'completed' && next.output?.[0]) {
+          clearInterval(timer);
           const imgUrl = next.output[0];
 
           if (isBatchRunning && batchPayloadRef.current) {
@@ -8315,12 +8410,12 @@ export default function Design() {
               await new Promise((resolve) => setTimeout(resolve, 2000));
 
               // Check if cancelled during the delay
-              if (!batchPayloadRef.current || batchPayloadRef.current.items[nextItemIdx]?.cancelled) {
+              if (!isSubscribed || !batchPayloadRef.current || batchPayloadRef.current.items[nextItemIdx]?.cancelled) {
                 activePoseIndexRef.current = -1;
                 batchPayloadRef.current = null;
                 setBusy(false);
                 generatingRef.current = false;
-                setJob(next);
+                setJob(null);
                 return;
               }
 
@@ -8341,7 +8436,13 @@ export default function Design() {
                     source: (nextIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
                     category: 'one-pieces',
                   }
-                ) : {
+                ) : tryOnTarget === 'lower' ? {
+                  mode: 'tryon',
+                  category: 'bottoms',
+                  tryOnTarget: 'lower',
+                  cloth: (nextIsBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || nextItem.cloth?.url || (batchCtx.payload as any)?.cloth),
+                  source: (nextIsBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || nextItem.cloth?.url || (batchCtx.payload as any)?.cloth),
+                } : {
                   ...(nextItem.cloth?.url ? { cloth: nextItem.cloth.url, source: nextItem.cloth.url } : {}),
                 }),
                 ...(nextItem.sourceModel?.url ? { sourceModel: nextItem.sourceModel.url, source: nextItem.sourceModel.url } : {}),
@@ -8398,7 +8499,7 @@ export default function Design() {
                   batchPayloadRef.current = null;
                   setBusy(false);
                   generatingRef.current = false;
-                  setJob(next);
+                  setJob(null);
                 }
               }
             } else {
@@ -8418,7 +8519,7 @@ export default function Design() {
               );
             }
           } else {
-            // Standard single generation
+            // Standard single generation or retry of single pose
             setJob(next);
             setResult(imgUrl);
             setCleanResultBackup(imgUrl);
@@ -8428,9 +8529,11 @@ export default function Design() {
             setIsEraseMode(false);
             autoDetectContrastColor(imgUrl);
             const activeSingleModel = model || effectiveModels[0];
+            const currentPoseIdx = activePoseIndexRef.current >= 0 ? activePoseIndexRef.current : 0;
+            activePoseIndexRef.current = -1;
             setFivePoseItems((prev) =>
               prev.length > 0
-                ? prev.map((p, idx) => (idx === 0 ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
+                ? prev.map((p, idx) => (idx === currentPoseIdx ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
                 : [{
                     id: 'pose-1',
                     name: activeSingleModel?.name || 'Model Pose 1',
@@ -8483,6 +8586,7 @@ export default function Design() {
         }
 
         if (next.status === 'failed') {
+          clearInterval(timer);
           if (activePoseIndexRef.current >= 0) {
             const currentIdx = activePoseIndexRef.current;
             setFivePoseItems((prev) =>
@@ -8506,10 +8610,15 @@ export default function Design() {
         activePoseIndexRef.current = -1;
         batchPayloadRef.current = null;
         setIsEditingRender(false);
+      } finally {
+        isPollingRef.current = false;
       }
     }, 1500);
 
-    return () => clearInterval(timer);
+    return () => {
+      isSubscribed = false;
+      clearInterval(timer);
+    };
   }, [job]);
 
   /* Elapsed timer */
@@ -9793,13 +9902,16 @@ export default function Design() {
           batchItems = targetModels.map((m, i) => {
             const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(`${m?.name || ''} ${m?.url || ''}`);
             const angleLabel = isBack ? `Back Pose ${i + 1} of ${targetModels.length}` : `Front Pose ${i + 1} of ${targetModels.length}`;
+            const effectiveCloth = tryOnTarget === 'lower'
+              ? (isBack && bottomBackGarment ? bottomBackGarment : (bottomGarment || cloth))
+              : (isBack && topBackGarment ? topBackGarment : (topFrontGarment || cloth));
             return {
               id: `pose-${i + 1}`,
               name: m?.name || `Pose ${i + 1}`,
               angle: tryOnTarget === 'both' ? `Full Outfit on ${angleLabel}` : angleLabel,
               icon: isBack ? '🔄' : '👕',
               model: m,
-              cloth: isBack && topBackGarment ? topBackGarment : (topFrontGarment || cloth),
+              cloth: effectiveCloth,
               promptSuffix: isBack ? 'Back angle view' : 'Front angle view',
             };
           });
@@ -9853,7 +9965,13 @@ export default function Design() {
               source: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
               category: 'one-pieces',
             }
-          ) : {
+          ) : tryOnTarget === 'lower' ? {
+            mode: 'tryon',
+            category: 'bottoms',
+            tryOnTarget: 'lower',
+            cloth: (firstIsBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || firstItem.cloth?.url || (payload as any)?.cloth),
+            source: (firstIsBack && bottomBackGarment?.url) ? bottomBackGarment.url : (bottomGarment?.url || firstItem.cloth?.url || (payload as any)?.cloth),
+          } : {
             ...(firstItem.cloth?.url ? { cloth: firstItem.cloth.url, source: firstItem.cloth.url } : {}),
           }),
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
@@ -13383,8 +13501,8 @@ export default function Design() {
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       {mode === 'swap'
-                        ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`
-                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed').length}/${fivePoseItems.length} Completed)`}
+                        ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`
+                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`}
                     </span>
                     <div className="flex items-center gap-2">
                       {fivePoseItems.some((p) => p.status === 'pending') && (
@@ -13431,9 +13549,14 @@ export default function Design() {
                             {thumbUrl ? (
                               <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
                                 <img src={thumbUrl} alt={pose.name} className="h-full w-full object-cover" />
-                                {pose.status === 'completed' && (
+                                {pose.status === 'completed' && Boolean(pose.url) && (
                                   <span className="absolute bottom-0 right-0 bg-emerald-600 text-white text-[7px] font-bold px-1 rounded-tl">
                                     ✓
+                                  </span>
+                                )}
+                                {pose.status === 'failed' && (
+                                  <span className="absolute bottom-0 right-0 bg-red-600 text-white text-[7px] font-bold px-1 rounded-tl">
+                                    ✕
                                   </span>
                                 )}
                               </div>
@@ -13447,11 +13570,28 @@ export default function Design() {
                               </span>
                             </div>
                             <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
-                            <div className="mt-1">
-                              {pose.status === 'completed' && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
+                            <div className="mt-1 flex flex-col items-center gap-1">
+                              {pose.status === 'completed' && Boolean(pose.url) && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
                               {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
                               {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
-                              {pose.status === 'failed' && <span className="text-[9px] text-rose-600 font-medium">Error</span>}
+                              {pose.status === 'failed' && (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="text-[9px] text-rose-500 font-bold">Failed</span>
+                                  {!busy && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleRetrySinglePose(idx);
+                                      }}
+                                      className="px-1.5 py-0.2 rounded text-[7.5px] font-bold bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black border border-amber-500/40 transition cursor-pointer"
+                                      title="Retry rendering this model"
+                                    >
+                                      🔄 Retry
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </button>
                           <button
