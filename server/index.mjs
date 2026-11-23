@@ -18,6 +18,7 @@ import JSZip from 'jszip';
 import { createAuth } from './auth.mjs';
 import { createUpiGateway } from './upiGateway.mjs';
 import { getMongoDb } from './db.mjs';
+import { pipeline, env, RawImage } from '@xenova/transformers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -38,6 +39,17 @@ async function loadEnv() {
 }
 await loadEnv();
 const DATA = path.join(__dirname, 'data');
+
+// Set model cache directory
+env.cacheDir = path.join(DATA, 'cache', 'models');
+
+let segmenterPipeline = null;
+async function getSegmenter() {
+  if (!segmenterPipeline) {
+    segmenterPipeline = await pipeline('image-segmentation', 'Xenova/segformer_b2_clothes');
+  }
+  return segmenterPipeline;
+}
 const UPLOADS = path.join(DATA, 'uploads');
 const GENERATED = path.join(DATA, 'generated');
 const STATE_FILE = path.join(DATA, 'state.json');
@@ -3113,28 +3125,19 @@ app.post('/api/upload', async (req, res) => {
 app.post('/api/segment-garment', async (req, res) => {
   try {
     const { url, dataUrl } = req.body || {};
-    let targetPath = null;
-    let tempFile = null;
+    let rawInputImage = null;
+    let fileHash = null;
 
     const cacheDir = path.join(DATA, 'cache', 'masks');
     await fs.mkdir(cacheDir, { recursive: true });
 
-    let fileHash = null;
-
+    // 1. DataURL या Local/Remote URL से इमेज लोड करें
     if (dataUrl && dataUrl.startsWith('data:image')) {
       const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(dataUrl);
       if (match) {
         const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
         fileHash = crypto.createHash('md5').update(buffer).digest('hex');
-        const cacheFile = path.join(cacheDir, `${fileHash}.json`);
-        try {
-          const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
-          return res.json({ success: true, ...cached, cached: true });
-        } catch { }
-
-        tempFile = path.join(cacheDir, `temp-${Date.now()}-${fileHash}.png`);
-        await fs.writeFile(tempFile, buffer);
-        targetPath = tempFile;
+        rawInputImage = await RawImage.fromBlob(new Blob([buffer]));
       }
     } else if (url) {
       let cleanUrl = String(url).split('?')[0];
@@ -3146,10 +3149,8 @@ app.post('/api/segment-garment', async (req, res) => {
           }
         }
       } catch { }
-      try {
-        cleanUrl = decodeURIComponent(cleanUrl);
-      } catch { }
 
+      let targetPath = null;
       if (cleanUrl.startsWith('/uploads/')) {
         targetPath = path.join(UPLOADS, path.basename(cleanUrl));
       } else if (cleanUrl.startsWith('/models/')) {
@@ -3160,74 +3161,102 @@ app.post('/api/segment-garment', async (req, res) => {
         const resp = await fetch(url);
         const buf = Buffer.from(await resp.arrayBuffer());
         fileHash = crypto.createHash('md5').update(buf).digest('hex');
-        const cacheFile = path.join(cacheDir, `${fileHash}.json`);
-        try {
-          const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
-          return res.json({ success: true, ...cached, cached: true });
-        } catch { }
-        tempFile = path.join(cacheDir, `temp-${Date.now()}-${fileHash}.png`);
-        await fs.writeFile(tempFile, buf);
-        targetPath = tempFile;
+        rawInputImage = await RawImage.fromBlob(new Blob([buf]));
       }
 
-      if (!fileHash && targetPath && fsSync.existsSync(targetPath)) {
-        try {
-          const fileBuf = await fs.readFile(targetPath);
-          fileHash = crypto.createHash('md5').update(fileBuf).digest('hex');
-          const cacheFile = path.join(cacheDir, `${fileHash}.json`);
-          try {
-            const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
-            return res.json({ success: true, ...cached, cached: true });
-          } catch { }
-        } catch { }
+      if (targetPath && fsSync.existsSync(targetPath)) {
+        const fileBuf = await fs.readFile(targetPath);
+        fileHash = crypto.createHash('md5').update(fileBuf).digest('hex');
+        rawInputImage = await RawImage.read(targetPath);
       }
     }
 
-    if (!targetPath || !fsSync.existsSync(targetPath)) {
-      return res.status(400).json({ success: false, error: 'invalid_image', message: 'Could not resolve image file' });
+    if (!rawInputImage) {
+      return res.status(400).json({ success: false, error: 'invalid_image', message: 'Could not resolve image' });
     }
 
-    // Call local python human parser script with preferred Python 3.11 environment
-    const pyExe = process.env.PYTHON_PATH ||
-      (fsSync.existsSync('C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe')
-        ? 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe'
-        : 'python');
-    const scriptPath = path.join(__dirname, 'segment_garment.py');
-    const proc = spawnSync(pyExe, [scriptPath, targetPath], {
-      encoding: 'utf8',
-      maxBuffer: 50 * 1024 * 1024,
-      timeout: 45000,
-    });
-
-    if (tempFile) {
-      try { await fs.unlink(tempFile); } catch { }
+    // 2. MD5 कैश चेक करें (ताकि पहले से प्रोसेस्ड इमेज 0 सेकंड में लोड हो)
+    if (fileHash) {
+      const cacheFile = path.join(cacheDir, `${fileHash}.json`);
+      try {
+        const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
+        return res.json({ success: true, ...cached, cached: true });
+      } catch { }
     }
 
-    if (proc.status !== 0 || !proc.stdout) {
-      console.warn('[Segment Garment] Python error:', proc.stderr);
-      return res.status(500).json({ success: false, error: 'segment_failed', message: proc.stderr || 'Segmentation failed' });
+    // 3. शुद्ध Node.js ONNX SegFormer AI मॉडल चलाएं
+    const segmenter = await getSegmenter();
+    const output = await segmenter(rawInputImage);
+
+    const w = rawInputImage.width;
+    const h = rawInputImage.height;
+
+    const protectData = new Uint8ClampedArray(w * h);
+    const bothData = new Uint8ClampedArray(w * h);
+    let upperMaskBase64 = null;
+    let lowerMaskBase64 = null;
+
+    for (const item of output) {
+      const lbl = (item.label || '').toLowerCase();
+      const d = item.mask.data;
+
+      // Protect: Hair, Face, Arms, Legs, Background, Shoes
+      if (lbl.includes('hair') || lbl.includes('face') || lbl.includes('arm') || lbl.includes('leg') || lbl.includes('background') || lbl.includes('shoe')) {
+        for (let i = 0; i < protectData.length; i++) {
+          if (d[i] > 128) protectData[i] = 255;
+        }
+      }
+
+      // Upper Garment (Jacket / Shirt / Top)
+      if (lbl.includes('upper')) {
+        const buf = await item.mask.toSharp().png().toBuffer();
+        upperMaskBase64 = 'data:image/png;base64,' + buf.toString('base64');
+        for (let i = 0; i < bothData.length; i++) {
+          if (d[i] > 128) bothData[i] = 255;
+        }
+      }
+
+      // Lower Garment (Pants / Skirt)
+      if (lbl.includes('pants') || lbl.includes('skirt')) {
+        const buf = await item.mask.toSharp().png().toBuffer();
+        lowerMaskBase64 = 'data:image/png;base64,' + buf.toString('base64');
+        for (let i = 0; i < bothData.length; i++) {
+          if (d[i] > 128) bothData[i] = 255;
+        }
+      }
     }
 
-    // Parse JSON output from python
-    const rawOut = proc.stdout.trim();
-    const jsonStart = rawOut.indexOf('{');
-    const jsonEnd = rawOut.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1) {
-      return res.status(500).json({ success: false, error: 'invalid_parser_output', message: 'Parser did not return valid JSON' });
-    }
-    const result = JSON.parse(rawOut.slice(jsonStart, jsonEnd + 1));
+    // Both Garment Mask
+    const bothRaw = new RawImage(bothData, w, h, 1);
+    const bothBuf = await bothRaw.toSharp().png().toBuffer();
+    const bothMaskBase64 = 'data:image/png;base64,' + bothBuf.toString('base64');
 
-    // Cache the result
+    // Protect Mask
+    const protectRaw = new RawImage(protectData, w, h, 1);
+    const protectBuf = await protectRaw.toSharp().png().toBuffer();
+    const protectMaskBase64 = 'data:image/png;base64,' + protectBuf.toString('base64');
+
+    const result = {
+      success: true,
+      width: w,
+      height: h,
+      upper: upperMaskBase64,
+      lower: lowerMaskBase64,
+      both: bothMaskBase64,
+      protect: protectMaskBase64
+    };
+
+    // कैश में सेव करें
     if (fileHash) {
       try {
         await fs.writeFile(path.join(cacheDir, `${fileHash}.json`), JSON.stringify(result));
       } catch { }
     }
 
-    return res.json({ success: true, ...result });
+    return res.json(result);
   } catch (err) {
-    console.error('[Segment Garment] Handler error:', err);
-    return res.status(500).json({ success: false, error: 'internal_error', message: err.message });
+    console.error('[Segment Garment Error]:', err);
+    return res.status(500).json({ success: false, error: 'segment_failed', message: err.message });
   }
 });
 

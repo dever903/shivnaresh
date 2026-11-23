@@ -1108,6 +1108,12 @@ export default function ColorSwapStudio({
       return canvas.toDataURL('image/jpeg', 0.95);
     }
 
+    // AI मास्क न मिलने पर इमेज को बिना खराब किए सेफ़ली ओरिजिनल लौटा दें
+    if (!aiGarmentData) {
+      console.warn('[Color Swap] AI Mask not available. Skipping recolor to protect background & hair.');
+      return sourceImg.src;
+    }
+
     // =========================================================================
     // PATH B: HEURISTIC SAFE FALLBACK (NO DEFRINGING LOOP)
     // =========================================================================
