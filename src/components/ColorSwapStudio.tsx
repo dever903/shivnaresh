@@ -752,20 +752,19 @@ export default function ColorSwapStudio({
       const isDataUrl = item.url.startsWith('data:');
       const payload = isDataUrl ? { dataUrl: item.url } : { url: item.url };
 
-      const res = await fetch('/api/segment-garment', {
+      const targetUrl = resolveImageUrl('/api/segment-garment');
+      const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
+      }).catch((_err: any) => null);
 
-      if (!res.ok) {
-        console.warn('[Segment Garment] HTTP error:', res.status);
+      if (!res || !res.ok) {
         return null;
       }
 
-      const data = await res.json();
-      if (!data.success || !data[scope]) {
-        console.warn('[Segment Garment] API returned unsuccessful:', data.error || data.message);
+      const data = await res.json().catch(() => null);
+      if (!data || !data.success || !data[scope]) {
         return null;
       }
 
@@ -777,7 +776,7 @@ export default function ColorSwapStudio({
 
       return await loadSafeCanvasImage(data[scope]);
     } catch (err) {
-      console.warn('[Segment Garment] Fetch exception, falling back to heuristics:', err);
+      console.warn('[Segment Garment] Fetch exception, falling back to precision engine:', err);
       return null;
     }
   };
@@ -787,8 +786,9 @@ export default function ColorSwapStudio({
      AI Semantic Garment Parsing + Multi-layer protection:
        1. AI Semantic Mask: 100% exact isolation for Upper (jacket),
           Lower (pants), or Both (full tracksuit). 0% background leakage.
-       2. Shiv-Naresh HD Logo protection (white vector embroidery preserved).
-       3. 3D Luminance & Texture preservation:
+       2. Shiv-Naresh HD Logo protection (authentic embroidery preserved).
+       3. Prop & Equipment protection (basketballs, sports gear preserved).
+       4. 3D Luminance & Texture preservation:
           - Deep Dark / Carbon Black: preserves 3D creases & satin sheen at true tL (~0.12)
           - Pure White: preserves realistic shading without turning muddy grey
           - Saturated Colors: transfers full vivid saturation (Shiv-Naresh Red, Navy, Gold)
@@ -850,13 +850,13 @@ export default function ColorSwapStudio({
     const garmentMask = new Uint8Array(W * H);
     const logoMask = new Uint8Array(W * H);
 
-    // Pre-pass: Detect Shiv-Naresh HD Logo embroidery seeds & dilate to preserve full vector strokes
+    // Pre-pass: Detect Shiv-Naresh HD Logo embroidery seeds strictly on upper chest/collar area
     if (protectLogos) {
       const seeds: number[] = [];
-      const logoZoneTop = Math.round(H * 0.05);
-      const logoZoneBottom = Math.round(H * 0.65);
-      const logoZoneLeft = Math.round(W * 0.10);
-      const logoZoneRight = Math.round(W * 0.90);
+      const logoZoneTop = Math.round(H * 0.08);
+      const logoZoneBottom = Math.round(H * 0.35); // Upper chest only, never lower torso, stomach, or props
+      const logoZoneLeft = Math.round(W * 0.15);
+      const logoZoneRight = Math.round(W * 0.85);
 
       for (let y = logoZoneTop; y < logoZoneBottom; y++) {
         for (let x = logoZoneLeft; x < logoZoneRight; x++) {
@@ -873,7 +873,7 @@ export default function ColorSwapStudio({
               : pL > 0.72 && pS < 0.20;
           const isRedSeed = sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20);
 
-          if (isWhiteSeed || isRedSeed) {
+          if ((isWhiteSeed || isRedSeed) && seeds.length < 800) {
             logoMask[pIdx] = 1;
             seeds.push(pIdx);
           }
@@ -881,7 +881,7 @@ export default function ColorSwapStudio({
       }
 
       let currentSeeds = seeds;
-      for (let pass = 0; pass < 2 && currentSeeds.length > 0; pass++) {
+      for (let pass = 0; pass < 2 && currentSeeds.length > 0 && currentSeeds.length < 1200; pass++) {
         const nextSeeds: number[] = [];
         for (const pIdx of currentSeeds) {
           const cy = Math.floor(pIdx / W);
@@ -902,7 +902,7 @@ export default function ColorSwapStudio({
               const nb = data[ni + 2];
               const { l: npL, s: npS } = rgbToHsl(nr, ng, nb);
 
-              if (npL > sL - 0.02 && npS < 0.20) {
+              if (npL > sL - 0.02 && npS < 0.20 && (nextSeeds.length + currentSeeds.length < 1500)) {
                 logoMask[nIdx] = 1;
                 nextSeeds.push(nIdx);
               }
@@ -933,9 +933,12 @@ export default function ColorSwapStudio({
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
-          const { s: pS, l: pL } = rgbToHsl(r, g, b);
+          const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
           const pYcc = toYCbCr(r, g, b);
           const warmth = pYcc.cr - pYcc.cb;
+
+          // Prop & Equipment Guard (Basketballs, soccer balls, tennis gear held in hands)
+          if (pH >= 10 && pH <= 48 && pS >= 0.35 && r > b + 30) continue;
 
           if (protectBackground) {
             const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
@@ -955,13 +958,11 @@ export default function ColorSwapStudio({
         const b = data[i + 2];
         const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
 
-        // 5. Shiv-Naresh HD Logo Guard & Vector Clarity:
+        // 5. Shiv-Naresh HD Logo Guard:
+        // Authentic embroidered threads preserved as original photo (never painted over with flat white)
         if (protectLogos && logoMask[pIdx] === 1) {
-          data[i] = 252;
-          data[i + 1] = 252;
-          data[i + 2] = 255;
           garmentMask[pIdx] = 2; // Protected logo marker
-          continue;
+          continue; // Leave original HD embroidered stitches and natural highlights untouched!
         }
 
         let matchStrength = 1.0;
@@ -969,7 +970,6 @@ export default function ColorSwapStudio({
         if (!aiMaskData) {
           // Heuristic color matching when AI mask not present
           const pYcc = toYCbCr(r, g, b);
-          const warmth = pYcc.cr - pYcc.cb;
           matchStrength = 0;
 
           if (!isSrcNeutral) {
@@ -979,18 +979,12 @@ export default function ColorSwapStudio({
               matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
             }
           } else {
+            // Neutral garment fabric (Beige, Grey, Silver, Cream, Tan, Khaki, Charcoal):
+            // Matches fabric across all light folds, shadows, and reflections without warm/cool dropouts
             const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-            const srcWarmth = srcYcc.cr - srcYcc.cb;
-            if (srcWarmth >= 2.0) {
-              if (warmth >= 0.2 && chromDist < maxChromDist * 1.35 && Math.abs(pL - sL) < 0.58) {
-                const wScore = Math.min(1.0, Math.max(0.0, (warmth - 0.1) / 0.6));
-                const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.35 - chromDist) / (maxChromDist * 0.35)));
-                matchStrength = Math.max(0.20, wScore * cScore);
-              }
-            } else {
-              if (chromDist < maxChromDist && pS < 0.25 && Math.abs(pL - sL) < 0.38) {
-                matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
-              }
+            if (chromDist < maxChromDist * 2.1 && pS < 0.38) {
+              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 2.1 - chromDist) / (maxChromDist * 0.9)));
+              matchStrength = Math.max(0.25, cScore);
             }
           }
         }
@@ -1061,7 +1055,11 @@ export default function ColorSwapStudio({
           const g = data[i + 1];
           const b = data[i + 2];
 
+          // Never defringe skin, sports equipment/props, or background
           if (isSkinPixel(r, g, b)) continue;
+          const { h: pH, s: pS } = rgbToHsl(r, g, b);
+          if (pH >= 10 && pH <= 48 && pS >= 0.35) continue;
+
           const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
           if (dBg <= 16) continue;
 
@@ -1074,10 +1072,9 @@ export default function ColorSwapStudio({
           if (!hasGarmentNeighbor) continue;
 
           const pYcc = toYCbCr(r, g, b);
-          const warmth = pYcc.cr - pYcc.cb;
           const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
 
-          if (warmth >= 0.2 && chromDist < maxChromDist * 1.5) {
+          if (chromDist < maxChromDist * 1.5 && pS < 0.38) {
             defringeIndices.push(pIdx);
           }
         }
