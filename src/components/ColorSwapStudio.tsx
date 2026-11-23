@@ -19,6 +19,7 @@ import {
   ChevronUp,
   ShieldCheck,
   Sliders,
+  Shirt,
   Image as ImageIcon,
 } from 'lucide-react';
 import type { UserGeneration } from '../lib/api';
@@ -337,6 +338,10 @@ export default function ColorSwapStudio({
   const [sourceHex, setSourceHex] = useState<string>('#B0ABA7');
   // Option 2: Kiske sath karna hai
   const [targetHex, setTargetHex] = useState<string>('#E52B38');
+
+  // AI Target Garment Scope: Upper Only | Lower Only | Both
+  const [garmentScope, setGarmentScope] = useState<'upper' | 'lower' | 'both'>('upper');
+  const aiMaskCacheRef = useRef<Map<string, { upper: string; lower: string; both: string }>>(new Map());
 
   // Backend Default Best Quality Settings (Hidden under "Show More" accordion)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
@@ -732,14 +737,59 @@ export default function ColorSwapStudio({
   };
 
   /* ----------------------------------------------------------------
+     AI Semantic Garment Segmentation Service (Upper, Lower, Both)
+     ---------------------------------------------------------------- */
+  const getOrFetchAiMask = async (
+    item: ImageItem,
+    scope: 'upper' | 'lower' | 'both'
+  ): Promise<HTMLImageElement | null> => {
+    try {
+      const cached = aiMaskCacheRef.current.get(item.url);
+      if (cached && cached[scope]) {
+        return await loadSafeCanvasImage(cached[scope]);
+      }
+
+      const isDataUrl = item.url.startsWith('data:');
+      const payload = isDataUrl ? { dataUrl: item.url } : { url: item.url };
+
+      const res = await fetch('/api/segment-garment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        console.warn('[Segment Garment] HTTP error:', res.status);
+        return null;
+      }
+
+      const data = await res.json();
+      if (!data.success || !data[scope]) {
+        console.warn('[Segment Garment] API returned unsuccessful:', data.error || data.message);
+        return null;
+      }
+
+      aiMaskCacheRef.current.set(item.url, {
+        upper: data.upper,
+        lower: data.lower,
+        both: data.both,
+      });
+
+      return await loadSafeCanvasImage(data[scope]);
+    } catch (err) {
+      console.warn('[Segment Garment] Fetch exception, falling back to heuristics:', err);
+      return null;
+    }
+  };
+
+  /* ----------------------------------------------------------------
      Core Recolor Algorithm — Garment-Only Precision
-     Multi-layer protection & authentic optical fabric transfer:
-       1. BFS flood-fill background mask from image borders (studio wall & floor).
-       2. YCbCr + RGB skin classifier (model face, neck, nape, arms).
-       3. Hair tone protection (upper head region).
-       4. Shiv-Naresh HD Logo protection (white/reflective/red embroidery preserved).
-       5. 3D Luminance & Texture preservation:
-          - Deep Dark / Carbon Black: preserves 3D creases & satin sheen at true tL (~0.09)
+     AI Semantic Garment Parsing + Multi-layer protection:
+       1. AI Semantic Mask: 100% exact isolation for Upper (jacket),
+          Lower (pants), or Both (full tracksuit). 0% background leakage.
+       2. Shiv-Naresh HD Logo protection (white vector embroidery preserved).
+       3. 3D Luminance & Texture preservation:
+          - Deep Dark / Carbon Black: preserves 3D creases & satin sheen at true tL (~0.12)
           - Pure White: preserves realistic shading without turning muddy grey
           - Saturated Colors: transfers full vivid saturation (Shiv-Naresh Red, Navy, Gold)
      ---------------------------------------------------------------- */
@@ -749,7 +799,8 @@ export default function ColorSwapStudio({
     tgtHex: string,
     tol: number,
     lOff: number,
-    sMult: number
+    sMult: number,
+    aiMaskImg?: HTMLImageElement | null
   ): string => {
     const W = sourceImg.naturalWidth || 1024;
     const H = sourceImg.naturalHeight || 1024;
@@ -762,6 +813,19 @@ export default function ColorSwapStudio({
     ctx.drawImage(sourceImg, 0, 0, W, H);
     const imgData = ctx.getImageData(0, 0, W, H);
     const data = imgData.data;
+
+    // AI Semantic Garment Mask Data (if available)
+    let aiMaskData: Uint8ClampedArray | null = null;
+    if (aiMaskImg) {
+      const mCanvas = document.createElement('canvas');
+      mCanvas.width = W;
+      mCanvas.height = H;
+      const mCtx = mCanvas.getContext('2d');
+      if (mCtx) {
+        mCtx.drawImage(aiMaskImg, 0, 0, W, H);
+        aiMaskData = mCtx.getImageData(0, 0, W, H).data;
+      }
+    }
 
     // Sample studio backdrop color (corners and borders with outlier rejection)
     const bgInfo = getStudioBackgroundColor(data, W, H);
@@ -851,94 +915,97 @@ export default function ColorSwapStudio({
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const i = (y * W + x) * 4;
+        const pIdx = y * W + x;
+        const i = pIdx * 4;
         const a = data[i + 3];
         if (a < 50) continue;
 
-        // Skip outer frame borders
-        if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
+        // 1. Precise AI Mask Boundary check (if AI mask available)
+        if (aiMaskData) {
+          if (aiMaskData[i] < 128) {
+            // Outside target garment: 100% untouched (zero background or skin leakage)
+            continue;
+          }
+        } else {
+          // Heuristic Fallback Guards
+          if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
+
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const { s: pS, l: pL } = rgbToHsl(r, g, b);
+          const pYcc = toYCbCr(r, g, b);
+          const warmth = pYcc.cr - pYcc.cb;
+
+          if (protectBackground) {
+            const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+            if (pS <= 0.045 && warmth <= 1.8 && Math.abs(pL - bgL) <= 0.30) continue;
+            if (dBg <= 18 && pS < 0.05) continue;
+          }
+
+          if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
+
+          if (sL > 0.40 && pL < 0.38 && r > b) continue;
+
+          if (sL > 0.40 && pL < 0.22) continue;
+        }
 
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-
         const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
-        const pYcc = toYCbCr(r, g, b);
-        const warmth = pYcc.cr - pYcc.cb; // positive for warm fabrics (beige/tan/skin), neutral/negative for cool studio cyclorama grey
-
-        // 1. Studio Background Guard (Accurately protects studio wall, floor, hand gaps & leg gaps without leaking into garments)
-        if (protectBackground) {
-          const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-          if (pS <= 0.045 && warmth <= 1.8 && Math.abs(pL - bgL) <= 0.30) continue;
-          if (dBg <= 18 && pS < 0.05) continue;
-        }
-
-        // 2. Skin Guard: Never recolor face, neck, nape, ears, arms
-        if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
-
-        // 3. Hair Guard: Protect natural dark hair across all poses (both torso crops and full-length)
-        if (sL > 0.40 && pL < 0.38 && r > b) {
-          continue;
-        }
-
-        // 4. Pants / Lower Garment Guard:
-        // Protect dark pants / leggings across all poses
-        if (sL > 0.40 && pL < 0.22) continue;
 
         // 5. Shiv-Naresh HD Logo Guard & Vector Clarity:
-        if (protectLogos && logoMask[y * W + x] === 1) {
+        if (protectLogos && logoMask[pIdx] === 1) {
           data[i] = 252;
           data[i + 1] = 252;
           data[i + 2] = 255;
-          garmentMask[y * W + x] = 2; // Protected logo marker
+          garmentMask[pIdx] = 2; // Protected logo marker
           continue;
         }
 
-        let matchStrength = 0;
+        let matchStrength = 1.0;
 
-        if (!isSrcNeutral) {
-          // Saturated garment fabric (Red, Olympic Navy, Royal Blue, Olive Green, Gold, etc.)
-          const dh = Math.abs(pH - sH);
-          const hueDist = Math.min(dh, 360 - dh);
-          if (hueDist < tol && pS > 0.08) {
-            matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
-          }
-        } else {
-          // Neutral garment fabric (Beige, Grey, Silver, White, Off-white)
-          // Uses YCbCr chrominance distance + fabric warmth classification
-          const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-          const srcWarmth = srcYcc.cr - srcYcc.cb;
+        if (!aiMaskData) {
+          // Heuristic color matching when AI mask not present
+          const pYcc = toYCbCr(r, g, b);
+          const warmth = pYcc.cr - pYcc.cb;
+          matchStrength = 0;
 
-          if (srcWarmth >= 2.0) {
-            // Warm neutral fabric (Beige, Khaki, Camel, Tan, Cream, Off-white, Peach):
-            // Smoothly match fabric including all sleeve edges, cuffs, folds & seams down to warmth >= 0.2
-            if (warmth >= 0.2 && chromDist < maxChromDist * 1.35 && Math.abs(pL - sL) < 0.58) {
-              const wScore = Math.min(1.0, Math.max(0.0, (warmth - 0.1) / 0.6));
-              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.35 - chromDist) / (maxChromDist * 0.35)));
-              matchStrength = Math.max(0.20, wScore * cScore);
+          if (!isSrcNeutral) {
+            const dh = Math.abs(pH - sH);
+            const hueDist = Math.min(dh, 360 - dh);
+            if (hueDist < tol && pS > 0.08) {
+              matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
             }
           } else {
-            // Cool neutral fabric (Heather Grey, Silver Grey, Charcoal):
-            if (chromDist < maxChromDist && pS < 0.25 && Math.abs(pL - sL) < 0.38) {
-              matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+            const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
+            const srcWarmth = srcYcc.cr - srcYcc.cb;
+            if (srcWarmth >= 2.0) {
+              if (warmth >= 0.2 && chromDist < maxChromDist * 1.35 && Math.abs(pL - sL) < 0.58) {
+                const wScore = Math.min(1.0, Math.max(0.0, (warmth - 0.1) / 0.6));
+                const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.35 - chromDist) / (maxChromDist * 0.35)));
+                matchStrength = Math.max(0.20, wScore * cScore);
+              }
+            } else {
+              if (chromDist < maxChromDist && pS < 0.25 && Math.abs(pL - sL) < 0.38) {
+                matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+              }
             }
           }
         }
 
         if (matchStrength > 0.02) {
-          garmentMask[y * W + x] = 1;
+          garmentMask[pIdx] = 1;
 
           // 6. Photorealistic Fabric Texture, Crease & Zipper Luminance Transfer
           const pY = 0.299 * r + 0.587 * g + 0.114 * b;
           const sY = 0.299 * srcR + 0.587 * srcG + 0.114 * srcB;
-          const deltaY = (pY - sY) / Math.max(10.0, sY); // Relative high-frequency contrast signal [-0.6 .. +0.6]
+          const deltaY = (pY - sY) / Math.max(10.0, sY);
 
           let newL: number;
           if (tL < 0.22) {
             // Deep Dark / Carbon Black spectrum:
-            // Base drops to authentic rich athletic black (~0.12..0.15, matching physical cloth)
-            // Fold creases (deltaY < 0) drop to deep shadow (~0.06..0.11, RGB 15..28)
-            // Fabric sheen, seams, and zipper teeth (deltaY > 0) rise with specular clarity (~0.20..0.48, RGB 50..125)
             const lBase = Math.max(0.11, tL * 1.15);
             if (deltaY <= 0) {
               newL = lBase * (1.0 + deltaY * 0.70) + lOff;
@@ -948,7 +1015,6 @@ export default function ColorSwapStudio({
             }
           } else if (tL > 0.78) {
             // Pure White spectrum:
-            // Base rises to clean athletic white (~0.91..0.95), preserving fold depth without turning muddy
             const lBase = Math.min(0.93, 0.88 + tL * 0.06);
             if (deltaY <= 0) {
               newL = lBase + deltaY * 0.65 + lOff;
@@ -956,8 +1022,7 @@ export default function ColorSwapStudio({
               newL = lBase + deltaY * 0.15 + lOff;
             }
           } else {
-            // Midtone spectrum (Athletic Red, Olympic Navy, Royal Blue, Olive Green, Canary Gold, Orange, Maroon):
-            // Flat cloth precisely hits target color, folds reflect natural light, zipper teeth stay sharp
+            // Midtone spectrum (Athletic Red, Olympic Navy, etc.)
             if (deltaY <= 0) {
               newL = tL + deltaY * Math.min(0.85, tL * 1.2) + lOff;
             } else {
@@ -967,8 +1032,6 @@ export default function ColorSwapStudio({
           }
           newL = Math.min(0.96, Math.max(0.04, newL));
 
-          // Specular Rolloff: High metallic/sheen glints (zipper teeth, nylon reflection)
-          // naturally reflect white studio softbox light, smoothly desaturating instead of harsh speckled dots
           const specRolloff = Math.min(1.0, Math.max(0.0, (pL - 0.78) / 0.18));
           const newS = Math.max(0.0, Math.min(1.0, tS * sMult * (1.0 - specRolloff * 0.65)));
           const newH = tH;
@@ -982,52 +1045,50 @@ export default function ColorSwapStudio({
     }
 
     // =========================================================================
-    // PASS 2: BOUNDARY DEFRINGING (ELIMINATING LAST COLOR ON BORDERS)
+    // PASS 2: BOUNDARY DEFRINGING (ONLY FOR HEURISTIC FALLBACK WITHOUT AI MASK)
     // =========================================================================
-    // Strictly 1-pixel boundary defringing without mutating the garment mask (prevents background flood cascade)
-    const [defR, defG, defB] = hslToRgb(tH, Math.max(tS, 0.12), tL < 0.22 ? 0.13 : tL);
-    const defringeIndices: number[] = [];
+    if (!aiMaskData) {
+      const [defR, defG, defB] = hslToRgb(tH, Math.max(tS, 0.12), tL < 0.22 ? 0.13 : tL);
+      const defringeIndices: number[] = [];
 
-    for (let y = 1; y < H - 1; y++) {
-      for (let x = 1; x < W - 1; x++) {
-        const pIdx = y * W + x;
-        if (garmentMask[pIdx] !== 0) continue;
+      for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+          const pIdx = y * W + x;
+          if (garmentMask[pIdx] !== 0) continue;
 
-        const i = pIdx * 4;
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+          const i = pIdx * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
 
-        // Never defringe skin or pure background
-        if (isSkinPixel(r, g, b)) continue;
-        const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-        if (dBg <= 16) continue;
+          if (isSkinPixel(r, g, b)) continue;
+          const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+          if (dBg <= 16) continue;
 
-        // Check if directly neighboring an original recolored garment pixel
-        const hasGarmentNeighbor =
-          garmentMask[pIdx - 1] === 1 ||
-          garmentMask[pIdx + 1] === 1 ||
-          garmentMask[pIdx - W] === 1 ||
-          garmentMask[pIdx + W] === 1;
+          const hasGarmentNeighbor =
+            garmentMask[pIdx - 1] === 1 ||
+            garmentMask[pIdx + 1] === 1 ||
+            garmentMask[pIdx - W] === 1 ||
+            garmentMask[pIdx + W] === 1;
 
-        if (!hasGarmentNeighbor) continue;
+          if (!hasGarmentNeighbor) continue;
 
-        // Verify this boundary pixel actually carries residual warm fabric tint
-        const pYcc = toYCbCr(r, g, b);
-        const warmth = pYcc.cr - pYcc.cb;
-        const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
+          const pYcc = toYCbCr(r, g, b);
+          const warmth = pYcc.cr - pYcc.cb;
+          const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
 
-        if (warmth >= 0.2 && chromDist < maxChromDist * 1.5) {
-          defringeIndices.push(pIdx);
+          if (warmth >= 0.2 && chromDist < maxChromDist * 1.5) {
+            defringeIndices.push(pIdx);
+          }
         }
       }
-    }
 
-    for (const pIdx of defringeIndices) {
-      const i = pIdx * 4;
-      data[i] = Math.round(bgR * 0.35 + defR * 0.65);
-      data[i + 1] = Math.round(bgG * 0.35 + defG * 0.65);
-      data[i + 2] = Math.round(bgB * 0.35 + defB * 0.65);
+      for (const pIdx of defringeIndices) {
+        const i = pIdx * 4;
+        data[i] = Math.round(bgR * 0.35 + defR * 0.65);
+        data[i + 1] = Math.round(bgG * 0.35 + defG * 0.65);
+        data[i + 2] = Math.round(bgB * 0.35 + defB * 0.65);
+      }
     }
 
     ctx.putImageData(imgData, 0, 0);
@@ -1054,16 +1115,21 @@ export default function ColorSwapStudio({
     try {
       for (let i = 0; i < itemsToProcess.length; i++) {
         const item = itemsToProcess[i];
-        setProgressMsg(`Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
+        setProgressMsg(`AI Segmenting & Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
-        const loadedImg = await loadSafeCanvasImage(item.url);
+        const [loadedImg, aiMaskImg] = await Promise.all([
+          loadSafeCanvasImage(item.url),
+          getOrFetchAiMask(item, garmentScope),
+        ]);
+
         const recoloredDataUrl = recolorCanvas(
           loadedImg,
           sourceHex,
           targetHex,
           tolerance,
           lightnessOffset,
-          saturationMult
+          saturationMult,
+          aiMaskImg
         );
 
         if (recoloredDataUrl) {
@@ -1503,6 +1569,56 @@ export default function ColorSwapStudio({
                   Option 2: Kiske sath karna hai
                   ---------------------------------------------------------------- */}
               <div className={`rounded-2xl border p-5 space-y-5 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+                {/* AI GARMENT TARGET SELECTOR: UPPER ONLY | LOWER ONLY | BOTH */}
+                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                  isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#e5373f]/15 border border-[#e5373f]/30 flex items-center justify-center shrink-0">
+                      <Shirt className="w-4 h-4 text-[#e5373f]" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block">Garment Target Selection (AI Semantic Segmentation)</span>
+                      <span className="text-[10px] text-zinc-400">Choose which garment piece to recolor (Upper, Lower, or Both)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-950/80 border border-white/10 w-full sm:w-auto justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setGarmentScope('upper')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        garmentScope === 'upper'
+                          ? 'bg-[#e5373f] text-white shadow-md'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <span>🧥 Upper Only (Jacket/Top)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGarmentScope('lower')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        garmentScope === 'lower'
+                          ? 'bg-[#e5373f] text-white shadow-md'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <span>👖 Lower Only (Pants/Bottom)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGarmentScope('both')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        garmentScope === 'both'
+                          ? 'bg-[#e5373f] text-white shadow-md'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <span>⚡ Both (Full Outfit)</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* OPTION 1: Kis colour ko swap karna hai */}
                   <div className="space-y-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5">

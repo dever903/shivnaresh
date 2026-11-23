@@ -3109,6 +3109,100 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
+/* --------------------------------------------------- AI GARMENT SEGMENTATION (UPPER, LOWER, BOTH) */
+app.post('/api/segment-garment', async (req, res) => {
+  try {
+    const { url, dataUrl } = req.body || {};
+    let targetPath = null;
+    let tempFile = null;
+
+    const cacheDir = path.join(DATA, 'cache', 'masks');
+    await fs.mkdir(cacheDir, { recursive: true });
+
+    if (dataUrl && dataUrl.startsWith('data:image')) {
+      const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(dataUrl);
+      if (match) {
+        const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
+        const hash = crypto.createHash('md5').update(buffer).digest('hex');
+        const cacheFile = path.join(cacheDir, `${hash}.json`);
+        try {
+          const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
+          return res.json({ success: true, ...cached, cached: true });
+        } catch { }
+
+        tempFile = path.join(cacheDir, `temp-${Date.now()}-${hash}.png`);
+        await fs.writeFile(tempFile, buffer);
+        targetPath = tempFile;
+      }
+    } else if (url) {
+      const cleanUrl = String(url).split('?')[0];
+      if (cleanUrl.startsWith('/uploads/')) {
+        targetPath = path.join(UPLOADS, path.basename(cleanUrl));
+      } else if (cleanUrl.startsWith('/models/')) {
+        targetPath = path.join(MODELS_DIR, cleanUrl.replace(/^\/models\//, ''));
+      } else if (cleanUrl.startsWith('/generated/')) {
+        targetPath = path.join(GENERATED, path.basename(cleanUrl));
+      } else if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+        const resp = await fetch(url);
+        const buf = Buffer.from(await resp.arrayBuffer());
+        const hash = crypto.createHash('md5').update(buf).digest('hex');
+        const cacheFile = path.join(cacheDir, `${hash}.json`);
+        try {
+          const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
+          return res.json({ success: true, ...cached, cached: true });
+        } catch { }
+        tempFile = path.join(cacheDir, `temp-${Date.now()}-${hash}.png`);
+        await fs.writeFile(tempFile, buf);
+        targetPath = tempFile;
+      }
+    }
+
+    if (!targetPath || !fsSync.existsSync(targetPath)) {
+      return res.status(400).json({ success: false, error: 'invalid_image', message: 'Could not resolve image file' });
+    }
+
+    // Call local python human parser script
+    const scriptPath = path.join(__dirname, 'segment_garment.py');
+    const proc = spawnSync('python', [scriptPath, targetPath], {
+      encoding: 'utf8',
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: 30000,
+    });
+
+    if (tempFile) {
+      try { await fs.unlink(tempFile); } catch { }
+    }
+
+    if (proc.status !== 0 || !proc.stdout) {
+      console.warn('[Segment Garment] Python error:', proc.stderr);
+      return res.status(500).json({ success: false, error: 'segment_failed', message: proc.stderr || 'Segmentation failed' });
+    }
+
+    // Parse JSON output from python
+    const rawOut = proc.stdout.trim();
+    const jsonStart = rawOut.indexOf('{');
+    const jsonEnd = rawOut.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) {
+      return res.status(500).json({ success: false, error: 'invalid_parser_output', message: 'Parser did not return valid JSON' });
+    }
+    const result = JSON.parse(rawOut.slice(jsonStart, jsonEnd + 1));
+
+    // Cache the result
+    try {
+      if (fsSync.existsSync(targetPath)) {
+        const fileBuf = await fs.readFile(targetPath);
+        const hash = crypto.createHash('md5').update(fileBuf).digest('hex');
+        await fs.writeFile(path.join(cacheDir, `${hash}.json`), JSON.stringify(result));
+      }
+    } catch { }
+
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[Segment Garment] Handler error:', err);
+    return res.status(500).json({ success: false, error: 'internal_error', message: err.message });
+  }
+});
+
 /* --------------------------------------------------- WATERMARK REMOVER */
 const WATERMARK_API_URL = process.env.WATERMARK_REMOVER_URL || 'http://127.0.0.1:8789';
 const WATERMARK_API_KEY = process.env.WATERMARK_REMOVER_KEY || 'wr_6QiEcsy8Z4y-Mq-RVAiwYyfwNwrcwKitCepRKA';
