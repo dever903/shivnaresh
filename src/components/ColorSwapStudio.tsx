@@ -112,23 +112,19 @@ export function hslToRgb(h: number, s: number, l: number): [number, number, numb
    Strictly protects human face, neck, nape, arms, and legs.
    ---------------------------------------------------------------- */
 export function isSkinPixel(r: number, g: number, b: number): boolean {
-  // RGB human skin characteristics
-  const rgbSkin =
-    r > 80 &&
-    g > 35 &&
-    b > 18 &&
-    Math.max(r, g, b) - Math.min(r, g, b) > 12 &&
-    Math.abs(r - g) > 12 &&
-    r > g &&
-    r > b;
+  if (r <= g || r <= b || r <= 80 || g <= 35 || b <= 18) return false;
 
-  // YCbCr skin chrominance cluster (universal across ethnicities)
-  const y = 0.299 * r + 0.587 * g + 0.114 * b;
+  const maxVal = Math.max(r, g, b);
+  const minVal = Math.min(r, g, b);
+  const delta = maxVal - minVal;
+  const l = (maxVal + minVal) / 510;
+  const s = delta === 0 ? 0 : l > 0.5 ? delta / (510 - 510 * l) : delta / (510 * l);
+  if (s < 0.16) return false;
+
   const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
   const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-  const ycbcrSkin = cb >= 77 && cb <= 135 && cr >= 130 && cr <= 175 && y > 35;
 
-  return rgbSkin && ycbcrSkin;
+  return cb >= 77 && cb <= 135 && cr >= 134 && cr <= 180 && cr - cb >= 18;
 }
 
 export function toYCbCr(r: number, g: number, b: number): { y: number; cb: number; cr: number } {
@@ -650,7 +646,7 @@ export default function ColorSwapStudio({
         hsl: `hsl(${Math.round(h)}°, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`,
       });
       setLoupePos({ x, y, imgX, imgY });
-    } catch {}
+    } catch { }
   };
 
   const handleCanvasMouseLeave = () => {
@@ -693,7 +689,7 @@ export default function ColorSwapStudio({
       const hex = rgbToHex(p[0], p[1], p[2]);
       setFabricHoveredColor({ hex, rgb: `rgb(${p[0]}, ${p[1]}, ${p[2]})` });
       setFabricLoupePos({ x, y });
-    } catch {}
+    } catch { }
   };
 
   const handleFabricCanvasMouseLeave = () => {
@@ -787,6 +783,72 @@ export default function ColorSwapStudio({
     const isSrcNeutral = sS < 0.22;
     const maxChromDist = Math.max(10, tol * 0.42);
 
+    const garmentMask = new Uint8Array(W * H);
+    const logoMask = new Uint8Array(W * H);
+
+    // Pre-pass: Detect Shiv-Naresh HD Logo embroidery seeds & dilate to preserve full vector strokes
+    if (protectLogos) {
+      const seeds: number[] = [];
+      const logoZoneTop = Math.round(H * 0.18);
+      const logoZoneBottom = Math.round(H * 0.55);
+      const logoZoneLeft = Math.round(W * 0.18);
+      const logoZoneRight = Math.round(W * 0.82);
+
+      for (let y = logoZoneTop; y < logoZoneBottom; y++) {
+        for (let x = logoZoneLeft; x < logoZoneRight; x++) {
+          const pIdx = y * W + x;
+          const i = pIdx * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
+
+          const isWhiteSeed =
+            sL > 0.50
+              ? pL > 0.88 && pL > sL + 0.04 && pS < 0.16
+              : pL > 0.72 && pS < 0.20;
+          const isRedSeed = sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20);
+
+          if (isWhiteSeed || isRedSeed) {
+            logoMask[pIdx] = 1;
+            seeds.push(pIdx);
+          }
+        }
+      }
+
+      let currentSeeds = seeds;
+      for (let pass = 0; pass < 2 && currentSeeds.length > 0; pass++) {
+        const nextSeeds: number[] = [];
+        for (const pIdx of currentSeeds) {
+          const cy = Math.floor(pIdx / W);
+          const cx = pIdx % W;
+          for (let dy = -1; dy <= 1; dy++) {
+            const ny = cy + dy;
+            if (ny < logoZoneTop || ny >= logoZoneBottom) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dy === 0 && dx === 0) continue;
+              const nx = cx + dx;
+              if (nx < logoZoneLeft || nx >= logoZoneRight) continue;
+              const nIdx = ny * W + nx;
+              if (logoMask[nIdx] !== 0) continue;
+
+              const ni = nIdx * 4;
+              const nr = data[ni];
+              const ng = data[ni + 1];
+              const nb = data[ni + 2];
+              const { l: npL, s: npS } = rgbToHsl(nr, ng, nb);
+
+              if (npL > sL - 0.02 && npS < 0.20) {
+                logoMask[nIdx] = 1;
+                nextSeeds.push(nIdx);
+              }
+            }
+          }
+        }
+        currentSeeds = nextSeeds;
+      }
+    }
+
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
@@ -814,20 +876,22 @@ export default function ColorSwapStudio({
         // 2. Skin Guard: Never recolor face, neck, nape, ears, arms
         if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
 
-        // 3. Hair Guard: In upper third, preserve natural hair tones
-        if (y < H * 0.32 && x > W * 0.20 && x < W * 0.80) {
-          if (pL < 0.26 && sL > 0.35) continue;
+        // 3. Hair Guard: Crown & upper head (y < 0.22*H) and full hanging ponytail & nape (y < 0.65*H)
+        if (y < H * 0.22 || (sL > 0.40 && pL < 0.42 && r > b && y < H * 0.65)) {
+          continue;
         }
 
         // 4. Pants / Lower Garment Guard:
         // If swapping upper jacket (e.g. beige/light sL > 0.40), protect dark pants (pL < 0.20)
         if (sL > 0.40 && pL < 0.20 && y > H * 0.70) continue;
 
-        // 5. Shiv-Naresh HD Logo Guard:
-        // Protect white embroidery / reflective transfer text, or contrasting red logo
-        if (protectLogos) {
-          if (sL < 0.82 && pL > 0.88 && pS < 0.16) continue;
-          if (sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20)) continue;
+        // 5. Shiv-Naresh HD Logo Guard & Vector Clarity:
+        if (protectLogos && logoMask[y * W + x] === 1) {
+          data[i] = 252;
+          data[i + 1] = 252;
+          data[i + 2] = 255;
+          garmentMask[y * W + x] = 2; // Protected logo marker
+          continue;
         }
 
         let matchStrength = 0;
@@ -847,11 +911,11 @@ export default function ColorSwapStudio({
 
           if (srcWarmth >= 2.0) {
             // Warm neutral fabric (Beige, Khaki, Camel, Tan, Cream, Off-white, Peach):
-            // Smoothly match fabric including folds, seams, and zipper glints down to warmth >= 1.2
-            if (warmth >= 1.2 && chromDist < maxChromDist * 1.15 && Math.abs(pL - sL) < 0.52) {
-              const wScore = Math.min(1.0, Math.max(0.0, (warmth - 1.1) / 0.7));
-              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.15 - chromDist) / (maxChromDist * 0.35)));
-              matchStrength = wScore * cScore;
+            // Smoothly match fabric including all sleeve edges, cuffs, folds & seams down to warmth >= 0.2
+            if (warmth >= 0.2 && chromDist < maxChromDist * 1.35 && Math.abs(pL - sL) < 0.58) {
+              const wScore = Math.min(1.0, Math.max(0.0, (warmth - 0.1) / 0.6));
+              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.35 - chromDist) / (maxChromDist * 0.35)));
+              matchStrength = Math.max(0.20, wScore * cScore);
             }
           } else {
             // Cool neutral fabric (Heather Grey, Silver Grey, Charcoal):
@@ -862,6 +926,8 @@ export default function ColorSwapStudio({
         }
 
         if (matchStrength > 0.02) {
+          garmentMask[y * W + x] = 1;
+
           // 6. Photorealistic Fabric Texture, Crease & Zipper Luminance Transfer
           const pY = 0.299 * r + 0.587 * g + 0.114 * b;
           const sY = 0.299 * srcR + 0.587 * srcG + 0.114 * srcB;
@@ -870,15 +936,15 @@ export default function ColorSwapStudio({
           let newL: number;
           if (tL < 0.22) {
             // Deep Dark / Carbon Black spectrum:
-            // Base drops to authentic rich athletic black (~0.13..0.15, RGB 33..38)
-            // Fold creases (deltaY < 0) drop to deep shadow (~0.07..0.12, RGB 18..30)
+            // Base drops to authentic rich athletic black (~0.12..0.15, matching physical cloth)
+            // Fold creases (deltaY < 0) drop to deep shadow (~0.06..0.11, RGB 15..28)
             // Fabric sheen, seams, and zipper teeth (deltaY > 0) rise with specular clarity (~0.20..0.48, RGB 50..125)
-            const lBase = Math.max(0.13, tL * 1.35);
+            const lBase = Math.max(0.11, tL * 1.15);
             if (deltaY <= 0) {
-              newL = lBase * (1.0 + deltaY * 0.72) + lOff;
+              newL = lBase * (1.0 + deltaY * 0.70) + lOff;
             } else {
-              const specularBoost = Math.pow(Math.max(0, deltaY - 0.16), 1.3) * 0.45;
-              newL = lBase + deltaY * 0.60 + specularBoost + lOff;
+              const specularBoost = Math.pow(Math.max(0, deltaY - 0.15), 1.25) * 0.45;
+              newL = lBase + deltaY * 0.55 + specularBoost + lOff;
             }
           } else if (tL > 0.78) {
             // Pure White spectrum:
@@ -911,6 +977,48 @@ export default function ColorSwapStudio({
           data[i] = Math.round(r * (1 - matchStrength) + resR * matchStrength);
           data[i + 1] = Math.round(g * (1 - matchStrength) + resG * matchStrength);
           data[i + 2] = Math.round(b * (1 - matchStrength) + resB * matchStrength);
+        }
+      }
+    }
+
+    // =========================================================================
+    // PASS 2: BOUNDARY DEFRINGING (ELIMINATING LAST COLOR ON BORDERS)
+    // =========================================================================
+    // Sweeps silhouette borders between garment and background:
+    // Any pixel bordering the recolored garment that has residual light beige tint
+    // is cleanly defringed into the target color, eliminating all halos
+    const [defR, defG, defB] = hslToRgb(tH, Math.max(tS, 0.12), tL < 0.22 ? 0.13 : tL);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const pIdx = y * W + x;
+        if (garmentMask[pIdx] !== 0) continue;
+
+        const i = pIdx * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Never defringe skin or pure background
+        if (isSkinPixel(r, g, b)) continue;
+        const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+        if (dBg <= 12) continue;
+
+        // Check if neighboring pixel is recolored garment
+        const hasGarmentNeighbor =
+          garmentMask[pIdx - 1] === 1 ||
+          garmentMask[pIdx + 1] === 1 ||
+          garmentMask[pIdx - W] === 1 ||
+          garmentMask[pIdx + W] === 1 ||
+          garmentMask[pIdx - W - 1] === 1 ||
+          garmentMask[pIdx - W + 1] === 1 ||
+          garmentMask[pIdx + W - 1] === 1 ||
+          garmentMask[pIdx + W + 1] === 1;
+
+        if (hasGarmentNeighbor && r > 75 && g > 70 && b > 70) {
+          data[i] = Math.round(bgR * 0.25 + defR * 0.75);
+          data[i + 1] = Math.round(bgG * 0.25 + defG * 0.75);
+          data[i + 2] = Math.round(bgB * 0.25 + defB * 0.75);
+          garmentMask[pIdx] = 1;
         }
       }
     }
@@ -1102,15 +1210,14 @@ export default function ColorSwapStudio({
           <button
             type="button"
             onClick={() => setSubTab('swap')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-              subTab === 'swap'
-                ? isLight
-                  ? 'bg-white text-gray-950 font-bold shadow-sm'
-                  : 'bg-[#e5373f] text-white font-bold shadow-md'
-                : isLight
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'swap'
+              ? isLight
+                ? 'bg-white text-gray-950 font-bold shadow-sm'
+                : 'bg-[#e5373f] text-white font-bold shadow-md'
+              : isLight
                 ? 'text-gray-600 hover:text-gray-900'
                 : 'text-zinc-400 hover:text-white'
-            }`}
+              }`}
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>🔄 Color Swap</span>
@@ -1118,15 +1225,14 @@ export default function ColorSwapStudio({
           <button
             type="button"
             onClick={() => setSubTab('palette')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-              subTab === 'palette'
-                ? isLight
-                  ? 'bg-white text-gray-950 font-bold shadow-sm'
-                  : 'bg-[#e5373f] text-white font-bold shadow-md'
-                : isLight
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'palette'
+              ? isLight
+                ? 'bg-white text-gray-950 font-bold shadow-sm'
+                : 'bg-[#e5373f] text-white font-bold shadow-md'
+              : isLight
                 ? 'text-gray-600 hover:text-gray-900'
                 : 'text-zinc-400 hover:text-white'
-            }`}
+              }`}
           >
             <Pipette className="w-3.5 h-3.5" />
             <span>🎨 Canva Eyedropper & Palette</span>
@@ -1162,13 +1268,12 @@ export default function ColorSwapStudio({
                   key={f.id}
                   type="button"
                   onClick={() => setFilterFolder(f.id as any)}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition cursor-pointer ${
-                    filterFolder === f.id
-                      ? 'border-[#e5373f] bg-[#e5373f]/15 text-[#e5373f] font-bold'
-                      : isLight
+                  className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition cursor-pointer ${filterFolder === f.id
+                    ? 'border-[#e5373f] bg-[#e5373f]/15 text-[#e5373f] font-bold'
+                    : isLight
                       ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
                       : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                  }`}
+                    }`}
                 >
                   {f.label}
                 </button>
@@ -1233,15 +1338,14 @@ export default function ColorSwapStudio({
                         setActiveImage(img);
                         toggleSelectImage(img.id);
                       }}
-                      className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${
-                        isActive
-                          ? 'border-[#e5373f] ring-1 ring-[#e5373f] bg-[#e5373f]/10'
-                          : isChecked
+                      className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${isActive
+                        ? 'border-[#e5373f] ring-1 ring-[#e5373f] bg-[#e5373f]/10'
+                        : isChecked
                           ? 'border-emerald-500/50 bg-emerald-500/5'
                           : isLight
-                          ? 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                          : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80'
-                      }`}
+                            ? 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                            : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80'
+                        }`}
                     >
                       <button
                         type="button"
@@ -1267,13 +1371,12 @@ export default function ColorSwapStudio({
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold truncate">{img.title}</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                            img.folder === 'ready'
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                              : img.folder === 'edited'
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${img.folder === 'ready'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : img.folder === 'edited'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : 'bg-zinc-500/20 text-zinc-300'
-                          }`}>
+                            }`}>
                             {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? '✏️ Edited' : '📸 Gen'}
                           </span>
                           {isActive && (
@@ -1420,9 +1523,8 @@ export default function ColorSwapStudio({
                         type="text"
                         value={sourceHex}
                         onChange={(e) => setSourceHex(e.target.value.toUpperCase())}
-                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-mono font-bold border ${
-                          isLight ? 'border-gray-300 bg-white' : 'border-zinc-800 bg-zinc-900'
-                        }`}
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-mono font-bold border ${isLight ? 'border-gray-300 bg-white' : 'border-zinc-800 bg-zinc-900'
+                          }`}
                         placeholder="#B0ABA7"
                       />
                     </div>
@@ -1465,9 +1567,8 @@ export default function ColorSwapStudio({
                         type="text"
                         value={targetHex}
                         onChange={(e) => setTargetHex(e.target.value.toUpperCase())}
-                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-mono font-bold border ${
-                          isLight ? 'border-gray-300 bg-white' : 'border-zinc-800 bg-zinc-900'
-                        }`}
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-mono font-bold border ${isLight ? 'border-gray-300 bg-white' : 'border-zinc-800 bg-zinc-900'
+                          }`}
                         placeholder="#E52B38"
                       />
                     </div>
@@ -1500,11 +1601,10 @@ export default function ColorSwapStudio({
                         }}
                         title={`${swatch.name} (${swatch.hex})`}
                         style={{ backgroundColor: swatch.hex }}
-                        className={`h-8 rounded-lg border-2 transition-transform cursor-pointer relative group ${
-                          targetHex === swatch.hex
-                            ? 'border-white scale-110 shadow-lg ring-2 ring-[#e5373f]'
-                            : 'border-white/20 hover:scale-105'
-                        }`}
+                        className={`h-8 rounded-lg border-2 transition-transform cursor-pointer relative group ${targetHex === swatch.hex
+                          ? 'border-white scale-110 shadow-lg ring-2 ring-[#e5373f]'
+                          : 'border-white/20 hover:scale-105'
+                          }`}
                       >
                         {targetHex === swatch.hex && (
                           <Check className={`w-3.5 h-3.5 mx-auto ${swatch.hex === '#F8FAFC' ? 'text-black' : 'text-white'}`} />
@@ -1652,8 +1752,8 @@ export default function ColorSwapStudio({
                       {isProcessing
                         ? progressMsg || 'Processing…'
                         : selectedIds.size > 1
-                        ? `⚡ Recolor All ${selectedIds.size} Selected Models / Poses (1 Click)`
-                        : `⚡ Color Swap Active Model (0 Credits)`}
+                          ? `⚡ Recolor All ${selectedIds.size} Selected Models / Poses (1 Click)`
+                          : `⚡ Color Swap Active Model (0 Credits)`}
                     </span>
                   </button>
                 </div>
@@ -1693,9 +1793,8 @@ export default function ColorSwapStudio({
                     {recolorResults.map((item) => (
                       <div
                         key={item.id}
-                        className={`rounded-xl border overflow-hidden p-2.5 space-y-2.5 ${
-                          isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
-                        }`}
+                        className={`rounded-xl border overflow-hidden p-2.5 space-y-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                          }`}
                       >
                         <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-white/10 bg-black">
                           <img
@@ -1717,11 +1816,10 @@ export default function ColorSwapStudio({
                           <button
                             type="button"
                             onClick={() => handleSaveResult(item, 'ready')}
-                            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                              savedIds.has(item.id)
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-amber-500 text-black hover:bg-amber-400'
-                            }`}
+                            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${savedIds.has(item.id)
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-amber-500 text-black hover:bg-amber-400'
+                              }`}
                           >
                             <Bookmark className="w-3 h-3" />
                             <span>{savedIds.has(item.id) ? '✓ Saved' : '⭐ Ready'}</span>
@@ -1907,9 +2005,8 @@ export default function ColorSwapStudio({
                   {extractedPalette.map((color) => (
                     <div
                       key={color.hex}
-                      className={`p-3 rounded-xl border space-y-2 group transition hover:shadow-md ${
-                        isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
-                      }`}
+                      className={`p-3 rounded-xl border space-y-2 group transition hover:shadow-md ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                        }`}
                     >
                       <div
                         className="h-16 rounded-lg border border-white/20 shadow-inner flex items-end justify-end p-1.5 cursor-pointer"
