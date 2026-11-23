@@ -789,10 +789,10 @@ export default function ColorSwapStudio({
     // Pre-pass: Detect Shiv-Naresh HD Logo embroidery seeds & dilate to preserve full vector strokes
     if (protectLogos) {
       const seeds: number[] = [];
-      const logoZoneTop = Math.round(H * 0.18);
-      const logoZoneBottom = Math.round(H * 0.55);
-      const logoZoneLeft = Math.round(W * 0.18);
-      const logoZoneRight = Math.round(W * 0.82);
+      const logoZoneTop = Math.round(H * 0.05);
+      const logoZoneBottom = Math.round(H * 0.65);
+      const logoZoneLeft = Math.round(W * 0.10);
+      const logoZoneRight = Math.round(W * 0.90);
 
       for (let y = logoZoneTop; y < logoZoneBottom; y++) {
         for (let x = logoZoneLeft; x < logoZoneRight; x++) {
@@ -876,14 +876,14 @@ export default function ColorSwapStudio({
         // 2. Skin Guard: Never recolor face, neck, nape, ears, arms
         if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
 
-        // 3. Hair Guard: Crown & upper head (y < 0.22*H) and full hanging ponytail & nape (y < 0.65*H)
-        if (y < H * 0.22 || (sL > 0.40 && pL < 0.42 && r > b && y < H * 0.65)) {
+        // 3. Hair Guard: Protect natural dark hair across all poses (both torso crops and full-length)
+        if (sL > 0.40 && pL < 0.38 && r > b) {
           continue;
         }
 
         // 4. Pants / Lower Garment Guard:
-        // If swapping upper jacket (e.g. beige/light sL > 0.40), protect dark pants (pL < 0.20)
-        if (sL > 0.40 && pL < 0.20 && y > H * 0.70) continue;
+        // Protect dark pants / leggings across all poses
+        if (sL > 0.40 && pL < 0.22) continue;
 
         // 5. Shiv-Naresh HD Logo Guard & Vector Clarity:
         if (protectLogos && logoMask[y * W + x] === 1) {
@@ -984,10 +984,10 @@ export default function ColorSwapStudio({
     // =========================================================================
     // PASS 2: BOUNDARY DEFRINGING (ELIMINATING LAST COLOR ON BORDERS)
     // =========================================================================
-    // Sweeps silhouette borders between garment and background:
-    // Any pixel bordering the recolored garment that has residual light beige tint
-    // is cleanly defringed into the target color, eliminating all halos
+    // Strictly 1-pixel boundary defringing without mutating the garment mask (prevents background flood cascade)
     const [defR, defG, defB] = hslToRgb(tH, Math.max(tS, 0.12), tL < 0.22 ? 0.13 : tL);
+    const defringeIndices: number[] = [];
+
     for (let y = 1; y < H - 1; y++) {
       for (let x = 1; x < W - 1; x++) {
         const pIdx = y * W + x;
@@ -1001,26 +1001,33 @@ export default function ColorSwapStudio({
         // Never defringe skin or pure background
         if (isSkinPixel(r, g, b)) continue;
         const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-        if (dBg <= 12) continue;
+        if (dBg <= 16) continue;
 
-        // Check if neighboring pixel is recolored garment
+        // Check if directly neighboring an original recolored garment pixel
         const hasGarmentNeighbor =
           garmentMask[pIdx - 1] === 1 ||
           garmentMask[pIdx + 1] === 1 ||
           garmentMask[pIdx - W] === 1 ||
-          garmentMask[pIdx + W] === 1 ||
-          garmentMask[pIdx - W - 1] === 1 ||
-          garmentMask[pIdx - W + 1] === 1 ||
-          garmentMask[pIdx + W - 1] === 1 ||
-          garmentMask[pIdx + W + 1] === 1;
+          garmentMask[pIdx + W] === 1;
 
-        if (hasGarmentNeighbor && r > 75 && g > 70 && b > 70) {
-          data[i] = Math.round(bgR * 0.25 + defR * 0.75);
-          data[i + 1] = Math.round(bgG * 0.25 + defG * 0.75);
-          data[i + 2] = Math.round(bgB * 0.25 + defB * 0.75);
-          garmentMask[pIdx] = 1;
+        if (!hasGarmentNeighbor) continue;
+
+        // Verify this boundary pixel actually carries residual warm fabric tint
+        const pYcc = toYCbCr(r, g, b);
+        const warmth = pYcc.cr - pYcc.cb;
+        const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
+
+        if (warmth >= 0.2 && chromDist < maxChromDist * 1.5) {
+          defringeIndices.push(pIdx);
         }
       }
+    }
+
+    for (const pIdx of defringeIndices) {
+      const i = pIdx * 4;
+      data[i] = Math.round(bgR * 0.35 + defR * 0.65);
+      data[i + 1] = Math.round(bgG * 0.35 + defG * 0.65);
+      data[i + 2] = Math.round(bgB * 0.35 + defB * 0.65);
     }
 
     ctx.putImageData(imgData, 0, 0);
