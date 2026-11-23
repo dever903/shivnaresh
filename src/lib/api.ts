@@ -409,14 +409,19 @@ export class ApiError extends Error {
 
 const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
 // Ignore dead/suspended external domains to ensure reliable unified same-origin routing
-const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
+export const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
+
+export function getApiUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return API_BASE ? `${API_BASE}${cleanPath}` : cleanPath;
+}
 
 export function resolveImageUrl(url: string | null | undefined): string {
   if (!url) return '';
   if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data'))) {
+  if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data') || url.startsWith('/api') || url.startsWith('/models'))) {
     return `${API_BASE}${url}`;
   }
   return url;

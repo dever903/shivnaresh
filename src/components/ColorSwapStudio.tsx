@@ -21,9 +21,22 @@ import {
   Sliders,
   Shirt,
   Image as ImageIcon,
+  Paintbrush,
+  Eraser,
+  Scissors,
+  Move,
+  RotateCw,
+  Undo,
+  Redo,
+  FlipHorizontal,
+  FlipVertical,
+  Stamp,
+  MousePointer,
+  Maximize2,
+  Trash2,
 } from 'lucide-react';
 import type { UserGeneration } from '../lib/api';
-import { resolveImageUrl, getProxiedImageUrl } from '../lib/api';
+import { resolveImageUrl, getProxiedImageUrl, getApiUrl } from '../lib/api';
 import { getBestGenUrl, loadSafeCanvasImage } from '../pages/Design';
 
 /* ----------------------------------------------------------------
@@ -390,8 +403,8 @@ export default function ColorSwapStudio({
   onRefreshGenerations,
   setError,
 }: ColorSwapStudioProps) {
-  // Navigation sub-tabs: Swap vs Palette/Eyedropper
-  const [subTab, setSubTab] = useState<'swap' | 'palette'>('swap');
+  // Navigation sub-tabs: Swap vs Canva Paint Studio vs Palette/Eyedropper
+  const [subTab, setSubTab] = useState<'swap' | 'paint' | 'palette'>('swap');
 
   // Source selection filter
   const [filterFolder, setFilterFolder] = useState<'all' | 'ready' | 'edited' | 'generated' | 'uploads'>('all');
@@ -446,6 +459,57 @@ export default function ColorSwapStudio({
   const [recolorResults, setRecolorResults] = useState<RecolorResult[]>([]);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  // ----------------------------------------------------------------
+  // Canva Paint & Area Clone Studio State (MS Paint Pro Style)
+  // ----------------------------------------------------------------
+  const [paintTool, setPaintTool] = useState<'brush' | 'eyedropper' | 'extract' | 'move_patch'>('brush');
+  const [brushType, setBrushType] = useState<'solid' | 'soft' | 'chisel' | 'stipple' | 'highlighter' | 'eraser'>('solid');
+  const [brushColor, setBrushColor] = useState<string>('#E52B38');
+  const [brushSize, setBrushSize] = useState<number>(24);
+  const [brushOpacity, setBrushOpacity] = useState<number>(100);
+
+  // Undo / Redo History Stack (up to 20 states)
+  const [paintHistory, setPaintHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  // Active Area Clone Patch
+  const [activePatch, setActivePatch] = useState<{
+    canvas: HTMLCanvasElement;
+    dataUrl: string;
+    origW: number;
+    origH: number;
+    x: number;
+    y: number;
+    scaleX: number;
+    scaleY: number;
+    rotation: number;
+    flipH: boolean;
+    flipV: boolean;
+    opacity: number;
+  } | null>(null);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+
+  // Target image for Paint Studio
+  const [paintImageSource, setPaintImageSource] = useState<string | null>(null);
+  const [paintImageTitle, setPaintImageTitle] = useState<string>('Studio Garment');
+
+  // Paint Canvas Refs
+  const paintCanvasRef = useRef<HTMLCanvasElement>(null);
+  const paintOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const cleanPaintImageRef = useRef<HTMLImageElement | null>(null);
+  const isPaintingRef = useRef<boolean>(false);
+  const lastPaintPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef<boolean>(false);
+  const isDraggingPatchRef = useRef<boolean>(false);
+  const patchDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Notification badge
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -529,7 +593,7 @@ export default function ColorSwapStudio({
     };
   }, [activeImage]);
 
-  // Keep live canvas restored when returning from Palette subtab to Swap subtab
+  // Keep live canvas restored when switching between subtabs
   useEffect(() => {
     if (subTab === 'swap' && previewCanvasRef.current) {
       const srcUrl = originalBaseDataUrlRef.current || (activeImage ? activeImage.url : null);
@@ -545,6 +609,11 @@ export default function ColorSwapStudio({
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           }
         }).catch((err) => console.warn('[ColorSwap] Tab switch redraw:', err));
+      }
+    } else if (subTab === 'paint' && paintCanvasRef.current && (!cleanPaintImageRef.current || paintHistory.length === 0)) {
+      const srcUrl = previewCanvasRef.current?.toDataURL('image/png') || (activeImage ? activeImage.url : null);
+      if (srcUrl) {
+        handleOpenInPaintStudio(srcUrl, activeImage?.title || 'Studio Garment');
       }
     }
   }, [subTab]);
@@ -808,6 +877,475 @@ export default function ColorSwapStudio({
     }
   };
 
+  // ----------------------------------------------------------------
+  // Canva Paint & Area Clone Studio Methods
+  // ----------------------------------------------------------------
+  const handleOpenInPaintStudio = async (imageUrl: string, title?: string) => {
+    try {
+      setPaintImageSource(imageUrl);
+      setPaintImageTitle(title || 'Studio Garment');
+      setSubTab('paint');
+      setActivePatch(null);
+      setSelectionBox(null);
+      setPaintTool('brush');
+
+      const img = await loadSafeCanvasImage(imageUrl);
+      cleanPaintImageRef.current = img;
+
+      if (paintCanvasRef.current && paintOverlayCanvasRef.current) {
+        const c = paintCanvasRef.current;
+        const o = paintOverlayCanvasRef.current;
+        const W = img.naturalWidth || 1024;
+        const H = img.naturalHeight || 1024;
+        c.width = W;
+        c.height = H;
+        o.width = W;
+        o.height = H;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, W, H);
+          ctx.drawImage(img, 0, 0, W, H);
+          const initialUrl = c.toDataURL('image/png');
+          setPaintHistory([initialUrl]);
+          setHistoryIndex(0);
+        }
+        const oCtx = o.getContext('2d');
+        if (oCtx) oCtx.clearRect(0, 0, W, H);
+      }
+      showToast('🖌️ Opened in Canva Paint & Clone Studio!');
+    } catch (err: any) {
+      console.warn('[PaintStudio] Error opening image:', err);
+      setError('Could not load image into Paint Studio.');
+    }
+  };
+
+  // Redraw floating patch and selection box on overlay canvas
+  const redrawPaintOverlay = (
+    curPatch: typeof activePatch = activePatch,
+    curBox: typeof selectionBox = selectionBox
+  ) => {
+    const overlay = paintOverlayCanvasRef.current;
+    if (!overlay) return;
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    // 1. Draw Active Floating Patch if present
+    if (curPatch) {
+      const targetW = curPatch.origW * curPatch.scaleX;
+      const targetH = curPatch.origH * curPatch.scaleY;
+
+      ctx.save();
+      ctx.translate(curPatch.x, curPatch.y);
+      ctx.rotate((curPatch.rotation * Math.PI) / 180);
+      ctx.scale(curPatch.flipH ? -1 : 1, curPatch.flipV ? -1 : 1);
+      ctx.globalAlpha = curPatch.opacity;
+      ctx.drawImage(curPatch.canvas, -targetW / 2, -targetH / 2, targetW, targetH);
+      ctx.restore();
+
+      // Bounding Box & Sizing Handles
+      ctx.save();
+      ctx.translate(curPatch.x, curPatch.y);
+      ctx.rotate((curPatch.rotation * Math.PI) / 180);
+      ctx.strokeStyle = '#e5373f';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(-targetW / 2, -targetH / 2, targetW, targetH);
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffffff';
+      const handleSize = 8;
+      const handles = [
+        [-targetW / 2, -targetH / 2],
+        [targetW / 2, -targetH / 2],
+        [targetW / 2, targetH / 2],
+        [-targetW / 2, targetH / 2],
+        [0, -targetH / 2], // top center
+        [0, targetH / 2],  // bottom center
+        [-targetW / 2, 0], // left center
+        [targetW / 2, 0],  // right center
+      ];
+      for (const [hx, hy] of handles) {
+        ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+        ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+      }
+      ctx.restore();
+    }
+
+    // 2. Draw Selection Box when selecting area
+    if (curBox && curBox.w > 0 && curBox.h > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(curBox.x, curBox.y, curBox.w, curBox.h);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+      ctx.fillRect(curBox.x, curBox.y, curBox.w, curBox.h);
+
+      // Dimension Tag
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(curBox.x, Math.max(0, curBox.y - 24), 110, 20);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`${Math.round(curBox.w)} × ${Math.round(curBox.h)} px`, curBox.x + 6, Math.max(14, curBox.y - 10));
+      ctx.restore();
+    }
+  };
+
+  // Push Canvas Snapshot to Undo History Stack
+  const pushPaintHistory = () => {
+    if (!paintCanvasRef.current) return;
+    const dataUrl = paintCanvasRef.current.toDataURL('image/png');
+    setPaintHistory((prev) => {
+      const sliced = prev.slice(0, historyIndex + 1);
+      const next = [...sliced, dataUrl];
+      if (next.length > 20) next.shift();
+      return next;
+    });
+    setHistoryIndex((prev) => Math.min(19, prev + 1));
+  };
+
+  const handleUndoPaint = async () => {
+    if (historyIndex <= 0 || !paintCanvasRef.current) return;
+    const targetIdx = historyIndex - 1;
+    const targetUrl = paintHistory[targetIdx];
+    const img = await loadSafeCanvasImage(targetUrl);
+    const ctx = paintCanvasRef.current.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, paintCanvasRef.current.width, paintCanvasRef.current.height);
+      ctx.drawImage(img, 0, 0);
+      setHistoryIndex(targetIdx);
+      showToast('↩️ Undo');
+    }
+  };
+
+  const handleRedoPaint = async () => {
+    if (historyIndex >= paintHistory.length - 1 || !paintCanvasRef.current) return;
+    const targetIdx = historyIndex + 1;
+    const targetUrl = paintHistory[targetIdx];
+    const img = await loadSafeCanvasImage(targetUrl);
+    const ctx = paintCanvasRef.current.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, paintCanvasRef.current.width, paintCanvasRef.current.height);
+      ctx.drawImage(img, 0, 0);
+      setHistoryIndex(targetIdx);
+      showToast('↪️ Redo');
+    }
+  };
+
+  const handleClearPaint = async () => {
+    if (!cleanPaintImageRef.current || !paintCanvasRef.current) return;
+    const ctx = paintCanvasRef.current.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, paintCanvasRef.current.width, paintCanvasRef.current.height);
+      ctx.drawImage(cleanPaintImageRef.current, 0, 0);
+      pushPaintHistory();
+      showToast('🧹 Cleared all brush strokes to original image!');
+    }
+  };
+
+  // Draw Paint Dab at center (cx, cy)
+  const drawPaintDab = (ctx: CanvasRenderingContext2D, cx: number, cy: number) => {
+    const radius = Math.max(1, brushSize / 2);
+    const alpha = Math.max(0.05, Math.min(1.0, brushOpacity / 100));
+    const [r, g, b] = hexToRgb(brushColor);
+
+    if (brushType === 'solid') {
+      ctx.save();
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (brushType === 'soft') {
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+      grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alpha * 0.45})`);
+      grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (brushType === 'chisel') {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.fillRect(-radius, -radius * 0.25, radius * 2, radius * 0.5);
+      ctx.restore();
+    } else if (brushType === 'stipple') {
+      ctx.save();
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      const dotSpacing = Math.max(5, Math.round(brushSize * 0.28));
+      const dotR = Math.max(1.2, brushSize * 0.055);
+      for (let ox = -radius; ox <= radius; ox += dotSpacing) {
+        for (let oy = -radius; oy <= radius; oy += dotSpacing) {
+          if (ox * ox + oy * oy <= radius * radius) {
+            ctx.beginPath();
+            ctx.arc(cx + ox, cy + oy, dotR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+    } else if (brushType === 'highlighter') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.35})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (brushType === 'eraser') {
+      if (cleanPaintImageRef.current) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(cleanPaintImageRef.current, 0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.restore();
+      }
+    }
+  };
+
+  const drawPaintSegment = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) => {
+    const dist = Math.hypot(x1 - x0, y1 - y0);
+    const step = Math.max(1, brushSize * 0.18);
+    const count = Math.ceil(dist / step);
+    for (let i = 0; i <= count; i++) {
+      const t = count === 0 ? 0 : i / count;
+      const cx = x0 + (x1 - x0) * t;
+      const cy = y0 + (y1 - y0) * t;
+      drawPaintDab(ctx, cx, cy);
+    }
+  };
+
+  // Area Extract / Copy (Clone Patch)
+  const handleExtractSelectedArea = () => {
+    if (!selectionBox || selectionBox.w < 5 || selectionBox.h < 5 || !paintCanvasRef.current) {
+      setError('Please drag a selection box over the garment area you want to copy.');
+      return;
+    }
+    const canvas = paintCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const imgData = ctx.getImageData(selectionBox.x, selectionBox.y, selectionBox.w, selectionBox.h);
+    const patchCanvas = document.createElement('canvas');
+    patchCanvas.width = selectionBox.w;
+    patchCanvas.height = selectionBox.h;
+    const pCtx = patchCanvas.getContext('2d');
+    if (!pCtx) return;
+    pCtx.putImageData(imgData, 0, 0);
+
+    const patch = {
+      canvas: patchCanvas,
+      dataUrl: patchCanvas.toDataURL('image/png'),
+      origW: selectionBox.w,
+      origH: selectionBox.h,
+      x: selectionBox.x + selectionBox.w / 2,
+      y: selectionBox.y + selectionBox.h / 2,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      rotation: 0,
+      flipH: false,
+      flipV: false,
+      opacity: 1.0,
+    };
+
+    setActivePatch(patch);
+    setSelectionBox(null);
+    setPaintTool('move_patch');
+    redrawPaintOverlay(patch, null);
+    showToast(`✂️ Area extracted (${selectionBox.w}×${selectionBox.h}px)! Drag & rotate anywhere on garment.`);
+  };
+
+  const handleStampPatchToCanvas = () => {
+    if (!activePatch || !paintCanvasRef.current) return;
+    const ctx = paintCanvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    const targetW = activePatch.origW * activePatch.scaleX;
+    const targetH = activePatch.origH * activePatch.scaleY;
+
+    ctx.save();
+    ctx.translate(activePatch.x, activePatch.y);
+    ctx.rotate((activePatch.rotation * Math.PI) / 180);
+    ctx.scale(activePatch.flipH ? -1 : 1, activePatch.flipV ? -1 : 1);
+    ctx.globalAlpha = activePatch.opacity;
+    ctx.drawImage(activePatch.canvas, -targetW / 2, -targetH / 2, targetW, targetH);
+    ctx.restore();
+
+    pushPaintHistory();
+    showToast('📌 Patch stamped onto image! You can drag and stamp it again, or click Done.');
+  };
+
+  const handleDiscardPatch = () => {
+    setActivePatch(null);
+    setSelectionBox(null);
+    setPaintTool('brush');
+    redrawPaintOverlay(null, null);
+  };
+
+  // Pointer event handlers for Paint Canvas
+  const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = paintOverlayCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+    return { x, y };
+  };
+
+  const handlePaintPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch { }
+    const { x, y } = getCanvasCoords(e);
+
+    if (paintTool === 'eyedropper') {
+      if (paintCanvasRef.current) {
+        const ctx = paintCanvasRef.current.getContext('2d');
+        if (ctx) {
+          const p = ctx.getImageData(x, y, 1, 1).data;
+          const hex = rgbToHex(p[0], p[1], p[2]);
+          setBrushColor(hex);
+          setPaintTool('brush');
+          showToast(`🎯 Eyedropper: Picked ${hex} (${getColorName(hex)})`);
+        }
+      }
+      return;
+    }
+
+    if (paintTool === 'brush') {
+      isPaintingRef.current = true;
+      lastPaintPosRef.current = { x, y };
+      if (paintCanvasRef.current) {
+        const ctx = paintCanvasRef.current.getContext('2d');
+        if (ctx) drawPaintDab(ctx, x, y);
+      }
+      return;
+    }
+
+    if (paintTool === 'extract') {
+      isSelectingRef.current = true;
+      const newBox = { startX: x, startY: y, x, y, w: 0, h: 0 };
+      setSelectionBox(newBox);
+      redrawPaintOverlay(activePatch, newBox);
+      return;
+    }
+
+    if (paintTool === 'move_patch' && activePatch) {
+      isDraggingPatchRef.current = true;
+      patchDragOffsetRef.current = { x: x - activePatch.x, y: y - activePatch.y };
+      return;
+    }
+  };
+
+  const handlePaintPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const { x, y } = getCanvasCoords(e);
+
+    if (isPaintingRef.current && paintTool === 'brush') {
+      if (lastPaintPosRef.current && paintCanvasRef.current) {
+        const ctx = paintCanvasRef.current.getContext('2d');
+        if (ctx) {
+          drawPaintSegment(ctx, lastPaintPosRef.current.x, lastPaintPosRef.current.y, x, y);
+        }
+      }
+      lastPaintPosRef.current = { x, y };
+      return;
+    }
+
+    if (isSelectingRef.current && paintTool === 'extract' && selectionBox) {
+      const startX = selectionBox.startX;
+      const startY = selectionBox.startY;
+      const newBox = {
+        startX,
+        startY,
+        x: Math.min(startX, x),
+        y: Math.min(startY, y),
+        w: Math.abs(x - startX),
+        h: Math.abs(y - startY),
+      };
+      setSelectionBox(newBox);
+      redrawPaintOverlay(activePatch, newBox);
+      return;
+    }
+
+    if (isDraggingPatchRef.current && activePatch) {
+      const nextPatch = {
+        ...activePatch,
+        x: x - patchDragOffsetRef.current.x,
+        y: y - patchDragOffsetRef.current.y,
+      };
+      setActivePatch(nextPatch);
+      redrawPaintOverlay(nextPatch, null);
+      return;
+    }
+  };
+
+  const handlePaintPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch { }
+
+    if (isPaintingRef.current) {
+      isPaintingRef.current = false;
+      lastPaintPosRef.current = null;
+      pushPaintHistory();
+      return;
+    }
+
+    if (isSelectingRef.current) {
+      isSelectingRef.current = false;
+      return;
+    }
+
+    if (isDraggingPatchRef.current) {
+      isDraggingPatchRef.current = false;
+      return;
+    }
+  };
+
+  const handleSavePaintResult = async (folder: 'ready' | 'edited') => {
+    if (!paintCanvasRef.current) return;
+    try {
+      const dataUrl = paintCanvasRef.current.toDataURL('image/jpeg', 0.95);
+      await onSaveToMySets(dataUrl, folder, paintImageTitle + ' (Custom Edit)');
+      onRefreshGenerations();
+      showToast(`⭐ Saved custom painted image to ${folder === 'ready' ? 'Ready to Use' : 'Edited'}!`);
+    } catch (err: any) {
+      setError('Save error: ' + (err?.message || err));
+    }
+  };
+
+  const handleDownloadPaintCanvas = () => {
+    if (!paintCanvasRef.current) return;
+    const a = document.createElement('a');
+    a.href = paintCanvasRef.current.toDataURL('image/png');
+    a.download = `${paintImageTitle.replace(/[^a-z0-9_-]/gi, '-')}-custom-edit.png`;
+    a.click();
+    showToast('⬇️ Downloaded custom edited image!');
+  };
+
+  const handleSendBackToColorSwap = () => {
+    if (!paintCanvasRef.current) return;
+    const dataUrl = paintCanvasRef.current.toDataURL('image/jpeg', 0.95);
+    const item: ImageItem = {
+      id: 'paint_' + Date.now().toString(36),
+      url: dataUrl,
+      title: paintImageTitle + ' (Edited)',
+      source: 'upload',
+    };
+    setCustomUploads((prev) => [item, ...prev]);
+    setActiveImage(item);
+    setSelectedIds((prev) => new Set([...prev, item.id]));
+    setSubTab('swap');
+    showToast('🔄 Sent edited garment back to Color Swap Studio!');
+  };
+
   /* ----------------------------------------------------------------
      AI Semantic Garment Segmentation Service (Upper, Lower, Both)
      ---------------------------------------------------------------- */
@@ -828,7 +1366,7 @@ export default function ColorSwapStudio({
       const isDataUrl = item.url.startsWith('data:');
       const payload = isDataUrl ? { dataUrl: item.url } : { url: item.url };
 
-      const targetUrl = resolveImageUrl('/api/segment-garment');
+      const targetUrl = getApiUrl('/api/segment-garment');
       const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1330,8 +1868,8 @@ export default function ColorSwapStudio({
           </div>
         </div>
 
-        {/* Sub-Tabs: Swap vs Palette */}
-        <div className={`inline-flex rounded-xl p-1 border ${isLight ? 'border-gray-300 bg-gray-100' : 'border-zinc-800 bg-zinc-900/80'}`}>
+        {/* Sub-Tabs: Swap vs Paint vs Palette */}
+        <div className={`inline-flex rounded-xl p-1 border flex-wrap gap-1 ${isLight ? 'border-gray-300 bg-gray-100' : 'border-zinc-800 bg-zinc-900/80'}`}>
           <button
             type="button"
             onClick={() => setSubTab('swap')}
@@ -1346,6 +1884,28 @@ export default function ColorSwapStudio({
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>🔄 Color Swap</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('paint');
+              if (previewCanvasRef.current && (!cleanPaintImageRef.current || paintHistory.length === 0)) {
+                handleOpenInPaintStudio(previewCanvasRef.current.toDataURL('image/png'), activeImage?.title || 'Studio Garment');
+              } else if (activeImage && (!cleanPaintImageRef.current || paintHistory.length === 0)) {
+                handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
+              }
+            }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'paint'
+              ? isLight
+                ? 'bg-white text-gray-950 font-bold shadow-sm'
+                : 'bg-[#e5373f] text-white font-bold shadow-md'
+              : isLight
+                ? 'text-gray-600 hover:text-gray-900'
+                : 'text-zinc-400 hover:text-white'
+              }`}
+          >
+            <Paintbrush className="w-3.5 h-3.5" />
+            <span>🖌️ Canva Paint & Clone Studio</span>
           </button>
           <button
             type="button"
@@ -1520,10 +2080,10 @@ export default function ColorSwapStudio({
         {/* Right 8-Cols: Interactive Studio Workspace */}
         <div className="lg:col-span-8 space-y-6">
           {/* ----------------------------------------------------------------
-              PERSISTENT CANVAS — always rendered, hidden via CSS when on
-              Palette tab so canvas content survives tab switches (no black).
+              PERSISTENT CANVAS — always rendered, hidden via CSS when not on
+              Swap tab so canvas content survives tab switches (no black).
               ---------------------------------------------------------------- */}
-          <div className={`rounded-2xl border p-4 ${subTab === 'palette' ? 'hidden' : ''} ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+          <div className={`rounded-2xl border p-4 ${subTab !== 'swap' ? 'hidden' : ''} ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
@@ -1535,7 +2095,23 @@ export default function ColorSwapStudio({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (previewCanvasRef.current) {
+                      handleOpenInPaintStudio(previewCanvasRef.current.toDataURL('image/png'), activeImage?.title || 'Canvas Edit');
+                    } else if (activeImage) {
+                      handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#e5373f]/20 hover:bg-[#e5373f]/30 text-rose-300 border border-[#e5373f]/40 cursor-pointer flex items-center gap-1 transition"
+                  title="Open active preview in Canva Paint & Clone Studio"
+                >
+                  <Paintbrush className="w-3 h-3 text-rose-400" />
+                  <span>🖌️ Edit in Paint Studio</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleRestoreOriginalLook}
@@ -2100,10 +2676,20 @@ export default function ColorSwapStudio({
                           <button
                             type="button"
                             onClick={() => handleSaveResult(item, 'edited')}
-                            className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
+                            className="py-1 px-2 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
                             title="Save into Edited sub-tab"
                           >
                             💾 Edited
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenInPaintStudio(item.recoloredUrl, item.title)}
+                            className="py-1 px-2 rounded-lg text-[10px] font-bold bg-[#e5373f]/20 hover:bg-[#e5373f]/30 text-rose-300 border border-[#e5373f]/40 cursor-pointer flex items-center justify-center gap-1"
+                            title="Open in Canva Paint & Clone Studio"
+                          >
+                            <Paintbrush className="w-3 h-3 text-rose-400" />
+                            <span>🖌️ Paint</span>
                           </button>
 
                           <a
@@ -2121,9 +2707,667 @@ export default function ColorSwapStudio({
                 </div>
               )}
             </div>
+          ) : subTab === 'paint' ? (
+            /* ----------------------------------------------------------------
+               SUB-TAB 2: Canva Paint & Area Clone Studio (MS Paint Pro Style)
+               Multi-Brush, Eyedropper, Extract Area, Rotate & Free Transform
+               ---------------------------------------------------------------- */
+            <div className="space-y-5">
+              {/* Top Studio Bar: Title, Active Image & Action Controls */}
+              <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#e5373f]/15 border border-[#e5373f]/30 flex items-center justify-center">
+                      <Paintbrush className="w-5 h-5 text-[#e5373f]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <span>Canva Paint & Clone Studio</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-medium border border-emerald-500/30">
+                          Pro Mode
+                        </span>
+                      </h3>
+                      <p className="text-[11px] opacity-70">
+                        Editing: <span className="font-semibold text-zinc-300">{paintImageTitle}</span>
+                        {paintImageSource && <span className="ml-2 text-[9px] text-zinc-500">({paintCanvasRef.current ? `${paintCanvasRef.current.width}×${paintCanvasRef.current.height}px` : 'Active'})</span>}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions: Undo, Redo, Clear, Send to Color Swap, Save, Download */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      disabled={historyIndex <= 0}
+                      onClick={handleUndoPaint}
+                      className="p-2 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      title="Undo stroke or stamp (Ctrl+Z)"
+                    >
+                      <Undo className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={historyIndex >= paintHistory.length - 1}
+                      onClick={handleRedoPaint}
+                      className="p-2 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      title="Redo stroke or stamp (Ctrl+Y)"
+                    >
+                      <Redo className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearPaint}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1 transition"
+                      title="Reset canvas back to original"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Reset</span>
+                    </button>
+
+                    <div className="h-5 w-px bg-zinc-700 mx-1" />
+
+                    <button
+                      type="button"
+                      onClick={handleSendBackToColorSwap}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 cursor-pointer flex items-center gap-1.5 transition"
+                      title="Send this edited canvas into Color Swap to change colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
+                      <span>🔄 Send to Color Swap</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSavePaintResult('ready')}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black cursor-pointer flex items-center gap-1.5 shadow-sm transition"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>⭐ Ready</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSavePaintResult('edited')}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1"
+                    >
+                      <span>💾 Edited</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadPaintCanvas}
+                      className="p-2 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
+                      title="Download PNG"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tool Selection Tabs Bar */}
+              <div className={`rounded-2xl border p-3 flex flex-wrap items-center justify-between gap-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 mr-1 flex items-center gap-1">
+                    <MousePointer className="w-3.5 h-3.5" />
+                    <span>Mode:</span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => { setPaintTool('brush'); if (brushType === 'eraser') setBrushType('solid'); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      paintTool === 'brush' && brushType !== 'eraser'
+                        ? 'bg-[#e5373f] text-white shadow-md'
+                        : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    <Paintbrush className="w-3.5 h-3.5" />
+                    <span>🖌️ Multi-Brush</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setPaintTool('brush'); setBrushType('eraser'); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      paintTool === 'brush' && brushType === 'eraser'
+                        ? 'bg-[#e5373f] text-white shadow-md'
+                        : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    <Eraser className="w-3.5 h-3.5" />
+                    <span>🧹 Fabric Eraser</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaintTool('eyedropper')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      paintTool === 'eyedropper'
+                        ? 'bg-sky-600 text-white shadow-md'
+                        : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    <Pipette className="w-3.5 h-3.5" />
+                    <span>🧪 Canva Eyedropper</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaintTool('extract')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      paintTool === 'extract'
+                        ? 'bg-amber-600 text-white shadow-md'
+                        : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>✂️ Extract / Copy Area</span>
+                  </button>
+
+                  {activePatch && (
+                    <button
+                      type="button"
+                      onClick={() => setPaintTool('move_patch')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        paintTool === 'move_patch'
+                          ? 'bg-emerald-600 text-white shadow-md animate-pulse'
+                          : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                      }`}
+                    >
+                      <Move className="w-3.5 h-3.5" />
+                      <span>✋ Move Active Patch</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* If selection box is active in extract mode, show Extract button right away */}
+                {paintTool === 'extract' && selectionBox && selectionBox.w > 5 && selectionBox.h > 5 && (
+                  <button
+                    type="button"
+                    onClick={handleExtractSelectedArea}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 cursor-pointer shadow-md animate-bounce"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>✂️ Extract ({selectionBox.w}×{selectionBox.h}px)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* BRUSH OPTIONS DECK (Visible when tool is brush) */}
+              {paintTool === 'brush' && brushType !== 'eraser' && (
+                <div className={`rounded-2xl border p-4 space-y-4 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+                  {/* Brush Type Selector (MS Paint Pro Style) */}
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 block">
+                      Choose Brush Type (MS Paint Pro Studio Styles)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {[
+                        { type: 'solid', name: 'Solid Round', icon: '🖌️', desc: 'Opaque crisp line for logos & edges' },
+                        { type: 'soft', name: 'Soft Airbrush', icon: '💨', desc: 'Feathered edges for shadows & folds' },
+                        { type: 'chisel', name: 'Chisel Nib', icon: '✒️', desc: 'Angled ribbon for stripes & zip' },
+                        { type: 'stipple', name: 'Fabric Mesh', icon: '⁝⁝', desc: 'Micro-dot vents & sleeve perforations' },
+                        { type: 'highlighter', name: 'Glaze Wash', icon: '🖍️', desc: 'Translucent color wash with fabric grain' },
+                      ].map((b) => (
+                        <button
+                          key={b.type}
+                          type="button"
+                          onClick={() => setBrushType(b.type as any)}
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
+                            brushType === b.type
+                              ? 'border-[#e5373f] bg-[#e5373f]/15 shadow-sm'
+                              : isLight ? 'border-gray-200 bg-gray-50 hover:bg-gray-100' : 'border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-sm">{b.icon}</span>
+                            <span className="text-xs font-bold text-zinc-200">{b.name}</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 leading-tight">{b.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Size & Opacity Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className={`p-3 rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-zinc-300">Brush Size</span>
+                        <span className="text-xs font-mono font-bold text-[#e5373f]">{brushSize}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="2"
+                        max="120"
+                        step="1"
+                        value={brushSize}
+                        onChange={(e) => setBrushSize(Number(e.target.value))}
+                        className="w-full accent-[#e5373f] cursor-pointer"
+                      />
+                    </div>
+
+                    <div className={`p-3 rounded-xl border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-zinc-300">Brush Opacity</span>
+                        <span className="text-xs font-mono font-bold text-emerald-400">{brushOpacity}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="5"
+                        max="100"
+                        step="1"
+                        value={brushOpacity}
+                        onChange={(e) => setBrushOpacity(Number(e.target.value))}
+                        className="w-full accent-emerald-500 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Paint Color Palette & Eyedropper */}
+                  <div className={`p-3.5 rounded-xl border space-y-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-zinc-300">Selected Brush Color:</span>
+                        <span
+                          className="w-5 h-5 rounded-md border border-white/40 shadow-inner inline-block"
+                          style={{ backgroundColor: brushColor }}
+                        />
+                        <span className="text-xs font-mono font-bold">{brushColor}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaintTool('eyedropper')}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 cursor-pointer flex items-center gap-1"
+                        >
+                          <Pipette className="w-3.5 h-3.5 text-sky-400" />
+                          <span>Sample from Canvas</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleNativeEyedropper('source')}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 cursor-pointer flex items-center gap-1"
+                        >
+                          <Pipette className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Screen Eyedropper</span>
+                        </button>
+                        <input
+                          type="color"
+                          value={brushColor}
+                          onChange={(e) => setBrushColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                          title="Custom Color Picker"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Garment Swatches */}
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      {[
+                        { hex: '#000000', name: 'Carbon Black' },
+                        { hex: '#FFFFFF', name: 'Pure White' },
+                        { hex: '#E52B38', name: 'Crimson Red' },
+                        { hex: '#1C3144', name: 'Royal Navy' },
+                        { hex: '#D4AF37', name: 'Gold / Brass' },
+                        { hex: '#2A5A3B', name: 'Forest Green' },
+                        { hex: '#708090', name: 'Slate Grey' },
+                        { hex: '#FF6B35', name: 'Neon Orange' },
+                        { hex: '#7B2CBF', name: 'Deep Purple' },
+                        { hex: '#A8DADC', name: 'Sage Mint' },
+                      ].map((swatch) => (
+                        <button
+                          key={swatch.hex}
+                          type="button"
+                          onClick={() => setBrushColor(swatch.hex)}
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition hover:scale-110 shadow-xs ${
+                            brushColor.toLowerCase() === swatch.hex.toLowerCase()
+                              ? 'border-white scale-110 ring-2 ring-[#e5373f]'
+                              : 'border-white/20'
+                          }`}
+                          style={{ backgroundColor: swatch.hex }}
+                          title={`${swatch.name} (${swatch.hex})`}
+                        >
+                          {brushColor.toLowerCase() === swatch.hex.toLowerCase() && (
+                            <Check className={`w-3.5 h-3.5 ${swatch.hex === '#FFFFFF' ? 'text-black' : 'text-white'}`} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ERASER CONTROLS (Visible when eraser is chosen) */}
+              {paintTool === 'brush' && brushType === 'eraser' && (
+                <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                      <Eraser className="w-4 h-4 text-rose-400" />
+                      <span>Fabric Eraser Active (Restores original garment underneath)</span>
+                    </span>
+                    <span className="text-xs font-mono font-bold text-rose-400">{brushSize}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="4"
+                    max="100"
+                    step="1"
+                    value={brushSize}
+                    onChange={(e) => setBrushSize(Number(e.target.value))}
+                    className="w-full accent-rose-500 cursor-pointer"
+                  />
+                </div>
+              )}
+
+              {/* EXTRACT & TRANSFORM CONTROLS (Active Patch Deck) */}
+              {activePatch && (
+                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-4 shadow-lg backdrop-blur-md">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                        <Scissors className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-300">
+                          Extracted Area Active ({activePatch.origW} × {activePatch.origH}px)
+                        </h4>
+                        <p className="text-[10px] text-zinc-300">
+                          Original region is untouched. Drag patch to place anywhere, rotate, or stretch from any side!
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleStampPatchToCanvas}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer flex items-center gap-1.5 shadow-md transition"
+                        title="Permanently stamp patch onto canvas"
+                      >
+                        <Stamp className="w-4 h-4" />
+                        <span>Stamp to Canvas (Apply)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDiscardPatch}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 cursor-pointer flex items-center gap-1"
+                        title="Discard extracted patch"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Discard</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Transformation Controls: Rotation & Multi-Area Sizing */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                    {/* 1. Rotation Slider & Quick Buttons */}
+                    <div className="p-3 rounded-xl border border-white/10 bg-black/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                          <RotateCw className="w-3 h-3 text-amber-400" />
+                          <span>Rotate Angle</span>
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-amber-400">{Math.round(activePatch.rotation)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value={activePatch.rotation}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setActivePatch((prev) => {
+                            if (!prev) return null;
+                            const next = { ...prev, rotation: val };
+                            redrawPaintOverlay(next);
+                            return next;
+                          });
+                        }}
+                        className="w-full accent-amber-500 cursor-pointer"
+                      />
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePatch((prev) => {
+                              if (!prev) return null;
+                              const next = { ...prev, rotation: (prev.rotation - 90) % 360 };
+                              redrawPaintOverlay(next);
+                              return next;
+                            });
+                          }}
+                          className="flex-1 py-0.5 rounded text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                        >
+                          -90°
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePatch((prev) => {
+                              if (!prev) return null;
+                              const next = { ...prev, rotation: 0 };
+                              redrawPaintOverlay(next);
+                              return next;
+                            });
+                          }}
+                          className="flex-1 py-0.5 rounded text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                        >
+                          0°
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePatch((prev) => {
+                              if (!prev) return null;
+                              const next = { ...prev, rotation: (prev.rotation + 90) % 360 };
+                              redrawPaintOverlay(next);
+                              return next;
+                            });
+                          }}
+                          className="flex-1 py-0.5 rounded text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                        >
+                          +90°
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Stretch Width (Scale X from sides) */}
+                    <div className="p-3 rounded-xl border border-white/10 bg-black/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                          <Maximize2 className="w-3 h-3 text-sky-400" />
+                          <span>Stretch Width (X)</span>
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-sky-400">{activePatch.scaleX.toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="4.0"
+                        step="0.05"
+                        value={activePatch.scaleX}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setActivePatch((prev) => {
+                            if (!prev) return null;
+                            const next = { ...prev, scaleX: val };
+                            redrawPaintOverlay(next);
+                            return next;
+                          });
+                        }}
+                        className="w-full accent-sky-500 cursor-pointer"
+                      />
+                      <p className="text-[9px] text-zinc-400">Make wider/narrower from sides</p>
+                    </div>
+
+                    {/* 3. Stretch Height (Scale Y from top/bottom) */}
+                    <div className="p-3 rounded-xl border border-white/10 bg-black/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                          <Maximize2 className="w-3 h-3 text-emerald-400" />
+                          <span>Stretch Height (Y)</span>
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-emerald-400">{activePatch.scaleY.toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="4.0"
+                        step="0.05"
+                        value={activePatch.scaleY}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setActivePatch((prev) => {
+                            if (!prev) return null;
+                            const next = { ...prev, scaleY: val };
+                            redrawPaintOverlay(next);
+                            return next;
+                          });
+                        }}
+                        className="w-full accent-emerald-500 cursor-pointer"
+                      />
+                      <p className="text-[9px] text-zinc-400">Make taller/shorter from top/bottom</p>
+                    </div>
+
+                    {/* 4. Flip & Opacity */}
+                    <div className="p-3 rounded-xl border border-white/10 bg-black/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-zinc-300">Flip & Blend</span>
+                        <span className="text-[11px] font-mono font-bold text-zinc-300">{Math.round(activePatch.opacity * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePatch((prev) => {
+                              if (!prev) return null;
+                              const next = { ...prev, flipH: !prev.flipH };
+                              redrawPaintOverlay(next);
+                              return next;
+                            });
+                          }}
+                          className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer flex items-center justify-center gap-1 ${
+                            activePatch.flipH
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                          }`}
+                        >
+                          <FlipHorizontal className="w-3 h-3" />
+                          <span>Flip H</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePatch((prev) => {
+                              if (!prev) return null;
+                              const next = { ...prev, flipV: !prev.flipV };
+                              redrawPaintOverlay(next);
+                              return next;
+                            });
+                          }}
+                          className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer flex items-center justify-center gap-1 ${
+                            activePatch.flipV
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                          }`}
+                        >
+                          <FlipVertical className="w-3 h-3" />
+                          <span>Flip V</span>
+                        </button>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1.0"
+                        step="0.05"
+                        value={activePatch.opacity}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setActivePatch((prev) => {
+                            if (!prev) return null;
+                            const next = { ...prev, opacity: val };
+                            redrawPaintOverlay(next);
+                            return next;
+                          });
+                        }}
+                        className="w-full accent-zinc-400 cursor-pointer"
+                        title="Patch Opacity"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DUAL-LAYER PAINT CANVAS VIEWPORT */}
+              <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+                <div className="flex items-center justify-between text-xs text-zinc-400 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-200">
+                      {paintTool === 'brush' && (brushType === 'eraser' ? '🧹 Eraser Mode' : `🖌️ ${brushType.toUpperCase()} Brush (${brushSize}px, ${brushOpacity}%)`)}
+                      {paintTool === 'eyedropper' && '🧪 Canvas Eyedropper — Click anywhere to sample color'}
+                      {paintTool === 'extract' && '✂️ Extract Area Mode — Drag a box to copy region'}
+                      {paintTool === 'move_patch' && '✋ Move Patch Mode — Drag to place, use sliders to transform'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] opacity-70">
+                    Use pointer to draw or drag directly on garment
+                  </span>
+                </div>
+
+                <div className="relative rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center p-2 min-h-[420px] select-none">
+                  {/* Base Paint Canvas */}
+                  <canvas
+                    ref={paintCanvasRef}
+                    className="max-h-[520px] max-w-full object-contain rounded-lg shadow-2xl block"
+                  />
+                  {/* Overlay Canvas for floating patch, marquee box, and pointer interaction */}
+                  <canvas
+                    ref={paintOverlayCanvasRef}
+                    onPointerDown={handlePaintPointerDown}
+                    onPointerMove={handlePaintPointerMove}
+                    onPointerUp={handlePaintPointerUp}
+                    className={`absolute inset-0 max-h-[520px] max-w-full m-auto object-contain rounded-lg ${
+                      paintTool === 'eyedropper'
+                        ? 'cursor-crosshair'
+                        : paintTool === 'extract'
+                          ? 'cursor-cell'
+                          : paintTool === 'move_patch'
+                            ? 'cursor-move'
+                            : 'cursor-crosshair'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-1">
+                  <span>
+                    💡 <strong className="text-zinc-200">Tip:</strong> For sleeve micro-perforations (shown in user photo), choose <strong>Fabric Mesh (⁝⁝)</strong>. To duplicate a logo or zipper tooth, use <strong>Extract / Copy Area (✂️)</strong>.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (paintTool === 'extract' && selectionBox) {
+                        handleExtractSelectedArea();
+                      } else {
+                        setPaintTool('extract');
+                        showToast('✂️ Drag a box over any garment area to copy it!');
+                      }
+                    }}
+                    className="text-[#e5373f] hover:underline font-semibold cursor-pointer shrink-0 ml-2"
+                  >
+                    Quick Copy Region →
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
             /* ----------------------------------------------------------------
-               SUB-TAB 2: Canva Eyedropper & Palette Generator
+               SUB-TAB 3: Canva Eyedropper & Palette Generator
                With Reference Fabric Photo Upload & Direct Apply to Swap
                ---------------------------------------------------------------- */
             <div className="space-y-6">
