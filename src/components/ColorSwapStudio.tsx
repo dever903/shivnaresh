@@ -926,9 +926,9 @@ export default function ColorSwapStudio({
      ---------------------------------------------------------------- */
   const recolorCanvas = (
     sourceImg: HTMLImageElement,
-    srcHex: string,
+    _srcHex: string,
     tgtHex: string,
-    tol: number,
+    _tol: number,
     lOff: number,
     sMult: number,
     masks?: { garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null } | null,
@@ -972,7 +972,6 @@ export default function ColorSwapStudio({
       }
     }
 
-    const [srcR, srcG, srcB] = hexToRgb(srcHex);
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
     const [tgtL, tgtA, tgtBVal] = rgbToLab(tgtR, tgtG, tgtB);
 
@@ -1133,63 +1132,9 @@ export default function ColorSwapStudio({
       }
     }
 
-    // =========================================================================
-    // PATH B: HEURISTIC SAFE FALLBACK (NO DEFRINGING LOOP, ZERO BLACK NOISE)
-    // =========================================================================
-    const bgInfo = getStudioBackgroundColor(data, W, H);
-    const { r: bgR, g: bgG, b: bgB } = bgInfo;
-    const [baseL] = rgbToLab(srcR, srcG, srcB);
-
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const i = (y * W + x) * 4;
-        const a = data[i + 3];
-        if (a < 50) continue;
-
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-
-        // 1. Protect Skin
-        if (isSkinPixel(r, g, b)) continue;
-
-        // 2. Protect Backdrop
-        const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-        if (dBg < 25) continue;
-
-        // 3. Protect Head/Hair region (top 26% of frame, center head)
-        if (y < H * 0.26 && Math.abs(x - W * 0.5) < W * 0.26 && r < 60 && g < 60 && b < 60) {
-          continue;
-        }
-
-        // 4. Color Matching with source color
-        const dR = r - srcR;
-        const dG = g - srcG;
-        const dB = b - srcB;
-        const colorDist = Math.sqrt(dR * dR + dG * dG + dB * dB);
-        const maxDist = Math.max(35, tol * 2.8);
-
-        if (colorDist < maxDist) {
-          const matchStrength = Math.max(0, 1 - (colorDist / maxDist));
-          if (matchStrength > 0.05) {
-            const [pL] = rgbToLab(r, g, b);
-            const deltaL = pL - baseL;
-            const newL = tgtL < 22
-              ? Math.max(4, tgtL + deltaL * 0.35)
-              : tgtL > 85
-                ? Math.min(96, Math.max(10, tgtL + deltaL * 0.55))
-                : Math.min(96, Math.max(5, tgtL + deltaL * 0.70));
-            const [nr, ng, nb] = labToRgb(newL, tgtA, tgtBVal);
-            data[i] = Math.round(r * (1 - matchStrength) + nr * matchStrength);
-            data[i + 1] = Math.round(g * (1 - matchStrength) + ng * matchStrength);
-            data[i + 2] = Math.round(b * (1 - matchStrength) + nb * matchStrength);
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.95);
+    // AI Mask unavailable: Do not corrupt image with color-matching fallback
+    console.warn('[ColorSwap] AI Mask missing. Aborting recolor to prevent artifacts.');
+    return sourceImg.src;
   };
 
   // Run Batch Color Swap on All Selected Images (ID-Based Multi-Pose Selection)
@@ -1229,6 +1174,12 @@ export default function ColorSwapStudio({
           getOrFetchAiMask(item, garmentScope),
         ]);
 
+        if (!masks?.garmentMask) {
+          console.warn(`[ColorSwap] AI segmentation mask unavailable for ${item.title}.`);
+          showToast(`⚠️ AI mask unavailable for ${item.title}. Aborting recolor to prevent artifacts.`);
+          continue;
+        }
+
         const recoloredDataUrl = recolorCanvas(
           loadedImg,
           sourceHex,
@@ -1241,7 +1192,7 @@ export default function ColorSwapStudio({
           { mode: zipperMode }
         );
 
-        if (recoloredDataUrl) {
+        if (recoloredDataUrl && recoloredDataUrl !== item.url) {
           const resItem: RecolorResult = {
             id: 'recolor_' + item.id + '_' + Date.now().toString(36) + '_' + i,
             sourceUrl: item.url,
@@ -1253,6 +1204,11 @@ export default function ColorSwapStudio({
           };
           newResults.push(resItem);
         }
+      }
+
+      if (newResults.length === 0) {
+        setError('AI garment segmentation was unavailable. Please ensure the backend server is running on port 8787.');
+        return;
       }
 
       setRecolorResults((prev) => {

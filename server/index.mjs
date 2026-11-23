@@ -42,11 +42,16 @@ const DATA = path.join(__dirname, 'data');
 
 // Set model cache directory
 env.cacheDir = path.join(DATA, 'cache', 'models');
+try {
+  await fs.mkdir(env.cacheDir, { recursive: true });
+} catch { }
 
 let segmenterPipeline = null;
 async function getSegmenter() {
   if (!segmenterPipeline) {
-    segmenterPipeline = await pipeline('image-segmentation', 'Xenova/segformer_b2_clothes');
+    segmenterPipeline = await pipeline('image-segmentation', 'Xenova/segformer_b2_clothes', {
+      quantized: true,
+    });
   }
   return segmenterPipeline;
 }
