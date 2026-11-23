@@ -131,9 +131,16 @@ export function isSkinPixel(r: number, g: number, b: number): boolean {
   return rgbSkin && ycbcrSkin;
 }
 
+export function toYCbCr(r: number, g: number, b: number): { y: number; cb: number; cr: number } {
+  const y = 0.299 * r + 0.587 * g + 0.114 * b;
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+  return { y, cb, cr };
+}
+
 /* ----------------------------------------------------------------
-   Studio Background Protection (BFS Flood-Fill from Borders)
-   Strictly prevents studio backdrop (grey/white wall) from recoloring.
+   Studio Background Protection (Adaptive BFS Flood-Fill from Borders)
+   Smoothly tracks studio background gradients and stops at model contour.
    ---------------------------------------------------------------- */
 export function buildBackgroundMask(
   data: Uint8ClampedArray,
@@ -155,45 +162,63 @@ export function buildBackgroundMask(
   bgG = Math.round(bgG / Math.max(1, sampleCount));
   bgB = Math.round(bgB / Math.max(1, sampleCount));
 
-  // Multi-source BFS starting from top border and upper sides
   const mask = new Uint8Array(width * height);
   const queue = new Int32Array(width * height);
   let head = 0, tail = 0;
 
-  const bgThreshold = 32;
+  // Max step difference between adjacent pixels in smooth backdrop
+  const maxStepDiff = 18;
+  const maxSeedDist = 58;
 
-  const checkAndEnqueue = (x: number, y: number) => {
+  const tryEnqueue = (x: number, y: number, fromR: number, fromG: number, fromB: number) => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
     const pIdx = y * width + x;
     if (mask[pIdx]) return;
     const idx = pIdx * 4;
     const r = data[idx];
     const g = data[idx + 1];
     const b = data[idx + 2];
-    const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-    if (dist <= bgThreshold) {
+
+    const stepDiff = Math.max(Math.abs(r - fromR), Math.abs(g - fromG), Math.abs(b - fromB));
+    const seedDist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+
+    if (stepDiff <= maxStepDiff && seedDist <= maxSeedDist) {
       mask[pIdx] = 1;
       queue[tail++] = (y << 16) | (x & 0xffff);
     }
   };
 
   // Seed top edge
-  for (let x = 0; x < width; x++) checkAndEnqueue(x, 0);
-  // Seed upper 50% of left and right edges
-  const maxSideY = Math.floor(height * 0.5);
-  for (let y = 0; y < maxSideY; y++) {
-    checkAndEnqueue(0, y);
-    checkAndEnqueue(width - 1, y);
+  for (let x = 0; x < width; x++) {
+    const pIdx = x;
+    mask[pIdx] = 1;
+    queue[tail++] = x;
+  }
+  // Seed upper 65% of left and right edges
+  const maxSideY = Math.floor(height * 0.65);
+  for (let y = 1; y < maxSideY; y++) {
+    const idxL = y * width;
+    mask[idxL] = 1;
+    queue[tail++] = y << 16;
+
+    const idxR = y * width + (width - 1);
+    mask[idxR] = 1;
+    queue[tail++] = (y << 16) | (width - 1);
   }
 
   while (head < tail) {
     const val = queue[head++];
     const y = val >> 16;
     const x = val & 0xffff;
+    const currIdx = (y * width + x) * 4;
+    const cR = data[currIdx];
+    const cG = data[currIdx + 1];
+    const cB = data[currIdx + 2];
 
-    if (x > 0) checkAndEnqueue(x - 1, y);
-    if (x < width - 1) checkAndEnqueue(x + 1, y);
-    if (y > 0) checkAndEnqueue(x, y - 1);
-    if (y < height - 1) checkAndEnqueue(x, y + 1);
+    tryEnqueue(x - 1, y, cR, cG, cB);
+    tryEnqueue(x + 1, y, cR, cG, cB);
+    tryEnqueue(x, y - 1, cR, cG, cB);
+    tryEnqueue(x, y + 1, cR, cG, cB);
   }
 
   return mask;
@@ -770,10 +795,11 @@ export default function ColorSwapStudio({
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
     const { h: sH, s: sS, l: sL } = rgbToHsl(srcR, srcG, srcB);
     const { h: tH, s: tS, l: tL } = rgbToHsl(tgtR, tgtG, tgtB);
+    const srcYcc = toYCbCr(srcR, srcG, srcB);
 
     const isSrcSkin = isSkinPixel(srcR, srcG, srcB);
-    const isSrcNeutral = sS < 0.15;
-    const neutralMaxDistSq = (tol * 1.25) ** 2;
+    const isSrcNeutral = sS < 0.22;
+    const maxChromDist = Math.max(10, tol * 0.42);
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -799,42 +825,45 @@ export default function ColorSwapStudio({
         const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
 
         // 3. Hair Guard: In upper third, preserve natural hair tones
-        if (y < H * 0.32 && x > W * 0.22 && x < W * 0.78) {
-          if (pL < 0.25 && sL > 0.35) continue;
+        if (y < H * 0.32 && x > W * 0.20 && x < W * 0.80) {
+          if (pL < 0.26 && sL > 0.35) continue;
         }
 
-        // 4. Shiv-Naresh HD Logo Guard:
+        // 4. Pants / Lower Garment Guard:
+        // If swapping upper jacket (e.g. beige/light sL > 0.40), protect dark pants (pL < 0.20)
+        if (sL > 0.40 && pL < 0.20 && y > H * 0.70) continue;
+
+        // 5. Shiv-Naresh HD Logo Guard:
         // Protect white embroidery / reflective transfer text, or contrasting red logo
         if (protectLogos) {
-          if (sL < 0.82 && pL > 0.89 && pS < 0.15) continue;
+          if (sL < 0.82 && pL > 0.88 && pS < 0.16) continue;
           if (sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20)) continue;
         }
 
-        let match = 0;
+        let matchStrength = 0;
 
         if (!isSrcNeutral) {
-          // Saturated garment fabric (Red, Navy, Blue, Green, Gold, etc.)
+          // Saturated garment fabric (Red, Olympic Navy, Royal Blue, Olive Green, Gold, etc.)
           const dh = Math.abs(pH - sH);
           const hueDist = Math.min(dh, 360 - dh);
-          if (hueDist < tol && pS > 0.10) {
-            match = Math.max(0, 1 - hueDist / tol);
+          if (hueDist < tol && pS > 0.08) {
+            matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
           }
         } else {
-          // Neutral garment fabric (Grey, Beige, White, Black)
-          const lumDiff = Math.abs(pL - sL);
-          if (lumDiff < 0.26) {
-            const dDistSq = 0.3 * (r - srcR) ** 2 + 0.59 * (g - srcG) ** 2 + 0.11 * (b - srcB) ** 2;
-            if (dDistSq < neutralMaxDistSq) {
-              match = Math.max(0, 1 - Math.sqrt(dDistSq) / Math.sqrt(neutralMaxDistSq));
-            }
+          // Neutral garment fabric (Beige, Grey, Silver, White, Off-white)
+          // Uses YCbCr chrominance distance - perfectly captures sleeve shadows and highlights!
+          const pYcc = toYCbCr(r, g, b);
+          const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
+          if (pS < 0.28 && chromDist < maxChromDist) {
+            matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
           }
         }
 
-        if (match > 0) {
-          // 5. Authentic Fabric Luminance & Texture Transfer
+        if (matchStrength > 0) {
+          // 6. Authentic Fabric Luminance & Texture Transfer
           const normL = pL / Math.max(0.06, sL);
           let newL: number;
-          if (tL < 0.25) {
+          if (tL < 0.22) {
             // Deep Dark / Carbon Black spectrum:
             // Base drops to true carbon black (~0.08..0.12),
             // while preserving realistic 3D shadow creases (normL < 1) and satin highlights (normL > 1)
@@ -855,9 +884,9 @@ export default function ColorSwapStudio({
           const newH = tH;
 
           const [resR, resG, resB] = hslToRgb(newH, newS, newL);
-          data[i] = Math.round(r * (1 - match) + resR * match);
-          data[i + 1] = Math.round(g * (1 - match) + resG * match);
-          data[i + 2] = Math.round(b * (1 - match) + resB * match);
+          data[i] = Math.round(r * (1 - matchStrength) + resR * matchStrength);
+          data[i + 1] = Math.round(g * (1 - matchStrength) + resG * matchStrength);
+          data[i + 2] = Math.round(b * (1 - matchStrength) + resB * matchStrength);
         }
       }
     }
