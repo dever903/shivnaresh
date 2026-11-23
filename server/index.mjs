@@ -55,6 +55,15 @@ async function getSegmenter() {
   }
   return segmenterPipeline;
 }
+
+// Pre-warm SegFormer AI model in RAM in background so user requests respond in 1-2s
+setTimeout(() => {
+  getSegmenter().then(() => {
+    console.log('[AI Segmentation] SegFormer B2 clothes model loaded and warm in memory.');
+  }).catch((err) => {
+    console.warn('[AI Segmentation] SegFormer pre-warm notice:', err.message);
+  });
+}, 2000);
 const UPLOADS = path.join(DATA, 'uploads');
 const GENERATED = path.join(DATA, 'generated');
 const STATE_FILE = path.join(DATA, 'state.json');
@@ -3290,6 +3299,43 @@ app.post('/api/segment-garment', async (req, res) => {
         if (bothData[i] > 0) lowerData[i] = 255;
       }
       lowerCount = bothCount;
+    }
+
+    // Intelligent Studio Garment Fallback on server if SegFormer returns zero clothes
+    if (upperCount === 0 && bothCount === 0) {
+      const sampleIndices = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+      const rgb = processedInput.data;
+      let bgR = 0, bgG = 0, bgB = 0;
+      for (const idx of sampleIndices) {
+        bgR += rgb[idx * 3] || 128;
+        bgG += rgb[idx * 3 + 1] || 128;
+        bgB += rgb[idx * 3 + 2] || 128;
+      }
+      bgR /= sampleIndices.length;
+      bgG /= sampleIndices.length;
+      bgB /= sampleIndices.length;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const p = y * w + x;
+          const r = rgb[p * 3] || 0;
+          const g = rgb[p * 3 + 1] || 0;
+          const b = rgb[p * 3 + 2] || 0;
+          const distBg = Math.hypot(r - bgR, g - bgG, b - bgB);
+          const isSkin = (r > 65 && g > 40 && b > 20 && r > g && r > b && (r - g > 12) && (Math.max(r,g,b) - Math.min(r,g,b)) > 15);
+          const isHair = y < 0.28 * h && (r < 60 && g < 60 && b < 60 && distBg > 20);
+
+          if (isSkin || isHair) {
+            protectData[p] = 255;
+            protectCount++;
+          } else if (distBg > 25 && x >= 0.08 * w && x <= 0.92 * w && y >= 0.12 * h && y <= 0.85 * h) {
+            upperData[p] = 255;
+            bothData[p] = 255;
+            upperCount++;
+            bothCount++;
+          }
+        }
+      }
     }
 
     // Upper Mask
