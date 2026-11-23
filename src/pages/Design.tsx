@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Clock,
   Columns,
+  Crop,
   Download,
   Eraser,
   ExternalLink,
@@ -978,6 +979,7 @@ function ZoomCropDownloadModal({
   imageTitle,
   isLight,
   onUseCrop,
+  onSaveCrop,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -985,6 +987,7 @@ function ZoomCropDownloadModal({
   imageTitle?: string;
   isLight: boolean;
   onUseCrop?: (croppedDataUrl: string) => void;
+  onSaveCrop?: (croppedDataUrl: string, targetFolder: 'ready' | 'edited') => Promise<void> | void;
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -1281,6 +1284,104 @@ function ZoomCropDownloadModal({
     }
   };
 
+  const handleSaveCropToFolder = async (folder: 'ready' | 'edited') => {
+    const activeImg = resolveImageUrl(currentImage || imageUrl);
+    if (!activeImg || !viewportRef.current || !onSaveCrop) return;
+    setIsExporting(true);
+    try {
+      const tempImg = new Image();
+      try {
+        tempImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          tempImg.onload = () => resolve();
+          tempImg.onerror = () => reject(new Error('CORS image load failed'));
+          tempImg.src = activeImg;
+        });
+      } catch {
+        try {
+          const res = await fetch(activeImg);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = blobUrl;
+          });
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        } catch {
+          tempImg.removeAttribute('crossorigin');
+          await new Promise<void>((resolve, reject) => {
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
+            tempImg.src = activeImg;
+          });
+        }
+      }
+
+      const viewport = viewportRef.current;
+      const vRect = viewport.getBoundingClientRect();
+      const V_w = vRect.width;
+      const V_h = vRect.height;
+      const realW = tempImg.naturalWidth || imgRef.current?.naturalWidth || imgRef.current?.width || 1807;
+      const realH = tempImg.naturalHeight || imgRef.current?.naturalHeight || imgRef.current?.height || 3000;
+
+      const baseScale = Math.min(V_w / realW, V_h / realH);
+      const unscaledW = realW * baseScale;
+      const unscaledH = realH * baseScale;
+
+      const screenW = unscaledW * zoom;
+      const screenH = unscaledH * zoom;
+      const screenX = (V_w / 2 + pan.x) - screenW / 2;
+      const screenY = (V_h / 2 + pan.y) - screenH / 2;
+
+      const canvasW = 1807;
+      const canvasH = 3000;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context not available');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      try {
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = 1;
+        bgCanvas.height = 1;
+        const bgCtx = bgCanvas.getContext('2d');
+        if (bgCtx) {
+          bgCtx.drawImage(tempImg, 0, 0, 1, 1, 0, 0, 1, 1);
+          const p = bgCtx.getImageData(0, 0, 1, 1).data;
+          ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+        } else {
+          ctx.fillStyle = '#ffffff';
+        }
+      } catch {
+        ctx.fillStyle = '#ffffff';
+      }
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      const projScale = canvasW / V_w;
+      const destW = screenW * projScale;
+      const destH = screenH * projScale;
+      const destX = screenX * projScale;
+      const destY = screenY * projScale;
+
+      ctx.drawImage(tempImg, 0, 0, realW, realH, destX, destY, destW, destH);
+
+      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      await onSaveCrop(croppedDataUrl, folder);
+      onClose();
+    } catch (err: any) {
+      console.error('[zoom-crop] Save crop error:', err);
+      alert(`Could not save crop: ${err.message || err}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
       <div
@@ -1513,6 +1614,29 @@ function ZoomCropDownloadModal({
               >
                 <span>✂️ Use This Zoomed View for Generation</span>
               </button>
+            )}
+
+            {onSaveCrop && (
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => void handleSaveCropToFolder('ready')}
+                  className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black py-2.5 px-2 text-[11px] font-bold uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  title="Save cropped image directly to My Sets in Ready to Use sub-tab"
+                >
+                  <span>⭐ Save to Ready</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => void handleSaveCropToFolder('edited')}
+                  className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white py-2.5 px-2 text-[11px] font-bold uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  title="Save cropped image directly to My Sets in Edited sub-tab"
+                >
+                  <span>💾 Save to Edited</span>
+                </button>
+              </div>
             )}
 
             <button
@@ -2071,6 +2195,7 @@ function MySetsPanel({
   refreshSets,
   refreshGenerations,
   onDeleteGeneration,
+  onMoveFolder,
   onZoomCrop,
   onAddLogo,
   onEditLogo,
@@ -2088,6 +2213,7 @@ function MySetsPanel({
   refreshSets: () => void;
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
+  onMoveFolder?: (id: string, folder: 'ready' | 'edited' | 'generated') => Promise<void> | void;
   onZoomCrop?: (url: string, title: string) => void;
   onAddLogo?: (gen: UserGeneration) => void;
   onEditLogo?: (gen: UserGeneration) => void;
@@ -2096,7 +2222,7 @@ function MySetsPanel({
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
 }) {
-  const [filter, setFilter] = useState<'all' | 'images' | 'videos' | 'sets'>('all');
+  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('ready');
   const [showInstructions, setShowInstructions] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedGenIds, setSelectedGenIds] = useState<string[]>([]);
@@ -2218,7 +2344,19 @@ function MySetsPanel({
   const modelRef = useRef<HTMLInputElement>(null);
 
   const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)));
+  const readyGenerations = imageGenerations.filter((g) => g.folder === 'ready');
+  const editedGenerations = imageGenerations.filter((g) => g.folder === 'edited' || (g.isEdited && g.folder !== 'ready'));
+  const generatedGenerations = imageGenerations.filter((g) => g.folder === 'generated' || (!g.isEdited && g.folder !== 'ready'));
   const videoGenerations = generations.filter((g) => g.type === 'video' && (Boolean(g.url) || Boolean(g.highResUrl)));
+
+  const displayedImages =
+    filter === 'ready'
+      ? readyGenerations
+      : filter === 'edited'
+      ? editedGenerations
+      : filter === 'generated'
+      ? generatedGenerations
+      : imageGenerations;
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -2418,10 +2556,12 @@ function MySetsPanel({
       {/* Filter Tabs */}
       <div className="mt-6 flex flex-wrap items-center gap-2 border-b pb-4 border-white/10">
         {[
-          { id: 'all', label: `All archive (${totalCount})` },
-          { id: 'images', label: `Images (${imageGenerations.length})` },
-          { id: 'videos', label: `Videos (${videoGenerations.length})` },
-          { id: 'sets', label: `Saved outfits (${uploadSets.length})` },
+          { id: 'ready', label: `⭐ 1. Ready to Use (${readyGenerations.length})` },
+          { id: 'edited', label: `✏️ 2. Edited (${editedGenerations.length})` },
+          { id: 'generated', label: `📸 3. Generated (${generatedGenerations.length})` },
+          { id: 'all', label: `📁 All Archive (${totalCount})` },
+          { id: 'videos', label: `🎥 Videos (${videoGenerations.length})` },
+          { id: 'sets', label: `🥋 Saved Outfits (${uploadSets.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -2599,28 +2739,36 @@ function MySetsPanel({
             </div>
           )}
 
-          {/* Section B: Generated Images */}
-          {(filter === 'all' || filter === 'images') && imageGenerations.length > 0 && (
+          {/* Section B: Generated Images (Sub-tabs: Ready to Use, Edited, Generated, All) */}
+          {filter !== 'videos' && filter !== 'sets' && displayedImages.length > 0 && (
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   <Camera className="h-4 w-4 text-current/70" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider">Generated studio images ({imageGenerations.length})</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider">
+                    {filter === 'ready'
+                      ? `⭐ Ready to Use studio images (${readyGenerations.length})`
+                      : filter === 'edited'
+                      ? `✏️ Edited studio images (${editedGenerations.length})`
+                      : filter === 'generated'
+                      ? `📸 Raw generated images (${generatedGenerations.length})`
+                      : `All studio images (${imageGenerations.length})`}
+                  </h3>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
-                      if (selectedGenIds.length === imageGenerations.length) {
+                      if (selectedGenIds.length === displayedImages.length) {
                         setSelectedGenIds([]);
                       } else {
-                        setSelectedGenIds(imageGenerations.map((g) => g.id));
+                        setSelectedGenIds(displayedImages.map((g) => g.id));
                       }
                     }}
                     className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${isLight ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-white/10 bg-black/40 hover:bg-white/10'
                       }`}
                   >
-                    {selectedGenIds.length === imageGenerations.length ? 'Deselect All' : 'Select All'}
+                    {selectedGenIds.length === displayedImages.length ? 'Deselect All' : 'Select All'}
                   </button>
 
                   {/* Batch Add HD Logo Action */}
@@ -2629,11 +2777,11 @@ function MySetsPanel({
                       type="button"
                       onClick={() => {
                         const targets = selectedGenIds.length > 0
-                          ? imageGenerations.filter((g) => selectedGenIds.includes(g.id))
-                          : imageGenerations;
+                          ? displayedImages.filter((g) => selectedGenIds.includes(g.id))
+                          : displayedImages;
                         void onBatchAddLogo(targets);
                       }}
-                      disabled={isBatchBranding || imageGenerations.length === 0}
+                      disabled={isBatchBranding || displayedImages.length === 0}
                       className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       title="Automatically stamp official HD vector Shiv-Naresh logo onto all generated images or selected images"
                     >
@@ -2643,7 +2791,7 @@ function MySetsPanel({
                           ? `Branding (${batchBrandProgress?.current || 0}/${batchBrandProgress?.total || 0})…`
                           : selectedGenIds.length > 0
                             ? `✨ Add HD Logo on Selected (${selectedGenIds.length})`
-                            : `✨ Add HD Logo on All (${imageGenerations.length})`}
+                            : `✨ Add HD Logo on All (${displayedImages.length})`}
                       </span>
                     </button>
                   )}
@@ -2673,7 +2821,7 @@ function MySetsPanel({
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {imageGenerations.map((gen) => (
+                {displayedImages.map((gen) => (
                   <div
                     key={gen.id}
                     className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
@@ -2800,8 +2948,27 @@ function MySetsPanel({
                         )}
                       </div>
 
-                      {/* Secondary Utility Actions (Zoom, View, Delete) */}
+                      {/* Secondary Utility Actions (Crop, Zoom, View, Delete) */}
                       <div className="flex items-center gap-1.5">
+                        {onZoomCrop && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const primary = getBestGenUrl(gen);
+                              const targetUrl = resolveImageUrl(primary);
+                              if (targetUrl) onZoomCrop(targetUrl, `crop-${gen.id.slice(0, 6)}`);
+                            }}
+                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                              isLight
+                                ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
+                                : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                            }`}
+                            title="Crop any part of this image and save to Ready to Use or Edited"
+                          >
+                            <Crop className="h-3 w-3 text-sky-400 shrink-0" />
+                            <span className="truncate">Crop</span>
+                          </button>
+                        )}
                         {onZoomCrop && (
                           <button
                             type="button"
@@ -2846,6 +3013,47 @@ function MySetsPanel({
                           {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
                         </button>
                       </div>
+
+                      {/* Sub-tab Mover: Move image between Ready to Use, Edited, and Generated */}
+                      {onMoveFolder && (
+                        <div className="flex items-center justify-between gap-1 pt-2 border-t border-white/10 text-[9px]">
+                          <span className={`font-semibold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                            Move To:
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {gen.folder !== 'ready' && (
+                              <button
+                                type="button"
+                                onClick={() => void onMoveFolder(gen.id, 'ready')}
+                                className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black font-bold transition cursor-pointer"
+                                title="Move this image to Ready to Use sub-tab"
+                              >
+                                ⭐ Ready
+                              </button>
+                            )}
+                            {gen.folder !== 'edited' && (
+                              <button
+                                type="button"
+                                onClick={() => void onMoveFolder(gen.id, 'edited')}
+                                className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white font-bold transition cursor-pointer"
+                                title="Move this image to Edited sub-tab"
+                              >
+                                ✏️ Edited
+                              </button>
+                            )}
+                            {gen.folder !== 'generated' && (
+                              <button
+                                type="button"
+                                onClick={() => void onMoveFolder(gen.id, 'generated')}
+                                className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white font-bold transition cursor-pointer"
+                                title="Move this image to Generated sub-tab"
+                              >
+                                📸 Generated
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -6763,7 +6971,7 @@ export default function Design() {
   const [showBackLogo, setShowBackLogo] = useState(false);
   const [showExtraLogo, setShowExtraLogo] = useState(false);
   const [cleanResultBackup, setCleanResultBackup] = useState<string | null>(null);
-  const [activeRenderOption, setActiveRenderOption] = useState<'a' | 'b'>('b');
+  const [activeRenderOption, setActiveRenderOption] = useState<'a' | 'b' | null>(null);
   const [activeLogoTarget, setActiveLogoTarget] = useState<LogoTarget>('chest');
   const [hdLogoColor, setHdLogoColor] = useState<string>('#ffffff');
   const [isOptionBDirty, setIsOptionBDirty] = useState(false);
@@ -6803,6 +7011,7 @@ export default function Design() {
   });
   const [backLogoAngle, setBackLogoAngle] = useState<number>(0);
   const [backLogoPerspective, setBackLogoPerspective] = useState<number>(1.0);
+  const [backLogoTiltY, setBackLogoTiltY] = useState<number>(1.0);
 
   // Extra logo (default 34px sleeve/collar, x=20%, y=26%)
   const [extraLogoScale, setExtraLogoScale] = useState<number>(() => {
@@ -6819,6 +7028,7 @@ export default function Design() {
   });
   const [extraLogoAngle, setExtraLogoAngle] = useState<number>(0);
   const [extraLogoPerspective, setExtraLogoPerspective] = useState<number>(1.0);
+  const [extraLogoTiltY, setExtraLogoTiltY] = useState<number>(1.0);
 
   const getAutoContrastColor = useCallback((colorStr: string) => {
     if (!colorStr) return '#ffffff';
@@ -6911,7 +7121,8 @@ export default function Design() {
   });
   const [hdLogoCurvature, setHdLogoCurvature] = useState<number>(14);
   const [hdLogoCurveDirection, setHdLogoCurveDirection] = useState<'standard' | 'left' | 'right'>('standard');
-  const [hdLogoPerspective, setHdLogoPerspective] = useState<number>(0.94);
+  const [hdLogoPerspective, setHdLogoPerspective] = useState<number>(1.0);
+  const [hdLogoTiltY, setHdLogoTiltY] = useState<number>(1.0);
 
   const [pantLogoAngle, setPantLogoAngle] = useState<number>(() => {
     try {
@@ -6920,7 +7131,8 @@ export default function Design() {
     } catch { }
     return -1.0;
   });
-  const [pantLogoPerspective, setPantLogoPerspective] = useState<number>(0.96);
+  const [pantLogoPerspective, setPantLogoPerspective] = useState<number>(1.0);
+  const [pantLogoTiltY, setPantLogoTiltY] = useState<number>(1.0);
 
   const autoSaveTriggerRef = useRef<((img?: string, label?: string) => void) | null>(null);
 
@@ -7117,6 +7329,22 @@ export default function Design() {
     else if (activeLogoTarget === 'pant') setPantLogoPerspective(clamped);
     else if (activeLogoTarget === 'back') setBackLogoPerspective(clamped);
     else setExtraLogoPerspective(clamped);
+    setIsOptionBDirty(true);
+  };
+
+  const getActiveTiltY = (): number => {
+    if (activeLogoTarget === 'chest') return hdLogoTiltY;
+    if (activeLogoTarget === 'pant') return pantLogoTiltY;
+    if (activeLogoTarget === 'back') return backLogoTiltY;
+    return extraLogoTiltY;
+  };
+
+  const updateActiveTiltY = (val: number) => {
+    const clamped = Math.round(val * 100) / 100;
+    if (activeLogoTarget === 'chest') setHdLogoTiltY(clamped);
+    else if (activeLogoTarget === 'pant') setPantLogoTiltY(clamped);
+    else if (activeLogoTarget === 'back') setBackLogoTiltY(clamped);
+    else setExtraLogoTiltY(clamped);
     setIsOptionBDirty(true);
   };
 
@@ -7511,13 +7739,7 @@ export default function Design() {
   const [selectedClothes, setSelectedClothes] = useState<Array<{ url: string; preview?: string; name: string }>>([]);
   /* Smart garment classification */
   const [classifiedGarments, setClassifiedGarments] = useState<ClassifiedGarment[]>([]);
-  const [tryOnTarget, setTryOnTarget] = useState<TryOnTarget>(() => {
-    try {
-      const saved = localStorage.getItem('shivnaresh_tryon_target');
-      if (saved === 'both' || saved === 'lower' || saved === 'upper') return saved;
-    } catch { }
-    return 'both';
-  });
+  const [tryOnTarget, setTryOnTarget] = useState<TryOnTarget | null>(null);
 
   const handleSetTryOnTarget = (target: TryOnTarget) => {
     setTryOnTarget(target);
@@ -7551,19 +7773,7 @@ export default function Design() {
         return prev;
       }
       const next = [...prev, { ...garment, role }];
-      const hasBottom = next.some((g) => g.role === 'bottom' || g.role === 'bottoms' || g.role === 'left-bottom' || g.role === 'right-bottom');
-      if (hasBottom || next.length >= 2) {
-        setTryOnTarget('both');
-        setShowHdLogoOverlay(true);
-        setShowPantLogo(true);
-        try { localStorage.setItem('shivnaresh_tryon_target', 'both'); } catch { }
-      } else if (role === 'bottom' || role === 'bottoms') {
-        setTryOnTarget('lower');
-        setShowHdLogoOverlay(false);
-        setShowPantLogo(true);
-        setActiveLogoTarget('pant');
-        try { localStorage.setItem('shivnaresh_tryon_target', 'lower'); } catch { }
-      }
+      // Do not auto-select tryOnTarget - mandatory for user to choose Upper, Lower, or Both
       return next;
     });
   }
@@ -8967,7 +9177,8 @@ export default function Design() {
       posY: number,
       scalePx: number,
       angleDeg: number,
-      persp: number
+      persp: number,
+      tiltY: number = 1.0
     ) => {
       const ratio = Math.max(0.005, Math.min(0.60, scalePx / dispW));
       const logoW = Math.round(canvas.width * ratio);
@@ -8979,7 +9190,7 @@ export default function Design() {
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(angleRad);
-      ctx.scale(persp, 1.0);
+      ctx.scale(persp, tiltY);
       ctx.globalAlpha = 0.96;
       ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
       ctx.shadowBlur = Math.max(1, Math.round(logoW * 0.025));
@@ -8995,7 +9206,7 @@ export default function Design() {
       const targetColor = chestLogoColor || color;
       const { img, aspect, cleanup } = await buildLogoImg(chestLogoStyle, targetColor, activeCustom);
       cleanups.push(cleanup);
-      stampSlot(img, aspect, x, y, scale, hdLogoAngle, hdLogoPerspective);
+      stampSlot(img, aspect, x, y, scale, hdLogoAngle, hdLogoPerspective, hdLogoTiltY);
     }
 
     // 2. Stamp Pant Thigh Logo (if enabled)
@@ -9003,7 +9214,7 @@ export default function Design() {
       const targetColor = pantLogoColor || color;
       const { img, aspect, cleanup } = await buildLogoImg(pantLogoStyle, targetColor, activeCustom);
       cleanups.push(cleanup);
-      stampSlot(img, aspect, pX, pY, pScale, pantLogoAngle, pantLogoPerspective);
+      stampSlot(img, aspect, pX, pY, pScale, pantLogoAngle, pantLogoPerspective, pantLogoTiltY);
     }
 
     // 3. Stamp Back Logo (if enabled)
@@ -9011,7 +9222,7 @@ export default function Design() {
       const targetColor = backLogoColor || color;
       const { img, aspect, cleanup } = await buildLogoImg(backLogoStyle, targetColor, activeCustom);
       cleanups.push(cleanup);
-      stampSlot(img, aspect, bX, bY, bScale, backLogoAngle, backLogoPerspective);
+      stampSlot(img, aspect, bX, bY, bScale, backLogoAngle, backLogoPerspective, backLogoTiltY);
     }
 
     // 4. Stamp Extra Logo (if enabled)
@@ -9019,7 +9230,7 @@ export default function Design() {
       const targetColor = extraLogoColor || color;
       const { img, aspect, cleanup } = await buildLogoImg(extraLogoStyle, targetColor, activeCustom);
       cleanups.push(cleanup);
-      stampSlot(img, aspect, eX, eY, eScale, extraLogoAngle, extraLogoPerspective);
+      stampSlot(img, aspect, eX, eY, eScale, extraLogoAngle, extraLogoPerspective, extraLogoTiltY);
     }
 
     cleanups.forEach((c) => c());
@@ -9653,14 +9864,14 @@ export default function Design() {
     autoSaveTriggerRef.current = triggerAutoSaveToMySets;
   }, [triggerAutoSaveToMySets]);
 
-  const handleSaveToMySets = async () => {
+  const handleSaveToMySets = async (targetFolder: 'ready' | 'edited' | 'generated' = 'edited') => {
     if (!result) return;
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
     try {
       setBusy(true);
-      setAutoSaveStatus('Saving…');
+      setAutoSaveStatus(targetFolder === 'ready' ? 'Saving to Ready…' : 'Saving…');
       let finalImg = result;
       let promptLabel = 'Studio Sportswear';
       const wasEdited = Boolean(eraseUndoStack.length > 0 || isOptionBDirty || activeRenderOption === 'b');
@@ -9697,6 +9908,7 @@ export default function Design() {
         type: 'image' as const,
         url: finalImg,
         isEdited: wasEdited,
+        folder: targetFolder,
         isNewSnapshot: true,
         prompt: promptLabel,
         resolution: quality || '2k',
@@ -9709,6 +9921,7 @@ export default function Design() {
         url: finalImg,
         highResUrl: finalImg,
         isEdited: wasEdited,
+        folder: targetFolder,
         prompt: promptLabel,
         resolution: quality || '2k',
         createdAt: Date.now(),
@@ -10077,6 +10290,8 @@ export default function Design() {
     const hasGarment = hasClassifiedGarments || Boolean(cloth?.url);
     const hasModel = effectiveModels.length > 0 || Boolean(model?.url);
     const needsBottom = tryOnTarget === 'lower' && !bottomGarment && !cloth;
+    if (!tryOnTarget) tryonMissing.push('Try-On Target (Select Upper, Lower, or Both)');
+    if (!activeRenderOption) tryonMissing.push('Branding Option (Select Option A or Option B)');
     if (!hasGarment) tryonMissing.push('garment');
     if (!hasModel) tryonMissing.push('model');
     if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
@@ -10217,6 +10432,23 @@ export default function Design() {
         imageTitle={zoomCropTitle}
         isLight={isLight}
         onUseCrop={zoomCropOnUse || undefined}
+        onSaveCrop={async (croppedDataUrl, targetFolder) => {
+          try {
+            await api.saveUserGeneration({
+              type: 'image',
+              url: croppedDataUrl,
+              isEdited: true,
+              folder: targetFolder,
+              title: `Cropped Studio Image (${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'})`,
+              prompt: `Cropped & Zoomed Macro Asset · ${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'}`,
+              resolution: '2k',
+            });
+            await loadUserGenerations();
+          } catch (err: any) {
+            console.error('[saveCrop] Failed:', err);
+            alert(`Failed to save cropped image: ${err?.message || err}`);
+          }
+        }}
       />
 
       {/* "Are You Sure?" Generation Confirmation Modal */}
@@ -10610,6 +10842,16 @@ export default function Design() {
           refreshSets={loadUploadSets}
           refreshGenerations={loadUserGenerations}
           onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
+          onMoveFolder={async (id, folder) => {
+            setUserGenerations((prev) =>
+              prev.map((g) => (g.id === id ? { ...g, folder } : g))
+            );
+            try {
+              await api.updateUserGeneration(id, { folder });
+            } catch (err: any) {
+              console.warn('[moveGenFolder] Failed:', err?.message);
+            }
+          }}
           onZoomCrop={(url, title) => {
             setZoomCropImage(url);
             setZoomCropTitle(title);
@@ -10813,14 +11055,18 @@ export default function Design() {
             </div>
 
             {/* Official Shiv-Naresh HD Vector Branding Engine Setup Card */}
-            <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
+            <div id="branding-engine-selector" className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
                     <span>✨ Shiv-Naresh HD Vector Branding Engine</span>
                   </span>
-                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                    Official Company Mark (100% Vector)
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                    activeRenderOption
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                      : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-black animate-pulse'
+                  }`}>
+                    {activeRenderOption === 'a' ? 'Option A Active' : activeRenderOption === 'b' ? 'Option B Active' : '⚠️ Mandatory: Select Option A or B'}
                   </span>
                 </div>
               </div>
@@ -10837,7 +11083,7 @@ export default function Design() {
                     setShowExtraLogo(false);
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    activeRenderOption === 'a' || !isAnyLogoActive
+                    activeRenderOption === 'a'
                       ? isLight
                         ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
                         : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
@@ -10850,7 +11096,7 @@ export default function Design() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>👕 Option A: Garment Original Logo</span>
                     </span>
-                    {(activeRenderOption === 'a' || !isAnyLogoActive) && (
+                    {activeRenderOption === 'a' && (
                       <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
                     )}
                   </div>
@@ -10868,7 +11114,7 @@ export default function Design() {
                     setIsEraseMode(false);
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    activeRenderOption === 'b' || isAnyLogoActive
+                    activeRenderOption === 'b'
                       ? isLight
                         ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
                         : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
@@ -10881,7 +11127,7 @@ export default function Design() {
                     <span className="text-xs font-bold flex items-center gap-1.5">
                       <span>✨ Option B: Vector Replace (Any Logo / Any Slot)</span>
                     </span>
-                    {(activeRenderOption === 'b' || isAnyLogoActive) && (
+                    {activeRenderOption === 'b' && (
                       <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
                     )}
                   </div>
@@ -11462,6 +11708,34 @@ export default function Design() {
                           <button type="button" onClick={() => updateActivePerspective(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Front Facing (+100%)</button>
                           <button type="button" onClick={() => updateActivePerspective(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
                           <button type="button" onClick={() => updateActivePerspective(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Flipped Horizontally (-100%)</button>
+                        </div>
+                      </div>
+
+                      {/* 3D Vertical Tilt / Angle */}
+                      <div className="pt-2 border-t border-white/10">
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                            ↕️ 3D Vertical Tilt / Torso Angle:
+                          </span>
+                          <span className="font-mono text-emerald-400 font-bold">
+                            {getActiveTiltY() === 0 ? 'Straight Line (0%)' : `${getActiveTiltY() > 0 ? '+' : ''}${Math.round(getActiveTiltY() * 100)}%`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="-1.0"
+                            max="1.0"
+                            step="0.02"
+                            value={getActiveTiltY()}
+                            onChange={(e) => updateActiveTiltY(Number(e.target.value))}
+                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
+                          <button type="button" onClick={() => updateActiveTiltY(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Upright (+100%)</button>
+                          <button type="button" onClick={() => updateActiveTiltY(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
+                          <button type="button" onClick={() => updateActiveTiltY(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Inverted Vertically (-100%)</button>
                         </div>
                       </div>
                     </div>
@@ -12211,13 +12485,21 @@ export default function Design() {
                   </div>
 
                   {/* Try-On Target Selector */}
-                  <div className="mt-4 mb-3">
+                  <div id="tryon-target-selector" className="mt-4 mb-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
                         Try-On Outfit Target
                       </p>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${tryOnTarget === 'both' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-white/60'}`}>
-                        {tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : '👕 Upper Only'}
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                        tryOnTarget === 'both'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                          : tryOnTarget === 'lower'
+                          ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+                          : tryOnTarget === 'upper'
+                          ? 'border-purple-500/30 bg-purple-500/10 text-purple-400'
+                          : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-bold animate-pulse'
+                      }`}>
+                        {tryOnTarget === 'both' ? '🥋 Full Outfit Selected' : tryOnTarget === 'lower' ? '👖 Lower (Pants) Selected' : tryOnTarget === 'upper' ? '👕 Upper Only Selected' : '⚠️ Mandatory: Select Outfit Target'}
                       </span>
                     </div>
                     <div className={`inline-flex rounded-xl border p-1 w-full ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/40'}`}>
@@ -13383,9 +13665,9 @@ export default function Design() {
                 <div className={`mb-2.5 px-3 py-1 rounded-full border text-[10px] flex items-center justify-center gap-2 flex-wrap ${
                   isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/[0.04] text-white/70'
                 }`}>
-                  <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : isLight ? 'text-gray-900 font-bold' : 'text-white font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : '👕 Upper Only'}</strong></span>
+                  <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : tryOnTarget === 'lower' ? 'text-sky-400 font-bold' : tryOnTarget === 'upper' ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : tryOnTarget === 'upper' ? '👕 Upper Only' : '⚠️ None'}</strong></span>
                   <span>·</span>
-                  <span>Branding: <strong>{showHdLogoOverlay && showPantLogo ? 'Dual (Chest + Pant)' : showHdLogoOverlay ? 'Chest' : showPantLogo ? 'Pant' : 'Off'}</strong></span>
+                  <span>Branding: <strong>{activeRenderOption === 'b' ? (showHdLogoOverlay && showPantLogo ? 'Option B: Dual (Chest + Pant)' : showHdLogoOverlay ? 'Option B: Chest' : showPantLogo ? 'Option B: Pant' : 'Option B') : activeRenderOption === 'a' ? 'Option A: Garment Original' : '⚠️ None'}</strong></span>
                 </div>
               )}
 
@@ -13400,6 +13682,20 @@ export default function Design() {
                     if (isGlobalBusy) {
                       setError('Another generation is currently in progress. At one time only one generation is allowed.');
                       return;
+                    }
+                    if (mode === 'tryon') {
+                      if (!tryOnTarget) {
+                        setError('⚠️ Please select Try-On Target: Upper Only, Lower (Pants), or Full Outfit.');
+                        const el = document.getElementById('tryon-target-selector');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                      }
+                      if (!activeRenderOption) {
+                        setError('⚠️ Please select Branding Option: Option A (Garment Original) or Option B (Vector Replace).');
+                        const el = document.getElementById('branding-engine-selector');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                      }
                     }
                     if (canRun) setShowConfirmModal(true);
                   }}
@@ -13423,7 +13719,11 @@ export default function Design() {
                       ? 'Generation in Progress (Please wait)…'
                       : mode === 'swap'
                         ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                        : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+                        : !tryOnTarget
+                          ? '⚠️ Select Outfit Target (Upper, Lower, Both)'
+                          : !activeRenderOption
+                            ? '⚠️ Select Branding Engine Option (A or B)'
+                            : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
                 </button>
               )}
               {mode !== 'removelogo' && (
@@ -13816,7 +14116,7 @@ export default function Design() {
                           position: 'absolute',
                           left: `${hdLogoX}%`,
                           top: `${hdLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, 1)`,
+                          transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, ${hdLogoTiltY})`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${Math.max(6, hdLogoScale)}px`,
                           opacity: 0.96,
@@ -13851,7 +14151,7 @@ export default function Design() {
                           position: 'absolute',
                           left: `${pantLogoX}%`,
                           top: `${pantLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, 1)`,
+                          transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, ${pantLogoTiltY})`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${Math.max(6, pantLogoScale)}px`,
                           opacity: 0.96,
@@ -13886,7 +14186,7 @@ export default function Design() {
                           position: 'absolute',
                           left: `${backLogoX}%`,
                           top: `${backLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${backLogoAngle}deg) scale(${backLogoPerspective}, 1)`,
+                          transform: `translate(-50%, -50%) rotate(${backLogoAngle}deg) scale(${backLogoPerspective}, ${backLogoTiltY})`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${Math.max(6, backLogoScale)}px`,
                           opacity: 0.96,
@@ -13921,7 +14221,7 @@ export default function Design() {
                           position: 'absolute',
                           left: `${extraLogoX}%`,
                           top: `${extraLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${extraLogoAngle}deg) scale(${extraLogoPerspective}, 1)`,
+                          transform: `translate(-50%, -50%) rotate(${extraLogoAngle}deg) scale(${extraLogoPerspective}, ${extraLogoTiltY})`,
                           filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
                           width: `${Math.max(6, extraLogoScale)}px`,
                           opacity: 0.96,
@@ -14374,12 +14674,41 @@ export default function Design() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void handleSaveToMySets()}
+                          onClick={() => void handleSaveToMySets('ready')}
+                          className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                          title="Save current render directly into Ready to Use archive (with or without edits)"
+                        >
+                          <span>⭐ Save to Ready to Use</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleSaveToMySets('edited')}
                           className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                          title="Permanently save current image (with all erasures, edits and logos) to My Sets archive"
+                          title="Permanently save current image to My Sets archive"
                         >
                           <Bookmark className="w-3.5 h-3.5" />
-                          <span>{busy ? 'Saving to My Sets…' : '💾 Save to My Sets'}</span>
+                          <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const baseToUse = cleanResultBackup || result;
+                            if (baseToUse) {
+                              setZoomCropImage(baseToUse);
+                              setZoomCropTitle('render-crop');
+                              setShowZoomCropModal(true);
+                            }
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                            isLight
+                              ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                              : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
+                          }`}
+                          title="Crop any section of this render and save to Ready to Use or Edited"
+                        >
+                          <Crop className="w-3.5 h-3.5 text-sky-400" />
+                          <span>✂️ Crop View</span>
                         </button>
                         {autoSaveStatus && (
                           <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-xs font-bold shadow-xs">

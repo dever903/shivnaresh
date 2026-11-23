@@ -206,6 +206,7 @@ export type UserGeneration = {
   title?: string;
   isManualUpload?: boolean;
   isEdited?: boolean;
+  folder?: 'ready' | 'edited' | 'generated';
   deleted?: boolean;
   isDeleted?: boolean;
   status?: string;
@@ -646,6 +647,8 @@ export const api = {
   userGenerations: () => request<{ items: UserGeneration[] }>('/api/user/generations'),
   saveUserGeneration: (body: Partial<UserGeneration>) =>
     request<UserGeneration>('/api/user/generations', json(body)),
+  updateUserGeneration: (id: string, body: Partial<UserGeneration>) =>
+    request<{ ok: boolean; item?: UserGeneration }>(`/api/user/generations/${id}`, { ...json(body), method: 'PATCH' }),
   deleteUserGeneration: (id: string, refund = false) =>
     request<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
       `/api/user/generations/${id}${refund ? '?refund=true' : ''}`,

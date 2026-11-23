@@ -4107,6 +4107,10 @@ const localJobMap = new Map();
 
 async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded }) {
   const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort(new Error('Generation request timed out after 3 minutes'));
+  }, 180_000);
+
   const existing = localJobMap.get(jobId);
   if (existing) {
     existing.abortController = abortController;
@@ -4136,6 +4140,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       }),
       signal: abortController.signal,
     });
+    clearTimeout(timeoutId);
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -4255,6 +4260,28 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         });
         await writeGenerations(genList);
       }
+
+      // Sync MongoDB record so watchdog never flags completed generations
+      try {
+        const db = await getMongoDb();
+        if (db) {
+          await db.collection('generations').updateOne(
+            { id: jobId },
+            {
+              $set: {
+                status: 'completed',
+                url: primaryUrl,
+                outputUrl: primaryUrl,
+                remoteUrl: generatedUrls[0] || primaryUrl,
+                highResUrl: generatedUrls[0] || primaryUrl,
+                completedAt: Date.now(),
+              },
+            }
+          );
+        }
+      } catch (mongoSaveErr) {
+        console.warn('[agent] MongoDB status sync warning:', mongoSaveErr.message);
+      }
     } catch (saveErr) {
       console.warn('[agent] Failed to update completed generation status:', saveErr.message);
     }
@@ -4326,7 +4353,7 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
       }
     }
 
-    // Update generations.json
+    // Update generations.json and MongoDB so watchdog never sees orphaned jobs
     try {
       const genList = await readGenerations();
       const found = genList.find((g) => g.id === jobId);
@@ -4335,6 +4362,22 @@ async function runAgentJob({ jobId, state, prompt, images, userId, creditsNeeded
         found.error = err.message;
         found.completedAt = Date.now();
         await writeGenerations(genList);
+      }
+    } catch { }
+
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('generations').updateOne(
+          { id: jobId },
+          {
+            $set: {
+              status: 'failed',
+              error: err.message,
+              completedAt: Date.now(),
+            },
+          }
+        );
       }
     } catch { }
   } finally {
@@ -4702,9 +4745,9 @@ app.post('/api/generate', auth.requireUser, async (req, res) => {
         'Do NOT invent, attach, or drape any hood, cap, hoodie pouch, drawstrings, or bunched fabric behind the neck, ears, or across the upper back/shoulders. ' +
         'The nape and back of neck must show only the neat, clean upright stand collar seam and natural skin/hairline. ' +
         'Only render a hood if the reference garment in Image 2 is explicitly an attached pullover/zip hoodie with an attached hood. ' +
-        'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all garment patterns, bold curved accent lines, side panels, seam details, color gradients, and micro-perforated dot patterns directly from the reference garment photos. ' +
-        'Preserve the prominent royal blue curved accent lines running along both shoulder seams, the dense micro-laser perforated dot pattern across the shoulder yoke and extending fully down both side panels, and the lower body royal blue color gradient with exact 1:1 reproduction, every dot and line sharp and visible without solid-color flattening or omission. ' +
-        'If the model in Image 1 is facing backwards (back view), synthesize the back view of the garment: render the back shoulder yoke with the dot cluster, curved royal blue accent lines, back side panels, and lower back blue gradient. ' +
+        'GARMENT ACCENTS & PATTERN FIDELITY: Faithfully replicate all garment patterns, bold accent lines, side panels, seam details, color gradients, and textures directly from the reference garment photos with 100% precision. ' +
+        'Preserve the exact original garment color scheme, all accent stripes, shoulder patterns, and panel details with exact 1:1 reproduction, sharp and visible without solid-color flattening, color alteration, or inventing unuploaded colors. ' +
+        'If the model in Image 1 is facing backwards (back view), synthesize the back view of the garment corresponding faithfully to the front garment design, color palette, and textures. ' +
         'MODEL ACCESSORIES & INTEGRITY: Strictly preserve the model’s natural posture, accessories, watches, wristbands, and shoes from Image 1 intact with 100% fidelity. Do NOT remove worn accessories or alter the model’s natural stance. ' +
         'CRITICAL HANDS & HELD PROPS PRESERVATION: Strictly preserve the model’s hands, fingers, and any object, sports ball (basketball, football, volleyball, cricket ball), racket, bat, bottle, equipment, or prop held in the hands with 100% fidelity. Do NOT erase, blur, alter, or remove hand-held objects or sports equipment. If the model or reference is holding an object in their hand, retain that exact hand-held object with natural fingers and grip. ' +
         '3D REALISTIC FABRIC DEPTH & ANATOMICAL WRAPPING: The athletic sportswear must NOT appear as a flat 2D decal, sticker, or painted texture. Render authentic three-dimensional physical depth, dynamic fabric drape, and realistic micro-tension wrinkles around seams, waist, armpits, and elbows conforming to the athlete’s muscular physique and posture. ' +
@@ -5390,16 +5433,19 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       const resolvedUrl = cleanCandidate || fallbackUrl || candidates[0] || '';
       if (!resolvedUrl) return null;
 
+      const isEditedCalculated = Boolean(
+        g.isEdited ||
+        g.isNewSnapshot ||
+        g.type === 'edit' ||
+        (g.prompt && /\b(edit|edited|option b|hd vector)\b/i.test(g.prompt))
+      );
+
       return {
         ...g,
         url: resolvedUrl,
         highResUrl: cleanCandidate || fallbackUrl || candidates[0] || resolvedUrl,
-        isEdited: Boolean(
-          g.isEdited ||
-          g.isNewSnapshot ||
-          g.type === 'edit' ||
-          (g.prompt && /\b(edit|edited|option b|hd vector)\b/i.test(g.prompt))
-        ),
+        isEdited: isEditedCalculated,
+        folder: g.folder || (isEditedCalculated ? 'edited' : 'generated'),
       };
     }).filter(Boolean);
 
@@ -5534,6 +5580,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       if (colorName) existing.colorName = colorName;
       if (req.body.isManualUpload) existing.isManualUpload = true;
       if (isEditedValue) existing.isEdited = true;
+      if (req.body.folder) existing.folder = req.body.folder;
       if (!existing.userId && req.user?._id) existing.userId = req.user._id;
       if (!existing.userEmail && req.user?.email) existing.userEmail = req.user.email;
       cachedGenerations = { items: list, time: Date.now() };
@@ -5548,6 +5595,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       userName: req.user.name || '',
       type: type === 'video' ? 'video' : 'image',
       isEdited: isEditedValue,
+      folder: req.body.folder || (isEditedValue ? 'edited' : 'generated'),
       url: finalUrl,
       highResUrl: finalHighRes || resolvedRemoteUrl || finalUrl,
       remoteUrl: resolvedRemoteUrl || (typeof finalHighRes === 'string' && /^https?:/.test(finalHighRes) ? finalHighRes : ''),
@@ -5584,6 +5632,43 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     res.json(item);
   } catch (error) {
     res.status(500).json({ error: 'save_failed', message: error.message });
+  }
+});
+
+/* PATCH generation to move between subtabs ('ready', 'edited', 'generated') or update metadata */
+app.patch('/api/user/generations/:id', auth.requireUser, async (req, res) => {
+  try {
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const { folder, title, isEdited } = req.body || {};
+    const db = await getMongoDb();
+    const updateFields = {};
+    if (folder !== undefined) updateFields.folder = folder;
+    if (title !== undefined) updateFields.title = title;
+    if (isEdited !== undefined) updateFields.isEdited = Boolean(isEdited);
+
+    const query = { id: req.params.id };
+    if (!isAdmin) {
+      query.$or = [
+        { userId: currentUserId },
+        { userEmail: currentUserEmail },
+        { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+      ];
+    }
+    if (db) {
+      await db.collection('generations').updateOne(query, { $set: updateFields });
+    }
+    const list = await readGenerations();
+    const item = list.find((g) => g.id === req.params.id);
+    if (item) {
+      Object.assign(item, updateFields);
+      cachedGenerations = { items: list, time: Date.now() };
+      void writeGenerations(list).catch(() => {});
+    }
+    res.json({ ok: true, item: item || { id: req.params.id, ...updateFields } });
+  } catch (error) {
+    res.status(500).json({ error: 'update_failed', message: error.message });
   }
 });
 
