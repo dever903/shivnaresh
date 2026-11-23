@@ -3119,23 +3119,37 @@ app.post('/api/segment-garment', async (req, res) => {
     const cacheDir = path.join(DATA, 'cache', 'masks');
     await fs.mkdir(cacheDir, { recursive: true });
 
+    let fileHash = null;
+
     if (dataUrl && dataUrl.startsWith('data:image')) {
       const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(dataUrl);
       if (match) {
         const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
-        const hash = crypto.createHash('md5').update(buffer).digest('hex');
-        const cacheFile = path.join(cacheDir, `${hash}.json`);
+        fileHash = crypto.createHash('md5').update(buffer).digest('hex');
+        const cacheFile = path.join(cacheDir, `${fileHash}.json`);
         try {
           const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
           return res.json({ success: true, ...cached, cached: true });
         } catch { }
 
-        tempFile = path.join(cacheDir, `temp-${Date.now()}-${hash}.png`);
+        tempFile = path.join(cacheDir, `temp-${Date.now()}-${fileHash}.png`);
         await fs.writeFile(tempFile, buffer);
         targetPath = tempFile;
       }
     } else if (url) {
-      const cleanUrl = String(url).split('?')[0];
+      let cleanUrl = String(url).split('?')[0];
+      try {
+        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+          const parsed = new URL(cleanUrl);
+          if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/models/') || parsed.pathname.startsWith('/generated/')) {
+            cleanUrl = parsed.pathname;
+          }
+        }
+      } catch { }
+      try {
+        cleanUrl = decodeURIComponent(cleanUrl);
+      } catch { }
+
       if (cleanUrl.startsWith('/uploads/')) {
         targetPath = path.join(UPLOADS, path.basename(cleanUrl));
       } else if (cleanUrl.startsWith('/models/')) {
@@ -3145,15 +3159,27 @@ app.post('/api/segment-garment', async (req, res) => {
       } else if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
         const resp = await fetch(url);
         const buf = Buffer.from(await resp.arrayBuffer());
-        const hash = crypto.createHash('md5').update(buf).digest('hex');
-        const cacheFile = path.join(cacheDir, `${hash}.json`);
+        fileHash = crypto.createHash('md5').update(buf).digest('hex');
+        const cacheFile = path.join(cacheDir, `${fileHash}.json`);
         try {
           const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
           return res.json({ success: true, ...cached, cached: true });
         } catch { }
-        tempFile = path.join(cacheDir, `temp-${Date.now()}-${hash}.png`);
+        tempFile = path.join(cacheDir, `temp-${Date.now()}-${fileHash}.png`);
         await fs.writeFile(tempFile, buf);
         targetPath = tempFile;
+      }
+
+      if (!fileHash && targetPath && fsSync.existsSync(targetPath)) {
+        try {
+          const fileBuf = await fs.readFile(targetPath);
+          fileHash = crypto.createHash('md5').update(fileBuf).digest('hex');
+          const cacheFile = path.join(cacheDir, `${fileHash}.json`);
+          try {
+            const cached = JSON.parse(await fs.readFile(cacheFile, 'utf8'));
+            return res.json({ success: true, ...cached, cached: true });
+          } catch { }
+        } catch { }
       }
     }
 
@@ -3166,7 +3192,7 @@ app.post('/api/segment-garment', async (req, res) => {
     const proc = spawnSync('python', [scriptPath, targetPath], {
       encoding: 'utf8',
       maxBuffer: 50 * 1024 * 1024,
-      timeout: 30000,
+      timeout: 45000,
     });
 
     if (tempFile) {
@@ -3188,13 +3214,11 @@ app.post('/api/segment-garment', async (req, res) => {
     const result = JSON.parse(rawOut.slice(jsonStart, jsonEnd + 1));
 
     // Cache the result
-    try {
-      if (fsSync.existsSync(targetPath)) {
-        const fileBuf = await fs.readFile(targetPath);
-        const hash = crypto.createHash('md5').update(fileBuf).digest('hex');
-        await fs.writeFile(path.join(cacheDir, `${hash}.json`), JSON.stringify(result));
-      }
-    } catch { }
+    if (fileHash) {
+      try {
+        await fs.writeFile(path.join(cacheDir, `${fileHash}.json`), JSON.stringify(result));
+      } catch { }
+    }
 
     return res.json({ success: true, ...result });
   } catch (err) {

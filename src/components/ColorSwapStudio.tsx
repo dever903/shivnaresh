@@ -109,6 +109,73 @@ export function hslToRgb(h: number, s: number, l: number): [number, number, numb
 }
 
 /* ----------------------------------------------------------------
+   CIELAB Color Space (D65 Illuminant) — Accurate Luminance & Chromaticity
+   ---------------------------------------------------------------- */
+export function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+  let R = r / 255;
+  let G = g / 255;
+  let B = b / 255;
+
+  R = R > 0.04045 ? Math.pow((R + 0.055) / 1.055, 2.4) : R / 12.92;
+  G = G > 0.04045 ? Math.pow((G + 0.055) / 1.055, 2.4) : G / 12.92;
+  B = B > 0.04045 ? Math.pow((B + 0.055) / 1.055, 2.4) : B / 12.92;
+
+  R *= 100;
+  G *= 100;
+  B *= 100;
+
+  const X = R * 0.4124564 + G * 0.3575761 + B * 0.1804375;
+  const Y = R * 0.2126729 + G * 0.7151522 + B * 0.0721750;
+  const Z = R * 0.0193339 + G * 0.1191920 + B * 0.9503041;
+
+  let x = X / 95.047;
+  let y = Y / 100.000;
+  let z = Z / 108.883;
+
+  x = x > 0.008856 ? Math.pow(x, 1 / 3) : 7.787 * x + 16 / 116;
+  y = y > 0.008856 ? Math.pow(y, 1 / 3) : 7.787 * y + 16 / 116;
+  z = z > 0.008856 ? Math.pow(z, 1 / 3) : 7.787 * z + 16 / 116;
+
+  const L = 116 * y - 16;
+  const aVal = 500 * (x - y);
+  const bVal = 200 * (y - z);
+  return [L, aVal, bVal];
+}
+
+export function labToRgb(L: number, a: number, b: number): [number, number, number] {
+  const y = (L + 16) / 116;
+  const x = a / 500 + y;
+  const z = y - b / 200;
+
+  const x3 = Math.pow(x, 3);
+  const y3 = Math.pow(y, 3);
+  const z3 = Math.pow(z, 3);
+
+  const X = 95.047 * (x3 > 0.008856 ? x3 : (x - 16 / 116) / 7.787);
+  const Y = 100.000 * (y3 > 0.008856 ? y3 : (y - 16 / 116) / 7.787);
+  const Z = 108.883 * (z3 > 0.008856 ? z3 : (z - 16 / 116) / 7.787);
+
+  const X_norm = X / 100;
+  const Y_norm = Y / 100;
+  const Z_norm = Z / 100;
+
+  let r = X_norm * 3.2404542 + Y_norm * -1.5371385 + Z_norm * -0.4985314;
+  let g = X_norm * -0.9692660 + Y_norm * 1.8760108 + Z_norm * 0.0415560;
+  let b_val = X_norm * 0.0556434 + Y_norm * -0.2040259 + Z_norm * 1.0572252;
+
+  const toSrgb = (c: number) => {
+    c = Math.max(0, Math.min(1, c));
+    return c > 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c;
+  };
+
+  return [
+    Math.min(255, Math.max(0, Math.round(toSrgb(r) * 255))),
+    Math.min(255, Math.max(0, Math.round(toSrgb(g) * 255))),
+    Math.min(255, Math.max(0, Math.round(toSrgb(b_val) * 255)))
+  ];
+}
+
+/* ----------------------------------------------------------------
    Skin Detection Model (YCbCr + Kovac/Peer RGB)
    Strictly protects human face, neck, nape, arms, and legs.
    ---------------------------------------------------------------- */
@@ -341,7 +408,12 @@ export default function ColorSwapStudio({
 
   // AI Target Garment Scope: Upper Only | Lower Only | Both
   const [garmentScope, setGarmentScope] = useState<'upper' | 'lower' | 'both'>('upper');
-  const aiMaskCacheRef = useRef<Map<string, { upper: string; lower: string; both: string }>>(new Map());
+  const aiMaskCacheRef = useRef<Map<string, { upper: string; lower: string; both: string; protect?: string }>>(new Map());
+
+  // Multi-Layer Logo, Text & Zipper Independent Control
+  const [logoMode, setLogoMode] = useState<'keep' | 'recolor'>('keep');
+  const [logoColorHex, setLogoColorHex] = useState<string>('#FFFFFF');
+  const [zipperMode, setZipperMode] = useState<'preserve' | 'match'>('preserve');
 
   // Backend Default Best Quality Settings (Hidden under "Show More" accordion)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
@@ -742,11 +814,15 @@ export default function ColorSwapStudio({
   const getOrFetchAiMask = async (
     item: ImageItem,
     scope: 'upper' | 'lower' | 'both'
-  ): Promise<HTMLImageElement | null> => {
+  ): Promise<{ garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null }> => {
     try {
       const cached = aiMaskCacheRef.current.get(item.url);
-      if (cached && cached[scope]) {
-        return await loadSafeCanvasImage(cached[scope]);
+      if (cached && cached[scope] && cached.protect) {
+        const [garmentImg, protectImg] = await Promise.all([
+          loadSafeCanvasImage(cached[scope]),
+          loadSafeCanvasImage(cached.protect),
+        ]);
+        return { garmentMask: garmentImg, protectMask: protectImg };
       }
 
       const isDataUrl = item.url.startsWith('data:');
@@ -760,38 +836,44 @@ export default function ColorSwapStudio({
       }).catch((_err: any) => null);
 
       if (!res || !res.ok) {
-        return null;
+        return { garmentMask: null, protectMask: null };
       }
 
       const data = await res.json().catch(() => null);
       if (!data || !data.success || !data[scope]) {
-        return null;
+        return { garmentMask: null, protectMask: null };
       }
 
       aiMaskCacheRef.current.set(item.url, {
         upper: data.upper,
         lower: data.lower,
         both: data.both,
+        protect: data.protect,
       });
 
-      return await loadSafeCanvasImage(data[scope]);
+      const [garmentImg, protectImg] = await Promise.all([
+        loadSafeCanvasImage(data[scope]),
+        data.protect ? loadSafeCanvasImage(data.protect) : Promise.resolve(null),
+      ]);
+      return { garmentMask: garmentImg, protectMask: protectImg };
     } catch (err) {
       console.warn('[Segment Garment] Fetch exception, falling back to precision engine:', err);
-      return null;
+      return { garmentMask: null, protectMask: null };
     }
   };
 
   /* ----------------------------------------------------------------
-     Core Recolor Algorithm — Garment-Only Precision
-     AI Semantic Garment Parsing + Multi-layer protection:
-       1. AI Semantic Mask: 100% exact isolation for Upper (jacket),
-          Lower (pants), or Both (full tracksuit). 0% background leakage.
-       2. Shiv-Naresh HD Logo protection (authentic embroidery preserved).
-       3. Prop & Equipment protection (basketballs, sports gear preserved).
-       4. 3D Luminance & Texture preservation:
-          - Deep Dark / Carbon Black: preserves 3D creases & satin sheen at true tL (~0.12)
-          - Pure White: preserves realistic shading without turning muddy grey
-          - Saturated Colors: transfers full vivid saturation (Shiv-Naresh Red, Navy, Gold)
+     Core Recolor Algorithm — SegFormer AI + CIELAB + Multi-Layer Engine
+     1. Strict AI Mask: 100% garment isolation. Hair, face, skin, arms,
+        legs, and background strictly protected (zero recoloring).
+     2. Edge Softening: 1.5px anti-aliased feathering on mask contours.
+     3. Multi-Layer Logo/Text & Zipper Separation:
+        - Logo & Text Mode: Keep Original (100% stitches) or Custom Recolor.
+        - Zipper Mode: Preserve Metallic Shine or Match Garment.
+     4. CIELAB Luminance & Fold Texture Transfer:
+        - Carbon Black: rich satin sheen without crushing fold details.
+        - Pure White: crisp highlights with crease shadow preservation.
+        - Saturated: full chroma fidelity with specular rolloff.
      ---------------------------------------------------------------- */
   const recolorCanvas = (
     sourceImg: HTMLImageElement,
@@ -800,7 +882,9 @@ export default function ColorSwapStudio({
     tol: number,
     lOff: number,
     sMult: number,
-    aiMaskImg?: HTMLImageElement | null
+    masks?: { garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null } | null,
+    logoConfig?: { mode: 'keep' | 'recolor'; colorHex: string },
+    zipperConfig?: { mode: 'preserve' | 'match' }
   ): string => {
     const W = sourceImg.naturalWidth || 1024;
     const H = sourceImg.naturalHeight || 1024;
@@ -814,277 +898,246 @@ export default function ColorSwapStudio({
     const imgData = ctx.getImageData(0, 0, W, H);
     const data = imgData.data;
 
-    // AI Semantic Garment Mask Data (if available)
-    let aiMaskData: Uint8ClampedArray | null = null;
-    if (aiMaskImg) {
+    let aiGarmentData: Uint8ClampedArray | null = null;
+    let aiProtectData: Uint8ClampedArray | null = null;
+
+    if (masks?.garmentMask) {
       const mCanvas = document.createElement('canvas');
       mCanvas.width = W;
       mCanvas.height = H;
       const mCtx = mCanvas.getContext('2d');
       if (mCtx) {
-        mCtx.drawImage(aiMaskImg, 0, 0, W, H);
-        aiMaskData = mCtx.getImageData(0, 0, W, H).data;
+        mCtx.drawImage(masks.garmentMask, 0, 0, W, H);
+        aiGarmentData = mCtx.getImageData(0, 0, W, H).data;
       }
     }
 
-    // Sample studio backdrop color (corners and borders with outlier rejection)
-    const bgInfo = getStudioBackgroundColor(data, W, H);
-    const { r: bgR, g: bgG, b: bgB, l: bgL } = bgInfo;
-
-    // Outer edge boundary guard (skip 3% margin to protect studio backdrop edge artifacts)
-    const zoneLeft = Math.round(W * 0.03);
-    const zoneRight = Math.round(W * 0.97);
-    const zoneTop = Math.round(H * 0.03);
-    const zoneBottom = Math.round(H * 0.97);
+    if (masks?.protectMask) {
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = W;
+      pCanvas.height = H;
+      const pCtx = pCanvas.getContext('2d');
+      if (pCtx) {
+        pCtx.drawImage(masks.protectMask, 0, 0, W, H);
+        aiProtectData = pCtx.getImageData(0, 0, W, H).data;
+      }
+    }
 
     const [srcR, srcG, srcB] = hexToRgb(srcHex);
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
-    const { h: sH, s: sS, l: sL } = rgbToHsl(srcR, srcG, srcB);
-    const { h: tH, s: tS, l: tL } = rgbToHsl(tgtR, tgtG, tgtB);
-    const srcYcc = toYCbCr(srcR, srcG, srcB);
+    const [tgtL, tgtA, tgtBVal] = rgbToLab(tgtR, tgtG, tgtB);
 
+    const logoModeChoice = logoConfig?.mode || 'keep';
+    const [logoR, logoG, logoB] = hexToRgb(logoConfig?.colorHex || '#FFFFFF');
+    const [logoL, logoA, logoBVal] = rgbToLab(logoR, logoG, logoB);
+
+    const zipperModeChoice = zipperConfig?.mode || 'preserve';
+
+    // =========================================================================
+    // PATH A: PRODUCTION AI SEGFORMER PRECISION ENGINE
+    // =========================================================================
+    if (aiGarmentData) {
+      // 1. Edge Softening: 1.5px Anti-Aliased Box Kernel
+      const softAlpha = new Float32Array(W * H);
+      let totalGarmentLum = 0;
+      let garmentLumCount = 0;
+      const sampleStride = Math.max(1, Math.floor((W * H) / 10000));
+
+      for (let y = 0; y < H; y++) {
+        const y0 = Math.max(0, y - 1);
+        const y1 = Math.min(H - 1, y + 1);
+        for (let x = 0; x < W; x++) {
+          const pIdx = y * W + x;
+          const maskVal = aiGarmentData[pIdx * 4];
+          if (maskVal < 10) continue;
+
+          const x0 = Math.max(0, x - 1);
+          const x1 = Math.min(W - 1, x + 1);
+          let sum = 0;
+          let count = 0;
+          for (let ny = y0; ny <= y1; ny++) {
+            const rowOffset = ny * W;
+            for (let nx = x0; nx <= x1; nx++) {
+              sum += aiGarmentData[(rowOffset + nx) * 4] > 128 ? 1 : 0;
+              count++;
+            }
+          }
+          const alpha = sum / count;
+          softAlpha[pIdx] = alpha;
+
+          if (alpha > 0.8 && pIdx % sampleStride === 0) {
+            const i = pIdx * 4;
+            const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            totalGarmentLum += lum;
+            garmentLumCount++;
+          }
+        }
+      }
+
+      const baseLum = garmentLumCount > 0 ? totalGarmentLum / garmentLumCount : 128;
+      const [baseL] = rgbToLab(baseLum, baseLum, baseLum);
+
+      // 2. Pixel Iteration: Multi-Layer Logic + CIELAB Texture Transfer
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const pIdx = y * W + x;
+          const i = pIdx * 4;
+
+          // Strict AI Protect Mask: hair, face, skin, arms, legs, background
+          if (aiProtectData && aiProtectData[i] > 128) {
+            continue;
+          }
+
+          const alpha = softAlpha[pIdx];
+          if (alpha < 0.02) {
+            continue;
+          }
+
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          // Layer 1: Logo & Text Embroidery Separation (Upper chest & collar region)
+          if (y > 0.05 * H && y < 0.42 * H && x > 0.12 * W && x < 0.88 * W) {
+            const isWhiteEmbroidery =
+              r > 170 && g > 170 && b > 170 && Math.abs(r - g) < 22 && Math.abs(g - b) < 22;
+            const isContrastingThread =
+              Math.abs((0.299 * r + 0.587 * g + 0.114 * b) - baseLum) > 55;
+
+            if (isWhiteEmbroidery || isContrastingThread) {
+              if (logoModeChoice === 'keep') {
+                continue; // 100% preserve authentic embroidered threads and stitches!
+              } else {
+                // Custom recolor logo
+                const [pL] = rgbToLab(r, g, b);
+                const deltaLogoL = pL - baseL;
+                const newLogoL = Math.min(98, Math.max(10, logoL + deltaLogoL * 0.4));
+                const [nr, ng, nb] = labToRgb(newLogoL, logoA, logoBVal);
+                data[i] = Math.round(r * (1 - alpha) + nr * alpha);
+                data[i + 1] = Math.round(g * (1 - alpha) + ng * alpha);
+                data[i + 2] = Math.round(b * (1 - alpha) + nb * alpha);
+                continue;
+              }
+            }
+          }
+
+          // Layer 2: Zipper Teeth & Slider Separation (Center seam)
+          if (Math.abs(x - W * 0.5) < W * 0.11) {
+            const isMetallicSpec =
+              Math.abs(r - g) < 18 && Math.abs(g - b) < 18 && (r > 140 || (r > 100 && baseL < 30));
+            if (isMetallicSpec && zipperModeChoice === 'preserve') {
+              continue; // 100% preserve metallic teeth shine!
+            }
+          }
+
+          // CIELAB Texture & Luminance Transfer
+          const [pL] = rgbToLab(r, g, b);
+          const deltaL = pL - baseL;
+
+          let newL: number;
+          let newA = tgtA;
+          let newBVal = tgtBVal;
+
+          if (tgtL < 22) {
+            // Carbon Black spectrum (rich jet-black, fold preservation without clipping)
+            const lBase = Math.max(7.0, tgtL * 1.05) + lOff * 10;
+            if (deltaL <= 0) {
+              newL = Math.max(3.0, lBase + deltaL * 0.28);
+            } else {
+              const specular = Math.pow(Math.max(0.0, deltaL - 10.0), 1.25) * 0.04;
+              newL = lBase + deltaL * 0.38 + specular;
+            }
+          } else if (tgtL > 85) {
+            // Pure White spectrum (crisp white, shadows retained without muddy grey)
+            const lBase = Math.min(94.0, tgtL) + lOff * 10;
+            if (deltaL <= 0) {
+              newL = lBase + deltaL * 0.55;
+            } else {
+              newL = Math.min(98.0, lBase + deltaL * 0.15);
+            }
+          } else {
+            // Vibrant Midtones (Shiv-Naresh Red, Olympic Navy, Royal Blue, Gold, etc.)
+            const lBase = tgtL + lOff * 15;
+            if (deltaL <= 0) {
+              newL = Math.max(5.0, lBase + deltaL * 0.70);
+            } else {
+              const specular = Math.pow(Math.max(0.0, deltaL - 8.0), 1.15) * 0.05;
+              newL = Math.min(96.0, lBase + deltaL * 0.60 + specular);
+            }
+            const specRolloff = Math.max(0.0, Math.min(1.0, (pL - 75.0) / 20.0));
+            newA = tgtA * (1.0 - specRolloff * 0.4) * sMult;
+            newBVal = tgtBVal * (1.0 - specRolloff * 0.4) * sMult;
+          }
+
+          const [newR, newG, newB] = labToRgb(newL, newA, newBVal);
+
+          // Alpha blend for 1.5px feathered boundary
+          data[i] = Math.round(r * (1.0 - alpha) + newR * alpha);
+          data[i + 1] = Math.round(g * (1.0 - alpha) + newG * alpha);
+          data[i + 2] = Math.round(b * (1.0 - alpha) + newB * alpha);
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL('image/jpeg', 0.95);
+    }
+
+    // =========================================================================
+    // PATH B: HEURISTIC SAFE FALLBACK (NO DEFRINGING LOOP)
+    // =========================================================================
+    const bgInfo = getStudioBackgroundColor(data, W, H);
+    const { r: bgR, g: bgG, b: bgB } = bgInfo;
+    const { h: sH, s: sS } = rgbToHsl(srcR, srcG, srcB);
+    const srcYcc = toYCbCr(srcR, srcG, srcB);
     const isSrcSkin = isSkinPixel(srcR, srcG, srcB);
     const isSrcNeutral = sS < 0.22;
     const maxChromDist = Math.max(10, tol * 0.42);
 
-    const garmentMask = new Uint8Array(W * H);
-    const logoMask = new Uint8Array(W * H);
-
-    // Pre-pass: Detect Shiv-Naresh HD Logo embroidery seeds strictly on upper chest/collar area
-    if (protectLogos) {
-      const seeds: number[] = [];
-      const logoZoneTop = Math.round(H * 0.08);
-      const logoZoneBottom = Math.round(H * 0.35); // Upper chest only, never lower torso, stomach, or props
-      const logoZoneLeft = Math.round(W * 0.15);
-      const logoZoneRight = Math.round(W * 0.85);
-
-      for (let y = logoZoneTop; y < logoZoneBottom; y++) {
-        for (let x = logoZoneLeft; x < logoZoneRight; x++) {
-          const pIdx = y * W + x;
-          const i = pIdx * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
-
-          const isWhiteSeed =
-            sL > 0.50
-              ? pL > 0.88 && pL > sL + 0.04 && pS < 0.16
-              : pL > 0.72 && pS < 0.20;
-          const isRedSeed = sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20);
-
-          if ((isWhiteSeed || isRedSeed) && seeds.length < 800) {
-            logoMask[pIdx] = 1;
-            seeds.push(pIdx);
-          }
-        }
-      }
-
-      let currentSeeds = seeds;
-      for (let pass = 0; pass < 2 && currentSeeds.length > 0 && currentSeeds.length < 1200; pass++) {
-        const nextSeeds: number[] = [];
-        for (const pIdx of currentSeeds) {
-          const cy = Math.floor(pIdx / W);
-          const cx = pIdx % W;
-          for (let dy = -1; dy <= 1; dy++) {
-            const ny = cy + dy;
-            if (ny < logoZoneTop || ny >= logoZoneBottom) continue;
-            for (let dx = -1; dx <= 1; dx++) {
-              if (dy === 0 && dx === 0) continue;
-              const nx = cx + dx;
-              if (nx < logoZoneLeft || nx >= logoZoneRight) continue;
-              const nIdx = ny * W + nx;
-              if (logoMask[nIdx] !== 0) continue;
-
-              const ni = nIdx * 4;
-              const nr = data[ni];
-              const ng = data[ni + 1];
-              const nb = data[ni + 2];
-              const { l: npL, s: npS } = rgbToHsl(nr, ng, nb);
-
-              if (npL > sL - 0.02 && npS < 0.20 && (nextSeeds.length + currentSeeds.length < 1500)) {
-                logoMask[nIdx] = 1;
-                nextSeeds.push(nIdx);
-              }
-            }
-          }
-        }
-        currentSeeds = nextSeeds;
-      }
-    }
-
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const pIdx = y * W + x;
-        const i = pIdx * 4;
+    for (let y = Math.round(H * 0.03); y < Math.round(H * 0.97); y++) {
+      for (let x = Math.round(W * 0.03); x < Math.round(W * 0.97); x++) {
+        const i = (y * W + x) * 4;
         const a = data[i + 3];
         if (a < 50) continue;
-
-        // 1. Precise AI Mask Boundary check (if AI mask available)
-        if (aiMaskData) {
-          if (aiMaskData[i] < 128) {
-            // Outside target garment: 100% untouched (zero background or skin leakage)
-            continue;
-          }
-        } else {
-          // Heuristic Fallback Guards
-          if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
-
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
-          const pYcc = toYCbCr(r, g, b);
-          const warmth = pYcc.cr - pYcc.cb;
-
-          // Prop & Equipment Guard (Basketballs, soccer balls, tennis gear held in hands)
-          if (pH >= 10 && pH <= 48 && pS >= 0.35 && r > b + 30) continue;
-
-          if (protectBackground) {
-            const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-            if (pS <= 0.045 && warmth <= 1.8 && Math.abs(pL - bgL) <= 0.30) continue;
-            if (dBg <= 18 && pS < 0.05) continue;
-          }
-
-          if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
-
-          if (sL > 0.40 && pL < 0.38 && r > b) continue;
-
-          if (sL > 0.40 && pL < 0.22) continue;
-        }
 
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-        const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
 
-        // 5. Shiv-Naresh HD Logo Guard:
-        // Authentic embroidered threads preserved as original photo (never painted over with flat white)
-        if (protectLogos && logoMask[pIdx] === 1) {
-          garmentMask[pIdx] = 2; // Protected logo marker
-          continue; // Leave original HD embroidered stitches and natural highlights untouched!
-        }
+        const { h: pH, s: pS } = rgbToHsl(r, g, b);
+        if (pH >= 10 && pH <= 48 && pS >= 0.35 && r > b + 30) continue;
 
-        let matchStrength = 1.0;
-
-        if (!aiMaskData) {
-          // Heuristic color matching when AI mask not present
-          const pYcc = toYCbCr(r, g, b);
-          matchStrength = 0;
-
-          if (!isSrcNeutral) {
-            const dh = Math.abs(pH - sH);
-            const hueDist = Math.min(dh, 360 - dh);
-            if (hueDist < tol && pS > 0.08) {
-              matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
-            }
-          } else {
-            // Neutral garment fabric (Beige, Grey, Silver, Cream, Tan, Khaki, Charcoal):
-            // Matches fabric across all light folds, shadows, and reflections without warm/cool dropouts
-            const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-            if (chromDist < maxChromDist * 2.1 && pS < 0.38) {
-              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 2.1 - chromDist) / (maxChromDist * 0.9)));
-              matchStrength = Math.max(0.25, cScore);
-            }
-          }
-        }
-
-        if (matchStrength > 0.02) {
-          garmentMask[pIdx] = 1;
-
-          // 6. Photorealistic Fabric Texture, Crease & Zipper Luminance Transfer
-          const pY = 0.299 * r + 0.587 * g + 0.114 * b;
-          const sY = 0.299 * srcR + 0.587 * srcG + 0.114 * srcB;
-          const deltaY = (pY - sY) / Math.max(10.0, sY);
-
-          let newL: number;
-          if (tL < 0.22) {
-            // Deep Dark / Carbon Black spectrum:
-            const lBase = Math.max(0.11, tL * 1.15);
-            if (deltaY <= 0) {
-              newL = lBase * (1.0 + deltaY * 0.70) + lOff;
-            } else {
-              const specularBoost = Math.pow(Math.max(0, deltaY - 0.15), 1.25) * 0.45;
-              newL = lBase + deltaY * 0.55 + specularBoost + lOff;
-            }
-          } else if (tL > 0.78) {
-            // Pure White spectrum:
-            const lBase = Math.min(0.93, 0.88 + tL * 0.06);
-            if (deltaY <= 0) {
-              newL = lBase + deltaY * 0.65 + lOff;
-            } else {
-              newL = lBase + deltaY * 0.15 + lOff;
-            }
-          } else {
-            // Midtone spectrum (Athletic Red, Olympic Navy, etc.)
-            if (deltaY <= 0) {
-              newL = tL + deltaY * Math.min(0.85, tL * 1.2) + lOff;
-            } else {
-              const specular = Math.pow(Math.max(0, deltaY - 0.20), 1.2) * 0.35;
-              newL = tL + deltaY * (1.0 - tL * 0.55) + specular + lOff;
-            }
-          }
-          newL = Math.min(0.96, Math.max(0.04, newL));
-
-          const specRolloff = Math.min(1.0, Math.max(0.0, (pL - 0.78) / 0.18));
-          const newS = Math.max(0.0, Math.min(1.0, tS * sMult * (1.0 - specRolloff * 0.65)));
-          const newH = tH;
-
-          const [resR, resG, resB] = hslToRgb(newH, newS, newL);
-          data[i] = Math.round(r * (1 - matchStrength) + resR * matchStrength);
-          data[i + 1] = Math.round(g * (1 - matchStrength) + resG * matchStrength);
-          data[i + 2] = Math.round(b * (1 - matchStrength) + resB * matchStrength);
-        }
-      }
-    }
-
-    // =========================================================================
-    // PASS 2: BOUNDARY DEFRINGING (ONLY FOR HEURISTIC FALLBACK WITHOUT AI MASK)
-    // =========================================================================
-    if (!aiMaskData) {
-      const [defR, defG, defB] = hslToRgb(tH, Math.max(tS, 0.12), tL < 0.22 ? 0.13 : tL);
-      const defringeIndices: number[] = [];
-
-      for (let y = 1; y < H - 1; y++) {
-        for (let x = 1; x < W - 1; x++) {
-          const pIdx = y * W + x;
-          if (garmentMask[pIdx] !== 0) continue;
-
-          const i = pIdx * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-
-          // Never defringe skin, sports equipment/props, or background
-          if (isSkinPixel(r, g, b)) continue;
-          const { h: pH, s: pS } = rgbToHsl(r, g, b);
-          if (pH >= 10 && pH <= 48 && pS >= 0.35) continue;
-
+        if (protectBackground) {
           const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-          if (dBg <= 16) continue;
+          if (dBg <= 18 && pS < 0.05) continue;
+        }
 
-          const hasGarmentNeighbor =
-            garmentMask[pIdx - 1] === 1 ||
-            garmentMask[pIdx + 1] === 1 ||
-            garmentMask[pIdx - W] === 1 ||
-            garmentMask[pIdx + W] === 1;
+        if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
 
-          if (!hasGarmentNeighbor) continue;
-
+        let matchStrength = 0;
+        if (!isSrcNeutral) {
+          const dh = Math.abs(pH - sH);
+          const hueDist = Math.min(dh, 360 - dh);
+          if (hueDist < tol && pS > 0.08) {
+            matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
+          }
+        } else {
           const pYcc = toYCbCr(r, g, b);
           const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-
-          if (chromDist < maxChromDist * 1.5 && pS < 0.38) {
-            defringeIndices.push(pIdx);
+          if (chromDist < maxChromDist * 2.1 && pS < 0.38) {
+            matchStrength = Math.min(1.0, Math.max(0.2, (maxChromDist * 2.1 - chromDist) / (maxChromDist * 0.9)));
           }
         }
-      }
 
-      for (const pIdx of defringeIndices) {
-        const i = pIdx * 4;
-        data[i] = Math.round(bgR * 0.35 + defR * 0.65);
-        data[i + 1] = Math.round(bgG * 0.35 + defG * 0.65);
-        data[i + 2] = Math.round(bgB * 0.35 + defB * 0.65);
+        if (matchStrength > 0.05) {
+          const [pL] = rgbToLab(r, g, b);
+          const [baseL] = rgbToLab(srcR, srcG, srcB);
+          const deltaL = pL - baseL;
+          const newL = tgtL < 22 ? Math.max(4, tgtL + deltaL * 0.35) : Math.min(96, Math.max(5, tgtL + deltaL * 0.7));
+          const [nr, ng, nb] = labToRgb(newL, tgtA, tgtBVal);
+          data[i] = Math.round(r * (1 - matchStrength) + nr * matchStrength);
+          data[i + 1] = Math.round(g * (1 - matchStrength) + ng * matchStrength);
+          data[i + 2] = Math.round(b * (1 - matchStrength) + nb * matchStrength);
+        }
       }
     }
 
@@ -1114,7 +1167,7 @@ export default function ColorSwapStudio({
         const item = itemsToProcess[i];
         setProgressMsg(`AI Segmenting & Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
-        const [loadedImg, aiMaskImg] = await Promise.all([
+        const [loadedImg, masks] = await Promise.all([
           loadSafeCanvasImage(item.url),
           getOrFetchAiMask(item, garmentScope),
         ]);
@@ -1126,7 +1179,9 @@ export default function ColorSwapStudio({
           tolerance,
           lightnessOffset,
           saturationMult,
-          aiMaskImg
+          masks,
+          { mode: logoMode, colorHex: logoColorHex },
+          { mode: zipperMode }
         );
 
         if (recoloredDataUrl) {
@@ -1731,6 +1786,103 @@ export default function ColorSwapStudio({
                         )}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* MULTI-LAYER CONTROLS: LOGO & TEXT + ZIPPER INDEPENDENT SEPARATION */}
+                <div className={`p-4 rounded-xl border space-y-4 ${
+                  isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Multi-Layer Logo, Text & Zipper Control</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-semibold">Independent Layer Isolation</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Layer 1: Logo & Text Embroidery */}
+                    <div className="space-y-2 p-3 rounded-lg border border-white/5 bg-zinc-950/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-zinc-300">Logo & Text Embroidery:</span>
+                        <span className="text-[10px] text-zinc-400 font-mono">{logoMode === 'keep' ? 'Original Stitches' : logoColorHex}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLogoMode('keep')}
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                            logoMode === 'keep'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                          }`}
+                        >
+                          ✨ Keep Original
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLogoMode('recolor')}
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                            logoMode === 'recolor'
+                              ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-xs'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                          }`}
+                        >
+                          🎨 Custom Recolor
+                        </button>
+                      </div>
+                      {logoMode === 'recolor' && (
+                        <div className="flex items-center gap-2 pt-1 animate-in fade-in">
+                          <input
+                            type="color"
+                            value={logoColorHex}
+                            onChange={(e) => setLogoColorHex(e.target.value.toUpperCase())}
+                            className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                            title="Pick Logo Color"
+                          />
+                          <input
+                            type="text"
+                            value={logoColorHex}
+                            onChange={(e) => setLogoColorHex(e.target.value.toUpperCase())}
+                            className="flex-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border border-zinc-700 bg-zinc-900 text-white"
+                            placeholder="#FFFFFF"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Layer 2: Zipper & Seam Control */}
+                    <div className="space-y-2 p-3 rounded-lg border border-white/5 bg-zinc-950/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-zinc-300">Zipper Teeth & Slider:</span>
+                        <span className="text-[10px] text-zinc-400 font-mono">{zipperMode === 'preserve' ? 'Metallic Shine' : 'Garment Match'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setZipperMode('preserve')}
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                            zipperMode === 'preserve'
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-xs'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                          }`}
+                        >
+                          🔩 Metallic Shine
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setZipperMode('match')}
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                            zipperMode === 'match'
+                              ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-xs'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                          }`}
+                        >
+                          🧥 Match Garment
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
