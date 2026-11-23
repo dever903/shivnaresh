@@ -3137,22 +3137,24 @@ app.post('/api/segment-garment', async (req, res) => {
     await fs.mkdir(cacheDir, { recursive: true });
 
     // 1. DataURL या Local/Remote URL से इमेज लोड करें
-    if (dataUrl && dataUrl.startsWith('data:image')) {
-      const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(dataUrl);
-      if (match) {
-        const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
-        fileHash = crypto.createHash('md5').update(buffer).digest('hex');
-        rawInputImage = await RawImage.fromBlob(new Blob([buffer]));
-      }
+    const rawData = dataUrl || (url && typeof url === 'string' && url.startsWith('data:') ? url : null);
+    if (rawData) {
+      const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(rawData);
+      const b64 = match ? match[2] : rawData.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(b64.replace(/\s+/g, ''), 'base64');
+      fileHash = crypto.createHash('md5').update(buffer).digest('hex');
+      rawInputImage = await RawImage.fromBlob(new Blob([buffer]));
     } else if (url) {
       let cleanUrl = String(url).split('?')[0];
       try {
-        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+        try {
           const parsed = new URL(cleanUrl);
-          if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/models/') || parsed.pathname.startsWith('/generated/')) {
+          if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/models/') || parsed.pathname.startsWith('/generated/') || parsed.pathname.startsWith('/hosted/')) {
             cleanUrl = parsed.pathname;
           }
-        }
+        } catch { }
+      }
       } catch { }
 
       let targetPath = null;
@@ -3162,6 +3164,8 @@ app.post('/api/segment-garment', async (req, res) => {
         targetPath = path.join(MODELS_DIR, cleanUrl.replace(/^\/models\//, ''));
       } else if (cleanUrl.startsWith('/generated/')) {
         targetPath = path.join(GENERATED, path.basename(cleanUrl));
+      } else if (cleanUrl.startsWith('/hosted/')) {
+        targetPath = path.join(PUBLIC_DIR, cleanUrl.replace(/^\//, ''));
       } else if (cleanUrl.startsWith('/')) {
         const candidate = path.join(PUBLIC_DIR, cleanUrl.replace(/^\//, ''));
         if (fsSync.existsSync(candidate)) targetPath = candidate;
@@ -3176,6 +3180,21 @@ app.post('/api/segment-garment', async (req, res) => {
         const buf = Buffer.from(await resp.arrayBuffer());
         fileHash = crypto.createHash('md5').update(buf).digest('hex');
         rawInputImage = await RawImage.fromBlob(new Blob([buf]));
+      } else {
+        // Fallback: check MongoDB hosted_assets if local disk copy is missing
+        try {
+          const db = await getMongoDb();
+          if (db) {
+            const fname = path.basename(cleanUrl);
+            const doc = await db.collection('hosted_assets').findOne({ $or: [{ id: fname }, { url: cleanUrl }] });
+            if (doc?.dataUrl) {
+              const b64 = doc.dataUrl.replace(/^data:[^;]+;base64,/, '');
+              const buf = Buffer.from(b64.replace(/\s+/g, ''), 'base64');
+              fileHash = crypto.createHash('md5').update(buf).digest('hex');
+              rawInputImage = await RawImage.fromBlob(new Blob([buf]));
+            }
+          }
+        } catch { }
       }
     }
 

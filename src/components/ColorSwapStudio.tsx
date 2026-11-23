@@ -854,9 +854,155 @@ export default function ColorSwapStudio({
   /* ----------------------------------------------------------------
      AI Semantic Garment Segmentation Service (Upper, Lower, Both)
      ---------------------------------------------------------------- */
+  /* ----------------------------------------------------------------
+     AI Semantic Garment Segmentation Service (Upper, Lower, Both)
+     - Dual-Engine: Fast Backend Node.js ONNX + In-Browser WebAssembly Fallback
+     - Zero failure: Works even if server is offline or restarting
+     ---------------------------------------------------------------- */
+  const browserPipelineRef = useRef<any>(null);
+
+  const runClientSideSegmentation = async (
+    imgElement?: HTMLImageElement,
+    imageUrl?: string
+  ): Promise<{ upper?: string; lower?: string; both?: string; protect?: string } | null> => {
+    try {
+      if (!browserPipelineRef.current) {
+        const { pipeline, env } = await import('@xenova/transformers');
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+        browserPipelineRef.current = await pipeline('image-segmentation', 'Xenova/segformer_b2_clothes', {
+          quantized: true,
+        });
+      }
+
+      const segmenter = browserPipelineRef.current;
+      const { RawImage } = await import('@xenova/transformers');
+
+      let rawImg: any = null;
+      if (imgElement && imgElement.naturalWidth > 0) {
+        const c = document.createElement('canvas');
+        const maxD = 768;
+        const scale = Math.min(1.0, maxD / Math.max(imgElement.naturalWidth, imgElement.naturalHeight));
+        c.width = Math.round(imgElement.naturalWidth * scale);
+        c.height = Math.round(imgElement.naturalHeight * scale);
+        const cx = c.getContext('2d');
+        if (cx) {
+          cx.drawImage(imgElement, 0, 0, c.width, c.height);
+          const blob = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, 'image/jpeg', 0.85));
+          if (blob) {
+            rawImg = await RawImage.fromBlob(blob);
+          }
+        }
+      }
+
+      if (!rawImg && imageUrl) {
+        if (imageUrl.startsWith('data:')) {
+          const match = /^data:(image\/[a-zA-Z0-9+.-]+);base64,(.*)$/is.exec(imageUrl);
+          if (match) {
+            const bin = atob(match[2].replace(/\s+/g, ''));
+            const u8 = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+            rawImg = await RawImage.fromBlob(new Blob([u8]));
+          }
+        } else {
+          rawImg = await RawImage.fromURL(imageUrl);
+        }
+      }
+
+      if (!rawImg) return null;
+
+      const output = await segmenter(rawImg);
+      const w = rawImg.width;
+      const h = rawImg.height;
+
+      const upperData = new Uint8ClampedArray(w * h);
+      const lowerData = new Uint8ClampedArray(w * h);
+      const bothData = new Uint8ClampedArray(w * h);
+      const protectData = new Uint8ClampedArray(w * h);
+
+      let upperCount = 0;
+      let lowerCount = 0;
+      let bothCount = 0;
+      let protectCount = 0;
+
+      for (const item of output) {
+        const lbl = (item.label || '').toLowerCase();
+        const d = item.mask.data;
+
+        if (lbl.includes('hair') || lbl.includes('face') || lbl.includes('arm') || lbl.includes('leg') || lbl.includes('shoe')) {
+          for (let i = 0; i < protectData.length; i++) {
+            if (d[i] > 128) {
+              protectData[i] = 255;
+              protectCount++;
+            }
+          }
+        }
+
+        if (lbl.includes('upper') || lbl.includes('dress') || lbl.includes('coat') || lbl.includes('jacket') || lbl.includes('top') || lbl.includes('shirt')) {
+          for (let i = 0; i < upperData.length; i++) {
+            if (d[i] > 128) {
+              upperData[i] = 255;
+              bothData[i] = 255;
+              upperCount++;
+              bothCount++;
+            }
+          }
+        }
+
+        if (lbl.includes('pants') || lbl.includes('skirt') || lbl.includes('shorts') || lbl.includes('bottom')) {
+          for (let i = 0; i < lowerData.length; i++) {
+            if (d[i] > 128) {
+              lowerData[i] = 255;
+              bothData[i] = 255;
+              lowerCount++;
+              bothCount++;
+            }
+          }
+        }
+      }
+
+      if (upperCount === 0 && bothCount > 0) {
+        for (let i = 0; i < bothData.length; i++) {
+          if (bothData[i] > 0) upperData[i] = 255;
+        }
+        upperCount = bothCount;
+      }
+
+      const dataToCanvasUrl = (u8: Uint8ClampedArray): string => {
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        const imgData = ctx.createImageData(w, h);
+        for (let i = 0; i < u8.length; i++) {
+          const val = u8[i];
+          const idx = i * 4;
+          imgData.data[idx] = val;
+          imgData.data[idx + 1] = val;
+          imgData.data[idx + 2] = val;
+          imgData.data[idx + 3] = val;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        return canvas.toDataURL('image/png');
+      };
+
+      return {
+        upper: upperCount > 0 ? dataToCanvasUrl(upperData) : undefined,
+        lower: lowerCount > 0 ? dataToCanvasUrl(lowerData) : undefined,
+        both: bothCount > 0 ? dataToCanvasUrl(bothData) : undefined,
+        protect: protectCount > 0 ? dataToCanvasUrl(protectData) : undefined,
+      };
+    } catch (e) {
+      console.warn('[runClientSideSegmentation] In-browser inference failed:', e);
+      return null;
+    }
+  };
+
   const getOrFetchAiMask = async (
     item: ImageItem,
-    scope: 'upper' | 'lower' | 'both'
+    scope: 'upper' | 'lower' | 'both',
+    loadedImage?: HTMLImageElement
   ): Promise<{ garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null }> => {
     try {
       const cached = aiMaskCacheRef.current.get(item.url);
@@ -869,40 +1015,68 @@ export default function ColorSwapStudio({
         return { garmentMask: garmentImg, protectMask: protectImg };
       }
 
-      const isDataUrl = item.url.startsWith('data:');
-      const payload = isDataUrl ? { dataUrl: item.url } : { url: item.url };
+      // Generate compact 768px JPEG dataUrl from loaded image to prevent multi-megabyte payloads
+      let sendDataUrl: string | undefined = undefined;
+      if (loadedImage && loadedImage.naturalWidth > 0) {
+        const c = document.createElement('canvas');
+        const maxD = 768;
+        const scale = Math.min(1.0, maxD / Math.max(loadedImage.naturalWidth, loadedImage.naturalHeight));
+        c.width = Math.round(loadedImage.naturalWidth * scale);
+        c.height = Math.round(loadedImage.naturalHeight * scale);
+        const cx = c.getContext('2d');
+        if (cx) {
+          cx.drawImage(loadedImage, 0, 0, c.width, c.height);
+          sendDataUrl = c.toDataURL('image/jpeg', 0.85);
+        }
+      } else if (item.url.startsWith('data:')) {
+        sendDataUrl = item.url;
+      }
 
-      const targetUrl = getApiUrl('/api/segment-garment');
-      const res = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch((_err: any) => null);
+      const payload = sendDataUrl ? { dataUrl: sendDataUrl, url: item.url } : { url: item.url };
 
-      if (!res || !res.ok) {
+      // Strategy 1: Fast Backend SegFormer API
+      let maskData: { upper?: string; lower?: string; both?: string; protect?: string } | null = null;
+      try {
+        const targetUrl = getApiUrl('/api/segment-garment');
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            maskData = data;
+          }
+        }
+      } catch (backendErr) {
+        console.warn('[Segment Garment] Backend unavailable, attempting client-side inference:', backendErr);
+      }
+
+      // Strategy 2: Client-Side WebAssembly ONNX inference in browser
+      if (!maskData || (!maskData[scope] && !maskData.both && !maskData.upper)) {
+        maskData = await runClientSideSegmentation(loadedImage, sendDataUrl || item.url);
+      }
+
+      if (!maskData) {
         return { garmentMask: null, protectMask: null };
       }
 
-      const data = await res.json().catch(() => null);
-      if (!data || !data.success) {
-        return { garmentMask: null, protectMask: null };
-      }
-
-      const garmentDataUrl = data[scope] || data.both || data.upper || data.lower;
+      const garmentDataUrl = maskData[scope] || maskData.both || maskData.upper || maskData.lower;
       if (!garmentDataUrl) {
         return { garmentMask: null, protectMask: null };
       }
 
       aiMaskCacheRef.current.set(item.url, {
-        upper: data.upper || garmentDataUrl,
-        lower: data.lower || garmentDataUrl,
-        both: data.both || garmentDataUrl,
-        protect: data.protect || null,
+        upper: maskData.upper || garmentDataUrl,
+        lower: maskData.lower || garmentDataUrl,
+        both: maskData.both || garmentDataUrl,
+        protect: maskData.protect ? maskData.protect : undefined,
       });
 
       const [garmentImg, protectImg] = await Promise.all([
         loadSafeCanvasImage(garmentDataUrl),
-        data.protect ? loadSafeCanvasImage(data.protect) : Promise.resolve(null),
+        maskData.protect ? loadSafeCanvasImage(maskData.protect) : Promise.resolve(null),
       ]);
       return { garmentMask: garmentImg, protectMask: protectImg };
     } catch (err) {
@@ -1169,10 +1343,8 @@ export default function ColorSwapStudio({
         const item = itemsToProcess[i];
         setProgressMsg(`AI Segmenting & Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
-        const [loadedImg, masks] = await Promise.all([
-          loadSafeCanvasImage(item.url),
-          getOrFetchAiMask(item, garmentScope),
-        ]);
+        const loadedImg = await loadSafeCanvasImage(item.url);
+        const masks = await getOrFetchAiMask(item, garmentScope, loadedImg);
 
         if (!masks?.garmentMask) {
           console.warn(`[ColorSwap] AI segmentation mask unavailable for ${item.title}.`);
