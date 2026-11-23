@@ -341,7 +341,8 @@ export default function ColorSwapStudio({
 
   // Source selection filter
   const [filterFolder, setFilterFolder] = useState<'all' | 'ready' | 'edited' | 'generated' | 'uploads'>('all');
-  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+  // Track selection by item ID (not URL) so identical-URL images are each independently selectable
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [customUploads, setCustomUploads] = useState<ImageItem[]>([]);
   const [activeImage, setActiveImage] = useState<ImageItem | null>(null);
 
@@ -426,7 +427,7 @@ export default function ColorSwapStudio({
   useEffect(() => {
     if (!activeImage && filteredImages.length > 0) {
       setActiveImage(filteredImages[0]);
-      setSelectedUrls(new Set([filteredImages[0].url]));
+      setSelectedIds(new Set([filteredImages[0].id]));
     }
   }, [filteredImages, activeImage]);
 
@@ -555,22 +556,22 @@ export default function ColorSwapStudio({
     }
   };
 
-  // Toggle selection
-  const toggleSelectImage = (url: string) => {
-    setSelectedUrls((prev) => {
+  // Toggle selection by item ID
+  const toggleSelectImage = (id: string) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(url)) next.delete(url);
-      else next.add(url);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const handleSelectAll = () => {
-    setSelectedUrls(new Set(filteredImages.map((i) => i.url)));
+    setSelectedIds(new Set(filteredImages.map((i) => i.id)));
   };
 
   const handleDeselectAll = () => {
-    setSelectedUrls(new Set());
+    setSelectedIds(new Set());
   };
 
   // Upload custom images for swap catalog
@@ -589,7 +590,7 @@ export default function ColorSwapStudio({
           };
           setCustomUploads((prev) => [item, ...prev]);
           setActiveImage(item);
-          setSelectedUrls((prev) => new Set([...prev, item.url]));
+          setSelectedIds((prev) => new Set([...prev, item.id]));
         }
       };
       reader.readAsDataURL(file);
@@ -726,11 +727,15 @@ export default function ColorSwapStudio({
 
   /* ----------------------------------------------------------------
      Core Recolor Algorithm — Garment-Only Precision
-     3-layer protection:
-       1. BFS flood-fill background mask from image borders.
-       2. YCbCr + RGB skin classifier (face, neck, nape, arms).
-       3. Spatial garment zone — outer margins are NEVER recolored
-          (catches floor shadows, edge bleed, studio walls at edges).
+     Multi-layer protection & authentic optical fabric transfer:
+       1. BFS flood-fill background mask from image borders (studio wall & floor).
+       2. YCbCr + RGB skin classifier (model face, neck, nape, arms).
+       3. Hair tone protection (upper head region).
+       4. Shiv-Naresh HD Logo protection (white/reflective/red embroidery preserved).
+       5. 3D Luminance & Texture preservation:
+          - Deep Dark / Carbon Black: preserves 3D creases & satin sheen at true tL (~0.09)
+          - Pure White: preserves realistic shading without turning muddy grey
+          - Saturated Colors: transfers full vivid saturation (Shiv-Naresh Red, Navy, Gold)
      ---------------------------------------------------------------- */
   const recolorCanvas = (
     sourceImg: HTMLImageElement,
@@ -755,12 +760,11 @@ export default function ColorSwapStudio({
     // Build studio background mask (BFS from borders)
     const bgMask = protectBackground ? buildBackgroundMask(data, W, H) : null;
 
-    // Spatial garment zone — pixels outside this box are never touched.
-    // Garments occupy the central ~76% width and middle 82% height of fashion photos.
-    const zoneLeft   = Math.round(W * 0.12);
-    const zoneRight  = Math.round(W * 0.88);
-    const zoneTop    = Math.round(H * 0.08);
-    const zoneBottom = Math.round(H * 0.92);
+    // Outer edge boundary guard (skip 3% margin to protect studio backdrop edge artifacts)
+    const zoneLeft = Math.round(W * 0.03);
+    const zoneRight = Math.round(W * 0.97);
+    const zoneTop = Math.round(H * 0.03);
+    const zoneBottom = Math.round(H * 0.97);
 
     const [srcR, srcG, srcB] = hexToRgb(srcHex);
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
@@ -769,8 +773,7 @@ export default function ColorSwapStudio({
 
     const isSrcSkin = isSkinPixel(srcR, srcG, srcB);
     const isSrcNeutral = sS < 0.15;
-    // For neutral fabrics: squared Euclidean distance threshold (tighter)
-    const neutralMaxDistSq = (tol * 1.1) ** 2;
+    const neutralMaxDistSq = (tol * 1.25) ** 2;
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -778,35 +781,48 @@ export default function ColorSwapStudio({
         const a = data[i + 3];
         if (a < 50) continue;
 
-        // Spatial garment zone guard — skip outer margins entirely
+        // Skip outer frame borders
         if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
 
         const pIdx = y * W + x;
 
-        // Studio background guard
+        // 1. Studio Background Guard: Never recolor studio backdrop
         if (protectBackground && bgMask && bgMask[pIdx] === 1) continue;
 
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
 
-        // Skin guard: skip human skin pixels (face/neck/arms)
+        // 2. Skin Guard: Never recolor face, neck, nape, ears, arms
         if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
 
         const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
+
+        // 3. Hair Guard: In upper third, preserve natural hair tones
+        if (y < H * 0.32 && x > W * 0.22 && x < W * 0.78) {
+          if (pL < 0.25 && sL > 0.35) continue;
+        }
+
+        // 4. Shiv-Naresh HD Logo Guard:
+        // Protect white embroidery / reflective transfer text, or contrasting red logo
+        if (protectLogos) {
+          if (sL < 0.82 && pL > 0.89 && pS < 0.15) continue;
+          if (sS < 0.40 && pS > 0.65 && (pH > 340 || pH < 20)) continue;
+        }
+
         let match = 0;
 
         if (!isSrcNeutral) {
-          // Saturated garment (red, navy, green, blue…)
+          // Saturated garment fabric (Red, Navy, Blue, Green, Gold, etc.)
           const dh = Math.abs(pH - sH);
           const hueDist = Math.min(dh, 360 - dh);
           if (hueDist < tol && pS > 0.10) {
             match = Math.max(0, 1 - hueDist / tol);
           }
         } else {
-          // Neutral garment (grey, beige, white, black)
+          // Neutral garment fabric (Grey, Beige, White, Black)
           const lumDiff = Math.abs(pL - sL);
-          if (lumDiff < 0.18) {
+          if (lumDiff < 0.26) {
             const dDistSq = 0.3 * (r - srcR) ** 2 + 0.59 * (g - srcG) ** 2 + 0.11 * (b - srcB) ** 2;
             if (dDistSq < neutralMaxDistSq) {
               match = Math.max(0, 1 - Math.sqrt(dDistSq) / Math.sqrt(neutralMaxDistSq));
@@ -815,12 +831,31 @@ export default function ColorSwapStudio({
         }
 
         if (match > 0) {
+          // 5. Authentic Fabric Luminance & Texture Transfer
+          const normL = pL / Math.max(0.06, sL);
+          let newL: number;
+          if (tL < 0.25) {
+            // Deep Dark / Carbon Black spectrum:
+            // Base drops to true carbon black (~0.08..0.12),
+            // while preserving realistic 3D shadow creases (normL < 1) and satin highlights (normL > 1)
+            newL = tL * Math.pow(normL, 1.25) + lOff;
+          } else if (tL > 0.78) {
+            // Pure White spectrum:
+            // Base rises to clean athletic white (~0.92..0.98), preserving natural shadow depth
+            newL = 1 - (1 - tL) * (2 - Math.min(1.8, normL)) + lOff;
+          } else {
+            // Midtone spectrum (Athletic Red, Olympic Navy, Royal Blue, Olive Green, Canary Gold):
+            // Flat cloth precisely hits target color, folds and highlights reflect natural light
+            newL = tL + (pL - sL) * 0.82 + lOff;
+          }
+          newL = Math.min(1, Math.max(0, newL));
+
+          // Saturation: direct transfer of target saturation so Athletic Red, Navy, Gold are 100% authentic
+          const newS = Math.min(1, Math.max(0, tS * sMult));
           const newH = tH;
-          const newS = tS === 0 ? 0 : Math.min(1, Math.max(0, tS * (pS / Math.max(0.15, sS)) * sMult));
-          const newL = Math.min(1, Math.max(0, pL + (tL - sL) * 0.78 + lOff));
 
           const [resR, resG, resB] = hslToRgb(newH, newS, newL);
-          data[i]     = Math.round(r * (1 - match) + resR * match);
+          data[i] = Math.round(r * (1 - match) + resR * match);
           data[i + 1] = Math.round(g * (1 - match) + resG * match);
           data[i + 2] = Math.round(b * (1 - match) + resB * match);
         }
@@ -831,11 +866,17 @@ export default function ColorSwapStudio({
     return canvas.toDataURL('image/jpeg', 0.95);
   };
 
-  // Run Batch Color Swap on All Selected Images
+  // Run Batch Color Swap on All Selected Images (ID-Based Multi-Pose Selection)
   const handleExecuteBatchColorSwap = async () => {
-    const urlsToProcess = selectedUrls.size > 0 ? Array.from(selectedUrls) : activeImage ? [activeImage.url] : [];
-    if (urlsToProcess.length === 0) {
-      setError('Please select at least one image to perform color swap.');
+    let itemsToProcess: ImageItem[] = [];
+    if (selectedIds.size > 0) {
+      itemsToProcess = allImages.filter((img) => selectedIds.has(img.id));
+    }
+    if (itemsToProcess.length === 0 && activeImage) {
+      itemsToProcess = [activeImage];
+    }
+    if (itemsToProcess.length === 0) {
+      setError('Please select at least one image or pose to perform color swap.');
       return;
     }
 
@@ -843,12 +884,11 @@ export default function ColorSwapStudio({
     const newResults: RecolorResult[] = [];
 
     try {
-      for (let i = 0; i < urlsToProcess.length; i++) {
-        const currentUrl = urlsToProcess[i];
-        const item = allImages.find((img) => img.url === currentUrl);
-        setProgressMsg(`Swapping color ${i + 1} of ${urlsToProcess.length}…`);
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        const item = itemsToProcess[i];
+        setProgressMsg(`Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
-        const loadedImg = await loadSafeCanvasImage(currentUrl);
+        const loadedImg = await loadSafeCanvasImage(item.url);
         const recoloredDataUrl = recolorCanvas(
           loadedImg,
           sourceHex,
@@ -860,21 +900,27 @@ export default function ColorSwapStudio({
 
         if (recoloredDataUrl) {
           const resItem: RecolorResult = {
-            id: 'recolor_' + Date.now().toString(36) + '_' + i,
-            sourceUrl: currentUrl,
+            id: 'recolor_' + item.id + '_' + Date.now().toString(36) + '_' + i,
+            sourceUrl: item.url,
             recoloredUrl: recoloredDataUrl,
             targetHex,
             targetName: getColorName(targetHex),
-            title: (item?.title || 'Garment') + ` (${getColorName(targetHex)})`,
+            title: item.title + ` (${getColorName(targetHex)})`,
             timestamp: Date.now(),
           };
           newResults.push(resItem);
         }
       }
 
-      setRecolorResults((prev) => [...newResults, ...prev]);
+      setRecolorResults((prev) => {
+        // Filter out identical previous results for same item & target color to prevent duplicate pose clones
+        const filtered = prev.filter(
+          (p) => !newResults.some((n) => n.sourceUrl === p.sourceUrl && n.targetHex === p.targetHex)
+        );
+        return [...newResults, ...filtered];
+      });
 
-      // Update live preview canvas with recolored active image
+      // Update live preview canvas with first recolored image
       if (newResults[0] && previewCanvasRef.current) {
         const prevImg = await loadSafeCanvasImage(newResults[0].recoloredUrl);
         const ctx = previewCanvasRef.current.getContext('2d');
@@ -885,7 +931,7 @@ export default function ColorSwapStudio({
         }
       }
 
-      showToast(`🎉 Success! Generated ${newResults.length} color variants.`);
+      showToast(`🎉 Success! Recolored ${newResults.length} pose(s) to ${getColorName(targetHex)}.`);
     } catch (err: any) {
       console.error('[BatchColorSwap] Error:', err);
       setError('Color swap failed: ' + (err?.message || err));
@@ -1046,7 +1092,7 @@ export default function ColorSwapStudio({
                 <span>Select Images ({filteredImages.length})</span>
               </span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                {selectedUrls.size} Selected
+                {selectedIds.size} Selected
               </span>
             </div>
 
@@ -1125,17 +1171,20 @@ export default function ColorSwapStudio({
                 </div>
               ) : (
                 filteredImages.map((img) => {
-                  const isChecked = selectedUrls.has(img.url);
-                  const isActive = activeImage?.url === img.url;
+                  const isChecked = selectedIds.has(img.id);
+                  const isActive = activeImage?.id === img.id;
                   return (
                     <div
                       key={img.id}
                       onClick={() => {
                         setActiveImage(img);
+                        toggleSelectImage(img.id);
                       }}
                       className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${
                         isActive
                           ? 'border-[#e5373f] ring-1 ring-[#e5373f] bg-[#e5373f]/10'
+                          : isChecked
+                          ? 'border-emerald-500/50 bg-emerald-500/5'
                           : isLight
                           ? 'border-gray-200 bg-gray-50 hover:bg-gray-100'
                           : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80'
@@ -1145,7 +1194,7 @@ export default function ColorSwapStudio({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleSelectImage(img.url);
+                          toggleSelectImage(img.id);
                         }}
                         className="p-1 rounded cursor-pointer"
                       >
@@ -1544,9 +1593,9 @@ export default function ColorSwapStudio({
                     <span>
                       {isProcessing
                         ? progressMsg || 'Processing…'
-                        : selectedUrls.size > 1
-                        ? `⚡ Recolor All ${selectedUrls.size} Selected Images (1 Click)`
-                        : `⚡ Color Swap Active Image (0 Credits)`}
+                        : selectedIds.size > 1
+                        ? `⚡ Recolor All ${selectedIds.size} Selected Models / Poses (1 Click)`
+                        : `⚡ Color Swap Active Model (0 Credits)`}
                     </span>
                   </button>
                 </div>
