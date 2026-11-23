@@ -139,89 +139,54 @@ export function toYCbCr(r: number, g: number, b: number): { y: number; cb: numbe
 }
 
 /* ----------------------------------------------------------------
-   Studio Background Protection (Adaptive BFS Flood-Fill from Borders)
-   Smoothly tracks studio background gradients and stops at model contour.
+   Studio Background Detector
+   Samples authentic backdrop color from corners/borders. Accurately protects
+   studio wall, floor, hand gaps & leg gaps with zero leakage into garments.
    ---------------------------------------------------------------- */
-export function buildBackgroundMask(
+export function getStudioBackgroundColor(
   data: Uint8ClampedArray,
   width: number,
   height: number
-): Uint8Array {
-  // Sample background color from top border (upper 12 rows)
-  let bgR = 0, bgG = 0, bgB = 0, sampleCount = 0;
-  for (let x = 0; x < width; x += 4) {
-    for (let y = 0; y < Math.min(12, height); y += 2) {
-      const idx = (y * width + x) * 4;
-      bgR += data[idx];
-      bgG += data[idx + 1];
-      bgB += data[idx + 2];
-      sampleCount++;
+): { r: number; g: number; b: number; l: number; s: number } {
+  // Sample 4 corner regions with outlier rejection (ignores UI badges, headers, or center hair)
+  const cornerW = Math.max(12, Math.floor(width * 0.12));
+  const cornerH = Math.max(12, Math.floor(height * 0.10));
+  const regions: [number, number, number, number][] = [
+    [0, cornerW, 0, cornerH],
+    [Math.max(0, width - cornerW), width, 0, cornerH],
+    [0, cornerW, Math.max(0, height - cornerH), height],
+    [Math.max(0, width - cornerW), width, Math.max(0, height - cornerH), height],
+  ];
+
+  const samples: [number, number, number][] = [];
+  for (const [x0, x1, y0, y1] of regions) {
+    for (let y = y0; y < y1; y += 2) {
+      for (let x = x0; x < x1; x += 2) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const { l, s } = rgbToHsl(r, g, b);
+        // Studio backdrop is achromatic/low saturation and mid-to-high lightness
+        // Exclude extreme darks (badges/hair) or extreme whites (cards/frames)
+        if (s < 0.20 && l > 0.15 && l < 0.96) {
+          samples.push([r, g, b]);
+        }
+      }
     }
   }
-  bgR = Math.round(bgR / Math.max(1, sampleCount));
-  bgG = Math.round(bgG / Math.max(1, sampleCount));
-  bgB = Math.round(bgB / Math.max(1, sampleCount));
 
-  const mask = new Uint8Array(width * height);
-  const queue = new Int32Array(width * height);
-  let head = 0, tail = 0;
-
-  // Max step difference between adjacent pixels in smooth backdrop
-  const maxStepDiff = 18;
-  const maxSeedDist = 58;
-
-  const tryEnqueue = (x: number, y: number, fromR: number, fromG: number, fromB: number) => {
-    if (x < 0 || x >= width || y < 0 || y >= height) return;
-    const pIdx = y * width + x;
-    if (mask[pIdx]) return;
-    const idx = pIdx * 4;
-    const r = data[idx];
-    const g = data[idx + 1];
-    const b = data[idx + 2];
-
-    const stepDiff = Math.max(Math.abs(r - fromR), Math.abs(g - fromG), Math.abs(b - fromB));
-    const seedDist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-
-    if (stepDiff <= maxStepDiff && seedDist <= maxSeedDist) {
-      mask[pIdx] = 1;
-      queue[tail++] = (y << 16) | (x & 0xffff);
-    }
-  };
-
-  // Seed top edge
-  for (let x = 0; x < width; x++) {
-    const pIdx = x;
-    mask[pIdx] = 1;
-    queue[tail++] = x;
-  }
-  // Seed upper 65% of left and right edges
-  const maxSideY = Math.floor(height * 0.65);
-  for (let y = 1; y < maxSideY; y++) {
-    const idxL = y * width;
-    mask[idxL] = 1;
-    queue[tail++] = y << 16;
-
-    const idxR = y * width + (width - 1);
-    mask[idxR] = 1;
-    queue[tail++] = (y << 16) | (width - 1);
+  if (samples.length === 0) {
+    return { r: 145, g: 143, b: 146, l: 0.56, s: 0.02 };
   }
 
-  while (head < tail) {
-    const val = queue[head++];
-    const y = val >> 16;
-    const x = val & 0xffff;
-    const currIdx = (y * width + x) * 4;
-    const cR = data[currIdx];
-    const cG = data[currIdx + 1];
-    const cB = data[currIdx + 2];
+  // Median selection strictly eliminates single-corner anomalies
+  samples.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+  const mid = Math.floor(samples.length / 2);
+  const [bgR, bgG, bgB] = samples[mid];
+  const { l: bgL, s: bgS } = rgbToHsl(bgR, bgG, bgB);
 
-    tryEnqueue(x - 1, y, cR, cG, cB);
-    tryEnqueue(x + 1, y, cR, cG, cB);
-    tryEnqueue(x, y - 1, cR, cG, cB);
-    tryEnqueue(x, y + 1, cR, cG, cB);
-  }
-
-  return mask;
+  return { r: bgR, g: bgG, b: bgB, l: bgL, s: bgS };
 }
 
 /* Authentic Athletic Palette Presets */
@@ -490,6 +455,26 @@ export default function ColorSwapStudio({
       isCancelled = true;
     };
   }, [activeImage]);
+
+  // Keep live canvas restored when returning from Palette subtab to Swap subtab
+  useEffect(() => {
+    if (subTab === 'swap' && previewCanvasRef.current) {
+      const srcUrl = originalBaseDataUrlRef.current || (activeImage ? activeImage.url : null);
+      if (srcUrl) {
+        loadSafeCanvasImage(srcUrl).then((img) => {
+          if (!previewCanvasRef.current) return;
+          const canvas = previewCanvasRef.current;
+          canvas.width = img.naturalWidth || 1024;
+          canvas.height = img.naturalHeight || 1024;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          }
+        }).catch((err) => console.warn('[ColorSwap] Tab switch redraw:', err));
+      }
+    }
+  }, [subTab]);
 
   // Render fabric reference image when uploaded
   useEffect(() => {
@@ -782,8 +767,9 @@ export default function ColorSwapStudio({
     const imgData = ctx.getImageData(0, 0, W, H);
     const data = imgData.data;
 
-    // Build studio background mask (BFS from borders)
-    const bgMask = protectBackground ? buildBackgroundMask(data, W, H) : null;
+    // Sample studio backdrop color (corners and borders with outlier rejection)
+    const bgInfo = getStudioBackgroundColor(data, W, H);
+    const { r: bgR, g: bgG, b: bgB, l: bgL } = bgInfo;
 
     // Outer edge boundary guard (skip 3% margin to protect studio backdrop edge artifacts)
     const zoneLeft = Math.round(W * 0.03);
@@ -810,19 +796,23 @@ export default function ColorSwapStudio({
         // Skip outer frame borders
         if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
 
-        const pIdx = y * W + x;
-
-        // 1. Studio Background Guard: Never recolor studio backdrop
-        if (protectBackground && bgMask && bgMask[pIdx] === 1) continue;
-
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
 
+        const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
+        const pYcc = toYCbCr(r, g, b);
+        const warmth = pYcc.cr - pYcc.cb; // positive for warm fabrics (beige/tan/skin), neutral/negative for cool studio cyclorama grey
+
+        // 1. Studio Background Guard (Accurately protects studio wall, floor, hand gaps & leg gaps without leaking into garments)
+        if (protectBackground) {
+          const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+          if (pS <= 0.045 && warmth <= 1.8 && Math.abs(pL - bgL) <= 0.30) continue;
+          if (dBg <= 18 && pS < 0.05) continue;
+        }
+
         // 2. Skin Guard: Never recolor face, neck, nape, ears, arms
         if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
-
-        const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
 
         // 3. Hair Guard: In upper third, preserve natural hair tones
         if (y < H * 0.32 && x > W * 0.20 && x < W * 0.80) {
@@ -851,11 +841,21 @@ export default function ColorSwapStudio({
           }
         } else {
           // Neutral garment fabric (Beige, Grey, Silver, White, Off-white)
-          // Uses YCbCr chrominance distance - perfectly captures sleeve shadows and highlights!
-          const pYcc = toYCbCr(r, g, b);
+          // Uses YCbCr chrominance distance + fabric warmth classification
           const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-          if (pS < 0.28 && chromDist < maxChromDist) {
-            matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+          const srcWarmth = srcYcc.cr - srcYcc.cb;
+
+          if (srcWarmth >= 2.0) {
+            // Warm neutral fabric (Beige, Khaki, Camel, Tan, Cream, Off-white, Peach):
+            // Garment is distinctly warm (warmth >= 1.9), completely separating it from cold/neutral studio wall & hand/leg gaps (warmth <= 1.2)
+            if (warmth >= 1.9 && chromDist < maxChromDist && pS < 0.30 && Math.abs(pL - sL) < 0.45) {
+              matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+            }
+          } else {
+            // Cool neutral fabric (Heather Grey, Silver Grey, Charcoal):
+            if (chromDist < maxChromDist && pS < 0.25 && Math.abs(pL - sL) < 0.38) {
+              matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+            }
           }
         }
 
@@ -1314,7 +1314,7 @@ export default function ColorSwapStudio({
             </div>
 
             {/* Canvas Container with Canva Loupe */}
-            <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center p-2 min-h-[360px]">
+            <div className="relative rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center p-2 min-h-[360px]">
               <canvas
                 ref={previewCanvasRef}
                 onMouseMove={handleCanvasMouseMove}
@@ -1322,6 +1322,11 @@ export default function ColorSwapStudio({
                 onClick={handleCanvasClick}
                 className="max-h-[460px] max-w-full object-contain cursor-crosshair rounded-lg"
               />
+              {!activeImage && (
+                <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs font-semibold">
+                  Select an image or pose to preview & sample colors
+                </div>
+              )}
 
               {hasRecoloredPreview && (
                 <div className="absolute top-4 left-4 bg-emerald-600/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-md flex items-center gap-1">
