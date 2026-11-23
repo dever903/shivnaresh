@@ -725,10 +725,12 @@ export default function ColorSwapStudio({
   };
 
   /* ----------------------------------------------------------------
-     Core Recolor Algorithm with Skin & Studio Background Protection
-     - Preserves human skin (face, neck, hands, arms)
-     - Preserves studio backdrop (grey/white floor and wall)
-     - Shifts fabric hue and chroma while preserving 3D folds
+     Core Recolor Algorithm — Garment-Only Precision
+     3-layer protection:
+       1. BFS flood-fill background mask from image borders.
+       2. YCbCr + RGB skin classifier (face, neck, nape, arms).
+       3. Spatial garment zone — outer margins are NEVER recolored
+          (catches floor shadows, edge bleed, studio walls at edges).
      ---------------------------------------------------------------- */
   const recolorCanvas = (
     sourceImg: HTMLImageElement,
@@ -738,18 +740,27 @@ export default function ColorSwapStudio({
     lOff: number,
     sMult: number
   ): string => {
+    const W = sourceImg.naturalWidth || 1024;
+    const H = sourceImg.naturalHeight || 1024;
     const canvas = document.createElement('canvas');
-    canvas.width = sourceImg.naturalWidth || 1024;
-    canvas.height = sourceImg.naturalHeight || 1024;
+    canvas.width = W;
+    canvas.height = H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    ctx.drawImage(sourceImg, 0, 0, canvas.width, canvas.height);
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(sourceImg, 0, 0, W, H);
+    const imgData = ctx.getImageData(0, 0, W, H);
     const data = imgData.data;
 
-    // Precompute Studio Background Mask if background protection is enabled
-    const bgMask = protectBackground ? buildBackgroundMask(data, canvas.width, canvas.height) : null;
+    // Build studio background mask (BFS from borders)
+    const bgMask = protectBackground ? buildBackgroundMask(data, W, H) : null;
+
+    // Spatial garment zone — pixels outside this box are never touched.
+    // Garments occupy the central ~76% width and middle 82% height of fashion photos.
+    const zoneLeft   = Math.round(W * 0.12);
+    const zoneRight  = Math.round(W * 0.88);
+    const zoneTop    = Math.round(H * 0.08);
+    const zoneBottom = Math.round(H * 0.92);
 
     const [srcR, srcG, srcB] = hexToRgb(srcHex);
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
@@ -757,61 +768,62 @@ export default function ColorSwapStudio({
     const { h: tH, s: tS, l: tL } = rgbToHsl(tgtR, tgtG, tgtB);
 
     const isSrcSkin = isSkinPixel(srcR, srcG, srcB);
+    const isSrcNeutral = sS < 0.15;
+    // For neutral fabrics: squared Euclidean distance threshold (tighter)
+    const neutralMaxDistSq = (tol * 1.1) ** 2;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const a = data[i + 3];
-      if (a < 50) continue;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const a = data[i + 3];
+        if (a < 50) continue;
 
-      const pIdx = i / 4;
+        // Spatial garment zone guard — skip outer margins entirely
+        if (x < zoneLeft || x > zoneRight || y < zoneTop || y > zoneBottom) continue;
 
-      // 1. Studio Background Protection: Never recolor studio backdrop
-      if (protectBackground && bgMask && bgMask[pIdx] === 1) {
-        continue;
-      }
+        const pIdx = y * W + x;
 
-      // 2. Human Skin Protection: Never recolor face, neck, nape, arms
-      if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) {
-        continue;
-      }
+        // Studio background guard
+        if (protectBackground && bgMask && bgMask[pIdx] === 1) continue;
 
-      const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
-      // 3. Match Confidence Calculation
-      const dh = Math.abs(pH - sH);
-      const hueDist = Math.min(dh, 360 - dh);
-      let match = 0;
+        // Skin guard: skip human skin pixels (face/neck/arms)
+        if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
 
-      if (sS > 0.15) {
-        // Saturated fabric (Red, Blue, Navy, Green, Gold, etc.)
-        if (hueDist < tol && pS > 0.12) {
-          match = Math.max(0, 1 - hueDist / tol);
-        }
-      } else {
-        // Neutral fabric (Grey, Beige, White, Black)
-        // Require tighter spatial & luminance bounds to prevent backdrop bleeding
-        const lumDiff = Math.abs(pL - sL);
-        if (lumDiff < 0.22) {
-          const dDist = Math.sqrt(0.3 * (r - srcR) ** 2 + 0.59 * (g - srcG) ** 2 + 0.11 * (b - srcB) ** 2);
-          const maxTolDist = tol * 1.5;
-          if (dDist < maxTolDist) {
-            match = Math.max(0, 1 - dDist / maxTolDist);
+        const { h: pH, s: pS, l: pL } = rgbToHsl(r, g, b);
+        let match = 0;
+
+        if (!isSrcNeutral) {
+          // Saturated garment (red, navy, green, blue…)
+          const dh = Math.abs(pH - sH);
+          const hueDist = Math.min(dh, 360 - dh);
+          if (hueDist < tol && pS > 0.10) {
+            match = Math.max(0, 1 - hueDist / tol);
+          }
+        } else {
+          // Neutral garment (grey, beige, white, black)
+          const lumDiff = Math.abs(pL - sL);
+          if (lumDiff < 0.18) {
+            const dDistSq = 0.3 * (r - srcR) ** 2 + 0.59 * (g - srcG) ** 2 + 0.11 * (b - srcB) ** 2;
+            if (dDistSq < neutralMaxDistSq) {
+              match = Math.max(0, 1 - Math.sqrt(dDistSq) / Math.sqrt(neutralMaxDistSq));
+            }
           }
         }
-      }
 
-      // 4. Color Transformation preserving folds and texture
-      if (match > 0) {
-        const newH = tH;
-        const newS = tS === 0 ? 0 : Math.min(1, Math.max(0, tS * (pS / Math.max(0.18, sS)) * sMult));
-        const newL = Math.min(1, Math.max(0, pL + (tL - sL) * 0.75 + lOff));
+        if (match > 0) {
+          const newH = tH;
+          const newS = tS === 0 ? 0 : Math.min(1, Math.max(0, tS * (pS / Math.max(0.15, sS)) * sMult));
+          const newL = Math.min(1, Math.max(0, pL + (tL - sL) * 0.78 + lOff));
 
-        const [resR, resG, resB] = hslToRgb(newH, newS, newL);
-        data[i] = Math.round(r * (1 - match) + resR * match);
-        data[i + 1] = Math.round(g * (1 - match) + resG * match);
-        data[i + 2] = Math.round(b * (1 - match) + resB * match);
+          const [resR, resG, resB] = hslToRgb(newH, newS, newL);
+          data[i]     = Math.round(r * (1 - match) + resR * match);
+          data[i + 1] = Math.round(g * (1 - match) + resG * match);
+          data[i + 2] = Math.round(b * (1 - match) + resB * match);
+        }
       }
     }
 
@@ -1177,95 +1189,96 @@ export default function ColorSwapStudio({
 
         {/* Right 8-Cols: Interactive Studio Workspace */}
         <div className="lg:col-span-8 space-y-6">
-          {subTab === 'swap' ? (
-            /* SUB-TAB 1: Batch Color Swap Engine */
-            <div className="space-y-6">
-              {/* Interactive Canvas & Eyedropper Workspace */}
-              <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Live Garment Preview & Eyedropper</span>
-                    </span>
-                    <span className="text-[10px] opacity-70">
-                      (Click fabric to sample source color)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* RESTORE ORIGINAL LOOK / UNDO BUTTON */}
-                    <button
-                      type="button"
-                      onClick={handleRestoreOriginalLook}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer flex items-center gap-1 transition"
-                      title="Undo color swap and restore original image look"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>↩️ Restore Original Look</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleAutoDetectGarmentColor}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      <span>Auto-Detect</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleNativeEyedropper('source')}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1"
-                    >
-                      <Pipette className="w-3 h-3 text-sky-400" />
-                      <span>Desktop Eyedropper</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Canvas Container with Canva Loupe */}
-                <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center p-2 min-h-[360px]">
-                  <canvas
-                    ref={previewCanvasRef}
-                    onMouseMove={handleCanvasMouseMove}
-                    onMouseLeave={handleCanvasMouseLeave}
-                    onClick={handleCanvasClick}
-                    className="max-h-[460px] max-w-full object-contain cursor-crosshair rounded-lg"
-                  />
-
-                  {/* Notification badge if recolored */}
-                  {hasRecoloredPreview && (
-                    <div className="absolute top-4 left-4 bg-emerald-600/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-md flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      <span>Recolored View Active</span>
-                    </div>
-                  )}
-
-                  {/* Canva Magnifying Loupe Following Cursor */}
-                  {loupePos && hoveredColor && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: `${loupePos.x + 18}px`,
-                        top: `${loupePos.y - 40}px`,
-                        pointerEvents: 'none',
-                        zIndex: 30,
-                      }}
-                      className="flex items-center gap-2 bg-black/95 text-white px-2.5 py-1.5 rounded-xl border border-white/30 shadow-2xl backdrop-blur-md"
-                    >
-                      <span
-                        className="w-5 h-5 rounded-full border border-white shadow-inner shrink-0"
-                        style={{ backgroundColor: hoveredColor.hex }}
-                      />
-                      <div className="text-[10px] font-mono leading-tight">
-                        <p className="font-bold">{hoveredColor.hex}</p>
-                        <p className="opacity-70 text-[8px]">{getColorName(hoveredColor.hex)}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {/* ----------------------------------------------------------------
+              PERSISTENT CANVAS — always rendered, hidden via CSS when on
+              Palette tab so canvas content survives tab switches (no black).
+              ---------------------------------------------------------------- */}
+          <div className={`rounded-2xl border p-4 ${subTab === 'palette' ? 'hidden' : ''} ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Live Garment Preview & Eyedropper</span>
+                </span>
+                <span className="text-[10px] opacity-70">
+                  (Click fabric to sample source color)
+                </span>
               </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRestoreOriginalLook}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer flex items-center gap-1 transition"
+                  title="Undo color swap and restore original image look"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>↩️ Restore Original Look</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAutoDetectGarmentColor}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span>Auto-Detect</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNativeEyedropper('source')}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer flex items-center gap-1"
+                >
+                  <Pipette className="w-3 h-3 text-sky-400" />
+                  <span>Desktop Eyedropper</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Canvas Container with Canva Loupe */}
+            <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center p-2 min-h-[360px]">
+              <canvas
+                ref={previewCanvasRef}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={handleCanvasMouseLeave}
+                onClick={handleCanvasClick}
+                className="max-h-[460px] max-w-full object-contain cursor-crosshair rounded-lg"
+              />
+
+              {hasRecoloredPreview && (
+                <div className="absolute top-4 left-4 bg-emerald-600/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-md flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  <span>Recolored View Active</span>
+                </div>
+              )}
+
+              {loupePos && hoveredColor && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${loupePos.x + 18}px`,
+                    top: `${loupePos.y - 40}px`,
+                    pointerEvents: 'none',
+                    zIndex: 30,
+                  }}
+                  className="flex items-center gap-2 bg-black/95 text-white px-2.5 py-1.5 rounded-xl border border-white/30 shadow-2xl backdrop-blur-md"
+                >
+                  <span
+                    className="w-5 h-5 rounded-full border border-white shadow-inner shrink-0"
+                    style={{ backgroundColor: hoveredColor.hex }}
+                  />
+                  <div className="text-[10px] font-mono leading-tight">
+                    <p className="font-bold">{hoveredColor.hex}</p>
+                    <p className="opacity-70 text-[8px]">{getColorName(hoveredColor.hex)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {subTab === 'swap' ? (
+            /* SUB-TAB 1: Batch Color Swap Controls (canvas moved above) */
+            <div className="space-y-6">
 
               {/* ----------------------------------------------------------------
                   SIMPLIFIED 2-OPTION CONTROL DECK
