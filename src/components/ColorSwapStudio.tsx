@@ -847,9 +847,11 @@ export default function ColorSwapStudio({
 
           if (srcWarmth >= 2.0) {
             // Warm neutral fabric (Beige, Khaki, Camel, Tan, Cream, Off-white, Peach):
-            // Garment is distinctly warm (warmth >= 1.9), completely separating it from cold/neutral studio wall & hand/leg gaps (warmth <= 1.2)
-            if (warmth >= 1.9 && chromDist < maxChromDist && pS < 0.30 && Math.abs(pL - sL) < 0.45) {
-              matchStrength = chromDist < maxChromDist * 0.70 ? 1.0 : Math.max(0, (maxChromDist - chromDist) / (maxChromDist * 0.30));
+            // Smoothly match fabric including folds, seams, and zipper glints down to warmth >= 1.2
+            if (warmth >= 1.2 && chromDist < maxChromDist * 1.15 && Math.abs(pL - sL) < 0.52) {
+              const wScore = Math.min(1.0, Math.max(0.0, (warmth - 1.1) / 0.7));
+              const cScore = Math.min(1.0, Math.max(0.0, (maxChromDist * 1.15 - chromDist) / (maxChromDist * 0.35)));
+              matchStrength = wScore * cScore;
             }
           } else {
             // Cool neutral fabric (Heather Grey, Silver Grey, Charcoal):
@@ -859,28 +861,50 @@ export default function ColorSwapStudio({
           }
         }
 
-        if (matchStrength > 0) {
-          // 6. Authentic Fabric Luminance & Texture Transfer
-          const normL = pL / Math.max(0.06, sL);
+        if (matchStrength > 0.02) {
+          // 6. Photorealistic Fabric Texture, Crease & Zipper Luminance Transfer
+          const pY = 0.299 * r + 0.587 * g + 0.114 * b;
+          const sY = 0.299 * srcR + 0.587 * srcG + 0.114 * srcB;
+          const deltaY = (pY - sY) / Math.max(10.0, sY); // Relative high-frequency contrast signal [-0.6 .. +0.6]
+
           let newL: number;
           if (tL < 0.22) {
             // Deep Dark / Carbon Black spectrum:
-            // Base drops to true carbon black (~0.08..0.12),
-            // while preserving realistic 3D shadow creases (normL < 1) and satin highlights (normL > 1)
-            newL = tL * Math.pow(normL, 1.25) + lOff;
+            // Base drops to authentic rich athletic black (~0.13..0.15, RGB 33..38)
+            // Fold creases (deltaY < 0) drop to deep shadow (~0.07..0.12, RGB 18..30)
+            // Fabric sheen, seams, and zipper teeth (deltaY > 0) rise with specular clarity (~0.20..0.48, RGB 50..125)
+            const lBase = Math.max(0.13, tL * 1.35);
+            if (deltaY <= 0) {
+              newL = lBase * (1.0 + deltaY * 0.72) + lOff;
+            } else {
+              const specularBoost = Math.pow(Math.max(0, deltaY - 0.16), 1.3) * 0.45;
+              newL = lBase + deltaY * 0.60 + specularBoost + lOff;
+            }
           } else if (tL > 0.78) {
             // Pure White spectrum:
-            // Base rises to clean athletic white (~0.92..0.98), preserving natural shadow depth
-            newL = 1 - (1 - tL) * (2 - Math.min(1.8, normL)) + lOff;
+            // Base rises to clean athletic white (~0.91..0.95), preserving fold depth without turning muddy
+            const lBase = Math.min(0.93, 0.88 + tL * 0.06);
+            if (deltaY <= 0) {
+              newL = lBase + deltaY * 0.65 + lOff;
+            } else {
+              newL = lBase + deltaY * 0.15 + lOff;
+            }
           } else {
-            // Midtone spectrum (Athletic Red, Olympic Navy, Royal Blue, Olive Green, Canary Gold):
-            // Flat cloth precisely hits target color, folds and highlights reflect natural light
-            newL = tL + (pL - sL) * 0.82 + lOff;
+            // Midtone spectrum (Athletic Red, Olympic Navy, Royal Blue, Olive Green, Canary Gold, Orange, Maroon):
+            // Flat cloth precisely hits target color, folds reflect natural light, zipper teeth stay sharp
+            if (deltaY <= 0) {
+              newL = tL + deltaY * Math.min(0.85, tL * 1.2) + lOff;
+            } else {
+              const specular = Math.pow(Math.max(0, deltaY - 0.20), 1.2) * 0.35;
+              newL = tL + deltaY * (1.0 - tL * 0.55) + specular + lOff;
+            }
           }
-          newL = Math.min(1, Math.max(0, newL));
+          newL = Math.min(0.96, Math.max(0.04, newL));
 
-          // Saturation: direct transfer of target saturation so Athletic Red, Navy, Gold are 100% authentic
-          const newS = Math.min(1, Math.max(0, tS * sMult));
+          // Specular Rolloff: High metallic/sheen glints (zipper teeth, nylon reflection)
+          // naturally reflect white studio softbox light, smoothly desaturating instead of harsh speckled dots
+          const specRolloff = Math.min(1.0, Math.max(0.0, (pL - 0.78) / 0.18));
+          const newS = Math.max(0.0, Math.min(1.0, tS * sMult * (1.0 - specRolloff * 0.65)));
           const newH = tH;
 
           const [resR, resG, resB] = hslToRgb(newH, newS, newL);
