@@ -3187,9 +3187,13 @@ app.post('/api/segment-garment', async (req, res) => {
       return res.status(400).json({ success: false, error: 'invalid_image', message: 'Could not resolve image file' });
     }
 
-    // Call local python human parser script
+    // Call local python human parser script with preferred Python 3.11 environment
+    const pyExe = process.env.PYTHON_PATH ||
+      (fsSync.existsSync('C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe')
+        ? 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python311\\python.exe'
+        : 'python');
     const scriptPath = path.join(__dirname, 'segment_garment.py');
-    const proc = spawnSync('python', [scriptPath, targetPath], {
+    const proc = spawnSync(pyExe, [scriptPath, targetPath], {
       encoding: 'utf8',
       maxBuffer: 50 * 1024 * 1024,
       timeout: 45000,

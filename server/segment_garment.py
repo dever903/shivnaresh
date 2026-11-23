@@ -3,8 +3,15 @@ import os
 import json
 import base64
 import io
+import subprocess
 import warnings
 warnings.filterwarnings("ignore")
+
+# Ensure Python 3.11 environment (with torch & transformers installed) is used
+PY311_EXE = r"C:\Users\DELL\AppData\Local\Programs\Python\Python311\python.exe"
+if os.path.exists(PY311_EXE) and sys.executable.lower() != PY311_EXE.lower():
+    res = subprocess.run([PY311_EXE] + sys.argv, check=False)
+    sys.exit(res.returncode)
 
 import torch
 import numpy as np
