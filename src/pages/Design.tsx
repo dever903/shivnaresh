@@ -62,6 +62,7 @@ import {
   type UserGeneration,
 } from '../lib/api';
 import { WatermarkRemoverContent } from './RemoveLogo';
+import ColorSwapStudio from '../components/ColorSwapStudio';
 
 type Pick = { url: string; name: string; preview?: string } | null;
 
@@ -972,7 +973,7 @@ function GarmentPhotoTourModal({
 /* ----------------------------------------------------------------
    Safe Image Loader for Canvas Operations (Zero Taint Guarantee)
    ---------------------------------------------------------------- */
-async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElement> {
+export async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElement> {
   const resolved = resolveImageUrl(rawUrl);
   if (!resolved) throw new Error('No image URL provided');
 
@@ -6924,10 +6925,11 @@ export default function Design() {
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
-  const [pageView, setPageView] = useState<'studio' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
+  const [pageView, setPageView] = useState<'studio' | 'color-swap' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
+      if (tab === 'color-swap') return 'color-swap';
       if (tab === 'watermark' || window.location.hash === '#watermark') return 'watermark';
       if (tab === 'video') return 'video';
       if (tab === 'my-sets') return 'my-sets';
@@ -10609,6 +10611,7 @@ export default function Design() {
           <div className="mx-auto flex max-w-6xl px-5 sm:px-8 gap-1 overflow-x-auto no-scrollbar">
             {[
               { id: 'studio', label: 'Studio Canvas' },
+              { id: 'color-swap', label: '🎨 Color Swap' },
               { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
               {
                 id: 'custom-requests',
@@ -10742,6 +10745,30 @@ export default function Design() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ============= COLOR SWAP & PALETTE STUDIO ============= */}
+      {pageView === 'color-swap' && (
+        <ColorSwapStudio
+          userGenerations={userGenerations}
+          isLight={isLight}
+          onSaveToMySets={async (dataUrl, folder, title) => {
+            try {
+              await api.saveUserGeneration({
+                url: dataUrl,
+                highResUrl: dataUrl,
+                folder,
+                isEdited: true,
+                title: title || `Color Variant (${folder})`,
+              });
+              loadUserGenerations();
+            } catch (err: any) {
+              setError('Failed to save color variant: ' + (err?.message || err));
+            }
+          }}
+          onRefreshGenerations={loadUserGenerations}
+          setError={(msg) => setError(msg || '')}
+        />
       )}
 
       {/* ============= MY SETS VIEW ============= */}
