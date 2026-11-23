@@ -970,6 +970,72 @@ function GarmentPhotoTourModal({
 }
 
 /* ----------------------------------------------------------------
+   Safe Image Loader for Canvas Operations (Zero Taint Guarantee)
+   ---------------------------------------------------------------- */
+async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElement> {
+  const resolved = resolveImageUrl(rawUrl);
+  if (!resolved) throw new Error('No image URL provided');
+
+  // 1. If already a data URL, load directly
+  if (resolved.startsWith('data:')) {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to load local data image'));
+      img.src = resolved;
+    });
+    return img;
+  }
+
+  // 2. Resolve candidates that can return image bytes
+  const proxied = getProxiedImageUrl(resolved);
+  const candidates: string[] = [];
+  if (proxied && proxied !== resolved) candidates.push(proxied);
+  const directProxy = `/api/proxy-image?url=${encodeURIComponent(resolved)}`;
+  if (!candidates.includes(directProxy)) candidates.push(directProxy);
+  if (!candidates.includes(resolved)) candidates.push(resolved);
+
+  for (const candidate of candidates) {
+    try {
+      const resp = await fetch(candidate, { mode: 'cors' });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (blob && blob.size > 0) {
+          // Convert Blob to pure Data URL via FileReader (guaranteed 100% same-origin, zero taint)
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Failed to decode data URL image'));
+            img.src = dataUrl;
+          });
+          return img;
+        }
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  // 3. Fallback: load directly with crossOrigin = 'anonymous' (NEVER without crossOrigin!)
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  const fallbackUrl = proxied || resolved;
+  const bustUrl = fallbackUrl.includes('?') ? `${fallbackUrl}&_cb=${Date.now()}` : `${fallbackUrl}?_cb=${Date.now()}`;
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('CORS security blocked image load for canvas export'));
+    img.src = bustUrl;
+  });
+  return img;
+}
+
+/* ----------------------------------------------------------------
    Zoom & Macro Crop Download Modal (Exact 1807 × 3000 px Export)
    ---------------------------------------------------------------- */
 function ZoomCropDownloadModal({
@@ -1054,40 +1120,12 @@ function ZoomCropDownloadModal({
   };
 
   const handleExportCrop = async () => {
-    const activeImg = resolveImageUrl(currentImage || imageUrl);
-    if (!activeImg || !viewportRef.current) return;
+    const rawTarget = currentImage || imageUrl;
+    if (!rawTarget || !viewportRef.current) return;
     setIsExporting(true);
     try {
-      // Load source image first to obtain its TRUE full intrinsic dimensions
-      const tempImg = new Image();
-      try {
-        tempImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve, reject) => {
-          tempImg.onload = () => resolve();
-          tempImg.onerror = () => reject(new Error('CORS image load failed'));
-          tempImg.src = activeImg;
-        });
-      } catch {
-        try {
-          const res = await fetch(activeImg);
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = blobUrl;
-          });
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-        } catch {
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = activeImg;
-          });
-        }
-      }
+      // Load clean, non-tainted image
+      const tempImg = await loadSafeCanvasImage(rawTarget);
 
       const viewport = viewportRef.current;
       const vRect = viewport.getBoundingClientRect();
@@ -1178,39 +1216,11 @@ function ZoomCropDownloadModal({
   };
 
   const handleApplyCropForGeneration = async () => {
-    const activeImg = resolveImageUrl(currentImage || imageUrl);
-    if (!activeImg || !viewportRef.current || !onUseCrop) return;
+    const rawTarget = currentImage || imageUrl;
+    if (!rawTarget || !viewportRef.current || !onUseCrop) return;
     setIsExporting(true);
     try {
-      const tempImg = new Image();
-      try {
-        tempImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve, reject) => {
-          tempImg.onload = () => resolve();
-          tempImg.onerror = () => reject(new Error('CORS image load failed'));
-          tempImg.src = activeImg;
-        });
-      } catch {
-        try {
-          const res = await fetch(activeImg);
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = blobUrl;
-          });
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-        } catch {
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = activeImg;
-          });
-        }
-      }
+      const tempImg = await loadSafeCanvasImage(rawTarget);
 
       const viewport = viewportRef.current;
       const vRect = viewport.getBoundingClientRect();
@@ -1285,39 +1295,11 @@ function ZoomCropDownloadModal({
   };
 
   const handleSaveCropToFolder = async (folder: 'ready' | 'edited') => {
-    const activeImg = resolveImageUrl(currentImage || imageUrl);
-    if (!activeImg || !viewportRef.current || !onSaveCrop) return;
+    const rawTarget = currentImage || imageUrl;
+    if (!rawTarget || !viewportRef.current || !onSaveCrop) return;
     setIsExporting(true);
     try {
-      const tempImg = new Image();
-      try {
-        tempImg.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve, reject) => {
-          tempImg.onload = () => resolve();
-          tempImg.onerror = () => reject(new Error('CORS image load failed'));
-          tempImg.src = activeImg;
-        });
-      } catch {
-        try {
-          const res = await fetch(activeImg);
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = blobUrl;
-          });
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-        } catch {
-          tempImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            tempImg.onload = () => resolve();
-            tempImg.onerror = () => reject(new Error('Failed to load image for canvas export'));
-            tempImg.src = activeImg;
-          });
-        }
-      }
+      const tempImg = await loadSafeCanvasImage(rawTarget);
 
       const viewport = viewportRef.current;
       const vRect = viewport.getBoundingClientRect();
@@ -1445,17 +1427,10 @@ function ZoomCropDownloadModal({
               {/* Scaled & Panned Image */}
               <img
                 ref={imgRef}
-                src={resolveImageUrl(currentImage || imageUrl)}
+                src={getProxiedImageUrl(resolveImageUrl(currentImage || imageUrl))}
                 alt="Zoom Preview"
                 draggable={false}
                 crossOrigin="anonymous"
-                onError={(e) => {
-                  const el = e.currentTarget;
-                  if (el.crossOrigin) {
-                    el.removeAttribute('crossorigin');
-                    el.src = resolveImageUrl(currentImage || imageUrl);
-                  }
-                }}
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: 'center center',
@@ -8993,47 +8968,12 @@ export default function Design() {
     const eY = options?.extraY ?? extraLogoY;
     const eScale = options?.extraScale ?? extraLogoScale;
 
-    const resolvedBaseUrl = getProxiedImageUrl(resolveImageUrl(baseImgUrl));
-    const baseImg = new Image();
-    baseImg.crossOrigin = 'anonymous';
+    let baseImg: HTMLImageElement;
     try {
-      await new Promise<void>((resolve, reject) => {
-        baseImg.onload = () => resolve();
-        baseImg.onerror = () => reject(new Error('CORS image load failed'));
-        baseImg.src = resolvedBaseUrl;
-      });
-    } catch {
-      try {
-        const res = await fetch(resolvedBaseUrl);
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        await new Promise<void>((resolve, reject) => {
-          baseImg.onload = () => resolve();
-          baseImg.onerror = () => reject(new Error('Failed to load base image from blob'));
-          baseImg.src = blobUrl;
-        });
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-      } catch {
-        try {
-          const directProxy = `/api/proxy-image?url=${encodeURIComponent(baseImgUrl)}`;
-          const pRes = await fetch(directProxy);
-          const pBlob = await pRes.blob();
-          const pBlobUrl = URL.createObjectURL(pBlob);
-          await new Promise<void>((resolve, reject) => {
-            baseImg.onload = () => resolve();
-            baseImg.onerror = () => reject(new Error('Failed to load image via fallback proxy'));
-            baseImg.src = pBlobUrl;
-          });
-          setTimeout(() => URL.revokeObjectURL(pBlobUrl), 3000);
-        } catch {
-          baseImg.removeAttribute('crossorigin');
-          await new Promise<void>((resolve, reject) => {
-            baseImg.onload = () => resolve();
-            baseImg.onerror = () => reject(new Error('Failed to load base image'));
-            baseImg.src = resolvedBaseUrl;
-          });
-        }
-      }
+      baseImg = await loadSafeCanvasImage(baseImgUrl);
+    } catch (loadErr) {
+      console.warn('[stampHdLogoOntoImage] Failed to safely load base image:', loadErr);
+      return baseImgUrl;
     }
 
     const canvas = document.createElement('canvas');
@@ -9309,33 +9249,7 @@ export default function Design() {
     strokes?: RubStroke[],
     brushRadiusPx?: number
   ): Promise<{ url: string; detected?: { x: number; y: number; scale: number } }> {
-    const resolvedUrl = getProxiedImageUrl(resolveImageUrl(baseImgUrl));
-
-    // Always convert to data URL first — remote URLs cause canvas CORS taint on getImageData()
-    let safeUrl = resolvedUrl;
-    if (!resolvedUrl.startsWith('data:')) {
-      try {
-        const resp = await fetch(resolvedUrl, { mode: 'cors' });
-        const blob = await resp.blob();
-        safeUrl = await new Promise<string>((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = () => res(reader.result as string);
-          reader.onerror = rej;
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        // shortcut: if fetch fails (blocked CORS), canvas taint will prevent getImageData; falls through
-        safeUrl = resolvedUrl;
-      }
-    }
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej(new Error('Image load failed: ' + safeUrl.slice(0, 60)));
-      img.src = safeUrl;
-    });
+    const img = await loadSafeCanvasImage(baseImgUrl);
 
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth || 1024;

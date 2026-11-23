@@ -1025,7 +1025,8 @@ export function getProxiedImageUrl(url: string): string {
     if (typeof window !== 'undefined' && parsed.origin === window.location.origin) {
       return url;
     }
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    const base = API_BASE || '';
+    return `${base}/api/proxy-image?url=${encodeURIComponent(url)}`;
   } catch {
     return url;
   }
