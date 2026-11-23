@@ -1113,8 +1113,8 @@ export default function ColorSwapStudio({
     lOff: number,
     sMult: number,
     masks?: { garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null } | null,
-    logoConfig?: { mode: 'keep' | 'recolor'; colorHex: string },
-    zipperConfig?: { mode: 'preserve' | 'match' }
+    _logoConfig?: { mode: 'keep' | 'recolor'; colorHex: string },
+    _zipperConfig?: { mode: 'preserve' | 'match' }
   ): string => {
     const W = sourceImg.naturalWidth || 1024;
     const H = sourceImg.naturalHeight || 1024;
@@ -1155,12 +1155,6 @@ export default function ColorSwapStudio({
 
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
     const [tgtL, tgtA, tgtBVal] = rgbToLab(tgtR, tgtG, tgtB);
-
-    const logoModeChoice = logoConfig?.mode || 'keep';
-    const [logoR, logoG, logoB] = hexToRgb(logoConfig?.colorHex || '#FFFFFF');
-    const [logoL, logoA, logoBVal] = rgbToLab(logoR, logoG, logoB);
-
-    const zipperModeChoice = zipperConfig?.mode || 'preserve';
 
     // =========================================================================
     // PATH A: PRODUCTION AI SEGFORMER PRECISION ENGINE
@@ -1226,39 +1220,6 @@ export default function ColorSwapStudio({
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
-
-            // Layer 1: Logo & Text Embroidery Separation (Upper chest & collar region)
-            if (y > 0.05 * H && y < 0.42 * H && x > 0.12 * W && x < 0.88 * W) {
-              const isWhiteEmbroidery =
-                r > 170 && g > 170 && b > 170 && Math.abs(r - g) < 22 && Math.abs(g - b) < 22;
-              const isContrastingThread =
-                Math.abs((0.299 * r + 0.587 * g + 0.114 * b) - baseLum) > 55;
-
-              if (isWhiteEmbroidery || isContrastingThread) {
-                if (logoModeChoice === 'keep') {
-                  continue; // 100% preserve authentic embroidered threads and stitches!
-                } else {
-                  // Custom recolor logo
-                  const [pL] = rgbToLab(r, g, b);
-                  const deltaLogoL = pL - baseL;
-                  const newLogoL = Math.min(98, Math.max(10, logoL + deltaLogoL * 0.4));
-                  const [nr, ng, nb] = labToRgb(newLogoL, logoA, logoBVal);
-                  data[i] = Math.round(r * (1 - alpha) + nr * alpha);
-                  data[i + 1] = Math.round(g * (1 - alpha) + ng * alpha);
-                  data[i + 2] = Math.round(b * (1 - alpha) + nb * alpha);
-                  continue;
-                }
-              }
-            }
-
-            // Layer 2: Zipper Teeth & Slider Separation (Center seam)
-            if (Math.abs(x - W * 0.5) < W * 0.11) {
-              const isMetallicSpec =
-                Math.abs(r - g) < 18 && Math.abs(g - b) < 18 && (r > 140 || (r > 100 && baseL < 30));
-              if (isMetallicSpec && zipperModeChoice === 'preserve') {
-                continue; // 100% preserve metallic teeth shine!
-              }
-            }
 
             // CIELAB Texture & Luminance Transfer
             const [pL] = rgbToLab(r, g, b);
