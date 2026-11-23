@@ -22,6 +22,7 @@ import {
   Shirt,
   Image as ImageIcon,
   Paintbrush,
+  Trash2,
 } from 'lucide-react';
 import type { UserGeneration } from '../lib/api';
 import { resolveImageUrl, getProxiedImageUrl, getApiUrl } from '../lib/api';
@@ -469,22 +470,37 @@ export default function ColorSwapStudio({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Consolidate images from My Sets
+  // Consolidate images from My Sets (strictly deduplicated by ID and URL)
   const allImages = useMemo<ImageItem[]>(() => {
     const list: ImageItem[] = [];
+    const seenIds = new Set<string>();
+    const seenUrls = new Set<string>();
+
+    for (const item of customUploads) {
+      if (!seenIds.has(item.id) && !seenUrls.has(item.url)) {
+        seenIds.add(item.id);
+        seenUrls.add(item.url);
+        list.push(item);
+      }
+    }
+
     userGenerations
       .filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)))
       .forEach((g) => {
         const u = getBestGenUrl(g);
-        list.push({
-          id: g.id,
-          url: u,
-          title: g.title || `Render #${g.id.slice(-4)}`,
-          folder: g.folder || (g.isEdited ? 'edited' : 'generated'),
-          source: 'mysets',
-        });
+        if (u && !seenIds.has(g.id) && !seenUrls.has(u)) {
+          seenIds.add(g.id);
+          seenUrls.add(u);
+          list.push({
+            id: g.id,
+            url: u,
+            title: g.title || `Render #${g.id.slice(-4)}`,
+            folder: g.folder || (g.isEdited ? 'edited' : 'generated'),
+            source: 'mysets',
+          });
+        }
       });
-    return [...customUploads, ...list];
+    return list;
   }, [userGenerations, customUploads]);
 
   // Filtered images list
@@ -687,7 +703,8 @@ export default function ColorSwapStudio({
           };
           setCustomUploads((prev) => [item, ...prev]);
           setActiveImage(item);
-          setSelectedIds((prev) => new Set([...prev, item.id]));
+          // Set selection exclusively to the newly uploaded image
+          setSelectedIds(new Set([item.id]));
         }
       };
       reader.readAsDataURL(file);
@@ -843,10 +860,11 @@ export default function ColorSwapStudio({
   ): Promise<{ garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null }> => {
     try {
       const cached = aiMaskCacheRef.current.get(item.url);
-      if (cached && cached[scope] && cached.protect) {
+      const cachedGarment = cached ? (cached[scope] || cached.both || cached.upper || cached.lower) : null;
+      if (cached && cachedGarment) {
         const [garmentImg, protectImg] = await Promise.all([
-          loadSafeCanvasImage(cached[scope]),
-          loadSafeCanvasImage(cached.protect),
+          loadSafeCanvasImage(cachedGarment),
+          cached.protect ? loadSafeCanvasImage(cached.protect) : Promise.resolve(null),
         ]);
         return { garmentMask: garmentImg, protectMask: protectImg };
       }
@@ -866,19 +884,24 @@ export default function ColorSwapStudio({
       }
 
       const data = await res.json().catch(() => null);
-      if (!data || !data.success || !data[scope]) {
+      if (!data || !data.success) {
+        return { garmentMask: null, protectMask: null };
+      }
+
+      const garmentDataUrl = data[scope] || data.both || data.upper || data.lower;
+      if (!garmentDataUrl) {
         return { garmentMask: null, protectMask: null };
       }
 
       aiMaskCacheRef.current.set(item.url, {
-        upper: data.upper,
-        lower: data.lower,
-        both: data.both,
-        protect: data.protect,
+        upper: data.upper || garmentDataUrl,
+        lower: data.lower || garmentDataUrl,
+        both: data.both || garmentDataUrl,
+        protect: data.protect || null,
       });
 
       const [garmentImg, protectImg] = await Promise.all([
-        loadSafeCanvasImage(data[scope]),
+        loadSafeCanvasImage(garmentDataUrl),
         data.protect ? loadSafeCanvasImage(data.protect) : Promise.resolve(null),
       ]);
       return { garmentMask: garmentImg, protectMask: protectImg };
@@ -1000,133 +1023,125 @@ export default function ColorSwapStudio({
         }
       }
 
-      const baseLum = garmentLumCount > 0 ? totalGarmentLum / garmentLumCount : 128;
-      const [baseL] = rgbToLab(baseLum, baseLum, baseLum);
+      if (garmentLumCount > 20) {
+        const baseLum = totalGarmentLum / garmentLumCount;
+        const [baseL] = rgbToLab(baseLum, baseLum, baseLum);
 
-      // 2. Pixel Iteration: Multi-Layer Logic + CIELAB Texture Transfer
-      for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const pIdx = y * W + x;
-          const i = pIdx * 4;
+        // 2. Pixel Iteration: Multi-Layer Logic + CIELAB Texture Transfer
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const pIdx = y * W + x;
+            const i = pIdx * 4;
 
-          // Strict AI Protect Mask: hair, face, skin, arms, legs, background
-          if (aiProtectData && aiProtectData[i] > 128) {
-            continue;
-          }
+            // Strict AI Protect Mask: hair, face, skin, arms, legs
+            if (aiProtectData && aiProtectData[i] > 128) {
+              continue;
+            }
 
-          const alpha = softAlpha[pIdx];
-          if (alpha < 0.02) {
-            continue;
-          }
+            const alpha = softAlpha[pIdx];
+            if (alpha < 0.02) {
+              continue;
+            }
 
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
 
-          // Layer 1: Logo & Text Embroidery Separation (Upper chest & collar region)
-          if (y > 0.05 * H && y < 0.42 * H && x > 0.12 * W && x < 0.88 * W) {
-            const isWhiteEmbroidery =
-              r > 170 && g > 170 && b > 170 && Math.abs(r - g) < 22 && Math.abs(g - b) < 22;
-            const isContrastingThread =
-              Math.abs((0.299 * r + 0.587 * g + 0.114 * b) - baseLum) > 55;
+            // Layer 1: Logo & Text Embroidery Separation (Upper chest & collar region)
+            if (y > 0.05 * H && y < 0.42 * H && x > 0.12 * W && x < 0.88 * W) {
+              const isWhiteEmbroidery =
+                r > 170 && g > 170 && b > 170 && Math.abs(r - g) < 22 && Math.abs(g - b) < 22;
+              const isContrastingThread =
+                Math.abs((0.299 * r + 0.587 * g + 0.114 * b) - baseLum) > 55;
 
-            if (isWhiteEmbroidery || isContrastingThread) {
-              if (logoModeChoice === 'keep') {
-                continue; // 100% preserve authentic embroidered threads and stitches!
-              } else {
-                // Custom recolor logo
-                const [pL] = rgbToLab(r, g, b);
-                const deltaLogoL = pL - baseL;
-                const newLogoL = Math.min(98, Math.max(10, logoL + deltaLogoL * 0.4));
-                const [nr, ng, nb] = labToRgb(newLogoL, logoA, logoBVal);
-                data[i] = Math.round(r * (1 - alpha) + nr * alpha);
-                data[i + 1] = Math.round(g * (1 - alpha) + ng * alpha);
-                data[i + 2] = Math.round(b * (1 - alpha) + nb * alpha);
-                continue;
+              if (isWhiteEmbroidery || isContrastingThread) {
+                if (logoModeChoice === 'keep') {
+                  continue; // 100% preserve authentic embroidered threads and stitches!
+                } else {
+                  // Custom recolor logo
+                  const [pL] = rgbToLab(r, g, b);
+                  const deltaLogoL = pL - baseL;
+                  const newLogoL = Math.min(98, Math.max(10, logoL + deltaLogoL * 0.4));
+                  const [nr, ng, nb] = labToRgb(newLogoL, logoA, logoBVal);
+                  data[i] = Math.round(r * (1 - alpha) + nr * alpha);
+                  data[i + 1] = Math.round(g * (1 - alpha) + ng * alpha);
+                  data[i + 2] = Math.round(b * (1 - alpha) + nb * alpha);
+                  continue;
+                }
               }
             }
-          }
 
-          // Layer 2: Zipper Teeth & Slider Separation (Center seam)
-          if (Math.abs(x - W * 0.5) < W * 0.11) {
-            const isMetallicSpec =
-              Math.abs(r - g) < 18 && Math.abs(g - b) < 18 && (r > 140 || (r > 100 && baseL < 30));
-            if (isMetallicSpec && zipperModeChoice === 'preserve') {
-              continue; // 100% preserve metallic teeth shine!
+            // Layer 2: Zipper Teeth & Slider Separation (Center seam)
+            if (Math.abs(x - W * 0.5) < W * 0.11) {
+              const isMetallicSpec =
+                Math.abs(r - g) < 18 && Math.abs(g - b) < 18 && (r > 140 || (r > 100 && baseL < 30));
+              if (isMetallicSpec && zipperModeChoice === 'preserve') {
+                continue; // 100% preserve metallic teeth shine!
+              }
             }
-          }
 
-          // CIELAB Texture & Luminance Transfer
-          const [pL] = rgbToLab(r, g, b);
-          const deltaL = pL - baseL;
+            // CIELAB Texture & Luminance Transfer
+            const [pL] = rgbToLab(r, g, b);
+            const deltaL = pL - baseL;
 
-          let newL: number;
-          let newA = tgtA;
-          let newBVal = tgtBVal;
+            let newL: number;
+            let newA = tgtA;
+            let newBVal = tgtBVal;
 
-          if (tgtL < 22) {
-            // Carbon Black spectrum (rich jet-black, fold preservation without clipping)
-            const lBase = Math.max(7.0, tgtL * 1.05) + lOff * 10;
-            if (deltaL <= 0) {
-              newL = Math.max(3.0, lBase + deltaL * 0.28);
+            if (tgtL < 22) {
+              // Carbon Black spectrum (rich jet-black, fold preservation without clipping)
+              const lBase = Math.max(7.0, tgtL * 1.05) + lOff * 10;
+              if (deltaL <= 0) {
+                newL = Math.max(3.0, lBase + deltaL * 0.28);
+              } else {
+                const specular = Math.pow(Math.max(0.0, deltaL - 10.0), 1.25) * 0.04;
+                newL = lBase + deltaL * 0.38 + specular;
+              }
+            } else if (tgtL > 85) {
+              // Pure White spectrum (crisp white, shadows retained without muddy grey)
+              const lBase = Math.min(94.0, tgtL) + lOff * 10;
+              if (deltaL <= 0) {
+                newL = lBase + deltaL * 0.55;
+              } else {
+                newL = Math.min(98.0, lBase + deltaL * 0.15);
+              }
             } else {
-              const specular = Math.pow(Math.max(0.0, deltaL - 10.0), 1.25) * 0.04;
-              newL = lBase + deltaL * 0.38 + specular;
+              // Vibrant Midtones (Shiv-Naresh Red, Olympic Navy, Royal Blue, Gold, etc.)
+              const lBase = tgtL + lOff * 15;
+              if (deltaL <= 0) {
+                newL = Math.max(5.0, lBase + deltaL * 0.70);
+              } else {
+                const specular = Math.pow(Math.max(0.0, deltaL - 8.0), 1.15) * 0.05;
+                newL = Math.min(96.0, lBase + deltaL * 0.60 + specular);
+              }
+              const specRolloff = Math.max(0.0, Math.min(1.0, (pL - 75.0) / 20.0));
+              newA = tgtA * (1.0 - specRolloff * 0.4) * sMult;
+              newBVal = tgtBVal * (1.0 - specRolloff * 0.4) * sMult;
             }
-          } else if (tgtL > 85) {
-            // Pure White spectrum (crisp white, shadows retained without muddy grey)
-            const lBase = Math.min(94.0, tgtL) + lOff * 10;
-            if (deltaL <= 0) {
-              newL = lBase + deltaL * 0.55;
-            } else {
-              newL = Math.min(98.0, lBase + deltaL * 0.15);
-            }
-          } else {
-            // Vibrant Midtones (Shiv-Naresh Red, Olympic Navy, Royal Blue, Gold, etc.)
-            const lBase = tgtL + lOff * 15;
-            if (deltaL <= 0) {
-              newL = Math.max(5.0, lBase + deltaL * 0.70);
-            } else {
-              const specular = Math.pow(Math.max(0.0, deltaL - 8.0), 1.15) * 0.05;
-              newL = Math.min(96.0, lBase + deltaL * 0.60 + specular);
-            }
-            const specRolloff = Math.max(0.0, Math.min(1.0, (pL - 75.0) / 20.0));
-            newA = tgtA * (1.0 - specRolloff * 0.4) * sMult;
-            newBVal = tgtBVal * (1.0 - specRolloff * 0.4) * sMult;
+
+            const [newR, newG, newB] = labToRgb(newL, newA, newBVal);
+
+            // Alpha blend for 1.5px feathered boundary
+            data[i] = Math.round(r * (1.0 - alpha) + newR * alpha);
+            data[i + 1] = Math.round(g * (1.0 - alpha) + newG * alpha);
+            data[i + 2] = Math.round(b * (1.0 - alpha) + newB * alpha);
           }
-
-          const [newR, newG, newB] = labToRgb(newL, newA, newBVal);
-
-          // Alpha blend for 1.5px feathered boundary
-          data[i] = Math.round(r * (1.0 - alpha) + newR * alpha);
-          data[i + 1] = Math.round(g * (1.0 - alpha) + newG * alpha);
-          data[i + 2] = Math.round(b * (1.0 - alpha) + newB * alpha);
         }
+
+        ctx.putImageData(imgData, 0, 0);
+        return canvas.toDataURL('image/jpeg', 0.95);
       }
-
-      ctx.putImageData(imgData, 0, 0);
-      return canvas.toDataURL('image/jpeg', 0.95);
-    }
-
-    // AI मास्क न मिलने पर इमेज को बिना खराब किए सेफ़ली ओरिजिनल लौटा दें
-    if (!aiGarmentData) {
-      console.warn('[Color Swap] AI Mask not available. Skipping recolor to protect background & hair.');
-      return sourceImg.src;
     }
 
     // =========================================================================
-    // PATH B: HEURISTIC SAFE FALLBACK (NO DEFRINGING LOOP)
+    // PATH B: HEURISTIC SAFE FALLBACK (NO DEFRINGING LOOP, ZERO BLACK NOISE)
     // =========================================================================
     const bgInfo = getStudioBackgroundColor(data, W, H);
     const { r: bgR, g: bgG, b: bgB } = bgInfo;
-    const { h: sH, s: sS } = rgbToHsl(srcR, srcG, srcB);
-    const srcYcc = toYCbCr(srcR, srcG, srcB);
-    const isSrcSkin = isSkinPixel(srcR, srcG, srcB);
-    const isSrcNeutral = sS < 0.22;
-    const maxChromDist = Math.max(10, tol * 0.42);
+    const [baseL] = rgbToLab(srcR, srcG, srcB);
 
-    for (let y = Math.round(H * 0.03); y < Math.round(H * 0.97); y++) {
-      for (let x = Math.round(W * 0.03); x < Math.round(W * 0.97); x++) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
         const a = data[i + 3];
         if (a < 50) continue;
@@ -1135,40 +1150,40 @@ export default function ColorSwapStudio({
         const g = data[i + 1];
         const b = data[i + 2];
 
-        const { h: pH, s: pS } = rgbToHsl(r, g, b);
-        if (pH >= 10 && pH <= 48 && pS >= 0.35 && r > b + 30) continue;
+        // 1. Protect Skin
+        if (isSkinPixel(r, g, b)) continue;
 
-        if (protectBackground) {
-          const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-          if (dBg <= 18 && pS < 0.05) continue;
+        // 2. Protect Backdrop
+        const dBg = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+        if (dBg < 25) continue;
+
+        // 3. Protect Head/Hair region (top 26% of frame, center head)
+        if (y < H * 0.26 && Math.abs(x - W * 0.5) < W * 0.26 && r < 60 && g < 60 && b < 60) {
+          continue;
         }
 
-        if (protectSkin && !isSrcSkin && isSkinPixel(r, g, b)) continue;
+        // 4. Color Matching with source color
+        const dR = r - srcR;
+        const dG = g - srcG;
+        const dB = b - srcB;
+        const colorDist = Math.sqrt(dR * dR + dG * dG + dB * dB);
+        const maxDist = Math.max(35, tol * 2.8);
 
-        let matchStrength = 0;
-        if (!isSrcNeutral) {
-          const dh = Math.abs(pH - sH);
-          const hueDist = Math.min(dh, 360 - dh);
-          if (hueDist < tol && pS > 0.08) {
-            matchStrength = hueDist < tol * 0.70 ? 1.0 : Math.max(0, (tol - hueDist) / (tol * 0.30));
+        if (colorDist < maxDist) {
+          const matchStrength = Math.max(0, 1 - (colorDist / maxDist));
+          if (matchStrength > 0.05) {
+            const [pL] = rgbToLab(r, g, b);
+            const deltaL = pL - baseL;
+            const newL = tgtL < 22
+              ? Math.max(4, tgtL + deltaL * 0.35)
+              : tgtL > 85
+                ? Math.min(96, Math.max(10, tgtL + deltaL * 0.55))
+                : Math.min(96, Math.max(5, tgtL + deltaL * 0.70));
+            const [nr, ng, nb] = labToRgb(newL, tgtA, tgtBVal);
+            data[i] = Math.round(r * (1 - matchStrength) + nr * matchStrength);
+            data[i + 1] = Math.round(g * (1 - matchStrength) + ng * matchStrength);
+            data[i + 2] = Math.round(b * (1 - matchStrength) + nb * matchStrength);
           }
-        } else {
-          const pYcc = toYCbCr(r, g, b);
-          const chromDist = Math.sqrt((pYcc.cb - srcYcc.cb) ** 2 + (pYcc.cr - srcYcc.cr) ** 2);
-          if (chromDist < maxChromDist * 2.1 && pS < 0.38) {
-            matchStrength = Math.min(1.0, Math.max(0.2, (maxChromDist * 2.1 - chromDist) / (maxChromDist * 0.9)));
-          }
-        }
-
-        if (matchStrength > 0.05) {
-          const [pL] = rgbToLab(r, g, b);
-          const [baseL] = rgbToLab(srcR, srcG, srcB);
-          const deltaL = pL - baseL;
-          const newL = tgtL < 22 ? Math.max(4, tgtL + deltaL * 0.35) : Math.min(96, Math.max(5, tgtL + deltaL * 0.7));
-          const [nr, ng, nb] = labToRgb(newL, tgtA, tgtBVal);
-          data[i] = Math.round(r * (1 - matchStrength) + nr * matchStrength);
-          data[i + 1] = Math.round(g * (1 - matchStrength) + ng * matchStrength);
-          data[i + 2] = Math.round(b * (1 - matchStrength) + nb * matchStrength);
         }
       }
     }
@@ -1181,7 +1196,10 @@ export default function ColorSwapStudio({
   const handleExecuteBatchColorSwap = async () => {
     let itemsToProcess: ImageItem[] = [];
     if (selectedIds.size > 0) {
-      itemsToProcess = allImages.filter((img) => selectedIds.has(img.id));
+      itemsToProcess = filteredImages.filter((img) => selectedIds.has(img.id));
+      if (itemsToProcess.length === 0) {
+        itemsToProcess = allImages.filter((img) => selectedIds.has(img.id));
+      }
     }
     if (itemsToProcess.length === 0 && activeImage) {
       itemsToProcess = [activeImage];
@@ -1190,6 +1208,13 @@ export default function ColorSwapStudio({
       setError('Please select at least one image or pose to perform color swap.');
       return;
     }
+
+    // Deduplicate itemsToProcess strictly by ID
+    const uniqueMap = new Map<string, ImageItem>();
+    itemsToProcess.forEach((it) => {
+      if (!uniqueMap.has(it.id)) uniqueMap.set(it.id, it);
+    });
+    itemsToProcess = Array.from(uniqueMap.values());
 
     setIsProcessing(true);
     const newResults: RecolorResult[] = [];
@@ -1232,10 +1257,9 @@ export default function ColorSwapStudio({
 
       setRecolorResults((prev) => {
         // Filter out identical previous results for same item & target color to prevent duplicate pose clones
-        const filtered = prev.filter(
-          (p) => !newResults.some((n) => n.sourceUrl === p.sourceUrl && n.targetHex === p.targetHex)
-        );
-        return [...newResults, ...filtered];
+        const newKeys = new Set(newResults.map((n) => `${n.sourceUrl}:::${n.targetHex}`));
+        const filteredPrev = prev.filter((p) => !newKeys.has(`${p.sourceUrl}:::${p.targetHex}`));
+        return [...newResults, ...filteredPrev];
       });
 
       // Update live preview canvas with first recolored image
@@ -1515,7 +1539,7 @@ export default function ColorSwapStudio({
                       key={img.id}
                       onClick={() => {
                         setActiveImage(img);
-                        toggleSelectImage(img.id);
+                        setSelectedIds(new Set([img.id]));
                       }}
                       className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${isActive
                         ? 'border-[#e5373f] ring-1 ring-[#e5373f] bg-[#e5373f]/10'
@@ -2127,6 +2151,16 @@ export default function ColorSwapStudio({
                       >
                         <Archive className="w-3.5 h-3.5" />
                         <span>⬇️ Download All (ZIP)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRecolorResults([])}
+                        className="px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center gap-1.5 cursor-pointer border border-zinc-700 shadow-md hover:text-white"
+                        title="Clear results gallery"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Clear</span>
                       </button>
                     </div>
                   </div>

@@ -3157,17 +3157,20 @@ app.post('/api/segment-garment', async (req, res) => {
         targetPath = path.join(MODELS_DIR, cleanUrl.replace(/^\/models\//, ''));
       } else if (cleanUrl.startsWith('/generated/')) {
         targetPath = path.join(GENERATED, path.basename(cleanUrl));
+      } else if (cleanUrl.startsWith('/')) {
+        const candidate = path.join(PUBLIC_DIR, cleanUrl.replace(/^\//, ''));
+        if (fsSync.existsSync(candidate)) targetPath = candidate;
+      }
+      
+      if (targetPath && fsSync.existsSync(targetPath)) {
+        const fileBuf = await fs.readFile(targetPath);
+        fileHash = crypto.createHash('md5').update(fileBuf).digest('hex');
+        rawInputImage = await RawImage.read(targetPath);
       } else if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
         const resp = await fetch(url);
         const buf = Buffer.from(await resp.arrayBuffer());
         fileHash = crypto.createHash('md5').update(buf).digest('hex');
         rawInputImage = await RawImage.fromBlob(new Blob([buf]));
-      }
-
-      if (targetPath && fsSync.existsSync(targetPath)) {
-        const fileBuf = await fs.readFile(targetPath);
-        fileHash = crypto.createHash('md5').update(fileBuf).digest('hex');
-        rawInputImage = await RawImage.read(targetPath);
       }
     }
 
@@ -3186,55 +3189,104 @@ app.post('/api/segment-garment', async (req, res) => {
 
     // 3. शुद्ध Node.js ONNX SegFormer AI मॉडल चलाएं
     const segmenter = await getSegmenter();
-    const output = await segmenter(rawInputImage);
+    
+    // Scale down high-res photos to max 768px for 3x faster inference (SegFormer internal is 512x512)
+    let processedInput = rawInputImage;
+    const maxDim = 768;
+    const scale = Math.min(maxDim / rawInputImage.width, maxDim / rawInputImage.height);
+    if (scale < 1.0) {
+      const nw = Math.round(rawInputImage.width * scale);
+      const nh = Math.round(rawInputImage.height * scale);
+      processedInput = await rawInputImage.resize(nw, nh);
+    }
 
-    const w = rawInputImage.width;
-    const h = rawInputImage.height;
+    const output = await segmenter(processedInput);
+
+    const w = processedInput.width;
+    const h = processedInput.height;
 
     const protectData = new Uint8ClampedArray(w * h);
+    const upperData = new Uint8ClampedArray(w * h);
+    const lowerData = new Uint8ClampedArray(w * h);
     const bothData = new Uint8ClampedArray(w * h);
-    let upperMaskBase64 = null;
-    let lowerMaskBase64 = null;
+
+    let upperCount = 0;
+    let lowerCount = 0;
+    let bothCount = 0;
+    let protectCount = 0;
 
     for (const item of output) {
       const lbl = (item.label || '').toLowerCase();
       const d = item.mask.data;
 
-      // Protect: Hair, Face, Arms, Legs, Background, Shoes
-      if (lbl.includes('hair') || lbl.includes('face') || lbl.includes('arm') || lbl.includes('leg') || lbl.includes('background') || lbl.includes('shoe')) {
+      // Protect: Hair, Face, Arms, Legs, Shoes (exclude background so garment borders and folds are not blocked)
+      if (lbl.includes('hair') || lbl.includes('face') || lbl.includes('arm') || lbl.includes('leg') || lbl.includes('shoe')) {
         for (let i = 0; i < protectData.length; i++) {
-          if (d[i] > 128) protectData[i] = 255;
+          if (d[i] > 128) {
+            protectData[i] = 255;
+            protectCount++;
+          }
         }
       }
 
-      // Upper Garment (Jacket / Shirt / Top)
-      if (lbl.includes('upper')) {
-        const buf = await item.mask.toSharp().png().toBuffer();
-        upperMaskBase64 = 'data:image/png;base64,' + buf.toString('base64');
-        for (let i = 0; i < bothData.length; i++) {
-          if (d[i] > 128) bothData[i] = 255;
+      // Upper Garment (Jacket / Shirt / Top / Coat / Dress / Sweater / Vest)
+      if (lbl.includes('upper') || lbl.includes('dress') || lbl.includes('coat') || lbl.includes('jacket') || lbl.includes('top') || lbl.includes('shirt')) {
+        for (let i = 0; i < upperData.length; i++) {
+          if (d[i] > 128) {
+            upperData[i] = 255;
+            bothData[i] = 255;
+            upperCount++;
+            bothCount++;
+          }
         }
       }
 
-      // Lower Garment (Pants / Skirt)
-      if (lbl.includes('pants') || lbl.includes('skirt')) {
-        const buf = await item.mask.toSharp().png().toBuffer();
-        lowerMaskBase64 = 'data:image/png;base64,' + buf.toString('base64');
-        for (let i = 0; i < bothData.length; i++) {
-          if (d[i] > 128) bothData[i] = 255;
+      // Lower Garment (Pants / Skirt / Shorts / Bottom)
+      if (lbl.includes('pants') || lbl.includes('skirt') || lbl.includes('shorts') || lbl.includes('bottom')) {
+        for (let i = 0; i < lowerData.length; i++) {
+          if (d[i] > 128) {
+            lowerData[i] = 255;
+            bothData[i] = 255;
+            lowerCount++;
+            bothCount++;
+          }
         }
       }
     }
 
+    // Smart Fallback: if upper was not specifically separated, use bothData so recoloring succeeds
+    if (upperCount === 0 && bothCount > 0) {
+      for (let i = 0; i < bothData.length; i++) {
+        if (bothData[i] > 0) upperData[i] = 255;
+      }
+      upperCount = bothCount;
+    }
+    if (lowerCount === 0 && bothCount > 0) {
+      for (let i = 0; i < bothData.length; i++) {
+        if (bothData[i] > 0) lowerData[i] = 255;
+      }
+      lowerCount = bothCount;
+    }
+
+    // Upper Mask
+    const upperRaw = new RawImage(upperData, w, h, 1);
+    const upperBuf = await upperRaw.toSharp().png().toBuffer();
+    const upperMaskBase64 = upperCount > 0 ? 'data:image/png;base64,' + upperBuf.toString('base64') : null;
+
+    // Lower Mask
+    const lowerRaw = new RawImage(lowerData, w, h, 1);
+    const lowerBuf = await lowerRaw.toSharp().png().toBuffer();
+    const lowerMaskBase64 = lowerCount > 0 ? 'data:image/png;base64,' + lowerBuf.toString('base64') : null;
+
     // Both Garment Mask
     const bothRaw = new RawImage(bothData, w, h, 1);
     const bothBuf = await bothRaw.toSharp().png().toBuffer();
-    const bothMaskBase64 = 'data:image/png;base64,' + bothBuf.toString('base64');
+    const bothMaskBase64 = bothCount > 0 ? 'data:image/png;base64,' + bothBuf.toString('base64') : null;
 
     // Protect Mask
     const protectRaw = new RawImage(protectData, w, h, 1);
     const protectBuf = await protectRaw.toSharp().png().toBuffer();
-    const protectMaskBase64 = 'data:image/png;base64,' + protectBuf.toString('base64');
+    const protectMaskBase64 = protectCount > 0 ? 'data:image/png;base64,' + protectBuf.toString('base64') : null;
 
     const result = {
       success: true,
