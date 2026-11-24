@@ -2212,13 +2212,15 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       return res.status(400).json({ error: 'invalid_images', message: 'Could not load the provided images for AI analysis.' });
     }
 
-    // Try Gemini models cascade
+    // Try Gemini models cascade (starting with Google's latest recommended aliases)
     const candidateModels = [
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
+      'gemini-flash-latest',
+      'gemini-3.8-flash',
+      'gemini-3.5-flash',
+      'gemini-3.1-flash-lite',
       'gemini-2.5-flash',
-      'gemini-1.5-pro',
-      'gemini-3.8-flash'
+      'gemini-1.5-flash',
+      'gemini-pro-latest'
     ];
 
     let generatedText = null;
@@ -2229,7 +2231,10 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
         const geminiRes = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': effectiveApiKey,
+          },
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
