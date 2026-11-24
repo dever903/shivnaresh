@@ -13,7 +13,6 @@ import {
   X,
   RotateCcw,
   BookOpen,
-  Star,
 } from 'lucide-react';
 import { api, type DescriptionHistoryItem, type UserGeneration, resolveImageUrl, getProxiedImageUrl } from '../lib/api';
 import { getBestGenUrl } from '../pages/Design';
@@ -24,11 +23,7 @@ interface DescriptionStudioProps {
   userGenerations?: UserGeneration[];
 }
 
-const PROMPT_PRESETS = [
-  {
-    id: 'full',
-    label: '🏆 Best Titles, Short & Full Listing',
-    prompt: `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
+const DEFAULT_PROMPT = `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
 
 ### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
 - Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
@@ -55,39 +50,7 @@ const PROMPT_PRESETS = [
 - Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
 
 ### 🔍 9. SEO & E-COMMERCE TAGS
-- Top 10 high-search-volume keywords separated by commas.`,
-  },
-  {
-    id: 'specs',
-    label: '🧵 Technical & Fabric Specs',
-    prompt: `Focus purely on technical garment construction and fabric specifications for this sportswear product:
-- Primary Fabric Blend & GSM weight estimate
-- Weave type, moisture-wicking and thermal regulation qualities
-- Stitching reinforcement, seam strength, zipper/zipper pull specs
-- Pocket depth, closure mechanisms, and elastic waistband/cuff specifications
-- Strict wash, dry-cleaning, and ironing care instructions`,
-  },
-  {
-    id: 'bullets',
-    label: '🔍 Amazon / Flipkart Bullets',
-    prompt: `Write 5 punchy, high-converting bullet points formatted for Amazon and Flipkart marketplace listings for this sportswear apparel:
-- Point 1: Core Performance & Fit
-- Point 2: Fabric Technology & Breathability
-- Point 3: Ergonomic Athletic Design & Comfort
-- Point 4: Multi-Sport Versatility (Gym, Track, Team Sports)
-- Point 5: Care Instructions & Durability Guarantee
-Include a 2-line SEO Product Title at the top.`,
-  },
-  {
-    id: 'social',
-    label: '📱 Social Media & Ad Copy',
-    prompt: `Write an engaging Instagram/Facebook caption for this new athletic sportswear release:
-- Hook headline highlighting performance and style
-- 3 short benefit lines with authentic athlete tone
-- Call to action to shop now
-- 15 trending sportswear and fitness hashtags (#ShivNaresh, #AthleticWear, #IndianSports, etc.)`,
-  },
-];
+- Top 10 high-search-volume keywords separated by commas.`;
 
 export default function DescriptionStudio({
   user: _user,
@@ -99,13 +62,6 @@ export default function DescriptionStudio({
   const [prompt, setPrompt] = useState<string>('');
   const [defaultPrompt, setDefaultPrompt] = useState<string>('');
   const [hasServerKey, setHasServerKey] = useState<boolean>(true);
-  const [hasUserCustomDefault, setHasUserCustomDefault] = useState<boolean>(() => {
-    try {
-      return Boolean(localStorage.getItem('sn_user_custom_default_prompt'));
-    } catch {
-      return false;
-    }
-  });
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     try {
       return localStorage.getItem('sn_custom_gemini_key') || '';
@@ -138,31 +94,21 @@ export default function DescriptionStudio({
   // 1. Fetch Description Settings & Default Prompt on mount
   useEffect(() => {
     let cancelled = false;
-    const userSavedPrompt = (() => {
-      try {
-        return localStorage.getItem('sn_user_custom_default_prompt') || '';
-      } catch {
-        return '';
-      }
-    })();
 
     api
       .getDescriptionSettings()
       .then((res) => {
         if (!cancelled && res.ok) {
-          const sysDefault = res.defaultPrompt || PROMPT_PRESETS[0].prompt;
+          const sysDefault = res.defaultPrompt || DEFAULT_PROMPT;
           setDefaultPrompt(sysDefault);
-          setPrompt((prev) => (prev ? prev : userSavedPrompt || sysDefault));
+          setPrompt((prev) => (prev ? prev : sysDefault));
           setHasServerKey(res.hasGoogleKey);
-          if (userSavedPrompt) setHasUserCustomDefault(true);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          const sysDefault = PROMPT_PRESETS[0].prompt;
-          setDefaultPrompt(sysDefault);
-          setPrompt((prev) => (prev ? prev : userSavedPrompt || sysDefault));
-          if (userSavedPrompt) setHasUserCustomDefault(true);
+          setDefaultPrompt(DEFAULT_PROMPT);
+          setPrompt((prev) => (prev ? prev : DEFAULT_PROMPT));
         }
       });
 
@@ -171,29 +117,10 @@ export default function DescriptionStudio({
     };
   }, []);
 
-  // Save current prompt as user's personal default
-  const handleSaveAsUserDefault = () => {
-    if (!prompt.trim()) {
-      showToast('⚠️ Please write some prompt instructions first to save.');
-      return;
-    }
-    try {
-      localStorage.setItem('sn_user_custom_default_prompt', prompt.trim());
-      setHasUserCustomDefault(true);
-      showToast('⭐ Saved as your personal default prompt!');
-    } catch {
-      showToast('Could not save to browser storage');
-    }
-  };
-
-  // Reset prompt back to system/admin default
-  const handleResetToSystemDefault = () => {
-    try {
-      localStorage.removeItem('sn_user_custom_default_prompt');
-    } catch {}
-    setHasUserCustomDefault(false);
-    setPrompt(defaultPrompt || PROMPT_PRESETS[0].prompt);
-    showToast('↺ Reset to system default prompt');
+  // Reset prompt back to default
+  const handleResetPrompt = () => {
+    setPrompt(defaultPrompt || DEFAULT_PROMPT);
+    showToast('↺ Reset to default prompt');
   };
 
   // 2. Load History
@@ -274,7 +201,7 @@ export default function DescriptionStudio({
 
     try {
       const imageUrls = images.map((img) => img.url);
-      const effectivePrompt = prompt.trim() || defaultPrompt || PROMPT_PRESETS[0].prompt;
+      const effectivePrompt = prompt.trim() || defaultPrompt || DEFAULT_PROMPT;
       const res = await api.generateDescription({
         images: imageUrls,
         prompt: effectivePrompt,
@@ -594,72 +521,38 @@ export default function DescriptionStudio({
 
           {/* 2. Prompt Configuration Card */}
           <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Description Prompt & Instructions</span>
+                <span>Description Prompt</span>
               </span>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleSaveAsUserDefault}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1 cursor-pointer transition"
-                  title="Save this current prompt as your personal default"
-                >
-                  <Star className="w-3 h-3 text-amber-400" />
-                  <span>Save as My Default</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleResetToSystemDefault}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
-                  title="Reset prompt back to system default"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>System Default</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Template Presets */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {PROMPT_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setPrompt(preset.prompt);
-                    showToast(`Loaded preset: ${preset.label}`);
-                  }}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-white/10 cursor-pointer transition"
-                >
-                  {preset.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={handleResetPrompt}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+                title="Reset back to default prompt"
+              >
+                <RotateCcw className="w-3 h-3 text-zinc-400" />
+                <span>Reset to Default</span>
+              </button>
             </div>
 
             {/* Prompt Textarea */}
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              rows={7}
-              placeholder="Type specific instructions (or leave blank to use default). You can also generate by sending prompt only without uploading images..."
+              rows={8}
+              placeholder="Edit prompt instructions here..."
               className={`w-full rounded-xl border p-3 text-xs leading-relaxed focus:outline-none transition ${
                 isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-[#e5373f]' : 'border-white/15 bg-black/60 text-white focus:border-[#e5373f]'
               }`}
             />
 
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 flex-wrap gap-2">
+            <div className="flex items-center justify-between text-[11px] text-zinc-400">
               <span className="flex items-center gap-1">
                 💡 <span className="opacity-80">Flexible: Send <b>Images only</b>, <b>Prompt only</b>, or <b>Both</b></span>
               </span>
-              {hasUserCustomDefault && (
-                <span className="text-amber-400 font-semibold flex items-center gap-1">
-                  ★ Custom default saved
-                </span>
-              )}
             </div>
 
             {errorMsg && (
