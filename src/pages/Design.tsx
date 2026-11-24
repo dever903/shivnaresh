@@ -2176,6 +2176,7 @@ function MySetsPanel({
   refreshGenerations,
   onDeleteGeneration,
   onMoveFolder,
+  onBatchMoveFolder,
   onZoomCrop,
   onAddLogo,
   onEditLogo,
@@ -2195,6 +2196,7 @@ function MySetsPanel({
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
   onMoveFolder?: (id: string, folder: 'ready' | 'edited' | 'generated') => Promise<void> | void;
+  onBatchMoveFolder?: (ids: string[], folder: 'ready' | 'edited' | 'generated') => Promise<void> | void;
   onZoomCrop?: (url: string, title: string) => void;
   onAddLogo?: (gen: UserGeneration) => void;
   onEditLogo?: (gen: UserGeneration) => void;
@@ -2216,6 +2218,34 @@ function MySetsPanel({
   const batchUploadMySetsRef = useRef<HTMLInputElement>(null);
   const [mySetsUploading, setMySetsUploading] = useState(false);
   const [mySetsUploadProgress, setMySetsUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [batchMovingFolder, setBatchMovingFolder] = useState<string>('');
+  const [folderActionNotice, setFolderActionNotice] = useState<string>('');
+
+  async function handleBatchMove(targetFolder: 'ready' | 'edited' | 'generated') {
+    if (selectedGenIds.length === 0) return;
+    const count = selectedGenIds.length;
+    setBatchMovingFolder(targetFolder);
+    const idsToMove = [...selectedGenIds];
+    setSelectedGenIds([]);
+
+    const label = targetFolder === 'ready' ? 'Ready to Use' : targetFolder === 'edited' ? 'Edited' : 'Generated';
+    setFolderActionNotice(`✓ Moving ${count} image${count > 1 ? 's' : ''} to ${label}…`);
+
+    try {
+      if (onBatchMoveFolder) {
+        await onBatchMoveFolder(idsToMove, targetFolder);
+      } else if (onMoveFolder) {
+        await Promise.allSettled(idsToMove.map((id) => onMoveFolder(id, targetFolder)));
+      }
+      setFolderActionNotice(`✓ Moved ${count} image${count > 1 ? 's' : ''} to ${label}`);
+      setTimeout(() => setFolderActionNotice(''), 3500);
+    } catch (err: any) {
+      setError(err?.message || 'Could not move selected items');
+      setFolderActionNotice('');
+    } finally {
+      setBatchMovingFolder('');
+    }
+  }
 
   const handleBatchUploadToMySets = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -2796,6 +2826,25 @@ function MySetsPanel({
                     <>
                       <button
                         type="button"
+                        onClick={() => void handleBatchMove('ready')}
+                        disabled={Boolean(batchMovingFolder) || zipping || batchDeleting || isBatchBranding}
+                        className="rounded-lg bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Send all selected images directly to Ready to Use (stays on this tab)"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>{batchMovingFolder === 'ready' ? 'Moving…' : `⭐ Move to Ready (${selectedGenIds.length})`}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleBatchMove('edited')}
+                        disabled={Boolean(batchMovingFolder) || zipping || batchDeleting || isBatchBranding}
+                        className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Move all selected images to Edited sub-tab"
+                      >
+                        <span>{batchMovingFolder === 'edited' ? 'Moving…' : `✏️ Move to Edited (${selectedGenIds.length})`}</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => void handleDownloadZip()}
                         disabled={zipping || batchDeleting || isBatchBranding}
                         className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -3020,9 +3069,13 @@ function MySetsPanel({
                             {gen.folder !== 'ready' && (
                               <button
                                 type="button"
-                                onClick={() => { void onMoveFolder(gen.id, 'ready'); setFilter('ready'); }}
+                                onClick={() => {
+                                  void onMoveFolder(gen.id, 'ready');
+                                  setFolderActionNotice('✓ Moved image to Ready to Use');
+                                  setTimeout(() => setFolderActionNotice(''), 3000);
+                                }}
                                 className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black font-bold transition cursor-pointer"
-                                title="Move this image to Ready to Use sub-tab"
+                                title="Move this image to Ready to Use (stays on this tab)"
                               >
                                 ⭐ Ready
                               </button>
@@ -3030,7 +3083,11 @@ function MySetsPanel({
                             {gen.folder !== 'edited' && (
                               <button
                                 type="button"
-                                onClick={() => { void onMoveFolder(gen.id, 'edited'); setFilter('edited'); }}
+                                onClick={() => {
+                                  void onMoveFolder(gen.id, 'edited');
+                                  setFolderActionNotice('✓ Moved image to Edited');
+                                  setTimeout(() => setFolderActionNotice(''), 3000);
+                                }}
                                 className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Edited sub-tab"
                               >
@@ -3040,7 +3097,11 @@ function MySetsPanel({
                             {gen.folder !== 'generated' && (
                               <button
                                 type="button"
-                                onClick={() => { void onMoveFolder(gen.id, 'generated'); setFilter('generated'); }}
+                                onClick={() => {
+                                  void onMoveFolder(gen.id, 'generated');
+                                  setFolderActionNotice('✓ Moved image to Generated');
+                                  setTimeout(() => setFolderActionNotice(''), 3000);
+                                }}
                                 className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Generated sub-tab"
                               >
@@ -3173,6 +3234,11 @@ function MySetsPanel({
               </p>
             </div>
           )}
+        </div>
+      )}
+      {folderActionNotice && (
+        <div className="fixed bottom-6 right-6 z-[140] flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 py-2.5 text-xs font-bold shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <span>{folderActionNotice}</span>
         </div>
       )}
     </div>
@@ -10828,6 +10894,18 @@ export default function Design() {
               await api.updateUserGeneration(id, { folder });
             } catch (err: any) {
               console.warn('[moveGenFolder] Failed:', err?.message);
+            }
+          }}
+          onBatchMoveFolder={async (ids, folder) => {
+            const idSet = new Set(ids);
+            setUserGenerations((prev) =>
+              prev.map((g) => (idSet.has(g.id) ? { ...g, folder } : g))
+            );
+            try {
+              await api.batchUpdateGenerationsFolder(ids, folder);
+            } catch (err: any) {
+              console.warn('[batchMoveFolder] API fallback:', err?.message);
+              await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { folder })));
             }
           }}
           onZoomCrop={(url, title) => {

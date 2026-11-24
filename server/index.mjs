@@ -2396,7 +2396,6 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
                 name: item.name || safeName,
                 url: publicUrl,
                 remoteUrl,
-                dataUrl: item.imageData, // preserves base64 bytes permanently if disk resets
                 deleted: false,
                 createdAt: Date.now(),
                 updatedAt: new Date().toISOString(),
@@ -5807,6 +5806,52 @@ app.post('/api/user/generations/batch-delete', auth.requireUser, async (req, res
     res.json({ ok: true, deletedCount: ids.length, inBin: true });
   } catch (error) {
     res.status(500).json({ error: 'batch_delete_failed', message: error.message });
+  }
+});
+
+app.post('/api/user/generations/batch-folder', auth.requireUser, async (req, res) => {
+  try {
+    const { ids, folder } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0 || !folder) {
+      return res.status(400).json({ error: 'invalid_params', message: 'ids array and folder are required.' });
+    }
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const db = await getMongoDb();
+
+    const idSet = new Set(ids);
+    const list = await readGenerations();
+    for (const g of list) {
+      if (idSet.has(g.id)) {
+        const gUserId = g.userId ? String(g.userId) : '';
+        const gEmail = (g.userEmail || '').toLowerCase().trim();
+        const isOwner = isAdmin || (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
+        if (isOwner) {
+          g.folder = folder;
+        }
+      }
+    }
+    cachedGenerations = { items: list, time: Date.now() };
+    void writeGenerations(list).catch(() => { });
+
+    if (db) {
+      const filter = { id: { $in: ids } };
+      if (!isAdmin) {
+        filter.$or = [
+          { userId: currentUserId },
+          { userEmail: currentUserEmail },
+          { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+        ];
+      }
+      await db.collection('generations').updateMany(filter, {
+        $set: { folder },
+      }).catch((err) => console.warn('[generations] batch folder MongoDB error:', err.message));
+    }
+
+    res.json({ ok: true, updatedCount: ids.length, folder });
+  } catch (error) {
+    res.status(500).json({ error: 'batch_folder_failed', message: error.message });
   }
 });
 

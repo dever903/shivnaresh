@@ -666,6 +666,11 @@ export const api = {
       '/api/user/generations/batch-delete',
       json({ ids })
     ),
+  batchUpdateGenerationsFolder: (ids: string[], folder: 'ready' | 'edited' | 'generated') =>
+    request<{ ok: boolean; updatedCount: number; folder: string }>(
+      '/api/user/generations/batch-folder',
+      json({ ids, folder })
+    ),
 
   /* admin user management */
   adminUsers: () => request<{ items: AdminUser[]; total: number }>('/api/admin/users'),
