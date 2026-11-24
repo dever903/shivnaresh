@@ -147,28 +147,80 @@ export default function DescriptionStudio({
     void loadHistory();
   }, []);
 
-  // Handle local file uploads
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
+  // Helper to downsample & optimize images (max 1024px) for blazing fast upload & AI inspection
+  const optimizeImageFile = (file: File): Promise<{ id: string; url: string; name: string }> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          const item = {
+      reader.onload = (e) => {
+        const src = e.target?.result;
+        if (typeof src !== 'string') {
+          resolve({
             id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            url: reader.result,
+            url: '',
             name: file.name,
-          };
-          setImages((prev) => [...prev, item]);
+          });
+          return;
         }
+
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1024;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve({
+              id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+              url: optimizedUrl,
+              name: file.name,
+            });
+            return;
+          }
+          resolve({
+            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            url: src,
+            name: file.name,
+          });
+        };
+        img.onerror = () => {
+          resolve({
+            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            url: src,
+            name: file.name,
+          });
+        };
+        img.src = src;
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  // Handle local file uploads with instant optimization
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const optimized = await Promise.all(fileList.map((f) => optimizeImageFile(f)));
+    const valid = optimized.filter((item) => item.url);
+    setImages((prev) => [...prev, ...valid]);
 
     if (fileInputRef.current) fileInputRef.current.value = '';
-    showToast(`Added ${files.length} photo(s)`);
+    showToast(`Added ${valid.length} photo(s)`);
   };
 
   // Remove single image
@@ -636,9 +688,12 @@ export default function DescriptionStudio({
               {isGenerating ? (
                 <div className="py-20 text-center space-y-3">
                   <RefreshCw className="w-8 h-8 mx-auto text-[#e5373f] animate-spin opacity-80" />
-                  <p className="text-xs font-semibold">Gemini AI Multimodal Analysis in Progress...</p>
+                  <p className="text-xs font-semibold flex items-center justify-center gap-1.5">
+                    <span>⚡</span>
+                    <span>High-Speed AI Multimodal Inspection in Progress...</span>
+                  </p>
                   <p className="text-[11px] text-zinc-400 max-w-sm mx-auto">
-                    Inspecting fabric weave, stitching quality, collar design, logos, and athletic silhouette across your photos.
+                    Inspecting fabric weave, stitching quality, collar design, logos, and athletic silhouette.
                   </p>
                 </div>
               ) : generatedResult ? (

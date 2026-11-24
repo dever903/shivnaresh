@@ -2190,8 +2190,8 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
 
     const parts = [{ text: effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT }];
 
-    // Prepare multimodal image parts (up to 16 images per request) if provided
-    const limitedImages = hasImages ? images.slice(0, 16) : [];
+    // Prepare multimodal image parts (up to 8 images per request) if provided
+    const limitedImages = hasImages ? images.slice(0, 8) : [];
     for (const item of limitedImages) {
       if (!item || typeof item !== 'string') continue;
       let mimeType = 'image/jpeg';
@@ -2223,22 +2223,21 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
 
       if (base64Data) {
         parts.push({
-          inline_data: {
-            mime_type: mimeType,
+          inlineData: {
+            mimeType: mimeType,
             data: base64Data,
           }
         });
       }
     }
 
-    // Try Gemini models cascade (starting with Google's latest recommended aliases)
+    // Try Gemini models cascade (starting with ultra-fast sub-second flash-lite models)
     const candidateModels = [
-      'gemini-flash-latest',
-      'gemini-3.8-flash',
-      'gemini-3.5-flash',
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
+      'gemini-flash-latest',
+      'gemini-3.5-flash',
       'gemini-pro-latest'
     ];
 
@@ -2257,11 +2256,11 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
-              temperature: 0.4,
-              maxOutputTokens: 4096,
+              temperature: 0.35,
+              maxOutputTokens: 2500,
             }
           }),
-          signal: AbortSignal.timeout(60000)
+          signal: AbortSignal.timeout(9000)
         });
 
         const geminiData = await geminiRes.json();
