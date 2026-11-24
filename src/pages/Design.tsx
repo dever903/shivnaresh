@@ -2200,7 +2200,7 @@ function MySetsPanel({
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
 }) {
-  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('ready');
+  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('all');
   const [showInstructions, setShowInstructions] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedGenIds, setSelectedGenIds] = useState<string[]>([]);
@@ -2331,9 +2331,12 @@ function MySetsPanel({
   const modelRef = useRef<HTMLInputElement>(null);
 
   const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)));
-  const readyGenerations = imageGenerations.filter((g) => g.folder === 'ready' || g.isManualUpload);
-  const editedGenerations = imageGenerations.filter((g) => g.folder === 'edited' || (g.isEdited && g.folder !== 'ready'));
-  const generatedGenerations = imageGenerations.filter((g) => g.folder === 'generated' || (!g.isEdited && g.folder !== 'ready'));
+  // "ready" = explicitly folder=ready OR a manual upload that hasn't been moved away
+  const readyGenerations = imageGenerations.filter((g) => g.folder === 'ready' || (g.isManualUpload && !g.folder));
+  // "edited" = explicitly folder=edited OR isEdited=true with no explicit folder (but not ready/generated)
+  const editedGenerations = imageGenerations.filter((g) => g.folder === 'edited' || (g.isEdited && !g.folder));
+  // "generated" = explicitly folder=generated OR no folder AND not edited
+  const generatedGenerations = imageGenerations.filter((g) => g.folder === 'generated' || (!g.isEdited && !g.folder));
   const videoGenerations = generations.filter((g) => g.type === 'video' && (Boolean(g.url) || Boolean(g.highResUrl)));
 
   const displayedImages = (
@@ -10387,7 +10390,7 @@ export default function Design() {
         onUseCrop={zoomCropOnUse || undefined}
         onSaveCrop={async (croppedDataUrl, targetFolder) => {
           try {
-            await api.saveUserGeneration({
+            const saved = await api.saveUserGeneration({
               type: 'image',
               url: croppedDataUrl,
               isEdited: true,
@@ -10396,7 +10399,10 @@ export default function Design() {
               prompt: `Cropped & Zoomed Macro Asset · ${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'}`,
               resolution: '2k',
             });
-            await loadUserGenerations();
+            if (saved) {
+              setUserGenerations((prev) => [saved, ...prev.filter((g) => g.id !== saved.id)]);
+            }
+            void loadUserGenerations();
           } catch (err: any) {
             console.error('[saveCrop] Failed:', err);
             alert(`Failed to save cropped image: ${err?.message || err}`);
