@@ -123,6 +123,7 @@ export type User = {
   modelsGenerated?: number;
   photoshootOffer?: PhotoshootOffer | null;
   watermarkAccess?: boolean;
+  allowedTabs?: string[];
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
@@ -273,6 +274,7 @@ export type AdminUser = {
   modelsGenerated?: number;
   photoshootOffer?: PhotoshootOffer | null;
   watermarkAccess?: boolean;
+  allowedTabs?: string[];
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;

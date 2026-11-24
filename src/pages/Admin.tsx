@@ -398,6 +398,7 @@ export default function Admin() {
     maxModels?: number;
     creditsLocked?: boolean;
     watermarkAccess?: boolean;
+    allowedTabs?: string[];
     features?: { hd2k?: boolean; fivePose?: boolean; video?: boolean; customRequests?: boolean };
     saving?: boolean;
     saved?: boolean;
@@ -1826,6 +1827,7 @@ ${log.stack || 'None'}
       maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? (chosenTier === 'ultra' ? 100 : chosenTier === 'pro' ? 50 : chosenTier === 'ondemand' ? 25 : 5)),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
       watermarkAccess: edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false),
+      allowedTabs: edits.allowedTabs !== undefined ? edits.allowedTabs : (Array.isArray(user.allowedTabs) ? user.allowedTabs : ['studio', 'color-swap', 'my-sets', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare']),
       features: edits.features !== undefined ? {
         ...edits.features,
         customRequests: Boolean(edits.features.customRequests !== undefined ? edits.features.customRequests : isUltra),
@@ -3998,6 +4000,7 @@ ${log.stack || 'None'}
                 <th className="py-4 px-3">Video Limit</th>
                 <th className="py-4 px-3">Photoshoots (1=5 poses)</th>
                 <th className="py-4 px-3">Feature Toggles</th>
+                <th className="py-4 px-3">Tabs Access (User Panel)</th>
                 <th className="py-4 px-3">Credit Lock</th>
                 <th className="py-4 px-6 text-right">Individual Save & Delete</th>
               </tr>
@@ -4236,6 +4239,60 @@ ${log.stack || 'None'}
                             >
                               Logo {(edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false)) ? 'On' : 'Off'}
                             </button>
+                          </div>
+                        );
+                      })()}
+                    </td>
+
+                    {/* Tabs Access Control (User Panel) */}
+                    <td className="py-4 px-3">
+                      {(() => {
+                        const allTabKeys = ['studio', 'color-swap', 'my-sets', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare'];
+                        const currentAllowed = edits.allowedTabs !== undefined
+                          ? edits.allowedTabs
+                          : (Array.isArray(user.allowedTabs) ? user.allowedTabs : allTabKeys);
+
+                        const tabDefs = [
+                          { id: 'studio', label: 'Canvas' },
+                          { id: 'color-swap', label: 'ColorSwap' },
+                          { id: 'my-sets', label: 'My Sets' },
+                          { id: 'custom-requests', label: 'Send Req' },
+                          { id: 'deliveries', label: 'Deliveries' },
+                          { id: 'video', label: 'Video' },
+                          { id: 'watermark', label: 'Watermark' },
+                          { id: 'compare', label: 'Compare' },
+                        ];
+
+                        return (
+                          <div className="flex flex-wrap gap-1 max-w-[210px]">
+                            {tabDefs.map((t) => {
+                              const isAllowed = currentAllowed.includes(t.id);
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const next = isAllowed
+                                      ? currentAllowed.filter((x: string) => x !== t.id)
+                                      : [...currentAllowed, t.id];
+                                    setUserRowEdits((prev) => ({
+                                      ...prev,
+                                      [user.id]: { ...(prev[user.id] || {}), allowedTabs: next },
+                                    }));
+                                  }}
+                                  className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${
+                                    isAllowed
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                      : isLight
+                                        ? 'bg-gray-200 text-gray-400 border border-gray-300 line-through opacity-60'
+                                        : 'bg-white/5 text-white/20 border border-white/10 line-through opacity-60'
+                                  }`}
+                                  title={`Toggle ${t.label} tab visibility for this user`}
+                                >
+                                  {t.label}
+                                </button>
+                              );
+                            })}
                           </div>
                         );
                       })()}

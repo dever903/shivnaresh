@@ -348,6 +348,12 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
       overlay.width = W;
       overlay.height = H;
 
+      const container = canvasContainerRef.current;
+      const vH = container ? container.clientHeight : 540;
+      const vW = container ? container.clientWidth : 750;
+      const fitZoom = Math.min(1.0, Math.min((vW - 48) / W, (vH - 48) / H));
+      setZoomLevel(Math.max(0.15, Number(fitZoom.toFixed(2))));
+
       const ctx = base.getContext('2d');
       if (ctx) {
         ctx.fillStyle = '#FFFFFF';
@@ -1363,7 +1369,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             <div className="flex items-center gap-1 bg-zinc-800/80 rounded-lg p-0.5 border border-zinc-700">
               <button
                 type="button"
-                onClick={() => setZoomLevel((z) => Math.max(0.4, Number((z - 0.2).toFixed(1))))}
+                onClick={() => setZoomLevel((z) => Math.max(0.15, Number((z - 0.15).toFixed(2))))}
                 className="p-1 hover:text-white cursor-pointer"
                 title="Zoom Out"
               >
@@ -1372,11 +1378,27 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
               <span className="text-[10px] font-mono px-1 font-bold">{Math.round(zoomLevel * 100)}%</span>
               <button
                 type="button"
-                onClick={() => setZoomLevel((z) => Math.min(3.0, Number((z + 0.2).toFixed(1))))}
+                onClick={() => setZoomLevel((z) => Math.min(3.0, Number((z + 0.15).toFixed(2))))}
                 className="p-1 hover:text-white cursor-pointer"
                 title="Zoom In"
               >
                 <ZoomIn className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const base = baseCanvasRef.current;
+                  if (!base) return;
+                  const container = canvasContainerRef.current;
+                  const vH = container ? container.clientHeight : 540;
+                  const vW = container ? container.clientWidth : 750;
+                  const fit = Math.min(1.0, Math.min((vW - 48) / base.width, (vH - 48) / base.height));
+                  setZoomLevel(Math.max(0.15, Number(fit.toFixed(2))));
+                }}
+                className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-zinc-700/80 hover:bg-zinc-600 text-emerald-400 cursor-pointer"
+                title="Fit full garment in viewport"
+              >
+                Fit
               </button>
               <button
                 type="button"
@@ -1989,15 +2011,15 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         {/* Scrollable Viewport Container for Canvas */}
         <div
           ref={canvasContainerRef}
-          className="relative rounded-xl overflow-auto border border-white/10 bg-zinc-950 flex items-center justify-center p-4 min-h-[460px] max-h-[640px]"
+          className="relative rounded-xl overflow-auto border border-white/10 bg-zinc-950 p-6 min-h-[500px] max-h-[76vh] flex"
         >
           <div
             style={{
               transform: `scale(${zoomLevel})`,
-              transformOrigin: 'center center',
+              transformOrigin: 'top center',
               transition: 'transform 0.1s ease-out',
             }}
-            className="relative flex items-center justify-center shadow-2xl"
+            className="relative shadow-2xl m-auto shrink-0"
           >
             {/* Base Drawing Canvas */}
             <canvas

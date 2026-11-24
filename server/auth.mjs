@@ -428,6 +428,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         photoshootOffer: user.photoshootOffer || null,
         admin2fa: Boolean(user.admin2fa),
         watermarkAccess: user.watermarkAccess !== false,
+        allowedTabs: Array.isArray(user.allowedTabs) ? user.allowedTabs : null,
         features: {
           hd2k: Boolean(user.features?.hd2k || user.tier === 'ultra'),
           fivePose: Boolean(user.features?.fivePose || ['ondemand', 'pro', 'ultra'].includes(user.tier)),

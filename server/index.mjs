@@ -5848,6 +5848,23 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
         clothUrl = r.url;
       } catch (cErr) {
         console.warn('[upload-sets] Cloudinary cloth upload fallback:', cErr?.message || cErr);
+      }
+      if (!clothUrl && typeof clothDataUrl === 'string' && clothDataUrl.startsWith('data:image')) {
+        try {
+          const match = /^data:(image\/(png|jpe?g|webp|svg\+xml));base64,(.*)$/is.exec(clothDataUrl);
+          if (match) {
+            const rawExt = match[1].toLowerCase();
+            const ext = rawExt === 'image/png' ? '.png' : rawExt === 'image/webp' ? '.webp' : '.jpg';
+            const file = `cloth-set-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+            const buffer = Buffer.from(match[3].replace(/\s+/g, ''), 'base64');
+            await fs.writeFile(path.join(UPLOADS, file), buffer);
+            clothUrl = `/uploads/${file}`;
+          }
+        } catch (fErr) {
+          console.warn('[upload-sets] Local cloth write error:', fErr);
+        }
+      }
+      if (!clothUrl) {
         clothUrl = clothDataUrl;
       }
     }
@@ -5857,6 +5874,23 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
         modelUrl = r.url;
       } catch (mErr) {
         console.warn('[upload-sets] Cloudinary model upload fallback:', mErr?.message || mErr);
+      }
+      if (!modelUrl && typeof modelDataUrl === 'string' && modelDataUrl.startsWith('data:image')) {
+        try {
+          const match = /^data:(image\/(png|jpe?g|webp|svg\+xml));base64,(.*)$/is.exec(modelDataUrl);
+          if (match) {
+            const rawExt = match[1].toLowerCase();
+            const ext = rawExt === 'image/png' ? '.png' : rawExt === 'image/webp' ? '.webp' : '.jpg';
+            const file = `model-set-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+            const buffer = Buffer.from(match[3].replace(/\s+/g, ''), 'base64');
+            await fs.writeFile(path.join(UPLOADS, file), buffer);
+            modelUrl = `/uploads/${file}`;
+          }
+        } catch (fErr) {
+          console.warn('[upload-sets] Local model write error:', fErr);
+        }
+      }
+      if (!modelUrl) {
         modelUrl = modelDataUrl;
       }
     }
@@ -7248,6 +7282,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (typeof body.tier === 'string') patch.tier = body.tier;
     if (typeof body.creditsLocked === 'boolean') patch.creditsLocked = body.creditsLocked;
     if (typeof body.watermarkAccess === 'boolean') patch.watermarkAccess = body.watermarkAccess;
+    if (Array.isArray(body.allowedTabs)) patch.allowedTabs = body.allowedTabs;
     if (typeof body.planExpiresAt === 'number') patch.planExpiresAt = body.planExpiresAt;
 
     const targetTier = patch.tier || user.tier || 'free';

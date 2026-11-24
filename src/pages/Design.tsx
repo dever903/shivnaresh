@@ -2232,6 +2232,7 @@ function MySetsPanel({
           prompt: `Manual Upload · ${file.name}`,
           resolution: '2k',
           isManualUpload: true,
+          folder: 'ready',
         });
         completed++;
         setMySetsUploadProgress({ current: completed, total: fileArr.length });
@@ -2247,6 +2248,7 @@ function MySetsPanel({
       await Promise.all(workers);
       refreshGenerations();
       refreshSets();
+      setFilter('ready');
     } catch (err: any) {
       setError(err?.message || 'Failed to upload images to My Sets');
     } finally {
@@ -2320,7 +2322,7 @@ function MySetsPanel({
   const modelRef = useRef<HTMLInputElement>(null);
 
   const imageGenerations = generations.filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)));
-  const readyGenerations = imageGenerations.filter((g) => g.folder === 'ready');
+  const readyGenerations = imageGenerations.filter((g) => g.folder === 'ready' || g.isManualUpload);
   const editedGenerations = imageGenerations.filter((g) => g.folder === 'edited' || (g.isEdited && g.folder !== 'ready'));
   const generatedGenerations = imageGenerations.filter((g) => g.folder === 'generated' || (!g.isEdited && g.folder !== 'ready'));
   const videoGenerations = generations.filter((g) => g.type === 'video' && (Boolean(g.url) || Boolean(g.highResUrl)));
@@ -2376,6 +2378,7 @@ function MySetsPanel({
       setSetPromptText('');
       setFormOpen(false);
       refreshSets();
+      setFilter('sets');
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Save failed');
     } finally {
@@ -8394,6 +8397,30 @@ export default function Design() {
     }
   }, []);
 
+  const allStudioTabs = useMemo(() => [
+    { id: 'studio', label: 'Studio Canvas' },
+    { id: 'color-swap', label: '🎨 Color Swap' },
+    { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
+    { id: 'custom-requests', label: 'Send Request' },
+    { id: 'deliveries', label: 'Receive Deliveries' + (userDeliveriesCount ? ` (${userDeliveriesCount})` : ''), unread: deliveriesUnreadCount },
+    { id: 'video', label: 'Video Studio' },
+    { id: 'watermark', label: 'Remove Watermark' },
+    { id: 'compare', label: 'Split Compare' },
+  ], [uploadSets.length, userDeliveriesCount, deliveriesUnreadCount]);
+
+  const visibleStudioTabs = useMemo(() => {
+    if (user?.allowedTabs && Array.isArray(user.allowedTabs) && user.allowedTabs.length > 0) {
+      return allStudioTabs.filter((tab) => user.allowedTabs!.includes(tab.id));
+    }
+    return allStudioTabs;
+  }, [allStudioTabs, user?.allowedTabs]);
+
+  useEffect(() => {
+    if (visibleStudioTabs.length > 0 && !visibleStudioTabs.some((t) => t.id === pageView)) {
+      setPageView(visibleStudioTabs[0].id as any);
+    }
+  }, [visibleStudioTabs, pageView]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -10609,23 +10636,7 @@ export default function Design() {
         {/* Studio Sub-Navigation Tabs */}
         <div className={`border-t transition-colors ${isLight ? 'border-gray-200 bg-gray-50/80' : 'border-white/[0.06] bg-black/30'}`}>
           <div className="mx-auto flex max-w-6xl px-5 sm:px-8 gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'studio', label: 'Studio Canvas' },
-              { id: 'color-swap', label: '🎨 Color Swap' },
-              { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
-              {
-                id: 'custom-requests',
-                label: 'Send Request',
-              },
-              {
-                id: 'deliveries',
-                label: 'Receive Deliveries' + (userDeliveriesCount ? ` (${userDeliveriesCount})` : ''),
-                unread: deliveriesUnreadCount,
-              },
-              { id: 'video', label: 'Video Studio' },
-              { id: 'watermark', label: 'Remove Watermark' },
-              { id: 'compare', label: 'Split Compare' },
-            ].map((v) => (
+            {visibleStudioTabs.map((v) => (
               <button
                 key={v.id}
                 type="button"
