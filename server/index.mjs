@@ -5388,11 +5388,18 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
           ],
         };
         if (!isAdmin) {
+          const emailRegex = currentUserEmail ? new RegExp(`^${currentUserEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
           query.$or = [
             { userId: currentUserId },
-            { userEmail: currentUserEmail },
+            ...(emailRegex ? [{ userEmail: emailRegex }] : []),
             { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
           ];
+          if (/^[0-9a-fA-F]{24}$/.test(currentUserId)) {
+            try {
+              const { ObjectId } = await import('mongodb');
+              query.$or.push({ userId: new ObjectId(currentUserId) });
+            } catch {}
+          }
         }
         const docs = await db.collection('generations').find(query).sort({ createdAt: -1 }).limit(300).toArray();
         if (docs && docs.length > 0) {
@@ -5589,7 +5596,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
       if (req.body.folder) existing.folder = req.body.folder;
       if (!existing.userId && req.user?._id) existing.userId = req.user._id;
       if (!existing.userEmail && req.user?.email) existing.userEmail = req.user.email;
-      cachedGenerations = { items: list, time: Date.now() };
+      cachedGenerations = { items: list, time: 0 };
       void writeGenerations(list).catch((err) => console.warn('[generations] background write error:', err.message));
       return res.json(existing);
     }
@@ -5632,7 +5639,7 @@ app.post('/api/user/generations', auth.requireUser, async (req, res) => {
     }
 
     list.unshift(item);
-    cachedGenerations = { items: list, time: Date.now() };
+    cachedGenerations = { items: list, time: 0 };
     void writeGenerations(list).catch((err) => console.warn('[generations] background write error:', err.message));
 
     res.json(item);

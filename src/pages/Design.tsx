@@ -2176,6 +2176,7 @@ function MySetsPanel({
   onAddLogo,
   onEditLogo,
   onBatchAddLogo,
+  onAddGenerations,
   isBatchBranding,
   batchBrandProgress,
   isLight,
@@ -2194,6 +2195,7 @@ function MySetsPanel({
   onAddLogo?: (gen: UserGeneration) => void;
   onEditLogo?: (gen: UserGeneration) => void;
   onBatchAddLogo?: (targets: UserGeneration[]) => Promise<void>;
+  onAddGenerations?: (items: UserGeneration[]) => void;
   isBatchBranding?: boolean;
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
@@ -2222,10 +2224,11 @@ function MySetsPanel({
 
     try {
       let completed = 0;
+      const uploadedGens: UserGeneration[] = [];
       const processOne = async (file: File) => {
         const standardized = await prepareAndStandardizeImage(file);
         const uploaded = await api.upload(standardized.dataUrl, 'cloth', file.name);
-        await api.saveUserGeneration({
+        const saved = await api.saveUserGeneration({
           type: 'image',
           url: uploaded.url,
           title: file.name,
@@ -2234,6 +2237,9 @@ function MySetsPanel({
           isManualUpload: true,
           folder: 'ready',
         });
+        if (saved) {
+          uploadedGens.push(saved);
+        }
         completed++;
         setMySetsUploadProgress({ current: completed, total: fileArr.length });
       };
@@ -2246,6 +2252,9 @@ function MySetsPanel({
         }
       });
       await Promise.all(workers);
+      if (uploadedGens.length > 0 && onAddGenerations) {
+        onAddGenerations(uploadedGens);
+      }
       refreshGenerations();
       refreshSets();
       setFilter('ready');
@@ -2327,14 +2336,15 @@ function MySetsPanel({
   const generatedGenerations = imageGenerations.filter((g) => g.folder === 'generated' || (!g.isEdited && g.folder !== 'ready'));
   const videoGenerations = generations.filter((g) => g.type === 'video' && (Boolean(g.url) || Boolean(g.highResUrl)));
 
-  const displayedImages =
+  const displayedImages = (
     filter === 'ready'
       ? readyGenerations
       : filter === 'edited'
       ? editedGenerations
       : filter === 'generated'
       ? generatedGenerations
-      : imageGenerations;
+      : imageGenerations
+  ).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -10793,6 +10803,12 @@ export default function Design() {
           onUseSet={handleUseSet}
           refreshSets={loadUploadSets}
           refreshGenerations={loadUserGenerations}
+          onAddGenerations={(newItems) => {
+            setUserGenerations((prev) => {
+              const newIds = new Set(newItems.map((n) => n.id));
+              return [...newItems, ...prev.filter((p) => !newIds.has(p.id))];
+            });
+          }}
           onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
           onMoveFolder={async (id, folder) => {
             setUserGenerations((prev) =>

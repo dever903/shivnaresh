@@ -88,7 +88,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   // Pre-configured default users (admin & initial accounts) guaranteed to exist across cloud deploys
   const DEFAULT_USERS = [
     {
-      _id: "41dcbd72-0f7e-44da-9530-d0d59bac616c",
+      _id: "50af2efd-8c9e-4e38-9883-3219b3782395",
       email: "jaatshab11223315@gmail.com",
       name: "Jaat Shab",
       provider: "google",
@@ -100,7 +100,24 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       credits: 394,
       creditsLocked: false,
       phone: "+916398743132",
-      avatar: ""
+      avatar: "",
+      isAdmin: true,
+      role: "admin",
+      tier: "ultra"
+    },
+    {
+      _id: "49d56d0c-5117-4ea4-8a60-62b6bbf29a0b",
+      email: "order@shivnaresh.com",
+      name: "Order Department",
+      provider: "password",
+      createdAt: "2026-11-01T00:00:00.000Z",
+      salt: "0de555d4a4aea5b7a944e63321faf70d",
+      hash: "6e3a5c1341cd1f86b3982bc242695e60c98ae27316b86cf3d9a2df91c04fb51d0c797ccf8c8314758710bf25fb0aece43f2aa7acb2e13ed6ba36c2cb2469f203",
+      passwordSetAt: "2026-11-01T00:00:00.000Z",
+      credits: 500,
+      tier: "ultra",
+      role: "admin",
+      isAdmin: true
     },
     {
       _id: "4a57b413-d672-480c-81e4-819303a591e5",
@@ -115,7 +132,7 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
       tier: "free"
     },
     {
-      _id: "2e9413fd-bb12-48ab-81f8-dd310c99e440",
+      _id: "bbb5a008-603c-4886-8bf9-6bfc00dbf628",
       email: "45059@arsd.du.ac.in",
       name: "PAWAN KUMAR",
       avatar: "https://lh3.googleusercontent.com/a/ACg8ocJf5kByRd34Uewo7wx1agr6aWyGULgwLCKbjNu1j0rbWkahVw=s96-c",
@@ -129,48 +146,44 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
   ];
 
   const readLocal = async () => {
+    let localData = [];
     try {
-      const data = JSON.parse(await fs.readFile(usersFile, 'utf8'));
-      if (Array.isArray(data) && data.length > 0) {
-        // Merge with DEFAULT_USERS if any default user is missing (never overwrite existing user credits)
-        const map = new Map(data.map(u => [normalise(u.email), u]));
-        let changed = false;
-        for (const def of DEFAULT_USERS) {
-          const key = normalise(def.email);
-          if (!map.has(key)) {
-            data.push(def);
-            changed = true;
+      localData = JSON.parse(await fs.readFile(usersFile, 'utf8'));
+      if (!Array.isArray(localData)) localData = [];
+    } catch {}
+
+    const map = new Map(localData.map(u => [normalise(u.email), u]));
+    for (const def of DEFAULT_USERS) {
+      const key = normalise(def.email);
+      if (key && !map.has(key)) map.set(key, def);
+    }
+
+    // Two-way sync with MongoDB if reachable
+    const db = await getDb().catch(() => null);
+    if (db) {
+      try {
+        const remoteUsers = await db.collection('users').find({}).toArray().catch(() => []);
+        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+          for (const ru of remoteUsers) {
+            const key = normalise(ru.email);
+            if (key) map.set(key, { ...map.get(key), ...ru });
+          }
+          for (const user of map.values()) {
+            await db.collection('users').updateOne(
+              { email: normalise(user.email) },
+              { $set: user },
+              { upsert: true }
+            ).catch(() => {});
           }
         }
-        if (changed) {
-          await writeLocal(data).catch(() => { });
-        }
-        return data;
+      } catch (syncErr) {
+        console.warn('[auth] MongoDB sync warning:', syncErr.message);
       }
-      // If local users.json is empty, attempt to restore from MongoDB first
-      const db = await getDb().catch(() => null);
-      if (db) {
-        const remoteUsers = await db.collection('users').find({}).toArray().catch(() => []);
-        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
-          await writeLocal(remoteUsers).catch(() => { });
-          return remoteUsers;
-        }
-      }
-      await writeLocal(DEFAULT_USERS).catch(() => { });
-      return [...DEFAULT_USERS];
-    } catch {
-      // If users.json read fails, attempt to restore from MongoDB first
-      const db = await getDb().catch(() => null);
-      if (db) {
-        const remoteUsers = await db.collection('users').find({}).toArray().catch(() => []);
-        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
-          await writeLocal(remoteUsers).catch(() => { });
-          return remoteUsers;
-        }
-      }
-      await writeLocal(DEFAULT_USERS).catch(() => { });
-      return [...DEFAULT_USERS];
     }
+
+    const finalUsers = Array.from(map.values());
+    await writeLocal(finalUsers).catch(() => {});
+    return finalUsers;
   };
   const writeLocal = (list) => fs.writeFile(usersFile, JSON.stringify(list, null, 2));
 
@@ -207,10 +220,12 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     const db = await getDb().catch(() => null);
     if (db) {
       try {
-        const user = await db.collection('users').findOne({ email: key });
+        const emailRegex = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        const user = await db.collection('users').findOne({ email: emailRegex });
         if (user) {
-          userMemoryCache.set(user._id, { user, time: Date.now() });
-          emailToIdMap.set(key, user._id);
+          const strId = String(user._id || '');
+          userMemoryCache.set(strId, { user, time: Date.now() });
+          emailToIdMap.set(key, strId);
           return user;
         }
       } catch {}
@@ -270,15 +285,24 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
     emailToIdMap.set(record.email, record._id);
 
     const list = await readLocal();
-    list.push(record);
+    const existingIdx = list.findIndex((u) => normalise(u.email) === record.email);
+    if (existingIdx !== -1) {
+      list[existingIdx] = { ...list[existingIdx], ...record };
+    } else {
+      list.push(record);
+    }
     await writeLocal(list).catch(() => {});
 
     const db = await getDb().catch(() => null);
     if (db) {
       try {
-        await db.collection('users').insertOne(record);
-      } catch {
-        /* duplicate, or the cluster is unreachable — the local copy is enough */
+        await db.collection('users').updateOne(
+          { email: record.email },
+          { $set: record },
+          { upsert: true }
+        );
+      } catch (dbErr) {
+        console.warn('[auth] MongoDB user upsert warning:', dbErr.message);
       }
     }
     return record;

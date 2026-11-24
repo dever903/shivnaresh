@@ -20,6 +20,11 @@ async function resolveMongoUri() {
       if (val) return val;
     }
   } catch {}
+  try {
+    const stateText = await fs.readFile(path.join(ROOT, 'server', 'data', 'state.json'), 'utf8');
+    const state = JSON.parse(stateText);
+    if (state?.mongoUri) return String(state.mongoUri).trim();
+  } catch {}
   return '';
 }
 

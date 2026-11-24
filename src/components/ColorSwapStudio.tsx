@@ -571,7 +571,10 @@ export default function ColorSwapStudio({
         }).catch((err) => console.warn('[ColorSwap] Tab switch redraw:', err));
       }
     } else if (subTab === 'paint' && !paintTargetImage) {
-      const srcUrl = previewCanvasRef.current?.toDataURL('image/png') || (activeImage ? resolveImageUrl(activeImage.url) : null);
+      const hasValidPreview = previewCanvasRef.current && hasRecoloredPreview && previewCanvasRef.current.width > 300;
+      const srcUrl = hasValidPreview
+        ? previewCanvasRef.current!.toDataURL('image/png')
+        : (activeImage ? resolveImageUrl(activeImage.url) : null);
       if (srcUrl) {
         setPaintTargetImage(srcUrl);
         setPaintTargetTitle(activeImage?.title || 'Studio Garment');
@@ -1635,6 +1638,10 @@ export default function ColorSwapStudio({
                       onClick={() => {
                         setActiveImage(img);
                         setSelectedIds(new Set([img.id]));
+                        if (subTab === 'paint') {
+                          setPaintTargetImage(resolveImageUrl(img.url));
+                          setPaintTargetTitle(img.title);
+                        }
                       }}
                       className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${isActive
                         ? 'border-[#e5373f] ring-1 ring-[#e5373f] bg-[#e5373f]/10'
@@ -2339,7 +2346,7 @@ export default function ColorSwapStudio({
               <MsPaintStudio
                 initialImageUrl={
                   paintTargetImage ||
-                  (previewCanvasRef.current
+                  (previewCanvasRef.current && hasRecoloredPreview && previewCanvasRef.current.width > 300
                     ? previewCanvasRef.current.toDataURL('image/png')
                     : activeImage
                       ? resolveImageUrl(activeImage.url)

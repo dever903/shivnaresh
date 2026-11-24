@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { resolveImageUrl, getProxiedImageUrl } from '../lib/api';
+import { loadSafeCanvasImage } from '../pages/Design';
 import type { ImageItem } from './ColorSwapStudio';
 
 // ============================================================================
@@ -297,7 +298,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
     const dataUrl = history[newIdx];
     if (!dataUrl || !baseCanvasRef.current) return;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!dataUrl.startsWith('data:')) img.crossOrigin = 'anonymous';
     img.onload = () => {
       const c = baseCanvasRef.current;
       if (!c) return;
@@ -317,7 +318,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
     const dataUrl = history[newIdx];
     if (!dataUrl || !baseCanvasRef.current) return;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!dataUrl.startsWith('data:')) img.crossOrigin = 'anonymous';
     img.onload = () => {
       const c = baseCanvasRef.current;
       if (!c) return;
@@ -334,10 +335,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   // --------------------------------------------------------------------------
   // Initial Image Loading
   // --------------------------------------------------------------------------
-  const loadCanvasImage = useCallback((url: string) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
+  const loadCanvasImage = useCallback(async (url: string) => {
+    if (!url) return;
+    try {
+      const img = await loadSafeCanvasImage(url);
       const base = baseCanvasRef.current;
       const overlay = overlayCanvasRef.current;
       if (!base || !overlay) return;
@@ -366,8 +367,31 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
       const oCtx = overlay.getContext('2d');
       if (oCtx) oCtx.clearRect(0, 0, W, H);
       setActiveSelection(null);
-    };
-    img.src = url;
+    } catch (err) {
+      console.warn('[MsPaintStudio] Safe load fallback triggered:', err);
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => {
+        const base = baseCanvasRef.current;
+        const overlay = overlayCanvasRef.current;
+        if (!base || !overlay) return;
+        const W = fallbackImg.naturalWidth || 1024;
+        const H = fallbackImg.naturalHeight || 1024;
+        base.width = W;
+        base.height = H;
+        overlay.width = W;
+        overlay.height = H;
+        const ctx = base.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, W, H);
+          ctx.drawImage(fallbackImg, 0, 0, W, H);
+          const dataUrl = base.toDataURL('image/png');
+          setHistory([dataUrl]);
+          setHistoryIndex(0);
+        }
+      };
+      fallbackImg.src = resolveImageUrl(url);
+    }
   }, []);
 
   useEffect(() => {
