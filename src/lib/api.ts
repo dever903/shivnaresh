@@ -26,6 +26,8 @@ export type PlanConfig = {
   priceINR?: number;
   credits: number;
   tier?: string;
+  role?: string;
+  isAdmin?: boolean;
   maxVideos?: number;
   maxModels?: number;
   photoshoots?: number;
@@ -114,6 +116,8 @@ export type User = {
   credits: number;
   creditsLocked?: boolean;
   tier?: string;
+  role?: string;
+  isAdmin?: boolean;
   maxVideos?: number;
   videosGenerated?: number;
   photoshoots?: number;
@@ -266,6 +270,8 @@ export type AdminUser = {
   credits: number;
   creditsLocked?: boolean;
   tier?: string;
+  role?: string;
+  isAdmin?: boolean;
   maxVideos?: number;
   maxModels?: number;
   photoshoots?: number;

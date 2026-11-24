@@ -8499,11 +8499,15 @@ export default function Design() {
   ], [uploadSets.length, userDeliveriesCount, deliveriesUnreadCount]);
 
   const visibleStudioTabs = useMemo(() => {
+    // Admins always have access to all studio tabs
+    if (user?.role === 'admin' || user?.isAdmin) {
+      return allStudioTabs;
+    }
     if (user?.allowedTabs && Array.isArray(user.allowedTabs) && user.allowedTabs.length > 0) {
       return allStudioTabs.filter((tab) => user.allowedTabs!.includes(tab.id));
     }
     return allStudioTabs;
-  }, [allStudioTabs, user?.allowedTabs]);
+  }, [allStudioTabs, user?.allowedTabs, user?.role, user?.isAdmin]);
 
   useEffect(() => {
     if (visibleStudioTabs.length > 0 && !visibleStudioTabs.some((t) => t.id === pageView)) {

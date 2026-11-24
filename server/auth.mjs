@@ -443,6 +443,8 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         credits: typeof user.credits === 'number' ? user.credits : 5,
         creditsLocked: Boolean(user.creditsLocked),
         tier: user.tier || 'free',
+        role: user.role || 'user',
+        isAdmin: Boolean(user.isAdmin || user.role === 'admin'),
         maxVideos: typeof user.maxVideos === 'number' ? user.maxVideos : 15,
         videosGenerated: typeof user.videosGenerated === 'number' ? user.videosGenerated : 0,
         photoshoots: typeof user.photoshoots === 'number' ? user.photoshoots : (typeof user.maxModels === 'number' ? user.maxModels : (user.tier === 'ultra' ? 100 : user.tier === 'pro' ? 60 : user.tier === 'ondemand' ? 20 : 3)),
