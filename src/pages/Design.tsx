@@ -515,7 +515,11 @@ export function safeOpenMediaInNewTab(
   targetWin?: Window | null
 ) {
   if (!mediaUrl) return;
-  const resolved = resolveImageUrl(mediaUrl);
+  let resolved = resolveImageUrl(mediaUrl);
+  // Make relative URLs absolute so they work in a new blank tab
+  if (resolved && !resolved.startsWith('http') && !resolved.startsWith('data:') && !resolved.startsWith('blob:')) {
+    resolved = window.location.origin + (resolved.startsWith('/') ? resolved : '/' + resolved);
+  }
 
   // If a synchronous window reference was pre-opened (or we can open one immediately),
   // write a self-contained responsive HTML viewer that displays the high-res render with download controls.
@@ -3016,7 +3020,7 @@ function MySetsPanel({
                             {gen.folder !== 'ready' && (
                               <button
                                 type="button"
-                                onClick={() => void onMoveFolder(gen.id, 'ready')}
+                                onClick={() => { void onMoveFolder(gen.id, 'ready'); setFilter('ready'); }}
                                 className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black font-bold transition cursor-pointer"
                                 title="Move this image to Ready to Use sub-tab"
                               >
@@ -3026,7 +3030,7 @@ function MySetsPanel({
                             {gen.folder !== 'edited' && (
                               <button
                                 type="button"
-                                onClick={() => void onMoveFolder(gen.id, 'edited')}
+                                onClick={() => { void onMoveFolder(gen.id, 'edited'); setFilter('edited'); }}
                                 className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Edited sub-tab"
                               >
@@ -3036,7 +3040,7 @@ function MySetsPanel({
                             {gen.folder !== 'generated' && (
                               <button
                                 type="button"
-                                onClick={() => void onMoveFolder(gen.id, 'generated')}
+                                onClick={() => { void onMoveFolder(gen.id, 'generated'); setFilter('generated'); }}
                                 className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Generated sub-tab"
                               >
@@ -14567,8 +14571,9 @@ export default function Design() {
                       </button>
                     </div>
 
+                    {result && (
                     <a
-                      href={result}
+                      href={result.startsWith('http') || result.startsWith('data:') ? result : window.location.origin + (result.startsWith('/') ? result : '/' + result)}
                       target="_blank"
                       rel="noreferrer"
                       className={`rounded-full border px-3 py-1 text-xs transition-colors font-semibold ${isLight
@@ -14578,6 +14583,7 @@ export default function Design() {
                     >
                       Open New Tab
                     </a>
+                    )}
 
                     <button
                       type="button"
@@ -14692,16 +14698,20 @@ export default function Design() {
                         <button
                           type="button"
                           onClick={async () => {
+                            const baseToUse = cleanResultBackup || result;
+                            if (!baseToUse) return;
                             const win = window.open('', '_blank');
                             if (win) {
                               try {
                                 win.document.write('<!DOCTYPE html><html><head><title>Loading Shiv-Naresh Preview…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f17;color:#94a3b8;font-family:sans-serif;font-size:14px;}</style></head><body>Preparing high-resolution render preview…</body></html>');
                               } catch {}
                             }
-                            const baseToUse = cleanResultBackup || result;
-                            const viewTarget = activeRenderOption === 'b'
-                              ? await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 })
-                              : baseToUse;
+                            let viewTarget = baseToUse;
+                            if (activeRenderOption === 'b') {
+                              try {
+                                viewTarget = await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 }) || baseToUse;
+                              } catch { viewTarget = baseToUse; }
+                            }
                             safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render 1807×3000 (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
                           }}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${

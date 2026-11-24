@@ -24,7 +24,7 @@
     "provider": "password",
     "createdAt": "2026-11-01T00:00:00.000Z",
     "salt": "0de555d4a4aea5b7a944e63321faf70d",
-    "hash": "6e3a5c1341cd1f86b3982bc242695e60c98ae27316b86cf3d9a2df91c04fb51d0c797ccf8c8314758710bf25fb0aece43f2aa7acb2e13ed6ba36c2cb2469f203",
+    "hash": "cdda2ad81e5c7fbae4a6e9387c8ba644ec8c3b4e64b9c6a6808096609b5db290e63659a21fe20776b0b0218ed9f9bdaae80cf60675e5e81bf24db3bf5990ff06",
     "passwordSetAt": "2026-11-01T00:00:00.000Z",
     "credits": 500,
     "tier": "ultra",

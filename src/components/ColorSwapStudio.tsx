@@ -852,7 +852,7 @@ export default function ColorSwapStudio({
     showToast('🖌️ Opened in MS Paint Pro Studio!');
   };
 
-  
+
 
   /* ----------------------------------------------------------------
      AI Semantic Garment Segmentation Service (Upper, Lower, Both)
@@ -1818,9 +1818,8 @@ export default function ColorSwapStudio({
                   ---------------------------------------------------------------- */}
               <div className={`rounded-2xl border p-5 space-y-5 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
                 {/* AI GARMENT TARGET SELECTOR: UPPER ONLY | LOWER ONLY | BOTH */}
-                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
-                  isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
-                }`}>
+                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                  }`}>
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-[#e5373f]/15 border border-[#e5373f]/30 flex items-center justify-center shrink-0">
                       <Shirt className="w-4 h-4 text-[#e5373f]" />
@@ -1834,33 +1833,30 @@ export default function ColorSwapStudio({
                     <button
                       type="button"
                       onClick={() => setGarmentScope('upper')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                        garmentScope === 'upper'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${garmentScope === 'upper'
                           ? 'bg-[#e5373f] text-white shadow-md'
                           : 'text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span>🧥 Upper Only (Jacket/Top)</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setGarmentScope('lower')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                        garmentScope === 'lower'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${garmentScope === 'lower'
                           ? 'bg-[#e5373f] text-white shadow-md'
                           : 'text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span>👖 Lower Only (Pants/Bottom)</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setGarmentScope('both')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                        garmentScope === 'both'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${garmentScope === 'both'
                           ? 'bg-[#e5373f] text-white shadow-md'
                           : 'text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span>⚡ Both (Full Outfit)</span>
                     </button>
@@ -1986,9 +1982,8 @@ export default function ColorSwapStudio({
                 </div>
 
                 {/* MULTI-LAYER CONTROLS: LOGO & TEXT + ZIPPER INDEPENDENT SEPARATION */}
-                <div className={`p-4 rounded-xl border space-y-4 ${
-                  isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
-                }`}>
+                <div className={`p-4 rounded-xl border space-y-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-zinc-800 bg-zinc-900/60'
+                  }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
@@ -2008,22 +2003,20 @@ export default function ColorSwapStudio({
                         <button
                           type="button"
                           onClick={() => setLogoMode('keep')}
-                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                            logoMode === 'keep'
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${logoMode === 'keep'
                               ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-                          }`}
+                            }`}
                         >
                           ✨ Keep Original
                         </button>
                         <button
                           type="button"
                           onClick={() => setLogoMode('recolor')}
-                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                            logoMode === 'recolor'
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${logoMode === 'recolor'
                               ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-xs'
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-                          }`}
+                            }`}
                         >
                           🎨 Custom Recolor
                         </button>
@@ -2058,22 +2051,20 @@ export default function ColorSwapStudio({
                         <button
                           type="button"
                           onClick={() => setZipperMode('preserve')}
-                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                            zipperMode === 'preserve'
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${zipperMode === 'preserve'
                               ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-xs'
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-                          }`}
+                            }`}
                         >
                           🔩 Metallic Shine
                         </button>
                         <button
                           type="button"
                           onClick={() => setZipperMode('match')}
-                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                            zipperMode === 'match'
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer border ${zipperMode === 'match'
                               ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-xs'
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-                          }`}
+                            }`}
                         >
                           🧥 Match Garment
                         </button>
