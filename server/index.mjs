@@ -5461,7 +5461,11 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       };
     }).filter(Boolean);
 
-    items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    items.sort((a, b) => {
+      const timeA = Math.max(a.folderMovedAt || 0, a.updatedAt || 0, a.createdAt || 0);
+      const timeB = Math.max(b.folderMovedAt || 0, b.updatedAt || 0, b.createdAt || 0);
+      return timeB - timeA;
+    });
     res.json({ items });
   } catch (error) {
     res.status(500).json({ error: 'fetch_failed', message: error.message });
@@ -5655,8 +5659,12 @@ app.patch('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
     const { folder, title, isEdited } = req.body || {};
     const db = await getMongoDb();
-    const updateFields = {};
-    if (folder !== undefined) updateFields.folder = folder;
+    const now = Date.now();
+    const updateFields = { updatedAt: now };
+    if (folder !== undefined) {
+      updateFields.folder = folder;
+      updateFields.folderMovedAt = now;
+    }
     if (title !== undefined) updateFields.title = title;
     if (isEdited !== undefined) updateFields.isEdited = Boolean(isEdited);
 
@@ -5820,15 +5828,22 @@ app.post('/api/user/generations/batch-folder', auth.requireUser, async (req, res
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
     const db = await getMongoDb();
 
-    const idSet = new Set(ids);
+    const baseNow = Date.now();
+    const idMoveTimes = new Map();
+    ids.forEach((id, idx) => {
+      idMoveTimes.set(id, baseNow + (ids.length - idx) * 10);
+    });
+
     const list = await readGenerations();
     for (const g of list) {
-      if (idSet.has(g.id)) {
+      if (idMoveTimes.has(g.id)) {
         const gUserId = g.userId ? String(g.userId) : '';
         const gEmail = (g.userEmail || '').toLowerCase().trim();
         const isOwner = isAdmin || (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
         if (isOwner) {
           g.folder = folder;
+          g.folderMovedAt = idMoveTimes.get(g.id);
+          g.updatedAt = baseNow;
         }
       }
     }
@@ -5836,17 +5851,32 @@ app.post('/api/user/generations/batch-folder', auth.requireUser, async (req, res
     void writeGenerations(list).catch(() => { });
 
     if (db) {
-      const filter = { id: { $in: ids } };
-      if (!isAdmin) {
-        filter.$or = [
-          { userId: currentUserId },
-          { userEmail: currentUserEmail },
-          { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
-        ];
+      const bulkOps = ids.map((id) => ({
+        updateOne: {
+          filter: {
+            id,
+            ...(isAdmin ? {} : {
+              $or: [
+                { userId: currentUserId },
+                { userEmail: currentUserEmail },
+                { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+              ],
+            }),
+          },
+          update: {
+            $set: {
+              folder,
+              folderMovedAt: idMoveTimes.get(id) || baseNow,
+              updatedAt: baseNow,
+            },
+          },
+        },
+      }));
+      if (bulkOps.length > 0) {
+        await db.collection('generations').bulkWrite(bulkOps, { ordered: false }).catch((err) =>
+          console.warn('[generations] batch folder bulkWrite error:', err.message)
+        );
       }
-      await db.collection('generations').updateMany(filter, {
-        $set: { folder },
-      }).catch((err) => console.warn('[generations] batch folder MongoDB error:', err.message));
     }
 
     res.json({ ok: true, updatedCount: ids.length, folder });
@@ -6507,7 +6537,11 @@ app.get('/api/user/deliveries', auth.requireUser, async (req, res) => {
       const matchEmail = d.recipientEmail && String(d.recipientEmail).trim().toLowerCase() === userEmail;
       return matchId || matchEmail;
     });
-    items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    items.sort((a, b) => {
+      const timeA = Math.max(a.folderMovedAt || 0, a.updatedAt || 0, a.createdAt || 0);
+      const timeB = Math.max(b.folderMovedAt || 0, b.updatedAt || 0, b.createdAt || 0);
+      return timeB - timeA;
+    });
 
     const unreadCount = items.filter((d) => d.readByUser === false).length;
     res.json({ items, unreadCount });
@@ -7358,14 +7392,14 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     }
 
     if (targetTier === 'ultra') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 6) patch.maxVideos = 6;
-      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 100) patch.maxModels = 100;
+      if (typeof patch.maxVideos !== 'number' && typeof user.maxVideos !== 'number') patch.maxVideos = 6;
+      if (typeof patch.maxModels !== 'number' && typeof user.maxModels !== 'number' && typeof user.photoshoots !== 'number') patch.maxModels = 100;
     } else if (targetTier === 'pro') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 4) patch.maxVideos = 4;
-      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 60) patch.maxModels = 60;
+      if (typeof patch.maxVideos !== 'number' && typeof user.maxVideos !== 'number') patch.maxVideos = 4;
+      if (typeof patch.maxModels !== 'number' && typeof user.maxModels !== 'number' && typeof user.photoshoots !== 'number') patch.maxModels = 60;
     } else if (targetTier === 'ondemand') {
-      if (typeof patch.maxVideos !== 'number' && (user.maxVideos || 0) < 2) patch.maxVideos = 2;
-      if (typeof patch.maxModels !== 'number' && (user.maxModels || 0) < 20) patch.maxModels = 20;
+      if (typeof patch.maxVideos !== 'number' && typeof user.maxVideos !== 'number') patch.maxVideos = 2;
+      if (typeof patch.maxModels !== 'number' && typeof user.maxModels !== 'number' && typeof user.photoshoots !== 'number') patch.maxModels = 20;
     }
 
     await auth.patchUser(id, patch);

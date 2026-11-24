@@ -4112,13 +4112,14 @@ ${log.stack || 'None'}
                           type="number"
                           min="0"
                           value={currentModels}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value));
                             setUserRowEdits((prev) => ({
                               ...prev,
-                              [user.id]: { ...(prev[user.id] || {}), maxModels: Number(e.target.value) },
-                            }))
-                          }
-                          className={`w-14 rounded-lg border px-2 py-1 font-mono text-xs ${
+                              [user.id]: { ...(prev[user.id] || {}), maxModels: val, photoshoots: val },
+                            }));
+                          }}
+                          className={`w-20 rounded-lg border px-2 py-1 font-mono text-xs ${
                             isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
                           }`}
                         />
@@ -7424,14 +7425,15 @@ ${log.stack || 'None'}
                         <div className="flex items-center gap-1.5">
                           <input
                             type="number"
-                            min="1"
+                            min="0"
                             value={photoshootDrafts[u.id]?.quota ?? currentQuota}
                             onChange={(e) => {
-                              const val = Math.max(1, Number(e.target.value));
+                              const val = Math.max(0, Number(e.target.value));
                               const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
                               setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, quota: val } }));
                             }}
-                            className="w-20 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-amber-300 py-1 focus:outline-none focus:border-amber-500"
+                            className="w-28 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-amber-300 py-1 focus:outline-none focus:border-amber-500"
+                            title="Set custom photoshoot quota (any number, e.g. 50, 200, 500, 1000)"
                           />
                           <span className="text-[10px] text-white/50">shoots</span>
                         </div>

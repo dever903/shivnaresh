@@ -2381,7 +2381,11 @@ function MySetsPanel({
       : filter === 'generated'
       ? generatedGenerations
       : imageGenerations
-  ).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  ).slice().sort((a, b) => {
+    const timeA = Math.max(a.folderMovedAt || 0, a.updatedAt || 0, a.createdAt || 0);
+    const timeB = Math.max(b.folderMovedAt || 0, b.updatedAt || 0, b.createdAt || 0);
+    return timeB - timeA;
+  });
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -10887,25 +10891,30 @@ export default function Design() {
           }}
           onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
           onMoveFolder={async (id, folder) => {
+            const now = Date.now();
             setUserGenerations((prev) =>
-              prev.map((g) => (g.id === id ? { ...g, folder } : g))
+              prev.map((g) => (g.id === id ? { ...g, folder, folderMovedAt: now, updatedAt: now } : g))
             );
             try {
-              await api.updateUserGeneration(id, { folder });
+              await api.updateUserGeneration(id, { folder, folderMovedAt: now, updatedAt: now } as any);
             } catch (err: any) {
               console.warn('[moveGenFolder] Failed:', err?.message);
             }
           }}
           onBatchMoveFolder={async (ids, folder) => {
-            const idSet = new Set(ids);
+            const baseNow = Date.now();
+            const idTimes = new Map<string, number>();
+            ids.forEach((id, idx) => {
+              idTimes.set(id, baseNow + (ids.length - idx) * 10);
+            });
             setUserGenerations((prev) =>
-              prev.map((g) => (idSet.has(g.id) ? { ...g, folder } : g))
+              prev.map((g) => (idTimes.has(g.id) ? { ...g, folder, folderMovedAt: idTimes.get(g.id), updatedAt: baseNow } : g))
             );
             try {
               await api.batchUpdateGenerationsFolder(ids, folder);
             } catch (err: any) {
               console.warn('[batchMoveFolder] API fallback:', err?.message);
-              await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { folder })));
+              await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { folder, folderMovedAt: idTimes.get(id) || baseNow, updatedAt: baseNow } as any)));
             }
           }}
           onZoomCrop={(url, title) => {

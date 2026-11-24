@@ -484,8 +484,8 @@ const PLANS: Plan[] = [
     priceUSD: 249,
     badge: 'ENTERPRISE ATELIER',
     specs: {
-      photoshoots: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
-      models: '100 Custom Photoshoots (Max 10/Day · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
+      photoshoots: 'Custom Photoshoots (Set by Admin · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
+      models: 'Custom Photoshoots (Set by Admin · 1 Photoshoot = 6 Poses) · 1 Month Expiry',
       videos: '6 Studio Videos (1 Month Expiry)',
       credits: '100 Account Credits (Custom shoots free)',
       delivery: 'Guaranteed 24-48h Delivery',
@@ -495,7 +495,7 @@ const PLANS: Plan[] = [
     features: [
       'Custom Atelier Service: upload cloths & garments in Custom Requests',
       'Daily Production Quota: Max 10 custom photoshoots (1 photoshoot = 6 poses)',
-      'Total 100 Photoshoots (600 Poses) + 6 Studio Videos delivered within 24-48 hours (1 month validity)',
+      'Customizable Photoshoots (Set by Admin as needed, 6 Poses per shoot) + Studio Videos delivered within 24-48 hours (1 month validity)',
       '100 active credits in your account for rapid neural experimentation',
       'Wrong/test generations are counted in image generation count (6 poses = 1 photoshoot)',
       'Photoshoots & studio videos in custom requests do NOT consume your account credits',

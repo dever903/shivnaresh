@@ -208,6 +208,8 @@ export type UserGeneration = {
   isManualUpload?: boolean;
   isEdited?: boolean;
   folder?: 'ready' | 'edited' | 'generated';
+  folderMovedAt?: number;
+  updatedAt?: number;
   deleted?: boolean;
   isDeleted?: boolean;
   status?: string;
