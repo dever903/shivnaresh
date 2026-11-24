@@ -118,6 +118,17 @@ const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 const getDefaultBrevoKey = () => String.fromCharCode(120, 107, 101, 121, 115, 105, 98, 45, 57, 100, 55, 55, 51, 55, 54, 102, 48, 102, 57, 97, 55, 99, 52, 99, 99, 101, 48, 101, 53, 49, 100, 99, 101, 49, 50, 101, 51, 49, 102, 57, 53, 99, 54, 56, 51, 97, 97, 55, 48, 48, 53, 49, 51, 101, 54, 51, 51, 49, 53, 50, 100, 50, 101, 97, 49, 56, 51, 54, 100, 52, 100, 48, 45, 51, 77, 52, 107, 112, 69, 103, 117, 105, 84, 97, 86, 65, 119, 80, 118);
 
+export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the provided sportswear garment images in detail and generate a complete, high-converting product listing in authentic Shiv-Naresh athletic style:
+
+1. Product Title: Catchy, SEO-optimized title mentioning garment category, style code, and athletic fit.
+2. Fabric & Material Specifications: Detailed composition (e.g. 100% moisture-wicking polyester micro-twill, 4-way stretch spandex blend, GSM estimate, breathability, durability).
+3. Design & Silhouette Features: Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
+4. Athletic Performance Benefits: Sweat management, quick-dry technology, unrestricted range of motion, abrasion resistance for track & field, gym workouts, or team sports.
+5. Recommended Activities: Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
+6. Sizing & Fit Guidance: Athletic taper, relaxed fit, chest/waist sizing advice.
+7. Wash & Durability Care: Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
+8. SEO & E-commerce Tags: Top 10 high-search-volume keywords separated by commas.`;
+
 /* Built-in default state seeded when running on fresh/cloud environments */
 const SEED_STATE = {
   apiKey: process.env.FASHN_API_KEY || '',
@@ -129,6 +140,8 @@ const SEED_STATE = {
   mongoUri: process.env.MONGODB_URI || '',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+  descriptionPrompt: DEFAULT_DESCRIPTION_PROMPT,
   authSecret: process.env.AUTH_SECRET || '',
   adminEmail: PRIMARY_ADMIN_EMAIL,
   adminEmails: [PRIMARY_ADMIN_EMAIL, '45059@arsd.du.ac.in'],
@@ -216,6 +229,8 @@ const DEFAULTS = {
   mongoUri: '',
   googleClientId: '',
   googleClientSecret: '',
+  googleApiKey: '',
+  descriptionPrompt: DEFAULT_DESCRIPTION_PROMPT,
   authSecret: '',
   /* the accounts allowed into /admin (owner may have more than one) */
   adminEmail: PRIMARY_ADMIN_EMAIL,
@@ -1885,6 +1900,9 @@ app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
     storage: (await auth.storage()) ? 'mongodb' : 'local',
     googleClientId: s.googleClientId || process.env.GOOGLE_CLIENT_ID || '',
     googleSecretSet: Boolean(s.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET),
+    googleApiKeySet: Boolean(s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    googleApiKeyMasked: mask(s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''),
+    descriptionPrompt: s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT,
     imgbbSet: Boolean(s.imgbbKey || process.env.IMGBB_KEY),
     imgbbMasked: mask(s.imgbbKey || process.env.IMGBB_KEY || ''),
     imgbbFromEnv: Boolean(!s.imgbbKey && process.env.IMGBB_KEY),
@@ -2039,7 +2057,12 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
     ...('googleClientId' in body ? { googleClientId: String(body.googleClientId).trim() } : {}),
     ...('admin2faEnabled' in body ? { admin2faEnabled: Boolean(body.admin2faEnabled) } : {}),
     ...('developerImageUrl' in body ? { developerImageUrl: String(body.developerImageUrl).trim() } : {}),
+    ...('descriptionPrompt' in body ? { descriptionPrompt: String(body.descriptionPrompt) } : {}),
   };
+  if (typeof body.googleApiKey === 'string' && body.googleApiKey.trim() && !body.googleApiKey.includes('•')) {
+    patch.googleApiKey = body.googleApiKey.trim();
+  }
+  if (body.clearGoogleApiKey) patch.googleApiKey = '';
   if (typeof body.apiKey === 'string' && body.apiKey.trim()) {
     const key = body.apiKey.trim();
     if (!key.includes('•') && !key.includes('*') && key.length >= 8) {
@@ -2108,6 +2131,202 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
     mongoMasked: maskUri(next.mongoUri),
     storage: (await auth.storage()) ? 'mongodb' : 'local',
   });
+});
+
+/* ---------------------------------------------------- AI Product Description Studio */
+app.get('/api/description/settings', async (_req, res) => {
+  try {
+    const s = await readState();
+    const effectiveKey = s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+    res.json({
+      ok: true,
+      defaultPrompt: s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT,
+      hasGoogleKey: Boolean(effectiveKey),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'settings_failed', message: err.message });
+  }
+});
+
+app.post('/api/description/generate', auth.requireUser, async (req, res) => {
+  try {
+    const { images = [], prompt = '', apiKey = '' } = req.body || {};
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: 'bad_request', message: 'Please upload or select at least 1 image.' });
+    }
+
+    const s = await readState();
+    const effectiveApiKey = String(apiKey || s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+    if (!effectiveApiKey) {
+      return res.status(400).json({
+        error: 'no_api_key',
+        message: 'No Google Gemini API Key found. Please add your Gemini API Key in Admin Settings or enter your key in the Description tab.'
+      });
+    }
+
+    const effectivePrompt = String(prompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT).trim();
+    const parts = [{ text: effectivePrompt }];
+
+    // Prepare multimodal image parts (up to 16 images per request)
+    const limitedImages = images.slice(0, 16);
+    for (const item of limitedImages) {
+      if (!item || typeof item !== 'string') continue;
+      let mimeType = 'image/jpeg';
+      let base64Data = '';
+
+      if (item.startsWith('data:')) {
+        const match = item.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          base64Data = match[2];
+        }
+      } else {
+        let fetchUrl = item;
+        if (fetchUrl.startsWith('/')) {
+          fetchUrl = `http://localhost:${PORT || 5000}${fetchUrl}`;
+        }
+        try {
+          const imgRes = await fetch(fetchUrl);
+          if (imgRes.ok) {
+            const cType = imgRes.headers.get('content-type');
+            if (cType && cType.startsWith('image/')) mimeType = cType.split(';')[0];
+            const buf = Buffer.from(await imgRes.arrayBuffer());
+            base64Data = buf.toString('base64');
+          }
+        } catch (err) {
+          console.warn('[DescriptionStudio] Error fetching image for Gemini:', item, err.message);
+        }
+      }
+
+      if (base64Data) {
+        parts.push({
+          inline_data: {
+            mime_type: mimeType,
+            data: base64Data,
+          }
+        });
+      }
+    }
+
+    if (parts.length <= 1) {
+      return res.status(400).json({ error: 'invalid_images', message: 'Could not load the provided images for AI analysis.' });
+    }
+
+    // Try Gemini models cascade
+    const candidateModels = [
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-1.5-pro',
+      'gemini-3.8-flash'
+    ];
+
+    let generatedText = null;
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
+        const geminiRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 4096,
+            }
+          }),
+          signal: AbortSignal.timeout(60000)
+        });
+
+        const geminiData = await geminiRes.json();
+        if (geminiRes.ok && geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+          generatedText = geminiData.candidates[0].content.parts[0].text;
+          break;
+        } else if (geminiData.error) {
+          lastError = geminiData.error.message || JSON.stringify(geminiData.error);
+          if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) {
+            break;
+          }
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
+    }
+
+    if (!generatedText) {
+      return res.status(502).json({
+        error: 'gemini_error',
+        message: lastError || 'Google Gemini API was unable to generate content. Please verify your Google API key or try again in a few moments.'
+      });
+    }
+
+    // Save to user description history
+    const userId = req.user.id;
+    const historyItem = {
+      id: 'desc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      userId,
+      title: generatedText.split('\n')[0].replace(/^[#*\s]+/, '').slice(0, 80) || 'Sportswear Product Description',
+      text: generatedText,
+      promptUsed: effectivePrompt,
+      imagesCount: parts.length - 1,
+      imageThumb: limitedImages[0]?.slice(0, 300) || '',
+      createdAt: Date.now(),
+    };
+
+    try {
+      const db = await auth.getDb();
+      if (db) {
+        await db.collection('user_descriptions').insertOne(historyItem);
+      }
+    } catch (saveErr) {
+      console.warn('[DescriptionStudio] Non-fatal history save error:', saveErr.message);
+    }
+
+    res.json({
+      ok: true,
+      text: generatedText,
+      item: historyItem,
+      promptUsed: effectivePrompt,
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    console.error('[DescriptionStudio] Error:', err);
+    res.status(500).json({ error: 'internal_error', message: err.message });
+  }
+});
+
+app.get('/api/description/history', auth.requireUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await auth.getDb();
+    let items = [];
+    if (db) {
+      items = await db.collection('user_descriptions')
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .toArray();
+    }
+    res.json({ ok: true, items });
+  } catch (err) {
+    res.status(500).json({ error: 'history_failed', message: err.message });
+  }
+});
+
+app.delete('/api/description/history/:id', auth.requireUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const db = await auth.getDb();
+    if (db) {
+      await db.collection('user_descriptions').deleteOne({ id, userId });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'delete_failed', message: err.message });
+  }
 });
 
 /* ---------------------------------------------------- system problem logs */

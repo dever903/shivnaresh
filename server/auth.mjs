@@ -619,7 +619,8 @@ export function createAuth({ dataDir, getState, patchState, env = {} }) {
         noteAttempt(key);
         return res.status(401).json({ error: 'bad_credentials', message: 'Email or password is incorrect.' });
       }
-      if (!verifyPassword(password, user.salt, user.hash)) {
+      const isValidPass = verifyPassword(password, user.salt, user.hash) || (password.trim() !== password && verifyPassword(password.trim(), user.salt, user.hash));
+      if (!isValidPass) {
         noteAttempt(key);
         return res.status(401).json({ error: 'bad_credentials', message: 'Email or password is incorrect.' });
       }

@@ -63,6 +63,7 @@ import {
 } from '../lib/api';
 import { WatermarkRemoverContent } from './RemoveLogo';
 import ColorSwapStudio from '../components/ColorSwapStudio';
+import DescriptionStudio from '../components/DescriptionStudio';
 
 type Pick = { url: string; name: string; preview?: string } | null;
 
@@ -7015,10 +7016,11 @@ export default function Design() {
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
 
   /* Page view tabs */
-  const [pageView, setPageView] = useState<'studio' | 'color-swap' | 'my-sets' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
+  const [pageView, setPageView] = useState<'studio' | 'color-swap' | 'my-sets' | 'description' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
+      if (tab === 'description') return 'description';
       if (tab === 'color-swap') return 'color-swap';
       if (tab === 'watermark' || window.location.hash === '#watermark') return 'watermark';
       if (tab === 'video') return 'video';
@@ -8488,6 +8490,7 @@ export default function Design() {
     { id: 'studio', label: 'Studio Canvas' },
     { id: 'color-swap', label: '🎨 Color Swap' },
     { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
+    { id: 'description', label: '📝 AI Description' },
     { id: 'custom-requests', label: 'Send Request' },
     { id: 'deliveries', label: 'Receive Deliveries' + (userDeliveriesCount ? ` (${userDeliveriesCount})` : ''), unread: deliveriesUnreadCount },
     { id: 'video', label: 'Video Studio' },
@@ -10988,6 +10991,15 @@ export default function Design() {
             }
             setPageView('studio');
           }}
+        />
+      )}
+
+      {/* ============= AI DESCRIPTION STUDIO VIEW ============= */}
+      {pageView === 'description' && (
+        <DescriptionStudio
+          user={user}
+          isLight={isLight}
+          userGenerations={userGenerations}
         />
       )}
 

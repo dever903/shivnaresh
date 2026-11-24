@@ -347,6 +347,17 @@ export type GatewayConfig = {
   plans?: Record<string, PlanConfig>;
 };
 
+export interface DescriptionHistoryItem {
+  id: string;
+  userId: string;
+  title: string;
+  text: string;
+  promptUsed: string;
+  imagesCount: number;
+  imageThumb?: string;
+  createdAt: number;
+}
+
 export type GatewayOrder = {
   id: string;
   order_no: string;
@@ -742,6 +753,18 @@ export const api = {
   }) => request<UploadSet>('/api/upload-sets', json(body)),
   deleteUploadSet: (id: string) => request<{ ok: boolean }>(`/api/upload-sets/${id}`, { method: 'DELETE' }),
   adminUploadSets: () => request<{ items: UploadSet[]; total: number }>('/api/admin/upload-sets'),
+
+  /* AI Product Description */
+  getDescriptionSettings: () =>
+    request<{ ok: boolean; defaultPrompt: string; hasGoogleKey: boolean }>('/api/description/settings'),
+  generateDescription: (body: { images: string[]; prompt?: string; apiKey?: string }) =>
+    request<{ ok: boolean; text: string; item: DescriptionHistoryItem; promptUsed: string; timestamp: number }>(
+      '/api/description/generate',
+      json(body)
+    ),
+  getDescriptionHistory: () => request<{ ok: boolean; items: DescriptionHistoryItem[] }>('/api/description/history'),
+  deleteDescriptionHistory: (id: string) =>
+    request<{ ok: boolean }>(`/api/description/history/${id}`, { method: 'DELETE' }),
 
   /* admin studio models */
   uploadAdminModel: (body: { category: string; season?: string; name?: string; imageData?: string; models?: { name: string; imageData: string; season?: string }[] }) =>

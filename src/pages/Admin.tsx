@@ -52,6 +52,7 @@ import {
   Send,
   Settings,
   ShieldAlert,
+  Sparkles,
   Tag,
   Trash2,
   UploadCloud,
@@ -214,6 +215,8 @@ export default function Admin() {
   const [testEmailMsg, setTestEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [admin2faEnabled, setAdmin2faEnabled] = useState(false);
   const [developerImageUrl, setDeveloperImageUrl] = useState('');
+  const [googleApiKey, setGoogleApiKey] = useState('');
+  const [descriptionPrompt, setDescriptionPrompt] = useState('');
 
   /* Model Upload & Management State (Single or Multiple) */
   const [seasons, setSeasons] = useState<string[]>(['Summer', 'Winter']);
@@ -603,6 +606,7 @@ export default function Admin() {
     setResendFromEmail(s.resendFromEmail || 'Shiv-Naresh AI Studio <onboarding@resend.dev>');
     setAdmin2faEnabled(Boolean(s.admin2faEnabled));
     setDeveloperImageUrl(s.developerImageUrl || '');
+    if ((s as any).descriptionPrompt) setDescriptionPrompt((s as any).descriptionPrompt);
     if (s.plans && !isEditingPlansRef.current) {
       setPlanPrices((prev) => ({
         ...prev,
@@ -1162,6 +1166,9 @@ export default function Admin() {
       if (cloudinaryCloudName.trim() || validCldKey) saved.push('Cloudinary');
       if (validResend || resendFromEmail.trim()) saved.push('Resend');
       if (validBrevo) saved.push('Brevo Email API');
+      const validGoogleKey = googleApiKey.trim().startsWith('●') || googleApiKey.trim().startsWith('•') ? undefined : googleApiKey.trim() || undefined;
+      if (validGoogleKey) saved.push('Google Gemini API Key');
+      if (descriptionPrompt.trim()) saved.push('Description Default Prompt');
       saved.push('2FA & Defaults');
 
       await api.saveAdminSettings({
@@ -1170,6 +1177,8 @@ export default function Admin() {
         mongoUri: validMongo,
         googleClientId: googleClientId.trim() || undefined,
         googleClientSecret: validSecret,
+        googleApiKey: validGoogleKey,
+        descriptionPrompt: descriptionPrompt.trim() || undefined,
         defaultPrompt,
         defaultModel,
         resolution,
@@ -1193,6 +1202,7 @@ export default function Admin() {
       setCloudinaryApiSecret('');
       setResendApiKey('');
       setBrevoApiKey('');
+      setGoogleApiKey('');
       await loadSettings();
       setStatus(`✓ Saved successfully: ${saved.join(' · ')}`);
       setTimeout(() => setStatus(''), 4500);
@@ -1827,7 +1837,7 @@ ${log.stack || 'None'}
       maxModels: edits.maxModels !== undefined ? edits.maxModels : (user.maxModels ?? (chosenTier === 'ultra' ? 100 : chosenTier === 'pro' ? 50 : chosenTier === 'ondemand' ? 25 : 5)),
       creditsLocked: edits.creditsLocked !== undefined ? edits.creditsLocked : Boolean(user.creditsLocked),
       watermarkAccess: edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false),
-      allowedTabs: edits.allowedTabs !== undefined ? edits.allowedTabs : (Array.isArray(user.allowedTabs) ? user.allowedTabs : ['studio', 'color-swap', 'my-sets', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare']),
+      allowedTabs: edits.allowedTabs !== undefined ? edits.allowedTabs : (Array.isArray(user.allowedTabs) ? user.allowedTabs : ['studio', 'color-swap', 'my-sets', 'description', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare']),
       features: edits.features !== undefined ? {
         ...edits.features,
         customRequests: Boolean(edits.features.customRequests !== undefined ? edits.features.customRequests : isUltra),
@@ -4248,7 +4258,7 @@ ${log.stack || 'None'}
                     {/* Tabs Access Control (User Panel) */}
                     <td className="py-4 px-3">
                       {(() => {
-                        const allTabKeys = ['studio', 'color-swap', 'my-sets', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare'];
+                        const allTabKeys = ['studio', 'color-swap', 'my-sets', 'description', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare'];
                         const currentAllowed = edits.allowedTabs !== undefined
                           ? edits.allowedTabs
                           : (Array.isArray(user.allowedTabs) ? user.allowedTabs : allTabKeys);
@@ -4257,6 +4267,7 @@ ${log.stack || 'None'}
                           { id: 'studio', label: 'Canvas' },
                           { id: 'color-swap', label: 'ColorSwap' },
                           { id: 'my-sets', label: 'My Sets' },
+                          { id: 'description', label: 'Description' },
                           { id: 'custom-requests', label: 'Send Req' },
                           { id: 'deliveries', label: 'Deliveries' },
                           { id: 'video', label: 'Video' },
@@ -4865,6 +4876,55 @@ ${log.stack || 'None'}
                 </select>
               </label>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Google Gemini AI Description Settings */}
+      <section className={cardClass}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider opacity-90">Google Gemini AI Description Settings</h3>
+              <p className="text-[11px] opacity-50">Powers the customer "📝 AI Description" Studio tab with multimodal product descriptions</p>
+            </div>
+          </div>
+          {pill(Boolean((settings as any)?.googleApiKeySet || googleApiKey), 'Key Active', 'No Key (System Key Used)')}
+        </div>
+
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Google Gemini API Key</label>
+            <input
+              type="password"
+              value={googleApiKey}
+              onChange={(e) => setGoogleApiKey(e.target.value)}
+              placeholder={(settings as any)?.googleApiKeySet ? `Configured (${(settings as any)?.googleApiKeyMasked || '••••••••'}) — paste new key to update` : 'AIzaSy... (Google AI Studio Key)'}
+              autoComplete="off"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-[10px] opacity-40">
+              Get an API key from Google AI Studio (aistudio.google.com). Users can also optionally provide their own key in the Description tab.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Default Description System Prompt</label>
+            <textarea
+              value={descriptionPrompt}
+              onChange={(e) => setDescriptionPrompt(e.target.value)}
+              rows={4}
+              placeholder="System prompt given to Gemini when generating sportswear product descriptions..."
+              className={`mt-1.5 w-full rounded-xl border p-3 text-xs focus:outline-none ${
+                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+              }`}
+            />
+            <p className="mt-1.5 text-[10px] opacity-40">
+              Admin-controlled base prompt for all e-commerce garment descriptions. Users can customize this prompt directly in their Description Studio.
+            </p>
           </div>
         </div>
       </section>
