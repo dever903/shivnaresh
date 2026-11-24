@@ -53,10 +53,15 @@ const DEFAULT_PROMPT = `Analyze the sportswear garment (from the provided images
 - Top 10 high-search-volume keywords separated by commas.`;
 
 export default function DescriptionStudio({
-  user: _user,
+  user,
   isLight = false,
   userGenerations = [],
 }: DescriptionStudioProps) {
+  const isAdmin = Boolean(
+    user?.role === 'admin' ||
+    user?.isAdmin ||
+    user?.email === 'jaatshab11223315@gmail.com'
+  );
   // State
   const [images, setImages] = useState<{ id: string; url: string; name: string }[]>([]);
   const [prompt, setPrompt] = useState<string>('');
@@ -288,43 +293,45 @@ export default function DescriptionStudio({
           </div>
         </div>
 
-        {/* Google API Key Status / Toggle */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
-              hasServerKey || customApiKey
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                hasServerKey || customApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+        {/* Google API Key Status / Toggle (Admin Only) */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                hasServerKey || customApiKey
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
               }`}
-            />
-            <span>
-              {customApiKey
-                ? 'Custom Gemini Key Active'
-                : hasServerKey
-                  ? 'Studio Google Key Active'
-                  : 'No Google Key Found'}
-            </span>
-          </div>
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  hasServerKey || customApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+              <span>
+                {customApiKey
+                  ? 'Custom Gemini Key Active'
+                  : hasServerKey
+                    ? 'Studio Google Key Active'
+                    : 'No Google Key Found'}
+              </span>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowKeyConfig((prev) => !prev)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 flex items-center gap-1.5 cursor-pointer transition"
-            title="Configure or override Google Gemini API key"
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>API Key</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setShowKeyConfig((prev) => !prev)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 flex items-center gap-1.5 cursor-pointer transition"
+              title="Configure or override Google Gemini API key"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>API Key</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Custom Key Accordion (Optional) */}
-      {showKeyConfig && (
+      {/* Custom Key Accordion (Admin Only) */}
+      {isAdmin && showKeyConfig && (
         <div className={`p-4 rounded-2xl border space-y-3 animate-in fade-in ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-zinc-900/80 border-white/10'}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">

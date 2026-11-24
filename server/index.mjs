@@ -8115,7 +8115,9 @@ app.use(express.static(dist, {
 }));
 app.get(/^\/(?!api|uploads|generated|models|hosted|guidelines).*/, async (_req, res) => {
   if (fsSync.existsSync(indexPath)) {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     return res.sendFile(indexPath, (err) => {
       if (err && !res.headersSent) {
         res.status(200).send(renderBootHtml());
