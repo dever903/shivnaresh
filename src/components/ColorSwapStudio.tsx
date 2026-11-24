@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   Sliders,
   Shirt,
-  Image as ImageIcon,
   Paintbrush,
   Trash2,
 } from 'lucide-react';
@@ -439,6 +438,9 @@ export default function ColorSwapStudio({
 
   // Fabric reference upload state (for Eyedropper sub-tab)
   const [fabricRefImage, setFabricRefImage] = useState<string | null>(null);
+  const [fabricRefTitle, setFabricRefTitle] = useState<string>('Garment Swatch');
+  const [fabricFolderFilter, setFabricFolderFilter] = useState<string>('all');
+  const [showFabricMySetsDrawer, setShowFabricMySetsDrawer] = useState<boolean>(true);
   const [fabricRefPalette, setFabricRefPalette] = useState<{ hex: string; name: string; count: number }[]>([]);
   const [fabricHoveredColor, setFabricHoveredColor] = useState<{ hex: string; rgb: string } | null>(null);
   const [fabricLoupePos, setFabricLoupePos] = useState<{ x: number; y: number } | null>(null);
@@ -509,6 +511,21 @@ export default function ColorSwapStudio({
     if (filterFolder === 'uploads') return allImages.filter((i) => i.source === 'upload');
     return allImages.filter((i) => i.folder === filterFolder);
   }, [allImages, filterFolder]);
+
+  // Filtered images for Fabric Eyedropper drawer
+  const filteredFabricImages = useMemo(() => {
+    if (fabricFolderFilter === 'all') return allImages;
+    if (fabricFolderFilter === 'uploads') return allImages.filter((i) => i.source === 'upload');
+    return allImages.filter((i) => i.folder === fabricFolderFilter);
+  }, [allImages, fabricFolderFilter]);
+
+  // Auto-initialize fabricRefImage from active image if empty
+  useEffect(() => {
+    if (subTab === 'palette' && !fabricRefImage && activeImage) {
+      setFabricRefImage(resolveImageUrl(activeImage.url));
+      setFabricRefTitle(activeImage.title || 'Studio Garment');
+    }
+  }, [subTab, fabricRefImage, activeImage]);
 
   // Auto-select first image if none active
   useEffect(() => {
@@ -582,7 +599,7 @@ export default function ColorSwapStudio({
     }
   }, [subTab, activeImage, paintTargetImage]);
 
-  // Render fabric reference image when uploaded
+  // Render fabric reference image when uploaded or selected from My Sets
   useEffect(() => {
     if (!fabricRefImage) return;
     let isCancelled = false;
@@ -603,7 +620,46 @@ export default function ColorSwapStudio({
         const pal = extractDominantPalette(ctx, canvas.width, canvas.height, 8);
         setFabricRefPalette(pal);
       } catch (err: any) {
-        console.warn('[ColorSwap] Fabric reference render error:', err);
+        console.warn('[ColorSwap] Fabric reference safe load error, trying fallback:', err);
+        const fallback = new Image();
+        fallback.crossOrigin = 'anonymous';
+        fallback.onload = () => {
+          if (isCancelled || !fabricCanvasRef.current) return;
+          const canvas = fabricCanvasRef.current;
+          canvas.width = fallback.naturalWidth || 800;
+          canvas.height = fallback.naturalHeight || 800;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(fallback, 0, 0, canvas.width, canvas.height);
+          try {
+            const pal = extractDominantPalette(ctx, canvas.width, canvas.height, 8);
+            setFabricRefPalette(pal);
+          } catch {}
+        };
+        fallback.onerror = () => {
+          const proxied = getProxiedImageUrl(resolveImageUrl(fabricRefImage!));
+          if (proxied && proxied !== fallback.src) {
+            const pImg = new Image();
+            pImg.crossOrigin = 'anonymous';
+            pImg.onload = () => {
+              if (isCancelled || !fabricCanvasRef.current) return;
+              const canvas = fabricCanvasRef.current;
+              canvas.width = pImg.naturalWidth || 800;
+              canvas.height = pImg.naturalHeight || 800;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(pImg, 0, 0, canvas.width, canvas.height);
+              try {
+                const pal = extractDominantPalette(ctx, canvas.width, canvas.height, 8);
+                setFabricRefPalette(pal);
+              } catch {}
+            };
+            pImg.src = proxied;
+          }
+        };
+        fallback.src = resolveImageUrl(fabricRefImage!);
       }
     }
 
@@ -724,6 +780,7 @@ export default function ColorSwapStudio({
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setFabricRefImage(reader.result);
+        setFabricRefTitle(file.name);
         showToast(`📤 Loaded fabric swatch: ${file.name}`);
       }
     };
@@ -808,13 +865,14 @@ export default function ColorSwapStudio({
     setFabricHoveredColor(null);
   };
 
-  // Click on Reference Fabric Canvas: Set as Target Swap Color & Switch to Swap tab
+  // Click on Reference Fabric Canvas: Sample & Copy HEX, Set as Target Swap Color
   const handleFabricCanvasClick = () => {
     if (!fabricHoveredColor) return;
-    setTargetHex(fabricHoveredColor.hex);
-    setSampledPalette((prev) => [fabricHoveredColor.hex, ...prev.filter((c) => c !== fabricHoveredColor.hex)].slice(0, 10));
-    setSubTab('swap');
-    showToast(`⚡ Target color set to fabric color: ${fabricHoveredColor.hex} (${getColorName(fabricHoveredColor.hex)})`);
+    const hex = fabricHoveredColor.hex;
+    setTargetHex(hex);
+    setSampledPalette((prev) => [hex, ...prev.filter((c) => c !== hex)].slice(0, 10));
+    copyToClipboard(hex);
+    showToast(`⚡ Sampled & Copied: ${hex} (${getColorName(hex)})! Click 'Apply & Go to Swap' to recolor.`);
   };
 
   // Native Browser EyeDropper API (Chrome/Edge)
@@ -1505,8 +1563,13 @@ export default function ColorSwapStudio({
             type="button"
             onClick={() => {
               setSubTab('paint');
-              if (previewCanvasRef.current) {
-                handleOpenInPaintStudio(previewCanvasRef.current.toDataURL('image/png'), activeImage?.title || 'Studio Garment');
+              const hasValidRecolor = previewCanvasRef.current && hasRecoloredPreview && previewCanvasRef.current.width > 300;
+              if (hasValidRecolor) {
+                try {
+                  handleOpenInPaintStudio(previewCanvasRef.current!.toDataURL('image/png'), activeImage?.title || 'Studio Garment');
+                } catch {
+                  if (activeImage) handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
+                }
               } else if (activeImage) {
                 handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
               }
@@ -1525,7 +1588,13 @@ export default function ColorSwapStudio({
           </button>
           <button
             type="button"
-            onClick={() => setSubTab('palette')}
+            onClick={() => {
+              setSubTab('palette');
+              if (!fabricRefImage && activeImage) {
+                setFabricRefImage(resolveImageUrl(activeImage.url));
+                setFabricRefTitle(activeImage.title || 'Studio Garment');
+              }
+            }}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'palette'
               ? isLight
                 ? 'bg-white text-gray-950 font-bold shadow-sm'
@@ -1641,6 +1710,9 @@ export default function ColorSwapStudio({
                         if (subTab === 'paint') {
                           setPaintTargetImage(resolveImageUrl(img.url));
                           setPaintTargetTitle(img.title);
+                        } else if (subTab === 'palette') {
+                          setFabricRefImage(resolveImageUrl(img.url));
+                          setFabricRefTitle(img.title);
                         }
                       }}
                       className={`p-2 rounded-xl border flex items-center gap-3 transition cursor-pointer ${isActive
@@ -1719,8 +1791,13 @@ export default function ColorSwapStudio({
                 <button
                   type="button"
                   onClick={() => {
-                    if (previewCanvasRef.current) {
-                      handleOpenInPaintStudio(previewCanvasRef.current.toDataURL('image/png'), activeImage?.title || 'Canvas Edit');
+                    const hasValidRecolor = previewCanvasRef.current && hasRecoloredPreview && previewCanvasRef.current.width > 300;
+                    if (hasValidRecolor) {
+                      try {
+                        handleOpenInPaintStudio(previewCanvasRef.current!.toDataURL('image/png'), activeImage?.title || 'Canvas Edit');
+                      } catch {
+                        if (activeImage) handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
+                      }
                     } else if (activeImage) {
                       handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
                     }
@@ -2338,7 +2415,13 @@ export default function ColorSwapStudio({
                 initialImageUrl={
                   paintTargetImage ||
                   (previewCanvasRef.current && hasRecoloredPreview && previewCanvasRef.current.width > 300
-                    ? previewCanvasRef.current.toDataURL('image/png')
+                    ? (() => {
+                        try {
+                          return previewCanvasRef.current.toDataURL('image/png');
+                        } catch {
+                          return activeImage ? resolveImageUrl(activeImage.url) : null;
+                        }
+                      })()
                     : activeImage
                       ? resolveImageUrl(activeImage.url)
                       : null)
@@ -2377,20 +2460,34 @@ export default function ColorSwapStudio({
                With Reference Fabric Photo Upload & Direct Apply to Swap
                ---------------------------------------------------------------- */
             <div className="space-y-6">
-              {/* Reference Fabric Photo Upload Card */}
+              {/* Reference Fabric / My Sets Eyedropper Studio Card */}
               <div className={`rounded-2xl border p-5 space-y-4 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4" />
-                      <span>Upload Reference Fabric Photo (Canva Eyedropper)</span>
+                      <Pipette className="w-4 h-4" />
+                      <span>Canva Eyedropper & Palette Inspector</span>
                     </span>
                     <span className="text-[10px] opacity-70">
-                      (Upload any cloth photo to extract exact color code & name)
+                      (Select any image from My Sets or upload a cloth swatch to sample exact colors)
                     </span>
                   </div>
 
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowFabricMySetsDrawer((prev) => !prev)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-1.5 cursor-pointer transition ${
+                        showFabricMySetsDrawer
+                          ? 'border-[#e5373f] bg-[#e5373f]/20 text-[#e5373f]'
+                          : 'border-white/10 text-zinc-300 hover:text-white bg-zinc-800/80'
+                      }`}
+                      title="Show or hide My Sets image selector drawer"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{showFabricMySetsDrawer ? 'Hide My Sets' : 'Pick from My Sets'} ({allImages.length})</span>
+                    </button>
+
                     <input
                       ref={fabricUploadInputRef}
                       type="file"
@@ -2404,20 +2501,131 @@ export default function ColorSwapStudio({
                       className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#e5373f] hover:bg-[#d42d35] text-white flex items-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      <span>Upload Reference Fabric</span>
+                      <span>+ Upload New Image</span>
                     </button>
                   </div>
                 </div>
 
+                {/* In-Studio My Sets Image Selector Drawer */}
+                {showFabricMySetsDrawer && allImages.length > 0 && (
+                  <div className={`p-3.5 rounded-xl border space-y-3 ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-black/40 border-white/10'}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
+                        <Archive className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Choose from My Sets ({filteredFabricImages.length}):</span>
+                      </span>
+
+                      {/* Folder Filters */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {[
+                          { id: 'all', label: 'All' },
+                          { id: 'ready', label: '⭐ Ready' },
+                          { id: 'edited', label: '✏️ Edited' },
+                          { id: 'generated', label: '📸 Gen' },
+                          { id: 'uploads', label: '📤 Uploads' },
+                        ].map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setFabricFolderFilter(f.id)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition ${
+                              fabricFolderFilter === f.id
+                                ? 'border-[#e5373f] bg-[#e5373f]/20 text-[#e5373f]'
+                                : 'border-white/10 text-zinc-400 hover:text-white'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Horizontal Scrollable Thumbnails Strip */}
+                    <div className="flex items-center gap-2.5 overflow-x-auto pb-1.5 no-scrollbar">
+                      {filteredFabricImages.map((img) => {
+                        const resolved = resolveImageUrl(img.url);
+                        const isCurrentRef = fabricRefImage === resolved;
+                        const proxiedThumb = getProxiedImageUrl(resolved);
+                        return (
+                          <div
+                            key={img.id}
+                            onClick={() => {
+                              setFabricRefImage(resolved);
+                              setFabricRefTitle(img.title);
+                              showToast(`🔍 Loaded for Eyedropper: ${img.title}`);
+                            }}
+                            className={`w-20 shrink-0 p-1 rounded-xl border flex flex-col items-center text-center cursor-pointer transition hover:scale-105 ${
+                              isCurrentRef
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f] bg-[#e5373f]/10 shadow-md'
+                                : 'border-white/10 bg-zinc-900/60 hover:bg-zinc-800'
+                            }`}
+                            title={`Click to sample colors from ${img.title}`}
+                          >
+                            <img
+                              src={proxiedThumb}
+                              alt={img.title}
+                              className="w-16 h-20 object-cover rounded-lg bg-black/40 mb-1"
+                            />
+                            <p className="text-[10px] font-semibold truncate w-full px-0.5">{img.title}</p>
+                            <span className={`text-[8px] font-bold px-1 py-0.2 rounded mt-0.5 ${
+                              img.folder === 'ready'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : img.folder === 'edited'
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : 'bg-zinc-500/20 text-zinc-300'
+                            }`}>
+                              {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? '✏️ Edited' : '📸 Gen'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {fabricRefImage ? (
                   <div className="space-y-4">
-                    <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center p-2 min-h-[280px]">
+                    {/* Viewport Top Bar */}
+                    <div className="flex items-center justify-between text-xs px-1 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-zinc-300 truncate max-w-xs">
+                          Active Reference: <span className="text-[#e5373f]">{fabricRefTitle}</span>
+                        </span>
+                        {fabricHoveredColor && (
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-white/20 bg-black/60 text-[10px] font-mono">
+                            <span
+                              className="w-3 h-3 rounded-full border border-white/40 shrink-0"
+                              style={{ backgroundColor: fabricHoveredColor.hex }}
+                            />
+                            <span className="font-bold text-white">{fabricHoveredColor.hex}</span>
+                            <span className="opacity-70">({getColorName(fabricHoveredColor.hex)})</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (fabricHoveredColor) setTargetHex(fabricHoveredColor.hex);
+                            setSubTab('swap');
+                            showToast(`⚡ Switched to Color Swap with target: ${targetHex}`);
+                          }}
+                          className="px-3 py-1 rounded-lg text-xs font-bold bg-[#e5373f] hover:bg-[#d42d35] text-white flex items-center gap-1.5 cursor-pointer shadow-md"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Apply & Go to Swap</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center p-2 min-h-[300px]">
                       <canvas
                         ref={fabricCanvasRef}
                         onMouseMove={handleFabricCanvasMouseMove}
                         onMouseLeave={handleFabricCanvasMouseLeave}
                         onClick={handleFabricCanvasClick}
-                        className="max-h-[380px] max-w-full object-contain cursor-crosshair rounded-lg"
+                        className="max-h-[440px] max-w-full object-contain cursor-crosshair rounded-lg"
                       />
 
                       {/* Loupe over fabric */}
@@ -2444,7 +2652,7 @@ export default function ColorSwapStudio({
                       )}
                     </div>
                     <p className="text-[11px] text-zinc-400 italic text-center">
-                      💡 Click anywhere on your fabric photo to copy its exact HEX code and set it as Target Color for model garment swap!
+                      💡 Click anywhere on your fabric/garment photo to sample & copy its exact HEX code and set it as Target Color for model swap!
                     </p>
 
                     {/* Dominant Palette Extracted from Uploaded Fabric */}

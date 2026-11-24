@@ -360,9 +360,13 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, W, H);
         ctx.drawImage(img, 0, 0, W, H);
-        const dataUrl = base.toDataURL('image/png');
-        setHistory([dataUrl]);
-        setHistoryIndex(0);
+        try {
+          const dataUrl = base.toDataURL('image/png');
+          setHistory([dataUrl]);
+          setHistoryIndex(0);
+        } catch {
+          // ignore canvas taint on initial history push
+        }
       }
       const oCtx = overlay.getContext('2d');
       if (oCtx) oCtx.clearRect(0, 0, W, H);
@@ -370,6 +374,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
     } catch (err) {
       console.warn('[MsPaintStudio] Safe load fallback triggered:', err);
       const fallbackImg = new Image();
+      fallbackImg.crossOrigin = 'anonymous';
       fallbackImg.onload = () => {
         const base = baseCanvasRef.current;
         const overlay = overlayCanvasRef.current;
@@ -385,9 +390,45 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, W, H);
           ctx.drawImage(fallbackImg, 0, 0, W, H);
-          const dataUrl = base.toDataURL('image/png');
-          setHistory([dataUrl]);
-          setHistoryIndex(0);
+          try {
+            const dataUrl = base.toDataURL('image/png');
+            setHistory([dataUrl]);
+            setHistoryIndex(0);
+          } catch {
+            // ignore
+          }
+        }
+      };
+      fallbackImg.onerror = () => {
+        const proxied = getProxiedImageUrl(resolveImageUrl(url));
+        if (proxied && proxied !== fallbackImg.src) {
+          const pImg = new Image();
+          pImg.crossOrigin = 'anonymous';
+          pImg.onload = () => {
+            const base = baseCanvasRef.current;
+            const overlay = overlayCanvasRef.current;
+            if (!base || !overlay) return;
+            const W = pImg.naturalWidth || 1024;
+            const H = pImg.naturalHeight || 1024;
+            base.width = W;
+            base.height = H;
+            overlay.width = W;
+            overlay.height = H;
+            const ctx = base.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, W, H);
+              ctx.drawImage(pImg, 0, 0, W, H);
+              try {
+                const dataUrl = base.toDataURL('image/png');
+                setHistory([dataUrl]);
+                setHistoryIndex(0);
+              } catch {
+                // ignore
+              }
+            }
+          };
+          pImg.src = proxied;
         }
       };
       fallbackImg.src = resolveImageUrl(url);
@@ -2048,12 +2089,16 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             {/* Base Drawing Canvas */}
             <canvas
               ref={baseCanvasRef}
+              width={1024}
+              height={1024}
               className="rounded-lg block shadow-2xl bg-white"
             />
 
             {/* Overlay Canvas for floating selection marquee, 4 corner handles, and shapes */}
             <canvas
               ref={overlayCanvasRef}
+              width={1024}
+              height={1024}
               onContextMenu={(e) => e.preventDefault()}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
