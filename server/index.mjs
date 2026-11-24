@@ -118,16 +118,34 @@ const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 const getDefaultBrevoKey = () => String.fromCharCode(120, 107, 101, 121, 115, 105, 98, 45, 57, 100, 55, 55, 51, 55, 54, 102, 48, 102, 57, 97, 55, 99, 52, 99, 99, 101, 48, 101, 53, 49, 100, 99, 101, 49, 50, 101, 51, 49, 102, 57, 53, 99, 54, 56, 51, 97, 97, 55, 48, 48, 53, 49, 51, 101, 54, 51, 51, 49, 53, 50, 100, 50, 101, 97, 49, 56, 51, 54, 100, 52, 100, 48, 45, 51, 77, 52, 107, 112, 69, 103, 117, 105, 84, 97, 86, 65, 119, 80, 118);
 
-export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the provided sportswear garment images in detail and generate a complete, high-converting product listing in authentic Shiv-Naresh athletic style:
+export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
 
-1. Product Title: Catchy, SEO-optimized title mentioning garment category, style code, and athletic fit.
-2. Fabric & Material Specifications: Detailed composition (e.g. 100% moisture-wicking polyester micro-twill, 4-way stretch spandex blend, GSM estimate, breathability, durability).
-3. Design & Silhouette Features: Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
-4. Athletic Performance Benefits: Sweat management, quick-dry technology, unrestricted range of motion, abrasion resistance for track & field, gym workouts, or team sports.
-5. Recommended Activities: Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
-6. Sizing & Fit Guidance: Athletic taper, relaxed fit, chest/waist sizing advice.
-7. Wash & Durability Care: Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
-8. SEO & E-commerce Tags: Top 10 high-search-volume keywords separated by commas.`;
+### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
+- Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
+
+### ⚡ 2. SHORT DESCRIPTION (2-3 Lines Quick Summary)
+- Write a punchy, high-impact 2-3 line elevator pitch highlighting the primary look, fabric comfort, and athletic silhouette for catalog cards, WhatsApp, and social media.
+
+### 📖 3. BEST IN-DEPTH PRODUCT DESCRIPTION
+- Comprehensive, engaging marketing copy highlighting authentic Indian athletic heritage, modern sports aesthetic, dynamic motion fit, and all-weather durability.
+
+### 🧵 4. FABRIC & MATERIAL SPECIFICATIONS
+- Detailed composition (e.g. 100% moisture-wicking micro-poly, 4-way stretch spandex blend, GSM weight estimate, breathability, durability).
+
+### 📐 5. DESIGN & KEY FEATURES
+- Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
+
+### 🏃 6. ATHLETIC PERFORMANCE & USE CASES
+- Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
+
+### 📏 7. SIZING & FIT GUIDANCE
+- Athletic taper, relaxed fit, chest/waist sizing advice.
+
+### 🧼 8. WASH & DURABILITY CARE
+- Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
+
+### 🔍 9. SEO & E-COMMERCE TAGS
+- Top 10 high-search-volume keywords separated by commas.`;
 
 /* Built-in default state seeded when running on fresh/cloud environments */
 const SEED_STATE = {
@@ -2151,10 +2169,6 @@ app.get('/api/description/settings', async (_req, res) => {
 app.post('/api/description/generate', auth.requireUser, async (req, res) => {
   try {
     const { images = [], prompt = '', apiKey = '' } = req.body || {};
-    if (!Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ error: 'bad_request', message: 'Please upload or select at least 1 image.' });
-    }
-
     const s = await readState();
     const effectiveApiKey = String(apiKey || s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
     if (!effectiveApiKey) {
@@ -2164,11 +2178,20 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       });
     }
 
-    const effectivePrompt = String(prompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT).trim();
-    const parts = [{ text: effectivePrompt }];
+    const hasImages = Array.isArray(images) && images.length > 0;
+    const effectivePrompt = String(prompt || (hasImages ? (s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT) : '')).trim();
 
-    // Prepare multimodal image parts (up to 16 images per request)
-    const limitedImages = images.slice(0, 16);
+    if (!effectivePrompt && !hasImages) {
+      return res.status(400).json({
+        error: 'bad_request',
+        message: 'Please provide either prompt instructions or upload at least 1 garment photo.'
+      });
+    }
+
+    const parts = [{ text: effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT }];
+
+    // Prepare multimodal image parts (up to 16 images per request) if provided
+    const limitedImages = hasImages ? images.slice(0, 16) : [];
     for (const item of limitedImages) {
       if (!item || typeof item !== 'string') continue;
       let mimeType = 'image/jpeg';
@@ -2183,7 +2206,7 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       } else {
         let fetchUrl = item;
         if (fetchUrl.startsWith('/')) {
-          fetchUrl = `http://localhost:${PORT || 5000}${fetchUrl}`;
+          fetchUrl = `http://localhost:${PORT || 8787}${fetchUrl}`;
         }
         try {
           const imgRes = await fetch(fetchUrl);
@@ -2206,10 +2229,6 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
           }
         });
       }
-    }
-
-    if (parts.length <= 1) {
-      return res.status(400).json({ error: 'invalid_images', message: 'Could not load the provided images for AI analysis.' });
     }
 
     // Try Gemini models cascade (starting with Google's latest recommended aliases)
@@ -2269,13 +2288,16 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
 
     // Save to user description history
     const userId = req.user.id;
+    const cleanTitleLine = (generatedText.split('\n').find((l) => l.trim() && !l.trim().startsWith('#')) || '')
+      .replace(/^[#*\s-]+/, '')
+      .slice(0, 80);
     const historyItem = {
       id: 'desc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       userId,
-      title: generatedText.split('\n')[0].replace(/^[#*\s]+/, '').slice(0, 80) || 'Sportswear Product Description',
+      title: cleanTitleLine || 'Sportswear Product Description',
       text: generatedText,
       promptUsed: effectivePrompt,
-      imagesCount: parts.length - 1,
+      imagesCount: parts.length > 1 ? parts.length - 1 : 0,
       imageThumb: limitedImages[0]?.slice(0, 300) || '',
       createdAt: Date.now(),
     };

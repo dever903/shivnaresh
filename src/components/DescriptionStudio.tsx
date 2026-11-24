@@ -13,12 +13,13 @@ import {
   X,
   RotateCcw,
   BookOpen,
+  Star,
 } from 'lucide-react';
 import { api, type DescriptionHistoryItem, type UserGeneration, resolveImageUrl, getProxiedImageUrl } from '../lib/api';
 import { getBestGenUrl } from '../pages/Design';
 
 interface DescriptionStudioProps {
-  user: any;
+  user?: any;
   isLight?: boolean;
   userGenerations?: UserGeneration[];
 }
@@ -26,17 +27,35 @@ interface DescriptionStudioProps {
 const PROMPT_PRESETS = [
   {
     id: 'full',
-    label: '🛒 Full E-Commerce Catalog',
-    prompt: `Analyze the provided sportswear garment images in detail and generate a complete, high-converting product listing in authentic Shiv-Naresh athletic style:
+    label: '🏆 Best Titles, Short & Full Listing',
+    prompt: `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
 
-1. Product Title: Catchy, SEO-optimized title mentioning garment category, style code, and athletic fit.
-2. Fabric & Material Specifications: Detailed composition (e.g. 100% moisture-wicking polyester micro-twill, 4-way stretch spandex blend, GSM estimate, breathability, durability).
-3. Design & Silhouette Features: Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
-4. Athletic Performance Benefits: Sweat management, quick-dry technology, unrestricted range of motion, abrasion resistance for track & field, gym workouts, or team sports.
-5. Recommended Activities: Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
-6. Sizing & Fit Guidance: Athletic taper, relaxed fit, chest/waist sizing advice.
-7. Wash & Durability Care: Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
-8. SEO & E-commerce Tags: Top 10 high-search-volume keywords separated by commas.`,
+### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
+- Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
+
+### ⚡ 2. SHORT DESCRIPTION (2-3 Lines Quick Summary)
+- Write a punchy, high-impact 2-3 line elevator pitch highlighting the primary look, fabric comfort, and athletic silhouette for catalog cards, WhatsApp, and social media.
+
+### 📖 3. BEST IN-DEPTH PRODUCT DESCRIPTION
+- Comprehensive, engaging marketing copy highlighting authentic Indian athletic heritage, modern sports aesthetic, dynamic motion fit, and all-weather durability.
+
+### 🧵 4. FABRIC & MATERIAL SPECIFICATIONS
+- Detailed composition (e.g. 100% moisture-wicking micro-poly, 4-way stretch spandex blend, GSM weight estimate, breathability, durability).
+
+### 📐 5. DESIGN & KEY FEATURES
+- Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
+
+### 🏃 6. ATHLETIC PERFORMANCE & USE CASES
+- Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
+
+### 📏 7. SIZING & FIT GUIDANCE
+- Athletic taper, relaxed fit, chest/waist sizing advice.
+
+### 🧼 8. WASH & DURABILITY CARE
+- Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
+
+### 🔍 9. SEO & E-COMMERCE TAGS
+- Top 10 high-search-volume keywords separated by commas.`,
   },
   {
     id: 'specs',
@@ -80,6 +99,13 @@ export default function DescriptionStudio({
   const [prompt, setPrompt] = useState<string>('');
   const [defaultPrompt, setDefaultPrompt] = useState<string>('');
   const [hasServerKey, setHasServerKey] = useState<boolean>(true);
+  const [hasUserCustomDefault, setHasUserCustomDefault] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem('sn_user_custom_default_prompt'));
+    } catch {
+      return false;
+    }
+  });
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     try {
       return localStorage.getItem('sn_custom_gemini_key') || '';
@@ -112,19 +138,31 @@ export default function DescriptionStudio({
   // 1. Fetch Description Settings & Default Prompt on mount
   useEffect(() => {
     let cancelled = false;
+    const userSavedPrompt = (() => {
+      try {
+        return localStorage.getItem('sn_user_custom_default_prompt') || '';
+      } catch {
+        return '';
+      }
+    })();
+
     api
       .getDescriptionSettings()
       .then((res) => {
         if (!cancelled && res.ok) {
-          setDefaultPrompt(res.defaultPrompt || PROMPT_PRESETS[0].prompt);
-          setPrompt((prev) => (prev ? prev : res.defaultPrompt || PROMPT_PRESETS[0].prompt));
+          const sysDefault = res.defaultPrompt || PROMPT_PRESETS[0].prompt;
+          setDefaultPrompt(sysDefault);
+          setPrompt((prev) => (prev ? prev : userSavedPrompt || sysDefault));
           setHasServerKey(res.hasGoogleKey);
+          if (userSavedPrompt) setHasUserCustomDefault(true);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setDefaultPrompt(PROMPT_PRESETS[0].prompt);
-          setPrompt((prev) => (prev ? prev : PROMPT_PRESETS[0].prompt));
+          const sysDefault = PROMPT_PRESETS[0].prompt;
+          setDefaultPrompt(sysDefault);
+          setPrompt((prev) => (prev ? prev : userSavedPrompt || sysDefault));
+          if (userSavedPrompt) setHasUserCustomDefault(true);
         }
       });
 
@@ -132,6 +170,31 @@ export default function DescriptionStudio({
       cancelled = true;
     };
   }, []);
+
+  // Save current prompt as user's personal default
+  const handleSaveAsUserDefault = () => {
+    if (!prompt.trim()) {
+      showToast('⚠️ Please write some prompt instructions first to save.');
+      return;
+    }
+    try {
+      localStorage.setItem('sn_user_custom_default_prompt', prompt.trim());
+      setHasUserCustomDefault(true);
+      showToast('⭐ Saved as your personal default prompt!');
+    } catch {
+      showToast('Could not save to browser storage');
+    }
+  };
+
+  // Reset prompt back to system/admin default
+  const handleResetToSystemDefault = () => {
+    try {
+      localStorage.removeItem('sn_user_custom_default_prompt');
+    } catch {}
+    setHasUserCustomDefault(false);
+    setPrompt(defaultPrompt || PROMPT_PRESETS[0].prompt);
+    showToast('↺ Reset to system default prompt');
+  };
 
   // 2. Load History
   const loadHistory = async () => {
@@ -200,10 +263,10 @@ export default function DescriptionStudio({
     }
   };
 
-  // Submit generation request
+  // Submit generation request (supports: Images Only, Prompt Only, or Both)
   const handleGenerate = async () => {
-    if (images.length === 0) {
-      setErrorMsg('Please upload or select at least 1 garment photo.');
+    if (images.length === 0 && !prompt.trim()) {
+      setErrorMsg('Please upload at least 1 garment photo or enter prompt instructions.');
       return;
     }
     setErrorMsg(null);
@@ -211,9 +274,10 @@ export default function DescriptionStudio({
 
     try {
       const imageUrls = images.map((img) => img.url);
+      const effectivePrompt = prompt.trim() || defaultPrompt || PROMPT_PRESETS[0].prompt;
       const res = await api.generateDescription({
         images: imageUrls,
-        prompt: prompt.trim() || defaultPrompt,
+        prompt: effectivePrompt,
         apiKey: customApiKey.trim() || undefined,
       });
 
@@ -536,18 +600,27 @@ export default function DescriptionStudio({
                 <span>Description Prompt & Instructions</span>
               </span>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setPrompt(defaultPrompt);
-                  showToast('↺ Reset to admin default prompt');
-                }}
-                className="text-[10px] font-bold text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer transition"
-                title="Reset prompt back to admin default"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset to Default</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSaveAsUserDefault}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1 cursor-pointer transition"
+                  title="Save this current prompt as your personal default"
+                >
+                  <Star className="w-3 h-3 text-amber-400" />
+                  <span>Save as My Default</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetToSystemDefault}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
+                  title="Reset prompt back to system default"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>System Default</span>
+                </button>
+              </div>
             </div>
 
             {/* Quick Template Presets */}
@@ -571,12 +644,23 @@ export default function DescriptionStudio({
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              rows={6}
-              placeholder="Type specific instructions for Gemini AI (e.g. emphasize moisture-wicking fabric, mention sizes S to 3XL, provide Amazon bullets)..."
+              rows={7}
+              placeholder="Type specific instructions (or leave blank to use default). You can also generate by sending prompt only without uploading images..."
               className={`w-full rounded-xl border p-3 text-xs leading-relaxed focus:outline-none transition ${
                 isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-[#e5373f]' : 'border-white/15 bg-black/60 text-white focus:border-[#e5373f]'
               }`}
             />
+
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 flex-wrap gap-2">
+              <span className="flex items-center gap-1">
+                💡 <span className="opacity-80">Flexible: Send <b>Images only</b>, <b>Prompt only</b>, or <b>Both</b></span>
+              </span>
+              {hasUserCustomDefault && (
+                <span className="text-amber-400 font-semibold flex items-center gap-1">
+                  ★ Custom default saved
+                </span>
+              )}
+            </div>
 
             {errorMsg && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400 font-medium">
@@ -587,19 +671,25 @@ export default function DescriptionStudio({
             {/* Submit Generate Button */}
             <button
               type="button"
-              disabled={isGenerating || images.length === 0}
+              disabled={isGenerating || (images.length === 0 && !prompt.trim())}
               onClick={handleGenerate}
               className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#e5373f] hover:bg-[#d42d35] active:scale-[0.98] text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg transition"
             >
               {isGenerating ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Google Gemini Analyzing {images.length} Image(s)...</span>
+                  <span>Google Gemini Generating Description...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Generate Product Description ({images.length} Image{images.length !== 1 ? 's' : ''})</span>
+                  <span>
+                    {images.length > 0 && prompt.trim()
+                      ? `Generate AI Description (${images.length} Image${images.length !== 1 ? 's' : ''} + Prompt)`
+                      : images.length > 0
+                        ? `Generate AI Description (${images.length} Image${images.length !== 1 ? 's' : ''})`
+                        : 'Generate AI Description (Prompt Only)'}
+                  </span>
                 </>
               )}
             </button>
