@@ -675,6 +675,8 @@ export const api = {
     request<UserGeneration>('/api/user/generations', json(body)),
   updateUserGeneration: (id: string, body: Partial<UserGeneration>) =>
     request<{ ok: boolean; item?: UserGeneration }>(`/api/user/generations/${id}`, { ...json(body), method: 'PATCH' }),
+  batchRenameUserGenerations: (ids: string[], title: string) =>
+    request<{ ok: boolean; count: number; title: string }>('/api/user/generations/batch-rename', json({ ids, title })),
   deleteUserGeneration: (id: string, refund = false) =>
     request<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
       `/api/user/generations/${id}${refund ? '?refund=true' : ''}`,

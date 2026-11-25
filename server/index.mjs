@@ -2192,8 +2192,8 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
 
     // Prepare multimodal image parts (up to 8 images per request) if provided
     const limitedImages = hasImages ? images.slice(0, 8) : [];
-    for (const item of limitedImages) {
-      if (!item || typeof item !== 'string') continue;
+    const imagePartPromises = limitedImages.map(async (item) => {
+      if (!item || typeof item !== 'string') return null;
       let mimeType = 'image/jpeg';
       let base64Data = '';
 
@@ -2203,13 +2203,33 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
           mimeType = match[1];
           base64Data = match[2];
         }
+      } else if (item.startsWith('/uploads/')) {
+        // Read directly from disk in <1ms without network overhead
+        try {
+          const localPath = path.join(UPLOADS, item.replace(/^\/uploads\//, ''));
+          if (fsSync.existsSync(localPath)) {
+            const ext = path.extname(localPath).toLowerCase().replace('.', '');
+            mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+            base64Data = fsSync.readFileSync(localPath).toString('base64');
+          }
+        } catch {}
+      } else if (item.startsWith('/generated/')) {
+        // Read directly from disk in <1ms without network overhead
+        try {
+          const localPath = path.join(GENERATED, item.replace(/^\/generated\//, ''));
+          if (fsSync.existsSync(localPath)) {
+            const ext = path.extname(localPath).toLowerCase().replace('.', '');
+            mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+            base64Data = fsSync.readFileSync(localPath).toString('base64');
+          }
+        } catch {}
       } else {
         let fetchUrl = item;
         if (fetchUrl.startsWith('/')) {
           fetchUrl = `http://localhost:${PORT || 8787}${fetchUrl}`;
         }
         try {
-          const imgRes = await fetch(fetchUrl);
+          const imgRes = await fetch(fetchUrl, { signal: AbortSignal.timeout(3000) });
           if (imgRes.ok) {
             const cType = imgRes.headers.get('content-type');
             if (cType && cType.startsWith('image/')) mimeType = cType.split(';')[0];
@@ -2222,14 +2242,18 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       }
 
       if (base64Data) {
-        parts.push({
+        return {
           inlineData: {
-            mimeType: mimeType,
+            mimeType,
             data: base64Data,
           }
-        });
+        };
       }
-    }
+      return null;
+    });
+
+    const resolvedImageParts = (await Promise.all(imagePartPromises)).filter(Boolean);
+    parts.push(...resolvedImageParts);
 
     // Try Gemini models cascade (starting with ultra-fast sub-second flash-lite models)
     const candidateModels = [
@@ -2256,11 +2280,11 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
-              temperature: 0.35,
-              maxOutputTokens: 2500,
+              temperature: 0.2,
+              maxOutputTokens: 1600,
             }
           }),
-          signal: AbortSignal.timeout(9000)
+          signal: AbortSignal.timeout(6000)
         });
 
         const geminiData = await geminiRes.json();
@@ -5934,6 +5958,53 @@ app.patch('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     res.json({ ok: true, item: item || { id: req.params.id, ...updateFields } });
   } catch (error) {
     res.status(500).json({ error: 'update_failed', message: error.message });
+  }
+});
+
+/* POST /api/user/generations/batch-rename: Rename multiple selected generation images at once */
+app.post('/api/user/generations/batch-rename', auth.requireUser, async (req, res) => {
+  try {
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const { ids = [], title = '' } = req.body || {};
+    const cleanTitle = String(title || '').trim();
+
+    if (!Array.isArray(ids) || ids.length === 0 || !cleanTitle) {
+      return res.status(400).json({ error: 'invalid_request', message: 'ids array and title are required' });
+    }
+
+    const db = await getMongoDb();
+    const now = Date.now();
+    const idSet = new Set(ids);
+
+    if (db) {
+      const query = { id: { $in: ids } };
+      if (!isAdmin) {
+        query.$or = [
+          { userId: currentUserId },
+          { userEmail: currentUserEmail },
+          { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
+        ];
+      }
+      await db.collection('generations').updateMany(query, { $set: { title: cleanTitle, updatedAt: now } });
+    }
+
+    const list = await readGenerations();
+    let updatedCount = 0;
+    for (const item of list) {
+      if (idSet.has(item.id)) {
+        item.title = cleanTitle;
+        item.updatedAt = now;
+        updatedCount++;
+      }
+    }
+    cachedGenerations = { items: list, time: Date.now() };
+    void writeGenerations(list).catch(() => {});
+
+    res.json({ ok: true, count: updatedCount || ids.length, title: cleanTitle });
+  } catch (error) {
+    res.status(500).json({ error: 'batch_rename_failed', message: error.message });
   }
 });
 

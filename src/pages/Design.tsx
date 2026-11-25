@@ -9,9 +9,11 @@ import {
   Columns,
   Crop,
   Download,
+  Edit3,
   Eraser,
   ExternalLink,
   FileArchive,
+  FileText,
   Film,
   Folder,
   Inbox,
@@ -528,29 +530,135 @@ export function safeOpenMediaInNewTab(
   const win = targetWin && !targetWin.closed ? targetWin : window.open('', '_blank');
   if (win) {
     try {
+      const isVideo = resolved.endsWith('.mp4') || resolved.includes('.mp4');
       win.document.open();
       win.document.write(`<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title.replace(/</g, '&lt;')}</title>
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #f8fafc; }
-    .wrapper { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
-    img { max-width: 100%; max-height: 96vh; object-fit: contain; border-radius: 8px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #070709; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
+    #topBar { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 8px; background: rgba(14, 14, 18, 0.9); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 9999px; padding: 6px 16px; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8); font-size: 12px; }
+    .brand { color: #e5373f; font-weight: 800; letter-spacing: 0.5px; font-size: 11px; margin-right: 6px; text-transform: uppercase; }
+    .btn { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; border-radius: 9999px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+    .btn:hover { background: #e5373f; border-color: #e5373f; }
+    .btn:active { transform: scale(0.95); }
+    #zoomVal { font-weight: 700; color: #38bdf8; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; font-size: 11px; }
+    #viewport { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; cursor: grab; overflow: hidden; position: relative; }
+    #viewport.dragging { cursor: grabbing; }
+    #previewImg { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 6px; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.95); transform-origin: center center; transition: transform 0.06s ease-out; pointer-events: auto; }
+    #hints { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 11px; color: rgba(255, 255, 255, 0.5); pointer-events: none; background: rgba(0,0,0,0.6); padding: 4px 12px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.08); }
+    video { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 25px 60px rgba(0,0,0,0.9); }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <img id="previewImg" alt="Preview" />
-  </div>
+  ${isVideo ? `
+    <div id="viewport">
+      <video src="${resolved}" controls autoplay loop playsinline></video>
+    </div>
+  ` : `
+    <div id="topBar">
+      <span class="brand">Shiv-Naresh</span>
+      <button class="btn" id="btnZoomOut" title="Zoom Out (–)">–</button>
+      <span id="zoomVal">100%</span>
+      <button class="btn" id="btnZoomIn" title="Zoom In (+)">+</button>
+      <button class="btn" id="btnFit" title="Fit to Screen (0)">Fit</button>
+      <button class="btn" id="btnActual" title="100% Actual Size">1:1</button>
+      <a class="btn" id="btnDownload" href="${resolved}" download="shivnaresh-master-view.png" style="background:#059669;border-color:#10b981;">Download</a>
+    </div>
+    <div id="viewport">
+      <img id="previewImg" src="${resolved}" alt="Preview" draggable="false" />
+    </div>
+    <div id="hints">Scroll mouse wheel to zoom &bull; Drag to pan &bull; Double click to zoom in</div>
+    <script>
+      (function() {
+        var img = document.getElementById('previewImg');
+        var vp = document.getElementById('viewport');
+        var zoomVal = document.getElementById('zoomVal');
+        var scale = 1;
+        var panX = 0;
+        var panY = 0;
+        var isDragging = false;
+        var startX = 0;
+        var startY = 0;
+
+        function update() {
+          img.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+          zoomVal.textContent = Math.round(scale * 100) + '%';
+        }
+
+        function zoom(factor, cx, cy) {
+          var prevScale = scale;
+          scale = Math.min(8, Math.max(0.2, scale * factor));
+          if (cx !== undefined && cy !== undefined) {
+            panX -= (cx - window.innerWidth / 2 - panX) * (scale / prevScale - 1);
+            panY -= (cy - window.innerHeight / 2 - panY) * (scale / prevScale - 1);
+          }
+          update();
+        }
+
+        document.getElementById('btnZoomIn').onclick = function() { zoom(1.25); };
+        document.getElementById('btnZoomOut').onclick = function() { zoom(0.8); };
+        document.getElementById('btnFit').onclick = function() { scale = 1; panX = 0; panY = 0; update(); };
+        document.getElementById('btnActual').onclick = function() {
+          if (img.naturalWidth && img.clientWidth) {
+            scale = img.naturalWidth / img.clientWidth;
+          } else {
+            scale = 1.6;
+          }
+          panX = 0; panY = 0;
+          update();
+        };
+
+        vp.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          var factor = e.deltaY < 0 ? 1.15 : 0.87;
+          zoom(factor, e.clientX, e.clientY);
+        }, { passive: false });
+
+        vp.addEventListener('mousedown', function(e) {
+          if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+          isDragging = true;
+          vp.classList.add('dragging');
+          startX = e.clientX - panX;
+          startY = e.clientY - panY;
+        });
+
+        window.addEventListener('mousemove', function(e) {
+          if (!isDragging) return;
+          panX = e.clientX - startX;
+          panY = e.clientY - startY;
+          update();
+        });
+
+        window.addEventListener('mouseup', function() {
+          isDragging = false;
+          vp.classList.remove('dragging');
+        });
+
+        vp.addEventListener('dblclick', function(e) {
+          if (scale > 1.2) {
+            scale = 1; panX = 0; panY = 0;
+          } else {
+            zoom(2.5, e.clientX, e.clientY);
+          }
+          update();
+        });
+
+        window.addEventListener('keydown', function(e) {
+          if (e.key === '+' || e.key === '=') zoom(1.2);
+          else if (e.key === '-' || e.key === '_') zoom(0.8);
+          else if (e.key === '0') { scale = 1; panX = 0; panY = 0; update(); }
+        });
+      })();
+    </script>
+  `}
 </body>
 </html>`);
       win.document.close();
-      const pImg = win.document.getElementById('previewImg') as HTMLImageElement | null;
-      if (pImg) pImg.src = resolved;
       return;
     } catch (e) {
       console.warn('Direct document write error, navigating to URL:', e);
@@ -2183,6 +2291,9 @@ function MySetsPanel({
   onEditLogo,
   onBatchAddLogo,
   onAddGenerations,
+  onRenameGeneration,
+  onBatchRenameGenerations,
+  onSendToDescription,
   isBatchBranding,
   batchBrandProgress,
   isLight,
@@ -2203,6 +2314,9 @@ function MySetsPanel({
   onEditLogo?: (gen: UserGeneration) => void;
   onBatchAddLogo?: (targets: UserGeneration[]) => Promise<void>;
   onAddGenerations?: (items: UserGeneration[]) => void;
+  onRenameGeneration?: (id: string, newTitle: string) => Promise<void> | void;
+  onBatchRenameGenerations?: (ids: string[], newTitle: string) => Promise<void> | void;
+  onSendToDescription?: (targets: UserGeneration[]) => void;
   isBatchBranding?: boolean;
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
@@ -2221,6 +2335,12 @@ function MySetsPanel({
   const [mySetsUploadProgress, setMySetsUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [batchMovingFolder, setBatchMovingFolder] = useState<string>('');
   const [folderActionNotice, setFolderActionNotice] = useState<string>('');
+  const [editingGenId, setEditingGenId] = useState<string>('');
+  const [editTitleText, setEditTitleText] = useState<string>('');
+  const [showBatchRenameModal, setShowBatchRenameModal] = useState<boolean>(false);
+  const [batchRenameText, setBatchRenameText] = useState<string>('');
+  const [isRenaming, setIsRenaming] = useState<boolean>(false);
+  const [isDragOverMySets, setIsDragOverMySets] = useState<boolean>(false);
 
   async function handleBatchMove(targetFolder: 'ready' | 'edited' | 'generated') {
     if (selectedGenIds.length === 0) return;
@@ -2248,12 +2368,8 @@ function MySetsPanel({
     }
   }
 
-  const handleBatchUploadToMySets = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const fileArr = Array.from(files);
-    e.target.value = '';
-
+  const uploadFilesToMySets = async (fileArr: File[]) => {
+    if (!fileArr || fileArr.length === 0) return;
     setMySetsUploading(true);
     setMySetsUploadProgress({ current: 0, total: fileArr.length });
 
@@ -2263,14 +2379,15 @@ function MySetsPanel({
       const processOne = async (file: File) => {
         const standardized = await prepareAndStandardizeImage(file);
         const uploaded = await api.upload(standardized.dataUrl, 'cloth', file.name);
+        const cleanName = file.name.replace(/\.[^/.]+$/, '');
         const saved = await api.saveUserGeneration({
           type: 'image',
           url: uploaded.url,
-          title: file.name,
+          title: cleanName,
           prompt: `Manual Upload · ${file.name}`,
           resolution: '2k',
           isManualUpload: true,
-          folder: 'ready',
+          folder: 'generated', // Preserved in All Archive / Generated
         });
         if (saved) {
           uploadedGens.push(saved);
@@ -2280,7 +2397,7 @@ function MySetsPanel({
       };
 
       let index = 0;
-      const workers = Array(Math.min(3, fileArr.length)).fill(0).map(async () => {
+      const workers = Array(Math.min(4, fileArr.length)).fill(0).map(async () => {
         while (index < fileArr.length) {
           const i = index++;
           await processOne(fileArr[i]);
@@ -2292,7 +2409,9 @@ function MySetsPanel({
       }
       refreshGenerations();
       refreshSets();
-      setFilter('ready');
+      setFilter('all');
+      setFolderActionNotice(`✓ Uploaded ${uploadedGens.length} image${uploadedGens.length > 1 ? 's' : ''} to All Archive`);
+      setTimeout(() => setFolderActionNotice(''), 4000);
     } catch (err: any) {
       setError(err?.message || 'Failed to upload images to My Sets');
     } finally {
@@ -2300,6 +2419,54 @@ function MySetsPanel({
       setMySetsUploadProgress(null);
     }
   };
+
+  const handleBatchUploadToMySets = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArr = Array.from(files);
+    e.target.value = '';
+    await uploadFilesToMySets(fileArr);
+  };
+
+  async function handleSaveSingleTitle(id: string) {
+    const trimmed = editTitleText.trim();
+    if (!trimmed) {
+      setEditingGenId('');
+      return;
+    }
+    setEditingGenId('');
+    if (onRenameGeneration) {
+      await onRenameGeneration(id, trimmed);
+    } else {
+      await api.updateUserGeneration(id, { title: trimmed });
+      refreshGenerations();
+    }
+    setFolderActionNotice('✓ Image title updated');
+    setTimeout(() => setFolderActionNotice(''), 3000);
+  }
+
+  async function handleSaveBatchTitle() {
+    const trimmed = batchRenameText.trim();
+    if (!trimmed || selectedGenIds.length === 0) return;
+    setIsRenaming(true);
+    const count = selectedGenIds.length;
+    try {
+      if (onBatchRenameGenerations) {
+        await onBatchRenameGenerations(selectedGenIds, trimmed);
+      } else {
+        await api.batchRenameUserGenerations(selectedGenIds, trimmed);
+        refreshGenerations();
+      }
+      setShowBatchRenameModal(false);
+      setBatchRenameText('');
+      setFolderActionNotice(`✓ Renamed ${count} selected images to "${trimmed}"`);
+      setTimeout(() => setFolderActionNotice(''), 4000);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to rename selected images');
+    } finally {
+      setIsRenaming(false);
+    }
+  }
 
   async function handleDownloadZip() {
     if (selectedGenIds.length === 0) return;
@@ -2499,7 +2666,40 @@ function MySetsPanel({
   const totalCount = generations.length + uploadSets.length;
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOverMySets(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOverMySets(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOverMySets(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          void uploadFilesToMySets(Array.from(e.dataTransfer.files));
+        }
+      }}
+      className={`mx-auto max-w-6xl px-5 py-8 sm:px-8 relative transition-all ${
+        isDragOverMySets ? 'ring-2 ring-[#e5373f] bg-[#e5373f]/5 rounded-3xl' : ''
+      }`}
+    >
+      {/* Visual Drag & Drop Overlay */}
+      {isDragOverMySets && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/85 backdrop-blur-md pointer-events-none">
+          <div className="p-8 rounded-3xl border-2 border-dashed border-[#e5373f] bg-[#0e0e12] text-center space-y-3 shadow-2xl">
+            <Upload className="w-12 h-12 mx-auto text-[#e5373f] animate-bounce" />
+            <p className="text-lg font-bold text-white uppercase tracking-wider">Drop Any Number of Images to Upload</p>
+            <p className="text-xs text-zinc-400">All photos will be saved directly into your All Archive library</p>
+          </div>
+        </div>
+      )}
+
       {showInstructions && <InstructionPopup onGotIt={() => { setShowInstructions(false); setFormOpen(true); }} />}
       {confirming && (
         <ImageConfirmPopup
@@ -2831,6 +3031,36 @@ function MySetsPanel({
                     <>
                       <button
                         type="button"
+                        onClick={() => {
+                          setShowBatchRenameModal(true);
+                          setBatchRenameText('');
+                        }}
+                        disabled={Boolean(batchMovingFolder) || zipping || batchDeleting || isBatchBranding}
+                        className="rounded-lg bg-sky-500 hover:bg-sky-400 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="Set the same name for all selected images at once"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        <span>Rename Selected ({selectedGenIds.length})</span>
+                      </button>
+
+                      {onSendToDescription && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targets = displayedImages.filter((g) => selectedGenIds.includes(g.id));
+                            onSendToDescription(targets);
+                          }}
+                          disabled={Boolean(batchMovingFolder) || zipping || batchDeleting || isBatchBranding}
+                          className="rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          title="Send all selected images to AI Description Studio for product listings & titles"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>Send to Description ({selectedGenIds.length})</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
                         onClick={() => void handleBatchMove('ready')}
                         disabled={Boolean(batchMovingFolder) || zipping || batchDeleting || isBatchBranding}
                         className="rounded-lg bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -2935,7 +3165,65 @@ function MySetsPanel({
                           />
                         </label>
                       </div>
-                      <div className="mt-3 flex items-center justify-between text-[10px] opacity-60">
+                      {/* Name / Title with inline rename edit */}
+                      <div className="mt-2.5 flex items-center justify-between gap-1.5 min-h-[26px]">
+                        {editingGenId === gen.id ? (
+                          <div className="flex items-center gap-1.5 w-full">
+                            <input
+                              type="text"
+                              value={editTitleText}
+                              onChange={(e) => setEditTitleText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void handleSaveSingleTitle(gen.id);
+                                if (e.key === 'Escape') setEditingGenId('');
+                              }}
+                              autoFocus
+                              placeholder="Image name..."
+                              className="flex-1 text-xs font-semibold px-2 py-0.5 rounded border border-[#e5373f] bg-black text-white focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleSaveSingleTitle(gen.id)}
+                              className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer transition"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingGenId('')}
+                              className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-[10px] cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between w-full min-w-0 gap-1.5">
+                            <span
+                              className="text-xs font-bold truncate cursor-pointer hover:text-[#e5373f] transition"
+                              title="Click to rename this image"
+                              onClick={() => {
+                                setEditingGenId(gen.id);
+                                setEditTitleText(gen.title || gen.prompt || `Render #${gen.id.slice(0, 6)}`);
+                              }}
+                            >
+                              {gen.title || gen.prompt || `Render #${gen.id.slice(0, 6)}`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingGenId(gen.id);
+                                setEditTitleText(gen.title || gen.prompt || `Render #${gen.id.slice(0, 6)}`);
+                              }}
+                              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 shrink-0 transition cursor-pointer"
+                              title="Rename this image"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-1 flex items-center justify-between text-[10px] opacity-60">
                         <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
                         {gen.isManualUpload && (
                           <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
@@ -3036,6 +3324,21 @@ function MySetsPanel({
                           >
                             <Maximize2 className="h-3 w-3 text-emerald-400 shrink-0" />
                             <span className="truncate">Zoom</span>
+                          </button>
+                        )}
+                        {onSendToDescription && (
+                          <button
+                            type="button"
+                            onClick={() => onSendToDescription([gen])}
+                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                              isLight
+                                ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
+                                : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                            }`}
+                            title="Send this image directly to AI Description Studio for product titles & description"
+                          >
+                            <FileText className="h-3 w-3 text-amber-400 shrink-0" />
+                            <span className="truncate">AI Desc</span>
                           </button>
                         )}
                         <button
@@ -3244,6 +3547,67 @@ function MySetsPanel({
       {folderActionNotice && (
         <div className="fixed bottom-6 right-6 z-[140] flex items-center gap-2 rounded-xl bg-emerald-600 text-white px-4 py-2.5 text-xs font-bold shadow-2xl animate-in slide-in-from-bottom duration-200">
           <span>{folderActionNotice}</span>
+        </div>
+      )}
+
+      {/* Batch Rename Modal */}
+      {showBatchRenameModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
+              isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/15 text-white'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-sky-400" />
+                <h3 className="text-sm font-bold">Rename {selectedGenIds.length} Selected Images</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchRenameModal(false)}
+                className="text-zinc-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Enter a single title or name to apply simultaneously to all {selectedGenIds.length} selected images:
+            </p>
+            <input
+              type="text"
+              value={batchRenameText}
+              onChange={(e) => setBatchRenameText(e.target.value)}
+              placeholder="e.g. Shiv-Naresh Pro Tracksuit Navy Blue"
+              className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#e5373f] ${
+                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/15 bg-black/50 text-white'
+              }`}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void handleSaveBatchTitle();
+                }
+              }}
+            />
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBatchRenameModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!batchRenameText.trim() || isRenaming}
+                onClick={() => void handleSaveBatchTitle()}
+                className="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#e5373f] hover:bg-[#d42d35] text-white disabled:opacity-50 transition shadow-md flex items-center gap-1.5 cursor-pointer"
+              >
+                {isRenaming ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>{isRenaming ? 'Renaming…' : 'Apply Name to All'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -7014,6 +7378,55 @@ export default function Design() {
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [deliveriesUnreadCount, setDeliveriesUnreadCount] = useState(0);
+
+  const [descriptionPreselectedImages, setDescriptionPreselectedImages] = useState<
+    { id: string; url: string; name: string }[]
+  >([]);
+
+  const handleRenameGeneration = async (id: string, newTitle: string) => {
+    setUserGenerations((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, title: newTitle, updatedAt: Date.now() } : g))
+    );
+    try {
+      await api.updateUserGeneration(id, { title: newTitle });
+    } catch (err: any) {
+      console.warn('[handleRenameGeneration] Failed to save title:', err?.message);
+    }
+  };
+
+  const handleBatchRenameGenerations = async (ids: string[], newTitle: string) => {
+    const idSet = new Set(ids);
+    const now = Date.now();
+    setUserGenerations((prev) =>
+      prev.map((g) => (idSet.has(g.id) ? { ...g, title: newTitle, updatedAt: now } : g))
+    );
+    try {
+      await api.batchRenameUserGenerations(ids, newTitle);
+    } catch (err: any) {
+      console.warn('[handleBatchRenameGenerations] API fallback:', err?.message);
+      await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { title: newTitle })));
+    }
+  };
+
+  const handleSendToDescription = (targets: UserGeneration[]) => {
+    const mapped = targets
+      .map((gen) => {
+        const u = getBestGenUrl(gen);
+        if (!u) return null;
+        return {
+          id: gen.id,
+          url: resolveImageUrl(u),
+          name: gen.title || `Render #${gen.id.slice(-4)}`,
+        };
+      })
+      .filter(Boolean) as { id: string; url: string; name: string }[];
+
+    if (mapped.length > 0) {
+      setDescriptionPreselectedImages(mapped);
+      setPageView('description');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   /* Page view tabs */
   const [pageView, setPageView] = useState<'studio' | 'color-swap' | 'my-sets' | 'description' | 'custom-requests' | 'deliveries' | 'video' | 'watermark' | 'compare'>(() => {
@@ -10964,6 +11377,9 @@ export default function Design() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onBatchAddLogo={handleBatchAddLogo}
+          onRenameGeneration={handleRenameGeneration}
+          onBatchRenameGenerations={handleBatchRenameGenerations}
+          onSendToDescription={handleSendToDescription}
           isBatchBranding={isBatchBranding}
           batchBrandProgress={batchBrandProgress}
           isLight={isLight}
@@ -11004,6 +11420,8 @@ export default function Design() {
           user={user}
           isLight={isLight}
           userGenerations={userGenerations}
+          preselectedImages={descriptionPreselectedImages}
+          onClearPreselected={() => setDescriptionPreselectedImages([])}
         />
       )}
 
@@ -12545,7 +12963,20 @@ export default function Design() {
             ) : (
               <>
                 {/* Smart Garment Upload Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      void handleMultipleFiles(e.dataTransfer.files, 'cloth');
+                    }
+                  }}
+                  className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
+                >
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
                       1 · Garments
@@ -13197,7 +13628,20 @@ export default function Design() {
                 </div>
 
                 {/* Model Selection Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      void handleMultipleFiles(e.dataTransfer.files, 'model');
+                    }
+                  }}
+                  className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
+                >
                   <div className="flex items-center justify-between">
                     <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
                     <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">

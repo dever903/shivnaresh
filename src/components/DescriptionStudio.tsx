@@ -21,6 +21,8 @@ interface DescriptionStudioProps {
   user?: any;
   isLight?: boolean;
   userGenerations?: UserGeneration[];
+  preselectedImages?: { id: string; url: string; name: string }[];
+  onClearPreselected?: () => void;
 }
 
 const DEFAULT_PROMPT = `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
@@ -56,6 +58,8 @@ export default function DescriptionStudio({
   user,
   isLight = false,
   userGenerations = [],
+  preselectedImages,
+  onClearPreselected,
 }: DescriptionStudioProps) {
   const isAdmin = Boolean(
     user?.role === 'admin' ||
@@ -76,6 +80,19 @@ export default function DescriptionStudio({
   });
   const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
   const [showMySetsDrawer, setShowMySetsDrawer] = useState<boolean>(false);
+
+  // Synchronize preselected images from My Sets
+  useEffect(() => {
+    if (preselectedImages && preselectedImages.length > 0) {
+      setImages((prev) => {
+        const existingIds = new Set(prev.map((img) => img.id));
+        const toAdd = preselectedImages.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...toAdd];
+      });
+      if (onClearPreselected) onClearPreselected();
+      showToast(`Loaded ${preselectedImages.length} image(s) from My Sets`);
+    }
+  }, [preselectedImages, onClearPreselected]);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -438,7 +455,24 @@ export default function DescriptionStudio({
         {/* Left Column (Images & Prompt Form) */}
         <div className="lg:col-span-5 space-y-5">
           {/* 1. Garment Photo Upload Card */}
-          <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const files = e.dataTransfer.files;
+              if (!files || files.length === 0) return;
+              const fileList = Array.from(files);
+              const optimized = await Promise.all(fileList.map((f) => optimizeImageFile(f)));
+              const valid = optimized.filter((item) => item.url);
+              setImages((prev) => [...prev, ...valid]);
+              showToast(`Added ${valid.length} photo(s)`);
+            }}
+            className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
@@ -481,6 +515,21 @@ export default function DescriptionStudio({
             {/* Drop / Upload Button Area */}
             <div
               onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (!files || files.length === 0) return;
+                const fileList = Array.from(files);
+                const optimized = await Promise.all(fileList.map((f) => optimizeImageFile(f)));
+                const valid = optimized.filter((item) => item.url);
+                setImages((prev) => [...prev, ...valid]);
+                showToast(`Added ${valid.length} photo(s)`);
+              }}
               className="p-5 border-2 border-dashed border-white/15 rounded-xl text-center cursor-pointer hover:border-[#e5373f] transition space-y-1.5 bg-black/20"
             >
               <Upload className="w-6 h-6 mx-auto text-[#e5373f] opacity-80" />
