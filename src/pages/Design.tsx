@@ -1090,15 +1090,45 @@ export async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElem
   const resolved = resolveImageUrl(rawUrl);
   if (!resolved) throw new Error('No image URL provided');
 
-  // 1. If already a data URL, load directly
-  if (resolved.startsWith('data:')) {
-    const img = new Image();
+  // Reliable image decoder helper with decode API + onload + timeout protection
+  const decodeSafely = async (img: HTMLImageElement, srcUrl: string): Promise<HTMLImageElement> => {
+    img.src = srcUrl;
+    if (typeof img.decode === 'function') {
+      try {
+        await Promise.race([
+          img.decode(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('decode timeout')), 3000)),
+        ]);
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) return img;
+      } catch {
+        // Fallback to onload listener below
+      }
+    }
     await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Failed to load local data image'));
-      img.src = resolved;
+      if (img.complete && img.naturalWidth > 0) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(() => {
+        if (img.complete && img.naturalWidth > 0) resolve();
+        else reject(new Error('Image decode timed out'));
+      }, 4000);
+      img.onload = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('Failed to load image for canvas operations'));
+      };
     });
     return img;
+  };
+
+  // 1. If already a data URL, decode directly without hanging
+  if (resolved.startsWith('data:')) {
+    const img = new Image();
+    return await decodeSafely(img, resolved);
   }
 
   // 2. Resolve candidates that can return image bytes
@@ -1123,12 +1153,7 @@ export async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElem
             reader.readAsDataURL(blob);
           });
           const img = new Image();
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error('Failed to decode data URL image'));
-            img.src = dataUrl;
-          });
-          return img;
+          return await decodeSafely(img, dataUrl);
         }
       }
     } catch {
@@ -1141,12 +1166,7 @@ export async function loadSafeCanvasImage(rawUrl: string): Promise<HTMLImageElem
   img.crossOrigin = 'anonymous';
   const fallbackUrl = proxied || resolved;
   const bustUrl = fallbackUrl.includes('?') ? `${fallbackUrl}&_cb=${Date.now()}` : `${fallbackUrl}?_cb=${Date.now()}`;
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error('CORS security blocked image load for canvas export'));
-    img.src = bustUrl;
-  });
-  return img;
+  return await decodeSafely(img, bustUrl);
 }
 
 /* ----------------------------------------------------------------
@@ -7958,16 +7978,18 @@ export default function Design() {
     window.addEventListener('touchend', handleEnd);
   };
 
-  /* Area-Selective AI Logo Eraser State & Handlers (Canva-Style Brush & Area Selection) */
+  /* Area-Selective AI Logo Eraser State & Handlers (Canva-Style Brush & Multi-Area Selection) */
   type RubPoint = { x: number; y: number };
   type RubStroke = RubPoint[];
+  type EraseBoxItem = { id: string; x: number; y: number; width: number; height: number };
 
   const [isEraseMode, setIsEraseMode] = useState(false);
   const [eraseTool, setEraseTool] = useState<'brush' | 'area'>('brush');
   const [brushScalePercent, setBrushScalePercent] = useState<number>(10);
   const brushRadius = Math.max(2, Math.min(45, Math.round((brushScalePercent / 100) * 35)));
+  const [eraseBoxes, setEraseBoxes] = useState<EraseBoxItem[]>([]);
+  const [activeDrawingBox, setActiveDrawingBox] = useState<EraseBoxItem | null>(null);
   const [eraseBox, setEraseBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [isDrawingEraseBox, setIsDrawingEraseBox] = useState(false);
   const [rubStrokes, setRubStrokes] = useState<RubStroke[]>([]);
   const rubStrokesRef = useRef<RubStroke[]>([]);
   const currentStrokeRef = useRef<RubPoint[]>([]);
@@ -7975,6 +7997,7 @@ export default function Design() {
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const rubCanvasRef = useRef<HTMLCanvasElement>(null);
   const [eraseUndoStack, setEraseUndoStack] = useState<string[]>([]);
+  const [eraseRedoStack, setEraseRedoStack] = useState<string[]>([]);
   const [isErasing, setIsErasing] = useState(false);
   const [isSeamProtect, setIsSeamProtect] = useState(true);
   const [renderedImgAspect, setRenderedImgAspect] = useState<number | null>(null);
@@ -7983,6 +8006,14 @@ export default function Design() {
   const handleSwitchEraseTool = (tool: 'brush' | 'area') => {
     setEraseTool(tool);
     handleClearStrokes();
+  };
+
+  const handleRemoveEraseBox = (id: string) => {
+    setEraseBoxes((prev) => {
+      const next = prev.filter((b) => b.id !== id);
+      setEraseBox(next.length > 0 ? next[next.length - 1] : null);
+      return next;
+    });
   };
 
   const computeRubBoundingBox = (strokes: RubStroke[], radius: number, rectW: number, rectH: number) => {
@@ -8060,8 +8091,9 @@ export default function Design() {
     setRubStrokes([]);
     rubStrokesRef.current = [];
     currentStrokeRef.current = [];
+    setEraseBoxes([]);
+    setActiveDrawingBox(null);
     setEraseBox(null);
-    setIsDrawingEraseBox(false);
     setIsRubbing(false);
     const canvas = rubCanvasRef.current;
     if (canvas) {
@@ -8086,9 +8118,8 @@ export default function Design() {
     const startY = Math.max(0, Math.min(100, ((startClientY - rect.top) / rect.height) * 100));
 
     if (eraseTool === 'area') {
-      // Area Selection Mode (Canva Area style)
-      setIsDrawingEraseBox(true);
-      setEraseBox({ x: startX, y: startY, width: 0, height: 0 });
+      // Area Selection Mode (Multi-Box Area Selection)
+      setActiveDrawingBox({ id: 'drawing', x: startX, y: startY, width: 0, height: 0 });
 
       const handleMove = (moveEvt: MouseEvent | TouchEvent) => {
         const curRect = getImageElementRect();
@@ -8104,7 +8135,8 @@ export default function Design() {
         const boxW = Math.abs(currX - startX);
         const boxH = Math.abs(currY - startY);
 
-        setEraseBox({
+        setActiveDrawingBox({
+          id: 'drawing',
           x: Math.round(boxX * 10) / 10,
           y: Math.round(boxY * 10) / 10,
           width: Math.round(boxW * 10) / 10,
@@ -8113,17 +8145,26 @@ export default function Design() {
       };
 
       const handleEnd = () => {
-        setIsDrawingEraseBox(false);
-        setEraseBox((prev) => {
-          if (!prev || prev.width < 0.5 || prev.height < 0.5) return null;
-          const curRect = getImageElementRect();
-          const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
-          const autoScale = Math.max(14, Math.min(80, Math.round((dispW * prev.width) / 100)));
-          const centerX = Math.round((prev.x + prev.width / 2) * 10) / 10;
-          const centerY = Math.round((prev.y + prev.height / 2) * 10) / 10;
-          const target = centerY > 50 ? 'pant' : 'chest';
-          lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
-          return prev;
+        setActiveDrawingBox((drawing) => {
+          if (drawing && drawing.width >= 0.5 && drawing.height >= 0.5) {
+            const finalBox: EraseBoxItem = {
+              id: 'box_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              x: drawing.x,
+              y: drawing.y,
+              width: drawing.width,
+              height: drawing.height,
+            };
+            setEraseBoxes((prev) => [...prev, finalBox]);
+            setEraseBox(finalBox);
+            const curRect = getImageElementRect();
+            const dispW = (curRect && curRect.width > 20) ? curRect.width : 380;
+            const autoScale = Math.max(14, Math.min(80, Math.round((dispW * finalBox.width) / 100)));
+            const centerX = Math.round((finalBox.x + finalBox.width / 2) * 10) / 10;
+            const centerY = Math.round((finalBox.y + finalBox.height / 2) * 10) / 10;
+            const target = centerY > 50 ? 'pant' : 'chest';
+            lastErasedSpecRef.current = { scale: autoScale, x: centerX, y: centerY, target };
+          }
+          return null;
         });
         window.removeEventListener('mousemove', handleMove);
         window.removeEventListener('mouseup', handleEnd);
@@ -8142,7 +8183,6 @@ export default function Design() {
     const newStroke: RubPoint[] = [{ x: startX, y: startY }];
     currentStrokeRef.current = newStroke;
     setIsRubbing(true);
-    setIsDrawingEraseBox(true);
     setCursorPos({ x: startClientX - rect.left, y: startClientY - rect.top });
     redrawRubCanvas([...rubStrokesRef.current, newStroke], brushRadius);
 
@@ -8162,7 +8202,6 @@ export default function Design() {
 
     const handleEnd = () => {
       setIsRubbing(false);
-      setIsDrawingEraseBox(false);
       if (newStroke.length > 0) {
         const next = [...rubStrokesRef.current, newStroke];
         rubStrokesRef.current = next;
@@ -8201,6 +8240,7 @@ export default function Design() {
     setRenderedImgAspect(null);
     setIsEraseMode(true);
     setEraseBox(null);
+    setEraseBoxes([]);
     setActiveRenderOption('a');
     setShowHdLogoOverlay(false);
     setShowPantLogo(false);
@@ -9782,7 +9822,7 @@ export default function Design() {
   /* Helper: inpaint and seamlessly erase unwanted AI logo / artifact while preserving natural background fabric and crease lines */
   async function inpaintEraseArea(
     baseImgUrl: string,
-    box: { x: number; y: number; width: number; height: number },
+    boxes: EraseBoxItem[] | { x: number; y: number; width: number; height: number },
     mode: 'erase_logo' | 'repair_seam' = 'erase_logo',
     strokes?: RubStroke[],
     brushRadiusPx?: number
@@ -9797,440 +9837,476 @@ export default function Design() {
 
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // Convert percentage coordinates to canvas coordinates
-    const bx = Math.max(0, Math.min(canvas.width - 2, Math.round((box.x / 100) * canvas.width)));
-    const by = Math.max(0, Math.min(canvas.height - 2, Math.round((box.y / 100) * canvas.height)));
-    const bw = Math.max(4, Math.min(canvas.width - bx, Math.round((box.width / 100) * canvas.width)));
-    const bh = Math.max(4, Math.min(canvas.height - by, Math.round((box.height / 100) * canvas.height)));
+    const boxList: Array<{ x: number; y: number; width: number; height: number }> =
+      Array.isArray(boxes) ? (boxes.length > 0 ? boxes : []) : [boxes];
 
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data;
+    if (boxList.length === 0) {
+      return { url: canvas.toDataURL('image/png') };
+    }
+
     const w = canvas.width;
     const h = canvas.height;
-
-    const getPixel = (px: number, py: number): [number, number, number, number] => {
-      const cx = Math.max(0, Math.min(w - 1, px));
-      const cy = Math.max(0, Math.min(h - 1, py));
-      const idx = (cy * w + cx) * 4;
-      return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
-    };
-
-    // 1. Multi-tier perimeter sampling ring (4 to 18 px) around the target box
-    const ringW = Math.max(4, Math.min(18, Math.round(Math.min(bw, bh) * 0.25)));
-    const perimeterSamples: { x: number; y: number; r: number; g: number; b: number; side: 'top' | 'bot' | 'left' | 'right' }[] = [];
-
-    for (let dy = 1; dy <= ringW; dy++) {
-      const py = by - dy;
-      if (py >= 0) {
-        for (let c = 0; c < bw; c++) {
-          const px = bx + c;
-          const [pr, pg, pb] = getPixel(px, py);
-          perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'top' });
-        }
-      }
-    }
-    for (let dy = 0; dy < ringW; dy++) {
-      const py = by + bh + dy;
-      if (py < h) {
-        for (let c = 0; c < bw; c++) {
-          const px = bx + c;
-          const [pr, pg, pb] = getPixel(px, py);
-          perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'bot' });
-        }
-      }
-    }
-    for (let dx = 1; dx <= ringW; dx++) {
-      const px = bx - dx;
-      if (px >= 0) {
-        for (let r = 0; r < bh; r++) {
-          const py = by + r;
-          const [pr, pg, pb] = getPixel(px, py);
-          perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'left' });
-        }
-      }
-    }
-    for (let dx = 0; dx < ringW; dx++) {
-      const px = bx + bw + dx;
-      if (px < w) {
-        for (let r = 0; r < bh; r++) {
-          const py = by + r;
-          const [pr, pg, pb] = getPixel(px, py);
-          perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'right' });
-        }
-      }
-    }
-
-    if (perimeterSamples.length === 0) return { url: canvas.toDataURL('image/png') };
-
-    // 2. Statistical Fabric Mode Estimation (Median & Robust Cutoff)
-    const allR = perimeterSamples.map(p => p.r).sort((a, b) => a - b);
-    const allG = perimeterSamples.map(p => p.g).sort((a, b) => a - b);
-    const allB = perimeterSamples.map(p => p.b).sort((a, b) => a - b);
-    const medFabricR = allR[Math.floor(allR.length / 2)];
-    const medFabricG = allG[Math.floor(allG.length / 2)];
-    const medFabricB = allB[Math.floor(allB.length / 2)];
-
-    // Robust deviation
-    const clusterDists = perimeterSamples.map(p => Math.hypot(p.r - medFabricR, p.g - medFabricG, p.b - medFabricB)).sort((a, b) => a - b);
-    const medDev = clusterDists[Math.floor(clusterDists.length / 2)] || 2.0;
-    // Strict outlier cutoff: rejects seams, dark zippers, background skin, or stripes that touch one edge of the box
-    const outlierThreshold = Math.max(14.0, medDev * 2.8);
-
-    // 3. Robust clean border profiles (sanitizing seam/zipper contamination on any single side)
-    const cleanSampleAt = (targetX: number, targetY: number, side: 'top' | 'bot' | 'left' | 'right'): [number, number, number] => {
-      const [pr, pg, pb] = getPixel(targetX, targetY);
-      if (Math.hypot(pr - medFabricR, pg - medFabricG, pb - medFabricB) <= outlierThreshold) {
-        return [pr, pg, pb];
-      }
-      // Look outward in ring for pure fabric
-      for (let offset = 2; offset <= ringW; offset++) {
-        let testX = targetX;
-        let testY = targetY;
-        if (side === 'top') testY = by - offset;
-        else if (side === 'bot') testY = by + bh - 1 + offset;
-        else if (side === 'left') testX = bx - offset;
-        else if (side === 'right') testX = bx + bw - 1 + offset;
-
-        const [tr, tg, tb] = getPixel(testX, testY);
-        if (Math.hypot(tr - medFabricR, tg - medFabricG, tb - medFabricB) <= outlierThreshold) {
-          return [tr, tg, tb];
-        }
-      }
-      return [medFabricR, medFabricG, medFabricB];
-    };
-
-    const topBorder: [number, number, number][] = [];
-    const botBorder: [number, number, number][] = [];
-    const leftBorder: [number, number, number][] = [];
-    const rightBorder: [number, number, number][] = [];
-
-    for (let c = 0; c < bw; c++) {
-      topBorder.push(cleanSampleAt(bx + c, by - 1, 'top'));
-      botBorder.push(cleanSampleAt(bx + c, by + bh, 'bot'));
-    }
-    for (let r = 0; r < bh; r++) {
-      leftBorder.push(cleanSampleAt(bx - 1, by + r, 'left'));
-      rightBorder.push(cleanSampleAt(bx + bw, by + r, 'right'));
-    }
-
-    const TL = [(topBorder[0][0] + leftBorder[0][0]) / 2, (topBorder[0][1] + leftBorder[0][1]) / 2, (topBorder[0][2] + leftBorder[0][2]) / 2];
-    const TR = [(topBorder[bw - 1][0] + rightBorder[0][0]) / 2, (topBorder[bw - 1][1] + rightBorder[0][1]) / 2, (topBorder[bw - 1][2] + rightBorder[0][2]) / 2];
-    const BL = [(botBorder[0][0] + leftBorder[bh - 1][0]) / 2, (botBorder[0][1] + leftBorder[bh - 1][1]) / 2, (botBorder[0][2] + leftBorder[bh - 1][2]) / 2];
-    const BR = [(botBorder[bw - 1][0] + rightBorder[bh - 1][0]) / 2, (botBorder[bw - 1][1] + rightBorder[bh - 1][1]) / 2, (botBorder[bw - 1][2] + rightBorder[bh - 1][2]) / 2];
-
-    // 4. Coons Patch Harmonic Inpaint for 3D Lighting & Folds
-    const bufR = new Float32Array(bw * bh);
-    const bufG = new Float32Array(bw * bh);
-    const bufB = new Float32Array(bw * bh);
-
-    for (let r = 0; r < bh; r++) {
-      const v = bh > 1 ? r / (bh - 1) : 0.5;
-      const leftP = leftBorder[r];
-      const rightP = rightBorder[r];
-
-      for (let c = 0; c < bw; c++) {
-        const u = bw > 1 ? c / (bw - 1) : 0.5;
-        const topP = topBorder[c];
-        const botP = botBorder[c];
-        const idx = r * bw + c;
-
-        for (let ch = 0; ch < 3; ch++) {
-          const vertVal = (1 - v) * topP[ch] + v * botP[ch];
-          const horizVal = (1 - u) * leftP[ch] + u * rightP[ch];
-          const cornerVal = (1 - u) * (1 - v) * TL[ch] + u * (1 - v) * TR[ch] + (1 - u) * v * BL[ch] + u * v * BR[ch];
-          const val = vertVal + horizVal - cornerVal;
-          if (ch === 0) bufR[idx] = val;
-          else if (ch === 1) bufG[idx] = val;
-          else bufB[idx] = val;
-        }
-      }
-    }
-
-    // 25 iterations Dirichlet Laplace Relaxation
-    for (let iter = 0; iter < 25; iter++) {
-      for (let r = 0; r < bh; r++) {
-        for (let c = 0; c < bw; c++) {
-          const idx = r * bw + c;
-          const topR = r > 0 ? bufR[idx - bw] : topBorder[c][0];
-          const botR = r < bh - 1 ? bufR[idx + bw] : botBorder[c][0];
-          const leftR = c > 0 ? bufR[idx - 1] : leftBorder[r][0];
-          const rightR = c < bw - 1 ? bufR[idx + 1] : rightBorder[r][0];
-
-          const topG = r > 0 ? bufG[idx - bw] : topBorder[c][1];
-          const botG = r < bh - 1 ? bufG[idx + bw] : botBorder[c][1];
-          const leftG = c > 0 ? bufG[idx - 1] : leftBorder[r][1];
-          const rightG = c < bw - 1 ? bufG[idx + 1] : rightBorder[r][1];
-
-          const topB = r > 0 ? bufB[idx - bw] : topBorder[c][2];
-          const botB = r < bh - 1 ? bufB[idx + bw] : botBorder[c][2];
-          const leftB = c > 0 ? bufB[idx - 1] : leftBorder[r][2];
-          const rightB = c < bw - 1 ? bufB[idx + 1] : rightBorder[r][2];
-
-          bufR[idx] = 0.25 * (topR + botR + leftR + rightR);
-          bufG[idx] = 0.25 * (topG + botG + leftG + rightG);
-          bufB[idx] = 0.25 * (topB + botB + leftB + rightB);
-        }
-      }
-    }
-
+    const dispRect = getImageElementRect();
+    const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
     let detectedSpec: { x: number; y: number; scale: number } | undefined;
 
-    if (mode === 'repair_seam') {
-      // 5A. REPAIR SEAM MODE: Reconnect and restore vertical crease line through a blurred gap
-      const lums = perimeterSamples.map(p => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b).sort((a, b) => a - b);
-      const medLum = lums[Math.floor(lums.length / 2)] || 128;
-      const getBorderLum = (p: [number, number, number]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
-      const topLums = topBorder.map(getBorderLum);
-      const botLums = botBorder.map(getBorderLum);
+    // Process each target erase box on the canvas
+    for (const box of boxList) {
+      const bx = Math.max(0, Math.min(w - 2, Math.round((box.x / 100) * w)));
+      const by = Math.max(0, Math.min(h - 2, Math.round((box.y / 100) * h)));
+      const bw = Math.max(4, Math.min(w - bx, Math.round((box.width / 100) * w)));
+      const bh = Math.max(4, Math.min(h - by, Math.round((box.height / 100) * h)));
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      const getPixel = (px: number, py: number): [number, number, number, number] => {
+        const cx = Math.max(0, Math.min(w - 1, px));
+        const cy = Math.max(0, Math.min(h - 1, py));
+        const idx = (cy * w + cx) * 4;
+        return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+      };
+
+      // 1. Multi-tier perimeter sampling ring (4 to 18 px) around the target box
+      const ringW = Math.max(4, Math.min(18, Math.round(Math.min(bw, bh) * 0.25)));
+      const perimeterSamples: { x: number; y: number; r: number; g: number; b: number; side: 'top' | 'bot' | 'left' | 'right' }[] = [];
+
+      for (let dy = 1; dy <= ringW; dy++) {
+        const py = by - dy;
+        if (py >= 0) {
+          for (let c = 0; c < bw; c++) {
+            const px = bx + c;
+            const [pr, pg, pb] = getPixel(px, py);
+            perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'top' });
+          }
+        }
+      }
+      for (let dy = 0; dy < ringW; dy++) {
+        const py = by + bh + dy;
+        if (py < h) {
+          for (let c = 0; c < bw; c++) {
+            const px = bx + c;
+            const [pr, pg, pb] = getPixel(px, py);
+            perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'bot' });
+          }
+        }
+      }
+      for (let dx = 1; dx <= ringW; dx++) {
+        const px = bx - dx;
+        if (px >= 0) {
+          for (let r = 0; r < bh; r++) {
+            const py = by + r;
+            const [pr, pg, pb] = getPixel(px, py);
+            perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'left' });
+          }
+        }
+      }
+      for (let dx = 0; dx < ringW; dx++) {
+        const px = bx + bw + dx;
+        if (px < w) {
+          for (let r = 0; r < bh; r++) {
+            const py = by + r;
+            const [pr, pg, pb] = getPixel(px, py);
+            perimeterSamples.push({ x: px, y: py, r: pr, g: pg, b: pb, side: 'right' });
+          }
+        }
+      }
+
+      if (perimeterSamples.length === 0) continue;
+
+      // 2. Statistical Fabric Mode Estimation (Median & Robust Cutoff)
+      const allR = perimeterSamples.map(p => p.r).sort((a, b) => a - b);
+      const allG = perimeterSamples.map(p => p.g).sort((a, b) => a - b);
+      const allB = perimeterSamples.map(p => p.b).sort((a, b) => a - b);
+      const medFabricR = allR[Math.floor(allR.length / 2)];
+      const medFabricG = allG[Math.floor(allG.length / 2)];
+      const medFabricB = allB[Math.floor(allB.length / 2)];
+
+      // Robust deviation
+      const clusterDists = perimeterSamples.map(p => Math.hypot(p.r - medFabricR, p.g - medFabricG, p.b - medFabricB)).sort((a, b) => a - b);
+      const medDev = clusterDists[Math.floor(clusterDists.length / 2)] || 2.0;
+      // Strict outlier cutoff: rejects seams, dark zippers, background skin, or stripes that touch one edge of the box
+      const outlierThreshold = Math.max(14.0, medDev * 2.8);
+
+      // 3. Robust clean border profiles (sanitizing seam/zipper contamination on any single side)
+      const cleanSampleAt = (targetX: number, targetY: number, side: 'top' | 'bot' | 'left' | 'right'): [number, number, number] => {
+        const [pr, pg, pb] = getPixel(targetX, targetY);
+        if (Math.hypot(pr - medFabricR, pg - medFabricG, pb - medFabricB) <= outlierThreshold) {
+          return [pr, pg, pb];
+        }
+        for (let offset = 2; offset <= ringW; offset++) {
+          let testX = targetX;
+          let testY = targetY;
+          if (side === 'top') testY = by - offset;
+          else if (side === 'bot') testY = by + bh - 1 + offset;
+          else if (side === 'left') testX = bx - offset;
+          else if (side === 'right') testX = bx + bw - 1 + offset;
+
+          const [tr, tg, tb] = getPixel(testX, testY);
+          if (Math.hypot(tr - medFabricR, tg - medFabricG, tb - medFabricB) <= outlierThreshold) {
+            return [tr, tg, tb];
+          }
+        }
+        return [medFabricR, medFabricG, medFabricB];
+      };
+
+      const topBorder: [number, number, number][] = [];
+      const botBorder: [number, number, number][] = [];
+      const leftBorder: [number, number, number][] = [];
+      const rightBorder: [number, number, number][] = [];
+
+      for (let c = 0; c < bw; c++) {
+        topBorder.push(cleanSampleAt(bx + c, by - 1, 'top'));
+        botBorder.push(cleanSampleAt(bx + c, by + bh, 'bot'));
+      }
+      for (let r = 0; r < bh; r++) {
+        leftBorder.push(cleanSampleAt(bx - 1, by + r, 'left'));
+        rightBorder.push(cleanSampleAt(bx + bw, by + r, 'right'));
+      }
+
+      const TL = [(topBorder[0][0] + leftBorder[0][0]) / 2, (topBorder[0][1] + leftBorder[0][1]) / 2, (topBorder[0][2] + leftBorder[0][2]) / 2];
+      const TR = [(topBorder[bw - 1][0] + rightBorder[0][0]) / 2, (topBorder[bw - 1][1] + rightBorder[0][1]) / 2, (topBorder[bw - 1][2] + rightBorder[0][2]) / 2];
+      const BL = [(botBorder[0][0] + leftBorder[bh - 1][0]) / 2, (botBorder[0][1] + leftBorder[bh - 1][1]) / 2, (botBorder[0][2] + leftBorder[bh - 1][2]) / 2];
+      const BR = [(botBorder[bw - 1][0] + rightBorder[bh - 1][0]) / 2, (botBorder[bw - 1][1] + rightBorder[bh - 1][1]) / 2, (botBorder[bw - 1][2] + rightBorder[bh - 1][2]) / 2];
+
+      // 4. Coons Patch Harmonic Inpaint for 3D Lighting & Folds
+      const bufR = new Float32Array(bw * bh);
+      const bufG = new Float32Array(bw * bh);
+      const bufB = new Float32Array(bw * bh);
 
       for (let r = 0; r < bh; r++) {
         const v = bh > 1 ? r / (bh - 1) : 0.5;
+        const leftP = leftBorder[r];
+        const rightP = rightBorder[r];
+
         for (let c = 0; c < bw; c++) {
-          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-          const topSeamOffset = topLums[c] - medLum;
-          const botSeamOffset = botLums[c] - medLum;
-          const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+          const u = bw > 1 ? c / (bw - 1) : 0.5;
+          const topP = topBorder[c];
+          const botP = botBorder[c];
+          const idx = r * bw + c;
 
-          const edgeDist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
-          const falloff = Math.min(1.0, edgeDist / 3.0);
-
-          if (Math.abs(seamOffset) > 2) {
-            data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * falloff)));
-            data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 1] + seamOffset * 0.95 * falloff)));
-            data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 2] + seamOffset * 0.95 * falloff)));
+          for (let ch = 0; ch < 3; ch++) {
+            const vertVal = (1 - v) * topP[ch] + v * botP[ch];
+            const horizVal = (1 - u) * leftP[ch] + u * rightP[ch];
+            const cornerVal = (1 - u) * (1 - v) * TL[ch] + u * (1 - v) * TR[ch] + (1 - u) * v * BL[ch] + u * v * BR[ch];
+            const val = vertVal + horizVal - cornerVal;
+            if (ch === 0) bufR[idx] = val;
+            else if (ch === 1) bufG[idx] = val;
+            else bufB[idx] = val;
           }
         }
       }
-    } else {
-      // 5B. ERASE LOGO MODE: Authentic Garment Exemplar Texture + Smoothstep Feathering
-      const dispRect = getImageElementRect();
-      const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
-      const hasRubStrokes = Boolean(strokes && strokes.length > 0);
 
-      // Build rubMask if brush mode
-      const rubMask = new Uint8Array(bw * bh);
-      if (hasRubStrokes && strokes) {
-        const strokeCanvas = document.createElement('canvas');
-        strokeCanvas.width = bw;
-        strokeCanvas.height = bh;
-        const sctx = strokeCanvas.getContext('2d');
-        if (sctx) {
-          sctx.fillStyle = '#000000';
-          sctx.fillRect(0, 0, bw, bh);
-          sctx.fillStyle = '#ffffff';
-          sctx.strokeStyle = '#ffffff';
-          const canvasRadius = Math.max(4, Math.round(((brushRadiusPx || 20) / dispW) * canvas.width));
-          sctx.lineWidth = canvasRadius * 2;
-          sctx.lineCap = 'round';
-          sctx.lineJoin = 'round';
+      // 25 iterations Dirichlet Laplace Relaxation
+      for (let iter = 0; iter < 25; iter++) {
+        for (let r = 0; r < bh; r++) {
+          for (let c = 0; c < bw; c++) {
+            const idx = r * bw + c;
+            const topR = r > 0 ? bufR[idx - bw] : topBorder[c][0];
+            const botR = r < bh - 1 ? bufR[idx + bw] : botBorder[c][0];
+            const leftR = c > 0 ? bufR[idx - 1] : leftBorder[r][0];
+            const rightR = c < bw - 1 ? bufR[idx + 1] : rightBorder[r][0];
 
-          for (const strk of strokes) {
-            if (strk.length === 0) continue;
-            sctx.beginPath();
-            for (let i = 0; i < strk.length; i++) {
-              const cx = (strk[i].x / 100) * canvas.width - bx;
-              const cy = (strk[i].y / 100) * canvas.height - by;
-              if (i === 0) {
-                sctx.moveTo(cx, cy);
-                sctx.arc(cx, cy, canvasRadius, 0, Math.PI * 2);
-                sctx.moveTo(cx, cy);
+            const topG = r > 0 ? bufG[idx - bw] : topBorder[c][1];
+            const botG = r < bh - 1 ? bufG[idx + bw] : botBorder[c][1];
+            const leftG = c > 0 ? bufG[idx - 1] : leftBorder[r][1];
+            const rightG = c < bw - 1 ? bufG[idx + 1] : rightBorder[r][1];
+
+            const topB = r > 0 ? bufB[idx - bw] : topBorder[c][2];
+            const botB = r < bh - 1 ? bufB[idx + bw] : botBorder[c][2];
+            const leftB = c > 0 ? bufB[idx - 1] : leftBorder[r][2];
+            const rightB = c < bw - 1 ? bufB[idx + 1] : rightBorder[r][2];
+
+            bufR[idx] = 0.25 * (topR + botR + leftR + rightR);
+            bufG[idx] = 0.25 * (topG + botG + leftG + rightG);
+            bufB[idx] = 0.25 * (topB + botB + leftB + rightB);
+          }
+        }
+      }
+
+      if (mode === 'repair_seam') {
+        // 5A. REPAIR SEAM MODE: Reconnect and restore vertical crease line through a blurred gap
+        const lums = perimeterSamples.map(p => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b).sort((a, b) => a - b);
+        const medLum = lums[Math.floor(lums.length / 2)] || 128;
+        const getBorderLum = (p: [number, number, number]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+        const topLums = topBorder.map(getBorderLum);
+        const botLums = botBorder.map(getBorderLum);
+
+        for (let r = 0; r < bh; r++) {
+          const v = bh > 1 ? r / (bh - 1) : 0.5;
+          for (let c = 0; c < bw; c++) {
+            const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+            const topSeamOffset = topLums[c] - medLum;
+            const botSeamOffset = botLums[c] - medLum;
+            const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+
+            const edgeDist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
+            const falloff = Math.min(1.0, edgeDist / 3.0);
+
+            if (Math.abs(seamOffset) > 2) {
+              data[pixelIdx] = Math.max(0, Math.min(255, Math.round(data[pixelIdx] + seamOffset * 0.95 * falloff)));
+              data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 1] + seamOffset * 0.95 * falloff)));
+              data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(data[pixelIdx + 2] + seamOffset * 0.95 * falloff)));
+            }
+          }
+        }
+      } else {
+        // 5B. ERASE LOGO MODE: Authentic Garment Fabric Reconstruction & 100% Ink Elimination
+        const hasRubStrokes = Boolean(strokes && strokes.length > 0);
+
+        // Build rubMask if brush mode
+        const rubMask = new Uint8Array(bw * bh);
+        if (hasRubStrokes && strokes) {
+          const strokeCanvas = document.createElement('canvas');
+          strokeCanvas.width = bw;
+          strokeCanvas.height = bh;
+          const sctx = strokeCanvas.getContext('2d');
+          if (sctx) {
+            sctx.fillStyle = '#000000';
+            sctx.fillRect(0, 0, bw, bh);
+            sctx.fillStyle = '#ffffff';
+            sctx.strokeStyle = '#ffffff';
+            const canvasRadius = Math.max(4, Math.round(((brushRadiusPx || 20) / dispW) * w));
+            sctx.lineWidth = canvasRadius * 2;
+            sctx.lineCap = 'round';
+            sctx.lineJoin = 'round';
+
+            for (const strk of strokes) {
+              if (strk.length === 0) continue;
+              sctx.beginPath();
+              for (let i = 0; i < strk.length; i++) {
+                const cx = (strk[i].x / 100) * w - bx;
+                const cy = (strk[i].y / 100) * h - by;
+                if (i === 0) {
+                  sctx.moveTo(cx, cy);
+                  sctx.arc(cx, cy, canvasRadius, 0, Math.PI * 2);
+                  sctx.moveTo(cx, cy);
+                } else {
+                  sctx.lineTo(cx, cy);
+                }
+              }
+              sctx.stroke();
+            }
+            const sdata = sctx.getImageData(0, 0, bw, bh).data;
+            for (let i = 0; i < bw * bh; i++) {
+              rubMask[i] = sdata[i * 4] > 30 ? 1 : 0;
+            }
+          }
+        }
+
+        // Detect ink bounding box for Vector Logo snapping
+        let minInkX = bw, maxInkX = 0, minInkY = bh, maxInkY = 0, inkPixelCount = 0;
+        for (let r = 0; r < bh; r++) {
+          for (let c = 0; c < bw; c++) {
+            const idx = r * bw + c;
+            const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+            const origR = data[pixelIdx];
+            const origG = data[pixelIdx + 1];
+            const origB = data[pixelIdx + 2];
+            const isInk = hasRubStrokes
+              ? rubMask[idx] === 1
+              : Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]) > Math.max(8.0, outlierThreshold * 0.6);
+
+            if (isInk) {
+              minInkX = Math.min(minInkX, c);
+              maxInkX = Math.max(maxInkX, c);
+              minInkY = Math.min(minInkY, r);
+              maxInkY = Math.max(maxInkY, r);
+              inkPixelCount++;
+            }
+          }
+        }
+
+        // 6. Find real clean donor fabric on garment for authentic micro-weave texture
+        const testOffsets = [
+          { dx: 0, dy: -(bh + ringW + 4) }, // above
+          { dx: 0, dy: bh + ringW + 4 },   // below
+          { dx: -(bw + ringW + 4), dy: 0 }, // left
+          { dx: bw + ringW + 4, dy: 0 },    // right
+        ];
+
+        let bestDonor: { sx: number; sy: number } | null = null;
+        let lowestDonorScore = Infinity;
+
+        for (const off of testOffsets) {
+          const sx = bx + off.dx;
+          const sy = by + off.dy;
+          if (sx >= 0 && sx + bw < w && sy >= 0 && sy + bh < h) {
+            let outliers = 0;
+            let totalTested = 0;
+            let sumDiff = 0;
+            const step = Math.max(2, Math.floor(Math.min(bw, bh) / 8));
+            for (let dy = 0; dy < bh; dy += step) {
+              for (let dx = 0; dx < bw; dx += step) {
+                const [pr, pg, pb] = getPixel(sx + dx, sy + dy);
+                const d = Math.hypot(pr - medFabricR, pg - medFabricG, pb - medFabricB);
+                if (d > outlierThreshold) outliers++;
+                sumDiff += d;
+                totalTested++;
+              }
+            }
+            if (totalTested > 0 && outliers / totalTested < 0.15) {
+              const score = (outliers / totalTested) * 100 + (sumDiff / totalTested);
+              if (score < lowestDonorScore) {
+                lowestDonorScore = score;
+                bestDonor = { sx, sy };
+              }
+            }
+          }
+        }
+
+        // Extract donor micro-weave residuals
+        const donorResidualR = new Float32Array(bw * bh);
+        const donorResidualG = new Float32Array(bw * bh);
+        const donorResidualB = new Float32Array(bw * bh);
+
+        if (bestDonor) {
+          const donorRawR = new Float32Array(bw * bh);
+          const donorRawG = new Float32Array(bw * bh);
+          const donorRawB = new Float32Array(bw * bh);
+          for (let r = 0; r < bh; r++) {
+            for (let c = 0; c < bw; c++) {
+              const idx = r * bw + c;
+              const [pr, pg, pb] = getPixel(bestDonor.sx + c, bestDonor.sy + r);
+              donorRawR[idx] = pr;
+              donorRawG[idx] = pg;
+              donorRawB[idx] = pb;
+            }
+          }
+          for (let r = 0; r < bh; r++) {
+            for (let c = 0; c < bw; c++) {
+              const idx = r * bw + c;
+              let sumR = 0, sumG = 0, sumB = 0, cnt = 0;
+              for (let dy = -2; dy <= 2; dy++) {
+                const nr = r + dy;
+                if (nr < 0 || nr >= bh) continue;
+                for (let dx = -2; dx <= 2; dx++) {
+                  const nc = c + dx;
+                  if (nc < 0 || nc >= bw) continue;
+                  const nidx = nr * bw + nc;
+                  sumR += donorRawR[nidx];
+                  sumG += donorRawG[nidx];
+                  sumB += donorRawB[nidx];
+                  cnt++;
+                }
+              }
+              donorResidualR[idx] = donorRawR[idx] - (sumR / cnt);
+              donorResidualG[idx] = donorRawG[idx] - (sumG / cnt);
+              donorResidualB[idx] = donorRawB[idx] - (sumB / cnt);
+            }
+          }
+        }
+
+        // 7. Complete Logo Eradication: 100% Replacement on Logo Ink Pixels
+        for (let r = 0; r < bh; r++) {
+          for (let c = 0; c < bw; c++) {
+            const idx = r * bw + c;
+            const pixelIdx = ((by + r) * w + (bx + c)) * 4;
+            const origR = data[pixelIdx];
+            const origG = data[pixelIdx + 1];
+            const origB = data[pixelIdx + 2];
+
+            const texR = bestDonor ? donorResidualR[idx] : 0;
+            const texG = bestDonor ? donorResidualG[idx] : 0;
+            const texB = bestDonor ? donorResidualB[idx] : 0;
+
+            const finalR = Math.max(0, Math.min(255, Math.round(bufR[idx] + texR)));
+            const finalG = Math.max(0, Math.min(255, Math.round(bufG[idx] + texG)));
+            const finalB = Math.max(0, Math.min(255, Math.round(bufB[idx] + texB)));
+
+            // Check if this pixel contains contrasting logo / text / print ink
+            const diffToBuf = Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]);
+            const diffToMed = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
+            const isContrastingInk = Math.max(diffToBuf, diffToMed) > 10.0;
+
+            let weight = 0;
+            if (hasRubStrokes) {
+              if (rubMask[idx]) {
+                weight = 1.0;
+              } else if (isContrastingInk) {
+                // 2px dilation around brush strokes for anti-aliased font edges
+                let nearRub = false;
+                for (let dy = -2; dy <= 2 && !nearRub; dy++) {
+                  const nr = r + dy;
+                  if (nr < 0 || nr >= bh) continue;
+                  for (let dx = -2; dx <= 2 && !nearRub; dx++) {
+                    const nc = c + dx;
+                    if (nc < 0 || nc >= bw) continue;
+                    if (rubMask[nr * bw + nc]) nearRub = true;
+                  }
+                }
+                if (nearRub) weight = 1.0;
+              }
+            } else {
+              // Area selection mode
+              const dist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
+              if (isContrastingInk) {
+                // 100% eradication: NEVER retain original logo ink or text marks
+                weight = 1.0;
               } else {
-                sctx.lineTo(cx, cy);
+                // Smooth 3px feathering for clean background fabric at boundary
+                const featherW = Math.min(3, Math.max(2, Math.floor(Math.min(bw, bh) * 0.1)));
+                const t = Math.max(0, Math.min(1, dist / featherW));
+                weight = t * t * (3 - 2 * t);
               }
             }
-            sctx.stroke();
-          }
-          const sdata = sctx.getImageData(0, 0, bw, bh).data;
-          for (let i = 0; i < bw * bh; i++) {
-            rubMask[i] = sdata[i * 4] > 30 ? 1 : 0;
-          }
-        }
-      }
 
-      // Detect ink bounding box for Vector Logo snapping
-      let minInkX = bw, maxInkX = 0, minInkY = bh, maxInkY = 0, inkPixelCount = 0;
-      for (let r = 0; r < bh; r++) {
-        for (let c = 0; c < bw; c++) {
-          const idx = r * bw + c;
-          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-          const origR = data[pixelIdx];
-          const origG = data[pixelIdx + 1];
-          const origB = data[pixelIdx + 2];
-          const isInk = hasRubStrokes
-            ? rubMask[idx] === 1
-            : Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]) > Math.max(8.0, outlierThreshold * 0.7);
-
-          if (isInk) {
-            minInkX = Math.min(minInkX, c);
-            maxInkX = Math.max(maxInkX, c);
-            minInkY = Math.min(minInkY, r);
-            maxInkY = Math.max(maxInkY, r);
-            inkPixelCount++;
-          }
-        }
-      }
-
-      // 6. Find real clean donor fabric on garment for 100% authentic cloth micro-weave texture
-      const testOffsets = [
-        { dx: 0, dy: -(bh + ringW + 4) }, // above
-        { dx: 0, dy: bh + ringW + 4 },   // below
-        { dx: -(bw + ringW + 4), dy: 0 }, // left
-        { dx: bw + ringW + 4, dy: 0 },    // right
-      ];
-
-      let bestDonor: { sx: number; sy: number } | null = null;
-      let lowestDonorScore = Infinity;
-
-      for (const off of testOffsets) {
-        const sx = bx + off.dx;
-        const sy = by + off.dy;
-        if (sx >= 0 && sx + bw < w && sy >= 0 && sy + bh < h) {
-          let outliers = 0;
-          let totalTested = 0;
-          let sumDiff = 0;
-          const step = Math.max(2, Math.floor(Math.min(bw, bh) / 8));
-          for (let dy = 0; dy < bh; dy += step) {
-            for (let dx = 0; dx < bw; dx += step) {
-              const [pr, pg, pb] = getPixel(sx + dx, sy + dy);
-              const d = Math.hypot(pr - medFabricR, pg - medFabricG, pb - medFabricB);
-              if (d > outlierThreshold) outliers++;
-              sumDiff += d;
-              totalTested++;
-            }
-          }
-          if (totalTested > 0 && outliers / totalTested < 0.15) {
-            const score = (outliers / totalTested) * 100 + (sumDiff / totalTested);
-            if (score < lowestDonorScore) {
-              lowestDonorScore = score;
-              bestDonor = { sx, sy };
+            if (weight > 0) {
+              data[pixelIdx] = Math.round((1 - weight) * origR + weight * finalR);
+              data[pixelIdx + 1] = Math.round((1 - weight) * origG + weight * finalG);
+              data[pixelIdx + 2] = Math.round((1 - weight) * origB + weight * finalB);
+              data[pixelIdx + 3] = 255;
             }
           }
         }
-      }
 
-      // Precalculate donor texture residuals (actual cloth yarn weave & camera noise)
-      const donorResidualR = new Float32Array(bw * bh);
-      const donorResidualG = new Float32Array(bw * bh);
-      const donorResidualB = new Float32Array(bw * bh);
-
-      if (bestDonor) {
-        const donorRawR = new Float32Array(bw * bh);
-        const donorRawG = new Float32Array(bw * bh);
-        const donorRawB = new Float32Array(bw * bh);
-        for (let r = 0; r < bh; r++) {
-          for (let c = 0; c < bw; c++) {
-            const idx = r * bw + c;
-            const [pr, pg, pb] = getPixel(bestDonor.sx + c, bestDonor.sy + r);
-            donorRawR[idx] = pr;
-            donorRawG[idx] = pg;
-            donorRawB[idx] = pb;
-          }
-        }
-        // Extract high-frequency weave by subtracting 5x5 local average
-        for (let r = 0; r < bh; r++) {
-          for (let c = 0; c < bw; c++) {
-            const idx = r * bw + c;
-            let sumR = 0, sumG = 0, sumB = 0, cnt = 0;
-            for (let dy = -2; dy <= 2; dy++) {
-              const nr = r + dy;
-              if (nr < 0 || nr >= bh) continue;
-              for (let dx = -2; dx <= 2; dx++) {
-                const nc = c + dx;
-                if (nc < 0 || nc >= bw) continue;
-                const nidx = nr * bw + nc;
-                sumR += donorRawR[nidx];
-                sumG += donorRawG[nidx];
-                sumB += donorRawB[nidx];
-                cnt++;
-              }
-            }
-            donorResidualR[idx] = donorRawR[idx] - (sumR / cnt);
-            donorResidualG[idx] = donorRawG[idx] - (sumG / cnt);
-            donorResidualB[idx] = donorRawB[idx] - (sumB / cnt);
-          }
+        // Record auto-detected vector logo placement spec if logo was present
+        if (inkPixelCount >= 8 && maxInkX >= minInkX && maxInkY >= minInkY) {
+          const inkCanvasW = maxInkX - minInkX + 1;
+          const inkCanvasMidX = bx + minInkX + inkCanvasW / 2;
+          const inkCanvasMidY = by + minInkY + (maxInkY - minInkY + 1) / 2;
+          const detectedScale = Math.max(14, Math.min(75, Math.round((inkCanvasW / w) * dispW * 1.15)));
+          const detectedX = Math.round(((inkCanvasMidX / w) * 100) * 10) / 10;
+          const detectedY = Math.round(((inkCanvasMidY / h) * 100) * 10) / 10;
+          detectedSpec = { x: detectedX, y: detectedY, scale: detectedScale };
         }
       }
 
-      // 7. Wide Smoothstep Feathering (Never 2-pixel box knife edge!)
-      // Blends seamlessly over 10-18 pixels with C^1 continuous zero derivative at boundary
-      const featherW = Math.min(18, Math.max(8, Math.round(Math.min(bw, bh) * 0.28)));
-
-      for (let r = 0; r < bh; r++) {
-        for (let c = 0; c < bw; c++) {
-          const idx = r * bw + c;
-          const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-          const origR = data[pixelIdx];
-          const origG = data[pixelIdx + 1];
-          const origB = data[pixelIdx + 2];
-
-          // Reconstructed color: smooth 3D lighting + real donor weave texture
-          const texR = bestDonor ? donorResidualR[idx] : 0;
-          const texG = bestDonor ? donorResidualG[idx] : 0;
-          const texB = bestDonor ? donorResidualB[idx] : 0;
-
-          const finalR = Math.max(0, Math.min(255, Math.round(bufR[idx] + texR)));
-          const finalG = Math.max(0, Math.min(255, Math.round(bufG[idx] + texG)));
-          const finalB = Math.max(0, Math.min(255, Math.round(bufB[idx] + texB)));
-
-          let weight = 0;
-          if (hasRubStrokes) {
-            // Brush mode: weight from rubbed stroke
-            weight = rubMask[idx] ? 1.0 : 0.0;
-          } else {
-            // Area mode: smooth Hermite curve S(t) = 3t^2 - 2t^3 from 4 boundaries
-            const dist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
-            const t = Math.max(0, Math.min(1, dist / featherW));
-            weight = t * t * (3 - 2 * t);
-          }
-
-          if (weight > 0) {
-            data[pixelIdx] = Math.round((1 - weight) * origR + weight * finalR);
-            data[pixelIdx + 1] = Math.round((1 - weight) * origG + weight * finalG);
-            data[pixelIdx + 2] = Math.round((1 - weight) * origB + weight * finalB);
-            data[pixelIdx + 3] = 255;
-          }
-        }
-      }
-
-      // Record auto-detected vector logo placement spec if logo was present
-      if (inkPixelCount >= 8 && maxInkX >= minInkX && maxInkY >= minInkY) {
-        const inkCanvasW = maxInkX - minInkX + 1;
-        const inkCanvasMidX = bx + minInkX + inkCanvasW / 2;
-        const inkCanvasMidY = by + minInkY + (maxInkY - minInkY + 1) / 2;
-        const detectedScale = Math.max(14, Math.min(75, Math.round((inkCanvasW / canvas.width) * dispW * 1.15)));
-        const detectedX = Math.round(((inkCanvasMidX / canvas.width) * 100) * 10) / 10;
-        const detectedY = Math.round(((inkCanvasMidY / canvas.height) * 100) * 10) / 10;
-        detectedSpec = { x: detectedX, y: detectedY, scale: detectedScale };
-      }
+      ctx.putImageData(imgData, 0, 0);
     }
 
-    ctx.putImageData(imgData, 0, 0);
-    let outUrl = canvas.toDataURL('image/png');
-    try {
-      const webp = canvas.toDataURL('image/webp', 0.98);
-      if (webp && webp.startsWith('data:image/webp') && webp.length > 100) outUrl = webp;
-    } catch {}
+    const outUrl = canvas.toDataURL('image/png');
     return { url: outUrl, detected: detectedSpec };
   }
 
   const handleExecuteErase = async (snapVector = false, isSeamRepair = false) => {
     const curRect = getImageElementRect();
-    const curBox = eraseBox || computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500);
-    if (!curBox || !result) return;
+    const boxesToUse: EraseBoxItem[] =
+      eraseTool === 'area'
+        ? (eraseBoxes.length > 0 ? eraseBoxes : (eraseBox ? [{ id: 'single', ...eraseBox }] : []))
+        : (eraseBox
+            ? [{ id: 'single', ...eraseBox }]
+            : (computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)
+                ? [{ id: 'rub', ...computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)! }]
+                : []));
+
+    if ((boxesToUse.length === 0 && rubStrokes.length === 0) || !result) return;
     try {
       setIsErasing(true);
       const currentImg = result;
       const strokesToPass = eraseTool === 'brush' && rubStrokes.length > 0 ? rubStrokes : undefined;
       const { url: inpainted, detected } = await inpaintEraseArea(
         currentImg,
-        curBox,
+        boxesToUse,
         isSeamRepair ? 'repair_seam' : 'erase_logo',
         strokesToPass,
         brushRadius
       );
 
-      // Save to undo stack (max 5)
-      setEraseUndoStack((prev) => [currentImg, ...prev.slice(0, 4)]);
+      // Save to undo stack (max 10) and reset redo stack
+      setEraseUndoStack((prev) => [currentImg, ...prev.slice(0, 9)]);
+      setEraseRedoStack([]);
+
       setResult(inpainted);
       setCleanResultBackup(inpainted);
       setFivePoseItems((prev) =>
@@ -10239,9 +10315,10 @@ export default function Design() {
 
       const dispRect = getImageElementRect();
       const dispW = (dispRect && dispRect.width > 20) ? dispRect.width : 380;
-      const autoScale = detected?.scale || Math.max(14, Math.min(80, Math.round((dispW * curBox.width) / 100)));
-      const centerX = detected?.x ?? Math.round((curBox.x + curBox.width / 2) * 10) / 10;
-      const centerY = detected?.y ?? Math.round((curBox.y + curBox.height / 2) * 10) / 10;
+      const primaryBox = boxesToUse[boxesToUse.length - 1];
+      const autoScale = detected?.scale || (primaryBox ? Math.max(14, Math.min(80, Math.round((dispW * primaryBox.width) / 100))) : 24);
+      const centerX = detected?.x ?? (primaryBox ? Math.round((primaryBox.x + primaryBox.width / 2) * 10) / 10 : 50);
+      const centerY = detected?.y ?? (primaryBox ? Math.round((primaryBox.y + primaryBox.height / 2) * 10) / 10 : 50);
       const isPant = centerY > 50 || activeLogoTarget === 'pant';
       const target = isPant ? 'pant' : 'chest';
 
@@ -10265,7 +10342,6 @@ export default function Design() {
         setIsOptionBDirty(true);
       } else if (!isSeamRepair) {
         // User clicked "Erase Logo" -> Turn off vector overlay on that spot so it doesn't block the erased area
-        const centerY = curBox.y + curBox.height / 2;
         if (centerY > 50) {
           setShowPantLogo(false);
         } else {
@@ -10292,9 +10368,10 @@ export default function Design() {
   };
 
   const handleUndoErase = () => {
-    if (eraseUndoStack.length === 0) return;
-    const [previous, ...rest] = eraseUndoStack;
-    setEraseUndoStack(rest);
+    if (eraseUndoStack.length === 0 || !result) return;
+    const [previous, ...restUndo] = eraseUndoStack;
+    setEraseUndoStack(restUndo);
+    setEraseRedoStack((prev) => [result, ...prev.slice(0, 9)]);
     setResult(previous);
     setCleanResultBackup(previous);
     setFivePoseItems((prev) =>
@@ -10303,6 +10380,21 @@ export default function Design() {
     handleClearStrokes();
     setIsEraseMode(true);
     autoSaveTriggerRef.current?.(previous, 'Step Back (Undone Erase)');
+  };
+
+  const handleRedoErase = () => {
+    if (eraseRedoStack.length === 0 || !result) return;
+    const [next, ...restRedo] = eraseRedoStack;
+    setEraseRedoStack(restRedo);
+    setEraseUndoStack((prev) => [result, ...prev.slice(0, 9)]);
+    setResult(next);
+    setCleanResultBackup(next);
+    setFivePoseItems((prev) =>
+      prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: next } : p))
+    );
+    handleClearStrokes();
+    setIsEraseMode(true);
+    autoSaveTriggerRef.current?.(next, 'Redo Erase');
   };
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
@@ -11372,6 +11464,7 @@ export default function Design() {
             setMode('removelogo');
             setIsEraseMode(true);
             setEraseBox(null);
+            setEraseBoxes([]);
             setRubStrokes([]);
             setActiveRenderOption('a');
             setShowHdLogoOverlay(false);
@@ -12290,6 +12383,7 @@ export default function Design() {
                           setResult(null);
                           setCleanResultBackup(null);
                           setEraseBox(null);
+                          setEraseBoxes([]);
                         }}
                         className={`text-[11px] font-semibold cursor-pointer ${isLight ? 'text-rose-600 hover:text-rose-800' : 'text-rose-400 hover:text-rose-300'}`}
                       >
@@ -12444,7 +12538,7 @@ export default function Design() {
                     </p>
                   </div>
 
-                  {(eraseBox || rubStrokes.length > 0) && (
+                  {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
                     <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -12453,11 +12547,12 @@ export default function Design() {
                         className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         <Eraser className="w-3.5 h-3.5" />
-                        <span>{isErasing ? 'Erasing…' : 'Erase Rubbed Logo'}</span>
+                        <span>{isErasing ? 'Erasing…' : eraseBoxes.length > 1 ? `Erase All (${eraseBoxes.length} Areas)` : eraseTool === 'brush' ? 'Erase Rubbed Logo' : 'Erase Logo Area'}</span>
                       </button>
                       {(() => {
                         const curRect = getImageElementRect();
-                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (eraseBox?.width || 12)) / 100)));
+                        const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
+                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
                         return (
                           <button
                             type="button"
@@ -14616,25 +14711,57 @@ export default function Design() {
                       />
                     )}
 
-                    {/* Canva-style Area Bounding Box (in Area mode) */}
-                    {isEraseMode && eraseTool === 'area' && eraseBox && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: `${eraseBox.x}%`,
-                          top: `${eraseBox.y}%`,
-                          width: `${eraseBox.width}%`,
-                          height: `${eraseBox.height}%`,
-                          zIndex: 30,
-                        }}
-                        className="border border-amber-300 shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-transparent pointer-events-none select-none"
-                      >
-                        {isDrawingEraseBox && (
-                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black/80 text-amber-300 border border-amber-400/30 text-[8px] font-mono px-1 py-0 rounded pointer-events-none whitespace-nowrap shadow-sm">
-                            {Math.round(eraseBox.width)}% × {Math.round(eraseBox.height)}%
+                    {/* Canva-style Multi-Area Bounding Boxes & Active Box (in Area mode) */}
+                    {isEraseMode && eraseTool === 'area' && (
+                      <>
+                        {eraseBoxes.map((b, bIdx) => (
+                          <div
+                            key={b.id}
+                            style={{
+                              position: 'absolute',
+                              left: `${b.x}%`,
+                              top: `${b.y}%`,
+                              width: `${b.width}%`,
+                              height: `${b.height}%`,
+                              zIndex: 30,
+                            }}
+                            className="border-2 border-amber-400 bg-amber-400/10 shadow-[0_0_0_1px_rgba(0,0,0,0.7)] group pointer-events-none select-none"
+                          >
+                            <div className="absolute -top-5 left-0 flex items-center gap-1 bg-black/90 text-amber-300 border border-amber-400/50 text-[9px] font-mono px-1.5 py-0.5 rounded shadow-md pointer-events-auto">
+                              <span>Area {bIdx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  handleRemoveEraseBox(b.id);
+                                }}
+                                className="hover:text-red-400 text-amber-200 ml-1 font-bold px-0.5 cursor-pointer"
+                                title="Delete this selected area"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {activeDrawingBox && activeDrawingBox.width > 0 && activeDrawingBox.height > 0 && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${activeDrawingBox.x}%`,
+                              top: `${activeDrawingBox.y}%`,
+                              width: `${activeDrawingBox.width}%`,
+                              height: `${activeDrawingBox.height}%`,
+                              zIndex: 31,
+                            }}
+                            className="border-2 border-dashed border-amber-300 bg-amber-400/15 pointer-events-none select-none"
+                          >
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/90 text-amber-300 border border-amber-400/40 text-[8px] font-mono px-1 py-0 rounded pointer-events-none whitespace-nowrap shadow-sm">
+                              {Math.round(activeDrawingBox.width)}% × {Math.round(activeDrawingBox.height)}%
+                            </div>
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
 
                     {/* Live HD Logo Overlays (Chest, Pant, Back, Extra) for Option B Preview with Direct Mouse & Touch Drag */}
@@ -14909,10 +15036,12 @@ export default function Design() {
                       <div className="flex items-center gap-2 text-xs text-amber-300/80 flex-1">
                         <span className="text-amber-400 font-bold">🪄 Canva Area Mode:</span>
                         <span>
-                          {eraseBox ? (
-                            <span>Selected <strong className="text-amber-300 font-mono">{Math.round(eraseBox.width)}% × {Math.round(eraseBox.height)}%</strong> area — ready to erase</span>
+                          {eraseBoxes.length > 0 ? (
+                            <span>
+                              Selected <strong className="text-amber-300 font-mono">{eraseBoxes.length} area{eraseBoxes.length > 1 ? 's' : ''}</strong> — ready to erase (drag across other logos to add more areas)
+                            </span>
                           ) : (
-                            'Drag a rectangle tightly around any logo or text block on the image.'
+                            'Drag a rectangle tightly around any logo or text. You can select multiple areas.'
                           )}
                         </span>
                       </div>
@@ -14972,23 +15101,32 @@ export default function Design() {
                       {/* Erase Logo Button */}
                       <button
                         type="button"
-                        disabled={isErasing || (!eraseBox && rubStrokes.length === 0)}
+                        disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
                         onClick={() => handleExecuteErase(false)}
                         className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                        title="Seamlessly blend and remove selected logo area with surrounding fabric texture"
+                        title="Seamlessly blend and remove selected logo area(s) with surrounding fabric texture"
                       >
                         <Eraser className="w-3.5 h-3.5" />
-                        <span>{isErasing ? 'Erasing…' : eraseTool === 'brush' ? 'Erase Rubbed Logo' : 'Erase Logo Area'}</span>
+                        <span>
+                          {isErasing
+                            ? 'Erasing…'
+                            : eraseTool === 'brush'
+                            ? 'Erase Rubbed Logo'
+                            : eraseBoxes.length > 1
+                            ? `Erase All (${eraseBoxes.length} Areas)`
+                            : 'Erase Logo Area'}
+                        </span>
                       </button>
 
                       {/* Erase & Snap HD Vector */}
                       {(() => {
                         const curRect = getImageElementRect();
-                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (eraseBox?.width || 12)) / 100)));
+                        const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
+                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
                         return (
                           <button
                             type="button"
-                            disabled={isErasing || (!eraseBox && rubStrokes.length === 0)}
+                            disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
                             onClick={() => handleExecuteErase(true)}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                             title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
@@ -15002,7 +15140,7 @@ export default function Design() {
                       {/* Restore Seam */}
                       <button
                         type="button"
-                        disabled={isErasing || !eraseBox}
+                        disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
                         onClick={() => handleExecuteErase(false, true)}
                         className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
                         title="Reconnect and repair a blurred vertical trouser crease line across the selected area"
@@ -15012,7 +15150,7 @@ export default function Design() {
                       </button>
 
                       {/* Clear Rub / Cancel Area */}
-                      {(eraseBox || rubStrokes.length > 0) && (
+                      {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
                         <button
                           type="button"
                           onClick={handleClearStrokes}
@@ -15024,22 +15162,53 @@ export default function Design() {
                           title="Clear the current selection"
                         >
                           <X className="w-3 h-3" />
-                          <span>{eraseTool === 'brush' ? 'Clear Rub' : 'Cancel Area'}</span>
+                          <span>
+                            {eraseTool === 'brush'
+                              ? 'Clear Rub'
+                              : eraseBoxes.length > 1
+                              ? `Clear All (${eraseBoxes.length})`
+                              : 'Cancel Area'}
+                          </span>
                         </button>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
                       {/* Undo Step Back */}
+                      <button
+                        type="button"
+                        disabled={eraseUndoStack.length === 0}
+                        onClick={handleUndoErase}
+                        className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={eraseUndoStack.length > 0 ? `Step back to previous state before last erase (${eraseUndoStack.length} in history)` : 'Undo (no erase history)'}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Undo {eraseUndoStack.length > 0 ? `(${eraseUndoStack.length})` : ''}</span>
+                      </button>
+
+                      {/* Redo */}
+                      <button
+                        type="button"
+                        disabled={eraseRedoStack.length === 0}
+                        onClick={handleRedoErase}
+                        className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={eraseRedoStack.length > 0 ? `Redo previously undone erase (${eraseRedoStack.length} in history)` : 'Redo (no redo steps)'}
+                      >
+                        <RotateCw className="w-3.5 h-3.5" />
+                        <span>Redo {eraseRedoStack.length > 0 ? `(${eraseRedoStack.length})` : ''}</span>
+                      </button>
+
+                      {/* Save to My Sets */}
                       {eraseUndoStack.length > 0 && (
                         <button
                           type="button"
-                          onClick={handleUndoErase}
-                          className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
-                          title="Step back to previous state before last erase"
+                          disabled={busy}
+                          onClick={() => void handleSaveToMySets()}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          title="Save this erased image to My Sets archive"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Step Back ({eraseUndoStack.length})</span>
+                          <Bookmark className="w-3.5 h-3.5" />
+                          <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
                         </button>
                       )}
 
@@ -15168,6 +15337,7 @@ export default function Design() {
                       onClick={() => {
                         setIsEraseMode((prev) => !prev);
                         setEraseBox(null);
+                        setEraseBoxes([]);
                       }}
                       className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                         isEraseMode
