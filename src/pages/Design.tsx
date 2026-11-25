@@ -9825,7 +9825,8 @@ export default function Design() {
     boxes: EraseBoxItem[] | { x: number; y: number; width: number; height: number },
     mode: 'erase_logo' | 'repair_seam' = 'erase_logo',
     strokes?: RubStroke[],
-    brushRadiusPx?: number
+    brushRadiusPx?: number,
+    preserveFabricAndSeams = true
   ): Promise<{ url: string; detected?: { x: number; y: number; scale: number } }> {
     const img = await loadSafeCanvasImage(baseImgUrl);
 
@@ -10025,20 +10026,41 @@ export default function Design() {
       }
 
       if (mode === 'repair_seam') {
-        // 5A. REPAIR SEAM MODE: Reconnect and restore vertical crease line through a blurred gap
+        // 5A. REPAIR SEAM MODE: Reconnect and restore crease line through a blurred gap
         const lums = perimeterSamples.map(p => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b).sort((a, b) => a - b);
         const medLum = lums[Math.floor(lums.length / 2)] || 128;
         const getBorderLum = (p: [number, number, number]) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
         const topLums = topBorder.map(getBorderLum);
         const botLums = botBorder.map(getBorderLum);
+        const leftLums = leftBorder.map(getBorderLum);
+        const rightLums = rightBorder.map(getBorderLum);
+
+        let maxVerticalVar = 0;
+        for (let c = 0; c < bw; c++) {
+          maxVerticalVar = Math.max(maxVerticalVar, Math.abs(topLums[c] - medLum), Math.abs(botLums[c] - medLum));
+        }
+        let maxHorizontalVar = 0;
+        for (let r = 0; r < bh; r++) {
+          maxHorizontalVar = Math.max(maxHorizontalVar, Math.abs(leftLums[r] - medLum), Math.abs(rightLums[r] - medLum));
+        }
+        const isHorizontalSeam = maxHorizontalVar > maxVerticalVar;
 
         for (let r = 0; r < bh; r++) {
           const v = bh > 1 ? r / (bh - 1) : 0.5;
           for (let c = 0; c < bw; c++) {
+            const u = bw > 1 ? c / (bw - 1) : 0.5;
             const pixelIdx = ((by + r) * w + (bx + c)) * 4;
-            const topSeamOffset = topLums[c] - medLum;
-            const botSeamOffset = botLums[c] - medLum;
-            const seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+
+            let seamOffset = 0;
+            if (isHorizontalSeam) {
+              const leftOffset = leftLums[r] - medLum;
+              const rightOffset = rightLums[r] - medLum;
+              seamOffset = (1 - u) * leftOffset + u * rightOffset;
+            } else {
+              const topSeamOffset = topLums[c] - medLum;
+              const botSeamOffset = botLums[c] - medLum;
+              seamOffset = (1 - v) * topSeamOffset + v * botSeamOffset;
+            }
 
             const edgeDist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
             const falloff = Math.min(1.0, edgeDist / 3.0);
@@ -10051,7 +10073,9 @@ export default function Design() {
           }
         }
       } else {
-        // 5B. ERASE LOGO MODE: Authentic Garment Fabric Reconstruction & 100% Ink Elimination
+        // 5B. ERASE LOGO MODE: High-Precision Ink Eradication
+        // Preserves 100% of clean garment fabric, diagonal yoke seams, trouser creases, and natural shadows.
+        // Replaces ONLY the contrasting logo ink with seamless woven fabric.
         const hasRubStrokes = Boolean(strokes && strokes.length > 0);
 
         // Build rubMask if brush mode
@@ -10094,8 +10118,11 @@ export default function Design() {
           }
         }
 
-        // Detect ink bounding box for Vector Logo snapping
+        // 1. Identify contrasting logo ink pixels vs background fabric
+        const inkThreshold = Math.max(12.0, Math.min(24.0, outlierThreshold * 0.75));
+        const inkMap = new Uint8Array(bw * bh);
         let minInkX = bw, maxInkX = 0, minInkY = bh, maxInkY = 0, inkPixelCount = 0;
+
         for (let r = 0; r < bh; r++) {
           for (let c = 0; c < bw; c++) {
             const idx = r * bw + c;
@@ -10103,16 +10130,56 @@ export default function Design() {
             const origR = data[pixelIdx];
             const origG = data[pixelIdx + 1];
             const origB = data[pixelIdx + 2];
-            const isInk = hasRubStrokes
-              ? rubMask[idx] === 1
-              : Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]) > Math.max(8.0, outlierThreshold * 0.6);
+            const diffToBuf = Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]);
+            const diffToMed = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
+            const isContrastingInk = Math.max(diffToBuf, diffToMed) > inkThreshold;
 
-            if (isInk) {
+            const isCandidate = hasRubStrokes
+              ? (rubMask[idx] === 1 && (preserveFabricAndSeams ? isContrastingInk : true))
+              : isContrastingInk;
+
+            if (isCandidate) {
+              inkMap[idx] = 1;
               minInkX = Math.min(minInkX, c);
               maxInkX = Math.max(maxInkX, c);
               minInkY = Math.min(minInkY, r);
               maxInkY = Math.max(maxInkY, r);
               inkPixelCount++;
+            }
+          }
+        }
+
+        // 2. Compute distance transform to ink pixels for tight localized feathering
+        // When preserveFabricAndSeams is true AND ink was detected:
+        // We ONLY replace the ink + 2px dilation, leaving 100% of clean fabric, seams and creases untouched!
+        // No blur, no box edges, no broken seam lines!
+        const useInkSelective = preserveFabricAndSeams && (inkPixelCount >= 4 || !hasRubStrokes);
+        const distToInk = new Float32Array(bw * bh);
+
+        if (useInkSelective && inkPixelCount > 0) {
+          const searchRadius = 6;
+          for (let r = 0; r < bh; r++) {
+            for (let c = 0; c < bw; c++) {
+              const idx = r * bw + c;
+              if (inkMap[idx] === 1) {
+                distToInk[idx] = 0;
+                continue;
+              }
+              let minSq = 999;
+              const rMin = Math.max(0, r - searchRadius);
+              const rMax = Math.min(bh - 1, r + searchRadius);
+              const cMin = Math.max(0, c - searchRadius);
+              const cMax = Math.min(bw - 1, c + searchRadius);
+
+              for (let nr = rMin; nr <= rMax; nr++) {
+                for (let nc = cMin; nc <= cMax; nc++) {
+                  if (inkMap[nr * bw + nc] === 1) {
+                    const dSq = (r - nr) * (r - nr) + (c - nc) * (c - nc);
+                    if (dSq < minSq) minSq = dSq;
+                  }
+                }
+              }
+              distToInk[idx] = Math.sqrt(minSq);
             }
           }
         }
@@ -10197,7 +10264,7 @@ export default function Design() {
           }
         }
 
-        // 7. Complete Logo Eradication: 100% Replacement on Logo Ink Pixels
+        // 7. Complete Logo Eradication: High-Precision Ink infill with Authentic Micro-Weave
         for (let r = 0; r < bh; r++) {
           for (let c = 0; c < bw; c++) {
             const idx = r * bw + c;
@@ -10214,41 +10281,29 @@ export default function Design() {
             const finalG = Math.max(0, Math.min(255, Math.round(bufG[idx] + texG)));
             const finalB = Math.max(0, Math.min(255, Math.round(bufB[idx] + texB)));
 
-            // Check if this pixel contains contrasting logo / text / print ink
-            const diffToBuf = Math.hypot(origR - bufR[idx], origG - bufG[idx], origB - bufB[idx]);
-            const diffToMed = Math.hypot(origR - medFabricR, origG - medFabricG, origB - medFabricB);
-            const isContrastingInk = Math.max(diffToBuf, diffToMed) > 10.0;
-
             let weight = 0;
-            if (hasRubStrokes) {
-              if (rubMask[idx]) {
+
+            if (useInkSelective && inkPixelCount > 0) {
+              const d = distToInk[idx];
+              if (d <= 2.0) {
+                // Completely erase the ink and its anti-aliasing (100% replacement)
                 weight = 1.0;
-              } else if (isContrastingInk) {
-                // 2px dilation around brush strokes for anti-aliased font edges
-                let nearRub = false;
-                for (let dy = -2; dy <= 2 && !nearRub; dy++) {
-                  const nr = r + dy;
-                  if (nr < 0 || nr >= bh) continue;
-                  for (let dx = -2; dx <= 2 && !nearRub; dx++) {
-                    const nc = c + dx;
-                    if (nc < 0 || nc >= bw) continue;
-                    if (rubMask[nr * bw + nc]) nearRub = true;
-                  }
-                }
-                if (nearRub) weight = 1.0;
-              }
-            } else {
-              // Area selection mode
-              const dist = Math.min(c, bw - 1 - c, r, bh - 1 - r);
-              if (isContrastingInk) {
-                // 100% eradication: NEVER retain original logo ink or text marks
-                weight = 1.0;
-              } else {
-                // Smooth 3px feathering for clean background fabric at boundary
-                const featherW = Math.min(3, Math.max(2, Math.floor(Math.min(bw, bh) * 0.1)));
-                const t = Math.max(0, Math.min(1, dist / featherW));
+              } else if (d <= 4.0) {
+                // Smooth C^1 Hermite blend into surrounding clean fabric
+                const t = (4.0 - d) / 2.0;
                 weight = t * t * (3 - 2 * t);
+              } else {
+                // 100% untouched original photo pixel! (Zero blur, zero rectangular outline!)
+                weight = 0.0;
               }
+            } else if (hasRubStrokes) {
+              weight = rubMask[idx] ? 1.0 : 0.0;
+            } else {
+              // Fallback if no ink was detected in drawn box
+              const distToEdge = Math.min(c, bw - 1 - c, r, bh - 1 - r);
+              const featherW = Math.min(6, Math.max(3, Math.floor(Math.min(bw, bh) * 0.15)));
+              const t = Math.max(0, Math.min(1, distToEdge / featherW));
+              weight = t * t * (3 - 2 * t);
             }
 
             if (weight > 0) {
@@ -10300,7 +10355,8 @@ export default function Design() {
         boxesToUse,
         isSeamRepair ? 'repair_seam' : 'erase_logo',
         strokesToPass,
-        brushRadius
+        brushRadius,
+        isSeamProtect
       );
 
       // Save to undo stack (max 10) and reset redo stack
