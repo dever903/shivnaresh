@@ -75,7 +75,7 @@ function playAdminNotificationChime() {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.35);
-  } catch {}
+  } catch { }
 }
 
 function sendAdminNotification(title: string, body: string) {
@@ -105,7 +105,7 @@ export default function Admin() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch { }
     return [];
   });
 
@@ -113,7 +113,7 @@ export default function Admin() {
     setCategories(cats);
     try {
       localStorage.setItem('cached_studio_models', JSON.stringify(cats));
-    } catch {}
+    } catch { }
   };
 
   /* Tab Navigation */
@@ -184,7 +184,7 @@ export default function Admin() {
     try {
       const cached = localStorage.getItem('cached_plan_prices');
       if (cached) return JSON.parse(cached);
-    } catch {}
+    } catch { }
     return {
       starter: { name: 'Starter Trial', priceUSD: 0, priceINR: 0, credits: 5, maxVideos: 1, maxModels: 3, photoshoots: 3 },
       ondemand: { name: 'On-Demand Growth', priceUSD: 49, priceINR: 0, credits: 200, maxVideos: 2, maxModels: 20, photoshoots: 20 },
@@ -336,7 +336,7 @@ export default function Admin() {
       } else {
         clean = u.pathname;
       }
-    } catch {}
+    } catch { }
     return (clean.split('?')[0].split('/').pop() || clean).toLowerCase().replace(/^fashn-/, '').replace(/-\d+\.[^.]+$/, '');
   };
 
@@ -458,7 +458,7 @@ export default function Admin() {
     try {
       const res = await api.getAdminStorageStatus();
       setStorageStatus(res);
-    } catch {}
+    } catch { }
   };
 
   const handleSendAdminOtp = async () => {
@@ -614,7 +614,7 @@ export default function Admin() {
       }));
       try {
         localStorage.setItem('cached_plan_prices', JSON.stringify(s.plans));
-      } catch {}
+      } catch { }
     }
     try {
       const dp = await api.developerProfile();
@@ -777,7 +777,7 @@ export default function Admin() {
             const buf = await resp.arrayBuffer();
             zip.file(a.name || `photo_${i + 1}.png`, buf);
           }
-        } catch {}
+        } catch { }
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const reader = new FileReader();
@@ -838,7 +838,7 @@ export default function Admin() {
       if (hasUnread) {
         void api.markAdminRequestsRead().then(() => {
           setCustomRequests((prev) => prev.map((r) => ({ ...r, readByAdmin: true })));
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   }, [activeTab, adminRequestsTab, customRequests]);
@@ -900,7 +900,7 @@ export default function Admin() {
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => { });
     }
   }, []);
 
@@ -985,9 +985,9 @@ export default function Admin() {
           setPlanPrices((prev) => ({ ...prev, ...pRes.plans }));
           try {
             localStorage.setItem('cached_plan_prices', JSON.stringify(pRes.plans));
-          } catch {}
+          } catch { }
         }
-      } catch {}
+      } catch { }
     } catch (err: any) {
       console.warn('Failed to load gateway data:', err);
     } finally {
@@ -1006,7 +1006,7 @@ export default function Admin() {
         setSettings((prev: any) => (prev ? { ...prev, plans: res.plans } : prev));
         try {
           localStorage.setItem('cached_plan_prices', JSON.stringify(res.plans));
-        } catch {}
+        } catch { }
       }
       isEditingPlansRef.current = false;
       setPlanSaveStatus({ ok: true, message: res.message || 'Plan prices and photoshoot limits saved permanently!' });
@@ -1119,7 +1119,7 @@ export default function Admin() {
         patch.upiGatewayApiKey = gwUpiGatewayApiKey.trim();
       }
       const res = await api.saveAdminGatewaySettings(patch);
-      await api.adminUpdatePlans(planPrices).catch(() => {});
+      await api.adminUpdatePlans(planPrices).catch(() => { });
       isEditingPlansRef.current = false;
       setGwSettingsStatus({ ok: true, message: res.message || 'Payment settings saved successfully!' });
       void loadGatewayData();
@@ -1365,7 +1365,7 @@ export default function Admin() {
         .filter((cat) => cat.items.length > 0);
       try {
         localStorage.setItem('cached_studio_models', JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
 
@@ -1396,7 +1396,7 @@ export default function Admin() {
               .filter((cat) => cat.items.length > 0);
             updateCategoriesAndCache(cleanCats);
           }
-        }).catch(() => {});
+        }).catch(() => { });
       } else {
         alert(`Could not delete model: ${msg}`);
       }
@@ -1876,15 +1876,14 @@ ${log.stack || 'None'}
 
   const pill = (ok: boolean, good: string, bad: string) => (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-        ok
-          ? theme === 'light'
-            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-            : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
-          : theme === 'light'
-            ? 'bg-red-100 text-red-800 border border-red-300'
-            : 'bg-red-950/60 text-red-400 border border-red-800/40'
-      }`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${ok
+        ? theme === 'light'
+          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+          : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+        : theme === 'light'
+          ? 'bg-red-100 text-red-800 border border-red-300'
+          : 'bg-red-950/60 text-red-400 border border-red-800/40'
+        }`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
       {ok ? good : bad}
@@ -1919,15 +1918,13 @@ ${log.stack || 'None'}
   /* Shell Layout */
   const shell = (children: React.ReactNode) => (
     <div
-      className={`min-h-screen font-sans antialiased ${
-        isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
-      }`}
+      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
+        }`}
     >
       {/* Top Enterprise Header */}
       <header
-        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${
-          isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
-        }`}
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
+          }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-4">
@@ -1951,9 +1948,8 @@ ${log.stack || 'None'}
 
             <a
               href="/design"
-              className={`hidden sm:inline-flex items-center gap-1.5 transition-colors ${
-                isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
-              }`}
+              className={`hidden sm:inline-flex items-center gap-1.5 transition-colors ${isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/60 hover:text-white'
+                }`}
             >
               Studio &rarr;
             </a>
@@ -1966,9 +1962,8 @@ ${log.stack || 'None'}
 
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
-                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-              }`}>
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                }`}>
                 <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
@@ -1996,11 +1991,10 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
-                  isLight
-                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-                    : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
-                }`}
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                  ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                  : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                  }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
                 <span>↻ Refresh Live</span>
@@ -2013,11 +2007,10 @@ ${log.stack || 'None'}
                 setToken('');
                 window.location.replace('/login?next=%2Fadmin');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${
-                isLight
-                  ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
-                  : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
+                ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
+                : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
+                }`}
               title="Sign out of Admin Session"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2086,15 +2079,14 @@ ${log.stack || 'None'}
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                      isActive
-                        ? isLight
-                          ? 'bg-[#78a48b] text-slate-900 font-bold shadow-sm ring-1 ring-[#6b997e]'
-                          : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
-                        : isLight
-                          ? 'text-slate-800 hover:bg-[#82b095] hover:text-slate-900'
-                          : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                    }`}
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${isActive
+                      ? isLight
+                        ? 'bg-[#78a48b] text-slate-900 font-bold shadow-sm ring-1 ring-[#6b997e]'
+                        : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
+                      : isLight
+                        ? 'text-slate-800 hover:bg-[#82b095] hover:text-slate-900'
+                        : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                      }`}
                   >
                     <IconComponent className="h-3.5 w-3.5" />
                     <span>{tab.label}</span>
@@ -2193,9 +2185,8 @@ ${log.stack || 'None'}
             </p>
             {/* Live Fashn.ai Credit Badge */}
             {access?.admin && (
-              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
-                isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-              }`}>
+              <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                }`}>
                 <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
                 <button
                   type="button"
@@ -2223,11 +2214,10 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${
-                  isLight
-                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-                    : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
-                }`}
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                  ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                  : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                  }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
                 <span>↻ Refresh Live</span>
@@ -2697,15 +2687,14 @@ ${log.stack || 'None'}
         <button
           type="button"
           onClick={handleOpenReceivedTab}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-            adminRequestsTab === 'receive'
-              ? isLight
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
-              : isLight
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-          }`}
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'receive'
+            ? isLight
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-900 shadow-sm'
+            : isLight
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
         >
           <Inbox className="w-3.5 h-3.5" />
           <span>Received Requests</span>
@@ -2725,15 +2714,14 @@ ${log.stack || 'None'}
             void loadAdminDeliveries();
             if (usersList.length === 0) void loadUsers();
           }}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-            adminRequestsTab === 'send'
-              ? isLight
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
-              : isLight
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-          }`}
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'send'
+            ? isLight
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-900 shadow-sm'
+            : isLight
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
         >
           <Send className="w-3.5 h-3.5" />
           <span>Send Delivery to User</span>
@@ -2748,15 +2736,14 @@ ${log.stack || 'None'}
             setAdminRequestsTab('bin');
             void loadBin();
           }}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-            adminRequestsTab === 'bin'
-              ? isLight
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'bg-white text-gray-900 shadow-sm'
-              : isLight
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-          }`}
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'bin'
+            ? isLight
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-900 shadow-sm'
+            : isLight
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>Recycle Bin</span>
@@ -2785,15 +2772,14 @@ ${log.stack || 'None'}
                   key={filter}
                   type="button"
                   onClick={() => setRequestFilter(filter)}
-                  className={`rounded-full px-3.5 py-1 text-xs font-semibold capitalize transition-colors ${
-                    requestFilter === filter
-                      ? isLight
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-900'
-                      : isLight
-                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-                  }`}
+                  className={`rounded-full px-3.5 py-1 text-xs font-semibold capitalize transition-colors ${requestFilter === filter
+                    ? isLight
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-900'
+                    : isLight
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                    }`}
                 >
                   {filter.replace('_', ' ')}
                 </button>
@@ -2801,434 +2787,428 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => void loadCustomRequests()}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                  isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white/50 hover:text-white'
-                }`}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white/50 hover:text-white'
+                  }`}
               >
                 Refresh
               </button>
             </div>
           </div>
 
-      {requestsLoading ? (
-        <div className="py-20 text-center text-sm opacity-50">Loading bespoke requests…</div>
-      ) : filteredRequests.length === 0 ? (
-        <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
-          No orders found under "{requestFilter}".
-        </div>
-      ) : (
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {filteredRequests.map((req) => {
-            const isDelivered = req.status === 'delivered';
-            const elapsedHours = (Date.now() - req.createdAt) / (1000 * 60 * 60);
-            const hoursLeft = Math.max(0, req.deadlineHours - elapsedHours);
+          {requestsLoading ? (
+            <div className="py-20 text-center text-sm opacity-50">Loading bespoke requests…</div>
+          ) : filteredRequests.length === 0 ? (
+            <div className={`${cardClass} p-12 text-center opacity-40 text-sm`}>
+              No orders found under "{requestFilter}".
+            </div>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {filteredRequests.map((req) => {
+                const isDelivered = req.status === 'delivered';
+                const elapsedHours = (Date.now() - req.createdAt) / (1000 * 60 * 60);
+                const hoursLeft = Math.max(0, req.deadlineHours - elapsedHours);
 
-            return (
-              <div
-                key={req.id}
-                className={`${cardClass} flex flex-col justify-between`}
-              >
-                <div>
-                  {/* Top Header */}
-                  <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                    <span className="text-[11px] font-semibold truncate flex items-center gap-1.5">
-                      <UserIcon className="h-3 w-3 text-current/70" />
-                      <span>{req.userEmail || 'Client'}</span>
-                    </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                        req.status === 'delivered'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : req.status === 'in_progress'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                            : 'bg-amber-100 text-amber-800 border border-amber-300'
-                      }`}
-                    >
-                      {req.status === 'delivered'
-                        ? 'Delivered'
-                        : req.status === 'in_progress'
-                          ? 'Working'
-                          : 'Queued'}
-                    </span>
-                  </div>
-
-                  {/* SLA Countdown Timer */}
-                  <div className="mt-3 flex items-center justify-between text-[11px]">
-                    <span className="opacity-60">SLA 48h Window:</span>
-                    <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
-                      {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
-                    </span>
-                  </div>
-
-                  {/* Badges: Type & Visual Color Swatch */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    {req.requestType && (
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
-                        {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
-                      </span>
-                    )}
-                    {req.color && (
-                      <div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1 border shadow-sm ${isLight ? 'border-gray-300 bg-white' : 'border-white/15 bg-black/50'}`}>
-                        <span
-                          className="inline-block h-4 w-4 rounded-full border border-black/30 shadow-inner shrink-0"
-                          style={{
-                            backgroundColor: req.color.includes('#')
-                              ? req.color.match(/#[0-9a-fA-F]{3,6}/)?.[0] || req.color
-                              : req.color,
-                          }}
-                        />
-                        <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          {req.color}
+                return (
+                  <div
+                    key={req.id}
+                    className={`${cardClass} flex flex-col justify-between`}
+                  >
+                    <div>
+                      {/* Top Header */}
+                      <div className={`flex items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                        <span className="text-[11px] font-semibold truncate flex items-center gap-1.5">
+                          <UserIcon className="h-3 w-3 text-current/70" />
+                          <span>{req.userEmail || 'Client'}</span>
                         </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : req.status === 'in_progress'
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300'
+                            }`}
+                        >
+                          {req.status === 'delivered'
+                            ? 'Delivered'
+                            : req.status === 'in_progress'
+                              ? 'Working'
+                              : 'Queued'}
+                        </span>
+                      </div>
+
+                      {/* SLA Countdown Timer */}
+                      <div className="mt-3 flex items-center justify-between text-[11px]">
+                        <span className="opacity-60">SLA 48h Window:</span>
+                        <span className={`font-mono font-semibold ${isDelivered ? 'text-emerald-600' : hoursLeft < 12 ? 'text-red-600' : isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>
+                          {isDelivered ? 'Completed' : `${Math.floor(hoursLeft)}h ${Math.floor((hoursLeft % 1) * 60)}m remaining`}
+                        </span>
+                      </div>
+
+                      {/* Badges: Type & Visual Color Swatch */}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        {req.requestType && (
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                            {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
+                          </span>
+                        )}
+                        {req.color && (
+                          <div className={`inline-flex items-center gap-2 rounded-xl px-2.5 py-1 border shadow-sm ${isLight ? 'border-gray-300 bg-white' : 'border-white/15 bg-black/50'}`}>
+                            <span
+                              className="inline-block h-4 w-4 rounded-full border border-black/30 shadow-inner shrink-0"
+                              style={{
+                                backgroundColor: req.color.includes('#')
+                                  ? req.color.match(/#[0-9a-fA-F]{3,6}/)?.[0] || req.color
+                                  : req.color,
+                              }}
+                            />
+                            <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                              {req.color}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const raw = req.color || '';
+                                const hex = raw.match(/#[0-9a-fA-F]{3,6}/)?.[0] || raw;
+                                if (hex) navigator.clipboard.writeText(hex);
+                              }}
+                              className="text-[10px] font-semibold text-emerald-500 hover:underline ml-0.5"
+                              title="Copy Hex Color"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Garment & Model Poses */}
+                      <div className="mt-3.5 space-y-2">
+                        <div className="flex gap-2">
+                          <div
+                            className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                            onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
+                          >
+                            {req.clothUrl ? (
+                              <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                            ) : (
+                              <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
+                                <Layers className="h-6 w-6" />
+                              </div>
+                            )}
+                            <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                              {req.clothName || 'Garment'}
+                            </p>
+                          </div>
+
+                          {/* Multi-pose models (Up to 5 poses) */}
+                          <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+                            {req.modelImages && req.modelImages.length > 0 ? (
+                              req.modelImages.map((mUrl, mIdx) => (
+                                <div
+                                  key={mIdx}
+                                  className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
+                                  onClick={() => setLightboxImg(mUrl)}
+                                >
+                                  <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
+                                  <div className="absolute top-1 left-1 rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
+                                    Pose {mIdx + 1}
+                                  </div>
+                                </div>
+                              ))
+                            ) : req.modelUrl ? (
+                              <div
+                                className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
+                                onClick={() => setLightboxImg(req.modelUrl || '')}
+                              >
+                                <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                                <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
+                                  {req.modelName || 'Model'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className={`flex flex-1 items-center justify-center rounded-2xl border text-xs opacity-40 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                                No model uploaded
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Customer Instructions */}
+                      {req.prompt && (
+                        <div className={`mt-3 rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Instructions</p>
+                          <p className="mt-1 text-xs opacity-90 leading-relaxed italic line-clamp-3">"{req.prompt}"</p>
+                        </div>
+                      )}
+
+                      {/* Admin Reply If Any */}
+                      {req.adminReply && (
+                        <div className="mt-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-600 dark:text-emerald-300">
+                          <span className="font-semibold text-emerald-500">Your Reply: </span>
+                          {req.adminReply}
+                        </div>
+                      )}
+
+                      {/* Delivered Image Preview */}
+                      {req.deliveredImageUrl && (
+                        <div className="mt-2.5">
+                          <p className="text-[10px] font-semibold opacity-60 uppercase tracking-wider mb-1">Delivered Asset</p>
+                          <img
+                            src={req.deliveredImageUrl}
+                            alt="Delivered"
+                            onClick={() => setLightboxImg(req.deliveredImageUrl || '')}
+                            className="h-20 w-full rounded-xl object-cover border border-emerald-500/40 cursor-pointer shadow-sm"
+                          />
+                        </div>
+                      )}
+
+                      {/* Delivered File Download Badge */}
+                      {req.deliveredFileName && (
+                        <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Paperclip className="h-3 w-3 text-blue-400" />
+                            <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
+                          </div>
+                          {req.deliveredFileUrl && (
+                            <a
+                              href={req.deliveredFileUrl}
+                              download={req.deliveredFileName}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-500/40"
+                            >
+                              Download
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className={`mt-5 space-y-2 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadOrderZip(req)}
+                        disabled={downloadingZipId === req.id}
+                        className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isLight
+                          ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                          : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+                          }`}
+                      >
+                        {downloadingZipId === req.id ? (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            <span>Packaging ZIP…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Download order ZIP</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRequest(req);
+                          setReplyStatus(req.status || 'in_progress');
+                          setReplyMessage(req.adminReply || '');
+                          setReplyImageUrl(req.deliveredImageUrl || '');
+                        }}
+                        className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
+                      >
+                        {req.status === 'delivered' ? 'Edit delivery / reply' : 'Reply & deliver render'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteAdminRequest(req.id)}
+                        className={`w-full flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 transition border border-red-500/20 cursor-pointer`}
+                        title="Move this custom request to the recycle bin"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Move to Bin</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
+          {selectedRequest && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+              <div className={`w-full max-w-lg rounded-2xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
+                <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+                  <div>
+                    <h3 className="text-base font-semibold">Order reply & delivery desk</h3>
+                    <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadOrderZip(selectedRequest)}
+                      disabled={downloadingZipId === selectedRequest.id}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${isLight
+                        ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
+                        : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                      title="Download all order images and text details in a combined ZIP"
+                    >
+                      {downloadingZipId === selectedRequest.id ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span>Packaging…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3 w-3" />
+                          <span>Download ZIP</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRequest(null)}
+                      className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Update Workflow Status</label>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {(['queued', 'in_progress', 'delivered'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setReplyStatus(s)}
+                          className={`rounded-xl py-2 text-xs font-semibold capitalize transition-colors ${replyStatus === s
+                            ? s === 'delivered'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : s === 'in_progress'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-amber-600 text-white shadow-sm'
+                            : isLight
+                              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              : 'bg-white/5 text-white/50 hover:bg-white/10'
+                            }`}
+                        >
+                          {s.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin Reply Message to Client</label>
+                    <textarea
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      rows={3}
+                      placeholder="e.g. Your bespoke athletic team jersey render is complete! Logos and seams verified."
+                      className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/60 text-white focus:border-white/40'
+                        }`}
+                    />
+                  </div>
+
+                  {/* Direct File Attachment (Any File Type: ZIP, PDF, Video, Image, PSD, etc.) */}
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider opacity-60">
+                      Delivered File or Asset Attachment (Any Format: ZIP, PDF, Video, Image, etc.)
+                    </label>
+                    <div className="mt-2 flex flex-wrap gap-2 items-center">
+                      <input
+                        ref={replyFileInput}
+                        type="file"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const dataUrl = await fileToDataUrl(file);
+                          setReplyAttachment({
+                            dataUrl,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type || 'application/octet-stream',
+                          });
+                          if (file.type.startsWith('image/')) {
+                            setReplyImageUrl(dataUrl);
+                          }
+                          if (replyStatus !== 'delivered') setReplyStatus('delivered');
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replyFileInput.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-semibold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        <span>Upload file from device</span>
+                      </button>
+                      <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
+                    </div>
+
+                    {replyAttachment && (
+                      <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText className="h-3.5 w-3.5" />
+                          <strong className="truncate">{replyAttachment.name}</strong>
+                          <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            const raw = req.color || '';
-                            const hex = raw.match(/#[0-9a-fA-F]{3,6}/)?.[0] || raw;
-                            if (hex) navigator.clipboard.writeText(hex);
-                          }}
-                          className="text-[10px] font-semibold text-emerald-500 hover:underline ml-0.5"
-                          title="Copy Hex Color"
+                          onClick={() => setReplyAttachment(null)}
+                          className="text-xs text-red-500 hover:text-red-700 ml-2"
                         >
-                          Copy
+                          Remove
                         </button>
                       </div>
                     )}
+
+                    <input
+                      type="text"
+                      value={replyAttachment ? `Attached: ${replyAttachment.name}` : replyImageUrl}
+                      onChange={(e) => setReplyImageUrl(e.target.value)}
+                      placeholder="https://... or direct download link"
+                      className={inputClass}
+                    />
                   </div>
 
-                  {/* Garment & Model Poses */}
-                  <div className="mt-3.5 space-y-2">
-                    <div className="flex gap-2">
-                      <div
-                        className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
-                        onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
-                      >
-                        {req.clothUrl ? (
-                          <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
-                        ) : (
-                          <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
-                            <Layers className="h-6 w-6" />
-                          </div>
-                        )}
-                        <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                          {req.clothName || 'Garment'}
-                        </p>
-                      </div>
-
-                      {/* Multi-pose models (Up to 5 poses) */}
-                      <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
-                        {req.modelImages && req.modelImages.length > 0 ? (
-                          req.modelImages.map((mUrl, mIdx) => (
-                            <div
-                              key={mIdx}
-                              className={`group relative cursor-pointer overflow-hidden rounded-xl border w-24 shrink-0 shadow-sm ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-white/5'}`}
-                              onClick={() => setLightboxImg(mUrl)}
-                            >
-                              <img src={mUrl} alt={`Pose ${mIdx + 1}`} className="aspect-[3/4] w-full object-cover" />
-                              <div className="absolute top-1 left-1 rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
-                                Pose {mIdx + 1}
-                              </div>
-                            </div>
-                          ))
-                        ) : req.modelUrl ? (
-                          <div
-                            className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
-                            onClick={() => setLightboxImg(req.modelUrl || '')}
-                          >
-                            <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
-                            <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
-                              {req.modelName || 'Model'}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className={`flex flex-1 items-center justify-center rounded-2xl border text-xs opacity-40 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                            No model uploaded
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Customer Instructions */}
-                  {req.prompt && (
-                    <div className={`mt-3 rounded-2xl border p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Instructions</p>
-                      <p className="mt-1 text-xs opacity-90 leading-relaxed italic line-clamp-3">"{req.prompt}"</p>
-                    </div>
-                  )}
-
-                  {/* Admin Reply If Any */}
-                  {req.adminReply && (
-                    <div className="mt-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-600 dark:text-emerald-300">
-                      <span className="font-semibold text-emerald-500">Your Reply: </span>
-                      {req.adminReply}
-                    </div>
-                  )}
-
-                  {/* Delivered Image Preview */}
-                  {req.deliveredImageUrl && (
-                    <div className="mt-2.5">
-                      <p className="text-[10px] font-semibold opacity-60 uppercase tracking-wider mb-1">Delivered Asset</p>
-                      <img
-                        src={req.deliveredImageUrl}
-                        alt="Delivered"
-                        onClick={() => setLightboxImg(req.deliveredImageUrl || '')}
-                        className="h-20 w-full rounded-xl object-cover border border-emerald-500/40 cursor-pointer shadow-sm"
-                      />
-                    </div>
-                  )}
-
-                  {/* Delivered File Download Badge */}
-                  {req.deliveredFileName && (
-                    <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-xs flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Paperclip className="h-3 w-3 text-blue-400" />
-                        <span className="font-semibold text-blue-400 truncate">{req.deliveredFileName}</span>
-                      </div>
-                      {req.deliveredFileUrl && (
-                        <a
-                          href={req.deliveredFileUrl}
-                          download={req.deliveredFileName}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300 hover:bg-blue-500/40"
-                        >
-                          Download
-                        </a>
-                      )}
+                  {replyImageUrl && !replyAttachment && (
+                    <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                      <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
+                      <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
                     </div>
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className={`mt-5 space-y-2 border-t pt-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                <div className={`mt-6 flex items-center justify-end gap-3 border-t pt-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
                   <button
                     type="button"
-                    onClick={() => void handleDownloadOrderZip(req)}
-                    disabled={downloadingZipId === req.id}
-                    className={`w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-                      isLight
-                        ? 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                        : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
-                    }`}
+                    onClick={() => setSelectedRequest(null)}
+                    className="rounded-full px-5 py-2 text-xs opacity-60 hover:opacity-100"
                   >
-                    {downloadingZipId === req.id ? (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                        <span>Packaging ZIP…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-3.5 w-3.5" />
-                        <span>Download order ZIP</span>
-                      </>
-                    )}
+                    Cancel
                   </button>
-
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedRequest(req);
-                      setReplyStatus(req.status || 'in_progress');
-                      setReplyMessage(req.adminReply || '');
-                      setReplyImageUrl(req.deliveredImageUrl || '');
-                    }}
-                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35] transition-colors shadow-sm"
+                    onClick={() => void handleSendReply()}
+                    disabled={replySaving}
+                    className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
                   >
-                    {req.status === 'delivered' ? 'Edit delivery / reply' : 'Reply & deliver render'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteAdminRequest(req.id)}
-                    className={`w-full flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 transition border border-red-500/20 cursor-pointer`}
-                    title="Move this custom request to the recycle bin"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Move to Bin</span>
+                    {replySaving ? 'Saving & Delivering…' : 'Save Reply & Deliver'}
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Reply & Delivery Modal (With Direct File Upload & URL input) */}
-      {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className={`w-full max-w-lg rounded-2xl border p-7 shadow-2xl ${isLight ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#111116] border-white/20 text-white'}`}>
-            <div className={`flex items-center justify-between border-b pb-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
-              <div>
-                <h3 className="text-base font-semibold">Order reply & delivery desk</h3>
-                <p className="text-xs opacity-60">Client: {selectedRequest.userEmail}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadOrderZip(selectedRequest)}
-                  disabled={downloadingZipId === selectedRequest.id}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${
-                    isLight
-                      ? 'border border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100'
-                      : 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
-                  }`}
-                  title="Download all order images and text details in a combined ZIP"
-                >
-                  {downloadingZipId === selectedRequest.id ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Packaging…</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-3 w-3" />
-                      <span>Download ZIP</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRequest(null)}
-                  className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </div>
-
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Update Workflow Status</label>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {(['queued', 'in_progress', 'delivered'] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setReplyStatus(s)}
-                      className={`rounded-xl py-2 text-xs font-semibold capitalize transition-colors ${
-                        replyStatus === s
-                          ? s === 'delivered'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : s === 'in_progress'
-                              ? 'bg-blue-600 text-white shadow-sm'
-                              : 'bg-amber-600 text-white shadow-sm'
-                          : isLight
-                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            : 'bg-white/5 text-white/50 hover:bg-white/10'
-                      }`}
-                    >
-                      {s.replace('_', ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin Reply Message to Client</label>
-                <textarea
-                  value={replyMessage}
-                  onChange={(e) => setReplyMessage(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Your bespoke athletic team jersey render is complete! Logos and seams verified."
-                  className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-gray-500' : 'border-white/10 bg-black/60 text-white focus:border-white/40'
-                  }`}
-                />
-              </div>
-
-              {/* Direct File Attachment (Any File Type: ZIP, PDF, Video, Image, PSD, etc.) */}
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider opacity-60">
-                  Delivered File or Asset Attachment (Any Format: ZIP, PDF, Video, Image, etc.)
-                </label>
-                <div className="mt-2 flex flex-wrap gap-2 items-center">
-                  <input
-                    ref={replyFileInput}
-                    type="file"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const dataUrl = await fileToDataUrl(file);
-                      setReplyAttachment({
-                        dataUrl,
-                        name: file.name,
-                        size: file.size,
-                        type: file.type || 'application/octet-stream',
-                      });
-                      if (file.type.startsWith('image/')) {
-                        setReplyImageUrl(dataUrl);
-                      }
-                      if (replyStatus !== 'delivered') setReplyStatus('delivered');
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => replyFileInput.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5373f] bg-[#e5373f]/10 px-4 py-2 text-xs font-semibold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition-colors"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    <span>Upload file from device</span>
-                  </button>
-                  <span className="text-[11px] opacity-40">or paste direct download / image link below</span>
-                </div>
-
-                {replyAttachment && (
-                  <div className={`mt-2 flex items-center justify-between rounded-xl border p-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
-                    <div className="flex items-center gap-2 truncate">
-                      <FileText className="h-3.5 w-3.5" />
-                      <strong className="truncate">{replyAttachment.name}</strong>
-                      <span className="opacity-60 text-[10px]">({Math.round(replyAttachment.size / 1024)} KB)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setReplyAttachment(null)}
-                      className="text-xs text-red-500 hover:text-red-700 ml-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  type="text"
-                  value={replyAttachment ? `Attached: ${replyAttachment.name}` : replyImageUrl}
-                  onChange={(e) => setReplyImageUrl(e.target.value)}
-                  placeholder="https://... or direct download link"
-                  className={inputClass}
-                />
-              </div>
-
-              {replyImageUrl && !replyAttachment && (
-                <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
-                  <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
-                  <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
-                </div>
-              )}
-            </div>
-
-            <div className={`mt-6 flex items-center justify-end gap-3 border-t pt-4 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className="rounded-full px-5 py-2 text-xs opacity-60 hover:opacity-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSendReply()}
-                disabled={replySaving}
-                className="rounded-full bg-[#e5373f] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
-              >
-                {replySaving ? 'Saving & Delivering…' : 'Save Reply & Deliver'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </>
+          )}
+        </>
       ) : adminRequestsTab === 'send' ? (
         /* ============= SEND DELIVERY TO USER VIEW ============= */
         <div className="space-y-6">
@@ -3296,13 +3276,12 @@ ${log.stack || 'None'}
                         key={t.id}
                         type="button"
                         onClick={() => { setDispatchType(t.id as any); setDispatchFiles([]); setDispatchFile(null); }}
-                        className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${
-                          isActive
-                            ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-md'
-                            : isLight
-                              ? 'bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800'
-                              : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
-                        }`}
+                        className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${isActive
+                          ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-md'
+                          : isLight
+                            ? 'bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
+                          }`}
                       >
                         <Icon className="w-4 h-4" />
                         <span>{t.label}</span>
@@ -3341,9 +3320,8 @@ ${log.stack || 'None'}
               </div>
 
               {/* Quick Pick from User Sets & Generations */}
-              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                isLight ? 'border-indigo-300 bg-indigo-50/70 text-indigo-950' : 'border-indigo-500/30 bg-indigo-500/10 text-white'
-              }`}>
+              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'border-indigo-300 bg-indigo-50/70 text-indigo-950' : 'border-indigo-500/30 bg-indigo-500/10 text-white'
+                }`}>
                 <div>
                   <p className="text-xs font-bold flex items-center gap-1.5 text-indigo-400">
                     <Package className="w-4 h-4" />
@@ -3434,9 +3412,8 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchPhotoInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-                        isLight ? 'border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900' : 'border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300'
-                      }`}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900' : 'border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300'
+                        }`}
                     >
                       <Camera className="w-4 h-4 text-purple-400" />
                       <span>+ Add Photos</span>
@@ -3445,9 +3422,8 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchVideoInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-                        isLight ? 'border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-900' : 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300'
-                      }`}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-900' : 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300'
+                        }`}
                     >
                       <Film className="w-4 h-4 text-blue-400" />
                       <span>+ Add Videos</span>
@@ -3456,9 +3432,8 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchZipInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-                        isLight ? 'border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900' : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300'
-                      }`}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900' : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300'
+                        }`}
                     >
                       <FileArchive className="w-4 h-4 text-amber-400" />
                       <span>+ Add ZIP</span>
@@ -3467,9 +3442,8 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchFolderInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-                        isLight ? 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
-                      }`}
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
+                        }`}
                     >
                       <Folder className="w-4 h-4 text-emerald-400" />
                       <span>+ Upload Folder</span>
@@ -3588,9 +3562,8 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => void loadAdminDeliveries()}
-                className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
-                }`}
+                className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/15 bg-white/5 hover:bg-white/10 text-white'
+                  }`}
               >
                 Refresh List
               </button>
@@ -3704,9 +3677,8 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => void loadBin()}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border transition ${
-                  isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
-                }`}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border transition ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                  }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${binLoading ? 'animate-spin' : ''}`} />
                 <span>Refresh Bin</span>
@@ -3730,9 +3702,8 @@ ${log.stack || 'None'}
               Loading deleted items...
             </div>
           ) : binCount === 0 ? (
-            <div className={`rounded-3xl border p-12 text-center ${
-              isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
-            }`}>
+            <div className={`rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+              }`}>
               <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500 opacity-60" />
               <h3 className="text-base font-bold">Recycle Bin is Empty</h3>
               <p className="text-xs opacity-60 mt-1">
@@ -3754,9 +3725,8 @@ ${log.stack || 'None'}
                       return (
                         <div
                           key={gen.id}
-                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                            isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
-                          }`}
+                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             {thumbUrl ? (
@@ -3837,9 +3807,8 @@ ${log.stack || 'None'}
                     {binRequests.map((req) => (
                       <div
                         key={req.id}
-                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                          isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
-                        }`}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                          }`}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -3898,9 +3867,8 @@ ${log.stack || 'None'}
                     {binDeliveries.map((del) => (
                       <div
                         key={del.id}
-                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                          isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
-                        }`}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                          }`}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -3977,16 +3945,14 @@ ${log.stack || 'None'}
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             placeholder="Search by email or name…"
-            className={`rounded-full px-4 py-1.5 text-xs border focus:outline-none ${
-              isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black/60 text-white'
-            }`}
+            className={`rounded-full px-4 py-1.5 text-xs border focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black/60 text-white'
+              }`}
           />
           <button
             type="button"
             onClick={() => void loadUsers()}
-            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
-              isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
-            }`}
+            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+              }`}
           >
             Refresh
           </button>
@@ -4065,9 +4031,8 @@ ${log.stack || 'None'}
                             },
                           }));
                         }}
-                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${
-                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
-                        }`}
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
+                          }`}
                       >
                         <option value="free">Starter ($0)</option>
                         <option value="ondemand">On-Demand ($49)</option>
@@ -4088,9 +4053,8 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), credits: Number(e.target.value) },
                           }))
                         }
-                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${
-                          isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
-                        }`}
+                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
+                          }`}
                       />
                     </td>
 
@@ -4107,9 +4071,8 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxVideos: Number(e.target.value) },
                             }))
                           }
-                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${
-                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
-                          }`}
+                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
+                            }`}
                         />
                         <span className="text-[10px] opacity-40">({user.videosGenerated ?? 0} used)</span>
                       </div>
@@ -4129,9 +4092,8 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxModels: val, photoshoots: val },
                             }));
                           }}
-                          className={`w-20 rounded-lg border px-2 py-1 font-mono text-xs ${
-                            isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
-                          }`}
+                          className={`w-20 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
+                            }`}
                         />
                         <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 6} poses)</span>
                       </div>
@@ -4159,13 +4121,12 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
-                                currentFeatures.hd2k
-                                  ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-bold' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
-                                  : isLight
-                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
-                                    : 'bg-white/5 text-white/30 border border-white/10'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.hd2k
+                                ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-bold' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
+                                : isLight
+                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                }`}
                               title="Toggle 2K Ultra HD Generation"
                             >
                               2K {currentFeatures.hd2k ? 'On' : 'Off'}
@@ -4179,13 +4140,12 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
-                                currentFeatures.fivePose
-                                  ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
-                                  : isLight
-                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
-                                    : 'bg-white/5 text-white/30 border border-white/10'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.fivePose
+                                ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
+                                : isLight
+                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                }`}
                               title="Toggle 5-Pose Sequence"
                             >
                               5-Pose {currentFeatures.fivePose ? 'On' : 'Off'}
@@ -4199,13 +4159,12 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
-                                currentFeatures.video
-                                  ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
-                                  : isLight
-                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
-                                    : 'bg-white/5 text-white/30 border border-white/10'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.video
+                                ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
+                                : isLight
+                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                }`}
                               title="Toggle Runway Video"
                             >
                               Video {currentFeatures.video ? 'On' : 'Off'}
@@ -4219,13 +4178,12 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), features: next },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
-                                currentFeatures.customRequests
-                                  ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
-                                  : isLight
-                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
-                                    : 'bg-white/5 text-white/30 border border-white/10'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.customRequests
+                                ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
+                                : isLight
+                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                }`}
                               title="Toggle Bespoke Custom Requests"
                             >
                               Custom {currentFeatures.customRequests ? 'On' : 'Off'}
@@ -4239,13 +4197,12 @@ ${log.stack || 'None'}
                                   [user.id]: { ...(prev[user.id] || {}), watermarkAccess: !current },
                                 }));
                               }}
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${
-                                (edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false))
-                                  ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40'
-                                  : isLight
-                                    ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
-                                    : 'bg-white/5 text-white/30 border border-white/10'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${(edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false))
+                                ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40'
+                                : isLight
+                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  : 'bg-white/5 text-white/30 border border-white/10'
+                                }`}
                               title="Enable or Disable Logo / Watermark Remover"
                             >
                               Logo {(edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false)) ? 'On' : 'Off'}
@@ -4292,13 +4249,12 @@ ${log.stack || 'None'}
                                       [user.id]: { ...(prev[user.id] || {}), allowedTabs: next },
                                     }));
                                   }}
-                                  className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${
-                                    isAllowed
-                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                      : isLight
-                                        ? 'bg-gray-200 text-gray-400 border border-gray-300 line-through opacity-60'
-                                        : 'bg-white/5 text-white/20 border border-white/10 line-through opacity-60'
-                                  }`}
+                                  className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${isAllowed
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                    : isLight
+                                      ? 'bg-gray-200 text-gray-400 border border-gray-300 line-through opacity-60'
+                                      : 'bg-white/5 text-white/20 border border-white/10 line-through opacity-60'
+                                    }`}
                                   title={`Toggle ${t.label} tab visibility for this user`}
                                 >
                                   {t.label}
@@ -4320,11 +4276,10 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), creditsLocked: !isLocked },
                           }))
                         }
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-                          isLocked
-                            ? 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white'
-                            : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white'
-                        }`}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${isLocked
+                          ? 'bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white'
+                          : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                          }`}
                       >
                         {isLocked ? 'Locked' : 'Active'}
                       </button>
@@ -4337,11 +4292,10 @@ ${log.stack || 'None'}
                           type="button"
                           onClick={() => void handleSaveUserRow(user)}
                           disabled={isSaving}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${
-                            isSaved
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
-                          }`}
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all shadow-sm ${isSaved
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-[#e5373f] text-white hover:bg-[#d42d35]'
+                            }`}
                           title="Save this user's credits, video quota, model quota, and lock status"
                         >
                           {isSaving ? 'Saving…' : isSaved ? 'Saved' : 'Save'}
@@ -4591,9 +4545,8 @@ ${log.stack || 'None'}
         <section className={cardClass}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Admin 2-Factor Authentication (2FA)</h3>
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-              admin2faEnabled ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-100 text-gray-800 border border-gray-300'
-            }`}>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${admin2faEnabled ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-100 text-gray-800 border border-gray-300'
+              }`}>
               {admin2faEnabled ? '2FA Enforced' : '2FA Disabled (Direct Password)'}
             </span>
           </div>
@@ -4607,14 +4560,12 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setAdmin2faEnabled(!admin2faEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                admin2faEnabled ? 'bg-[#e5373f]' : 'bg-white/20'
-              }`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${admin2faEnabled ? 'bg-[#e5373f]' : 'bg-white/20'
+                }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  admin2faEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${admin2faEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
               />
             </button>
           </div>
@@ -4776,9 +4727,8 @@ ${log.stack || 'None'}
                 value={devProfile.bio}
                 onChange={(e) => setDevProfile((prev) => ({ ...prev, bio: e.target.value }))}
                 placeholder="Story of the developer and the studio..."
-                className={`mt-1 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
-                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}
+                className={`mt-1 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
               />
             </div>
 
@@ -4818,9 +4768,8 @@ ${log.stack || 'None'}
               onChange={(e) => setDefaultPrompt(e.target.value)}
               rows={3}
               placeholder="Used when visitor leaves instructions blank"
-              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${
-                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-              }`}
+              className={`mt-2 w-full rounded-2xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
             />
           </div>
 
@@ -4830,9 +4779,8 @@ ${log.stack || 'None'}
               <select
                 value={defaultModel}
                 onChange={(e) => setDefaultModel(e.target.value)}
-                className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
-                  isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                }`}
+                className={`mt-2 w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                  }`}
               >
                 <option value="">No default — visitor selects model</option>
                 {categories.map((group) => (
@@ -4853,9 +4801,8 @@ ${log.stack || 'None'}
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                    }`}
                 >
                   <option value="1k">1k (Standard)</option>
                   <option value="2k">2k (Ultra HD)</option>
@@ -4868,9 +4815,8 @@ ${log.stack || 'None'}
                 <select
                   value={generationMode}
                   onChange={(e) => setGenerationMode(e.target.value)}
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                    }`}
                 >
                   <option value="balanced">Balanced (Fast & Production Stable)</option>
                 </select>
@@ -4918,9 +4864,8 @@ ${log.stack || 'None'}
               onChange={(e) => setDescriptionPrompt(e.target.value)}
               rows={4}
               placeholder="System prompt given to Gemini when generating sportswear product descriptions..."
-              className={`mt-1.5 w-full rounded-xl border p-3 text-xs focus:outline-none ${
-                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-              }`}
+              className={`mt-1.5 w-full rounded-xl border p-3 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
             />
             <p className="mt-1.5 text-[10px] opacity-40">
               Admin-controlled base prompt for all e-commerce garment descriptions. Users can customize this prompt directly in their Description Studio.
@@ -4930,9 +4875,8 @@ ${log.stack || 'None'}
       </section>
 
       {/* Floating Save Action Bar */}
-      <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${
-        isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
-      }`}>
+      <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
+        }`}>
         <span className="text-xs opacity-60">{status || 'Saves all keys, CDN configs, and defaults in one unified request.'}</span>
         <button
           type="button"
@@ -4953,623 +4897,610 @@ ${log.stack || 'None'}
     );
 
     return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold tracking-tight">Studio Model Library</h2>
-          <p className="text-xs opacity-60">
-            Upload custom models, create new categories, and manage live try-on models saved in <code>public/models/</code>.
-          </p>
-        </div>
-        <span className={`self-start sm:self-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'}`}>
-          {modelCount} Models across {categories.length} Categories
-        </span>
-      </div>
-
-      {/* Model Upload & Category Creation Card */}
-      <section className={cardClass}>
-        <div className="flex items-center gap-2 mb-4">
-          <UploadCloud size={18} className="text-[#e5373f]" />
-          <h3 className="text-sm font-bold uppercase tracking-wider">Add New Studio Model</h3>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">Studio Model Library</h2>
+            <p className="text-xs opacity-60">
+              Upload custom models, create new categories, and manage live try-on models saved in <code>public/models/</code>.
+            </p>
+          </div>
+          <span className={`self-start sm:self-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'}`}>
+            {modelCount} Models across {categories.length} Categories
+          </span>
         </div>
 
-        <form onSubmit={handleUploadModel} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Category</label>
-                <button
-                  type="button"
-                  onClick={() => setIsNewCat(!isNewCat)}
-                  className="text-[10px] font-semibold text-[#e5373f] hover:underline"
-                >
-                  {isNewCat ? 'Choose existing category' : '+ Create new category'}
-                </button>
-              </div>
+        {/* Model Upload & Category Creation Card */}
+        <section className={cardClass}>
+          <div className="flex items-center gap-2 mb-4">
+            <UploadCloud size={18} className="text-[#e5373f]" />
+            <h3 className="text-sm font-bold uppercase tracking-wider">Add New Studio Model</h3>
+          </div>
 
-              {isNewCat ? (
-                <input
-                  type="text"
-                  required
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="e.g. Traditional, Winter Sportswear, Kids"
-                  className={inputClass}
-                />
-              ) : (
-                <select
-                  value={uploadModelCat || 'Summer'}
-                  onChange={(e) => setUploadModelCat(e.target.value)}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
-                >
-                  {availableCategories.map((catName) => {
-                    const existing = categories.find((c) => c.category.toLowerCase() === catName.toLowerCase());
-                    const count = existing ? existing.items.length : 0;
-                    return (
-                      <option key={catName} value={catName}>
-                        {catName} {count > 0 ? `(${count} poses)` : '(Default Category)'}
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Season (Collection)</label>
-                <button
-                  type="button"
-                  onClick={() => setShowNewSeasonModal(!showNewSeasonModal)}
-                  className="text-[10px] font-semibold text-[#e5373f] hover:underline cursor-pointer"
-                >
-                  {showNewSeasonModal ? 'Choose season' : '+ New Season'}
-                </button>
-              </div>
-
-              {showNewSeasonModal ? (
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={newSeasonInput}
-                    onChange={(e) => setNewSeasonInput(e.target.value)}
-                    placeholder="e.g. Monsoon, Spring"
-                    className={inputClass}
-                  />
+          <form onSubmit={handleUploadModel} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Category</label>
                   <button
                     type="button"
-                    onClick={(e) => void handleCreateSeason(e)}
-                    className="px-3 rounded-xl bg-[#e5373f] text-white text-xs font-bold hover:bg-[#d42d35] cursor-pointer"
+                    onClick={() => setIsNewCat(!isNewCat)}
+                    className="text-[10px] font-semibold text-[#e5373f] hover:underline"
                   >
-                    Add
+                    {isNewCat ? 'Choose existing category' : '+ Create new category'}
                   </button>
                 </div>
-              ) : (
-                <select
-                  value={uploadModelSeason || 'All Seasons'}
-                  onChange={(e) => setUploadModelSeason(e.target.value)}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${
-                    isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                  }`}
-                >
-                  <option value="All Seasons">🌐 All Seasons (Universal)</option>
-                  {seasons.map((s) => (
-                    <option key={s} value={s}>
-                      {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ '}{s}
-                    </option>
-                  ))}
-                </select>
-              )}
+
+                {isNewCat ? (
+                  <input
+                    type="text"
+                    required
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    placeholder="e.g. Traditional, Winter Sportswear, Kids"
+                    className={inputClass}
+                  />
+                ) : (
+                  <select
+                    value={uploadModelCat || 'Summer'}
+                    onChange={(e) => setUploadModelCat(e.target.value)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                      }`}
+                  >
+                    {availableCategories.map((catName) => {
+                      const existing = categories.find((c) => c.category.toLowerCase() === catName.toLowerCase());
+                      const count = existing ? existing.items.length : 0;
+                      return (
+                        <option key={catName} value={catName}>
+                          {catName} {count > 0 ? `(${count} poses)` : '(Default Category)'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">Season (Collection)</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewSeasonModal(!showNewSeasonModal)}
+                    className="text-[10px] font-semibold text-[#e5373f] hover:underline cursor-pointer"
+                  >
+                    {showNewSeasonModal ? 'Choose season' : '+ New Season'}
+                  </button>
+                </div>
+
+                {showNewSeasonModal ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={newSeasonInput}
+                      onChange={(e) => setNewSeasonInput(e.target.value)}
+                      placeholder="e.g. Monsoon, Spring"
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => void handleCreateSeason(e)}
+                      className="px-3 rounded-xl bg-[#e5373f] text-white text-xs font-bold hover:bg-[#d42d35] cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={uploadModelSeason || 'All Seasons'}
+                    onChange={(e) => setUploadModelSeason(e.target.value)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                      }`}
+                  >
+                    <option value="All Seasons">🌐 All Seasons (Universal)</option>
+                    {seasons.map((s) => (
+                      <option key={s} value={s}>
+                        {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ '}{s}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
+                  {selectedBatchModels.length > 1 ? 'Batch Name Prefix' : 'Model Name'}
+                </label>
+                <input
+                  type="text"
+                  required={selectedBatchModels.length <= 1}
+                  value={uploadModelName}
+                  onChange={(e) => setUploadModelName(e.target.value)}
+                  placeholder={selectedBatchModels.length > 1 ? 'e.g. Autumn Collection 2026' : 'e.g. Male Tracksuit Front Pose'}
+                  className={inputClass}
+                />
+              </div>
             </div>
 
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
-                {selectedBatchModels.length > 1 ? 'Batch Name Prefix' : 'Model Name'}
-              </label>
-              <input
-                type="text"
-                required={selectedBatchModels.length <= 1}
-                value={uploadModelName}
-                onChange={(e) => setUploadModelName(e.target.value)}
-                placeholder={selectedBatchModels.length > 1 ? 'e.g. Autumn Collection 2026' : 'e.g. Male Tracksuit Front Pose'}
-                className={inputClass}
-              />
-            </div>
-          </div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
+                  Model Image File(s) — Select Single or Multi-Select
+                </label>
+                {selectedBatchModels.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBatchModels([]);
+                      setUploadModelDataUrl('');
+                      setUploadModelName('');
+                    }}
+                    className="text-[10px] font-semibold text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Clear Selection
+                  </button>
+                )}
+              </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] uppercase font-bold tracking-wider opacity-60">
-                Model Image File(s) — Select Single or Multi-Select
-              </label>
-              {selectedBatchModels.length > 0 && (
+              <input
+                ref={modelFileInput}
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp,image/*"
+                className="hidden"
+                onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                onChange={async (e) => {
+                  const files = e.target.files ? Array.from(e.target.files) : [];
+                  if (files.length === 0) return;
+                  try {
+                    const items: Array<{ name: string; dataUrl: string; size: number }> = [];
+                    for (const f of files) {
+                      const std = await prepareAndStandardizeImage(f, 'model');
+                      items.push({
+                        name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
+                        dataUrl: std.dataUrl,
+                        size: f.size,
+                      });
+                    }
+                    setSelectedBatchModels(items);
+                    setUploadModelDataUrl(items[0]?.dataUrl || '');
+                    if (items.length === 1) {
+                      setUploadModelName(items[0]?.name || 'Model Pose');
+                    } else {
+                      setUploadModelName(`${items.length} Poses Batch`);
+                    }
+                  } catch (err: any) {
+                    alert('Could not read image(s): ' + err.message);
+                  }
+                }}
+              />
+
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedBatchModels([]);
-                    setUploadModelDataUrl('');
-                    setUploadModelName('');
-                  }}
-                  className="text-[10px] font-semibold text-rose-400 hover:underline cursor-pointer"
-                >
-                  Clear Selection
-                </button>
-              )}
-            </div>
-
-            <input
-              ref={modelFileInput}
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,image/*"
-              className="hidden"
-              onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-              onChange={async (e) => {
-                const files = e.target.files ? Array.from(e.target.files) : [];
-                if (files.length === 0) return;
-                try {
-                  const items: Array<{ name: string; dataUrl: string; size: number }> = [];
-                  for (const f of files) {
-                    const std = await prepareAndStandardizeImage(f, 'model');
-                    items.push({
-                      name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
-                      dataUrl: std.dataUrl,
-                      size: f.size,
-                    });
-                  }
-                  setSelectedBatchModels(items);
-                  setUploadModelDataUrl(items[0]?.dataUrl || '');
-                  if (items.length === 1) {
-                    setUploadModelName(items[0]?.name || 'Model Pose');
-                  } else {
-                    setUploadModelName(`${items.length} Poses Batch`);
-                  }
-                } catch (err: any) {
-                  alert('Could not read image(s): ' + err.message);
-                }
-              }}
-            />
-
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => modelFileInput.current?.click()}
-                className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
-                  isLight
+                  onClick={() => modelFileInput.current?.click()}
+                  className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${isLight
                     ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
-                }`}
-              >
-                <UploadCloud size={15} />
-                <span>
-                  {selectedBatchModels.length > 0
-                    ? `Change Selection (${selectedBatchModels.length} selected)…`
-                    : 'Select Model Images (Any number at once)…'}
-                </span>
-              </button>
-
-              {selectedBatchModels.length === 1 && uploadModelDataUrl && (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={uploadModelDataUrl}
-                    alt="Preview"
-                    className="h-12 w-9 rounded-lg object-cover border border-white/20"
-                  />
-                  <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> 1 model image ready
+                    }`}
+                >
+                  <UploadCloud size={15} />
+                  <span>
+                    {selectedBatchModels.length > 0
+                      ? `Change Selection (${selectedBatchModels.length} selected)…`
+                      : 'Select Model Images (Any number at once)…'}
                   </span>
-                </div>
-              )}
+                </button>
 
+                {selectedBatchModels.length === 1 && uploadModelDataUrl && (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={uploadModelDataUrl}
+                      alt="Preview"
+                      className="h-12 w-9 rounded-lg object-cover border border-white/20"
+                    />
+                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> 1 model image ready
+                    </span>
+                  </div>
+                )}
+
+                {selectedBatchModels.length > 1 && (
+                  <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                    <Check className="w-3.5 h-3.5" />
+                    <strong>{selectedBatchModels.length} models</strong> ready for batch upload
+                  </span>
+                )}
+              </div>
+
+              {/* Multi-Model Preview Grid */}
               {selectedBatchModels.length > 1 && (
-                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
-                  <Check className="w-3.5 h-3.5" />
-                  <strong>{selectedBatchModels.length} models</strong> ready for batch upload
-                </span>
+                <div className="mt-3.5 space-y-2">
+                  <p className={`text-[11px] font-semibold ${isLight ? 'text-gray-700' : 'text-white/60'}`}>
+                    Selected Models ({selectedBatchModels.length}):
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-60 overflow-y-auto p-2 rounded-xl border border-white/10 bg-black/20">
+                    {selectedBatchModels.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`relative rounded-lg border p-1.5 flex flex-col group ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.03]'
+                          }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = selectedBatchModels.filter((_, i) => i !== idx);
+                            setSelectedBatchModels(updated);
+                            if (updated.length > 0) {
+                              setUploadModelDataUrl(updated[0].dataUrl);
+                              setUploadModelName(`${updated.length} Poses Batch`);
+                            } else {
+                              setUploadModelDataUrl('');
+                              setUploadModelName('');
+                            }
+                          }}
+                          className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-red-600/80 hover:bg-red-600 text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                          title="Remove model"
+                        >
+                          ✕
+                        </button>
+                        <img
+                          src={item.dataUrl}
+                          alt={item.name}
+                          className="h-24 w-full object-cover rounded-md mb-1.5"
+                        />
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSelectedBatchModels((prev) =>
+                              prev.map((p, i) => (i === idx ? { ...p, name: val } : p))
+                            );
+                          }}
+                          placeholder="Model pose title"
+                          className={`w-full rounded px-1.5 py-0.5 text-[10px] font-medium border ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                            }`}
+                          title="Edit pose name"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Multi-Model Preview Grid */}
-            {selectedBatchModels.length > 1 && (
-              <div className="mt-3.5 space-y-2">
-                <p className={`text-[11px] font-semibold ${isLight ? 'text-gray-700' : 'text-white/60'}`}>
-                  Selected Models ({selectedBatchModels.length}):
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-60 overflow-y-auto p-2 rounded-xl border border-white/10 bg-black/20">
-                  {selectedBatchModels.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`relative rounded-lg border p-1.5 flex flex-col group ${
-                        isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-white/[0.03]'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = selectedBatchModels.filter((_, i) => i !== idx);
-                          setSelectedBatchModels(updated);
-                          if (updated.length > 0) {
-                            setUploadModelDataUrl(updated[0].dataUrl);
-                            setUploadModelName(`${updated.length} Poses Batch`);
-                          } else {
-                            setUploadModelDataUrl('');
-                            setUploadModelName('');
-                          }
-                        }}
-                        className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-red-600/80 hover:bg-red-600 text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                        title="Remove model"
-                      >
-                        ✕
-                      </button>
-                      <img
-                        src={item.dataUrl}
-                        alt={item.name}
-                        className="h-24 w-full object-cover rounded-md mb-1.5"
-                      />
-                      <input
-                        type="text"
-                        value={item.name}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedBatchModels((prev) =>
-                            prev.map((p, i) => (i === idx ? { ...p, name: val } : p))
-                          );
-                        }}
-                        placeholder="Model pose title"
-                        className={`w-full rounded px-1.5 py-0.5 text-[10px] font-medium border ${
-                          isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-                        }`}
-                        title="Edit pose name"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {modelMessage && (
-            <p className={`rounded-xl p-3 text-xs ${
-              modelMessage.startsWith('✓')
+            {modelMessage && (
+              <p className={`rounded-xl p-3 text-xs ${modelMessage.startsWith('✓')
                 ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
                 : 'bg-[#e5373f]/10 border border-[#e5373f]/30 text-[#ffb3b7]'
-            }`}>
-              {modelMessage}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={uploadModelBusy || (!uploadModelDataUrl && selectedBatchModels.length === 0)}
-            className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shadow-md cursor-pointer flex items-center gap-2"
-          >
-            {uploadModelBusy ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                <span>
-                  {uploadModelProgress
-                    ? `Uploading ${uploadModelProgress.total} Models to Library…`
-                    : 'Uploading & Processing Model(s)…'}
-                </span>
-              </>
-            ) : (
-              <span>
-                {selectedBatchModels.length > 1
-                  ? `Save & Publish ${selectedBatchModels.length} Models to Library`
-                  : 'Save & Publish Model to Library'}
-              </span>
+                }`}>
+                {modelMessage}
+              </p>
             )}
-          </button>
-        </form>
-      </section>
 
-      {/* Season Filter Bar for Admin */}
-      <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
-        isLight ? 'bg-gray-50 border-gray-200' : 'bg-white/[0.02] border-white/10'
-      }`}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">Season Filter:</span>
-          <div className="flex flex-wrap gap-1.5">
             <button
-              type="button"
-              onClick={() => setAdminSeasonFilter('all')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
-                adminSeasonFilter === 'all'
+              type="submit"
+              disabled={uploadModelBusy || (!uploadModelDataUrl && selectedBatchModels.length === 0)}
+              className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shadow-md cursor-pointer flex items-center gap-2"
+            >
+              {uploadModelBusy ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>
+                    {uploadModelProgress
+                      ? `Uploading ${uploadModelProgress.total} Models to Library…`
+                      : 'Uploading & Processing Model(s)…'}
+                  </span>
+                </>
+              ) : (
+                <span>
+                  {selectedBatchModels.length > 1
+                    ? `Save & Publish ${selectedBatchModels.length} Models to Library`
+                    : 'Save & Publish Model to Library'}
+                </span>
+              )}
+            </button>
+          </form>
+        </section>
+
+        {/* Season Filter Bar for Admin */}
+        <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-white/[0.02] border-white/10'
+          }`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">Season Filter:</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setAdminSeasonFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${adminSeasonFilter === 'all'
                   ? 'bg-[#e5373f] text-white shadow-sm'
                   : isLight
-                  ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                  : 'bg-white/5 text-white/70 hover:bg-white/10'
-              }`}
-            >
-              🌐 All Seasons
-            </button>
-            {seasons.map((s) => {
-              const isActive = adminSeasonFilter.toLowerCase() === s.toLowerCase();
-              const icon = s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ ';
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setAdminSeasonFilter(s)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
-                    isActive
+                    ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+              >
+                🌐 All Seasons
+              </button>
+              {seasons.map((s) => {
+                const isActive = adminSeasonFilter.toLowerCase() === s.toLowerCase();
+                const icon = s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ ';
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setAdminSeasonFilter(s)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isActive
                       ? 'bg-[#e5373f] text-white shadow-sm'
                       : isLight
-                      ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                      : 'bg-white/5 text-white/70 hover:bg-white/10'
-                  }`}
-                >
-                  <span>{icon}{s}</span>
-                </button>
-              );
-            })}
+                        ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                        : 'bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                  >
+                    <span>{icon}{s}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt('Enter new season name (e.g. Monsoon, Autumn, Spring):');
+              if (name && name.trim()) {
+                void (async () => {
+                  try {
+                    const res = await api.createSeason({ name: name.trim() });
+                    if (res.seasons) setSeasons(res.seasons);
+                    setModelMessage(`✓ New season "${name.trim()}" created successfully.`);
+                    setTimeout(() => setModelMessage(''), 4000);
+                  } catch (err: any) {
+                    alert(err.message || 'Could not create season');
+                  }
+                })();
+              }
+            }}
+            className="text-xs font-bold text-[#e5373f] hover:underline cursor-pointer flex items-center gap-1"
+          >
+            + Add New Season
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            const name = window.prompt('Enter new season name (e.g. Monsoon, Autumn, Spring):');
-            if (name && name.trim()) {
-              void (async () => {
-                try {
-                  const res = await api.createSeason({ name: name.trim() });
-                  if (res.seasons) setSeasons(res.seasons);
-                  setModelMessage(`✓ New season "${name.trim()}" created successfully.`);
-                  setTimeout(() => setModelMessage(''), 4000);
-                } catch (err: any) {
-                  alert(err.message || 'Could not create season');
-                }
-              })();
-            }
-          }}
-          className="text-xs font-bold text-[#e5373f] hover:underline cursor-pointer flex items-center gap-1"
-        >
-          + Add New Season
-        </button>
-      </div>
-
-      {/* Categories & Models Grid with Drag-and-Drop and Quick Move */}
-      <div className="grid gap-6">
-        {categories.map((cat) => {
-          const isOver = dragOverCat === cat.category;
-          const filteredItems = cat.items.filter((item) => {
-            if (adminSeasonFilter === 'all') return true;
-            return !item.season || item.season.toLowerCase() === adminSeasonFilter.toLowerCase();
-          });
-          return (
-            <div
-              key={cat.category}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (dragOverCat !== cat.category) setDragOverCat(cat.category);
-              }}
-              onDragLeave={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                if (dragOverCat === cat.category) setDragOverCat(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOverCat(null);
-                const raw = e.dataTransfer.getData('text/plain');
-                if (!raw) return;
-                try {
-                  const data = JSON.parse(raw);
-                  if (data.modelId && data.currentCategory !== cat.category) {
-                    void handleMoveModel(data.modelId, cat.category);
-                  }
-                } catch {}
-              }}
-              className={`${cardClass} transition-all duration-200 ${
-                isOver
+        {/* Categories & Models Grid with Drag-and-Drop and Quick Move */}
+        <div className="grid gap-6">
+          {categories.map((cat) => {
+            const isOver = dragOverCat === cat.category;
+            const filteredItems = cat.items.filter((item) => {
+              if (adminSeasonFilter === 'all') return true;
+              return !item.season || item.season.toLowerCase() === adminSeasonFilter.toLowerCase();
+            });
+            return (
+              <div
+                key={cat.category}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverCat !== cat.category) setDragOverCat(cat.category);
+                }}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  if (dragOverCat === cat.category) setDragOverCat(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverCat(null);
+                  const raw = e.dataTransfer.getData('text/plain');
+                  if (!raw) return;
+                  try {
+                    const data = JSON.parse(raw);
+                    if (data.modelId && data.currentCategory !== cat.category) {
+                      void handleMoveModel(data.modelId, cat.category);
+                    }
+                  } catch { }
+                }}
+                className={`${cardClass} transition-all duration-200 ${isOver
                   ? isLight
                     ? 'border-[#e5373f] bg-rose-50/50 ring-2 ring-[#e5373f]/30'
                     : 'border-[#e5373f] bg-[#e5373f]/10 ring-2 ring-[#e5373f]/40'
                   : ''
-              }`}
-            >
-              <div className={`flex flex-wrap items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  {renamingCategory === cat.category ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void handleRenameCategory(cat.category, newCategoryRenameInput);
-                      }}
-                      className="flex items-center gap-1.5"
-                    >
-                      <input
-                        type="text"
-                        autoFocus
-                        required
-                        disabled={renamingBusy}
-                        value={newCategoryRenameInput}
-                        onChange={(e) => setNewCategoryRenameInput(e.target.value)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-none ${
-                          isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-white'
-                        }`}
-                        placeholder="New category name"
-                      />
-                      <button
-                        type="submit"
-                        disabled={renamingBusy || !newCategoryRenameInput.trim()}
-                        className="rounded-lg bg-[#e5373f] text-white px-2.5 py-1 text-xs font-bold hover:bg-[#d42d35] transition disabled:opacity-50 cursor-pointer"
-                      >
-                        {renamingBusy ? 'Saving…' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={renamingBusy}
-                        onClick={() => setRenamingCategory(null)}
-                        className="rounded-lg border border-white/20 px-2 py-1 text-xs text-white/60 hover:text-white transition cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </form>
-                  ) : (
-                    <>
-                      <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRenamingCategory(cat.category);
-                          setNewCategoryRenameInput(cat.category);
+                  }`}
+              >
+                <div className={`flex flex-wrap items-center justify-between gap-2 border-b pb-3 ${isLight ? 'border-gray-200' : 'border-white/5'}`}>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {renamingCategory === cat.category ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleRenameCategory(cat.category, newCategoryRenameInput);
                         }}
-                        className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${
-                          isLight ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-                        }`}
-                        title={`Rename "${cat.category}" category`}
+                        className="flex items-center gap-1.5"
                       >
-                        <Edit2 size={11} />
-                        <span>Rename</span>
-                      </button>
-                    </>
-                  )}
-                  {isOver && (
-                    <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full animate-pulse">
-                      Drop here to move into "{cat.category}"
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] opacity-50">
-                  {filteredItems.length} {filteredItems.length !== cat.items.length ? `of ${cat.items.length} ` : ''}poses
-                </span>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 min-h-[90px]">
-                {filteredItems.length === 0 ? (
-                  <div className="col-span-full border border-dashed border-white/10 rounded-xl p-4 text-center text-xs opacity-40">
-                    {cat.items.length === 0
-                      ? 'No models in this category yet. Drag and drop any model here to add it.'
-                      : `No models match season "${adminSeasonFilter}". Drag and drop or assign models to this season.`}
-                  </div>
-                ) : (
-                  filteredItems.map((item) => {
-                    const isDraggingThis = draggedModel?.id === item.id;
-                    const isMovingThis = movingModelId === item.id;
-                    const isUpdatingSeason = updatingModelSeasonId === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', JSON.stringify({ modelId: item.id, currentCategory: cat.category }));
-                          setDraggedModel({ id: item.id, name: item.name, currentCategory: cat.category });
-                        }}
-                        onDragEnd={() => {
-                          setDraggedModel(null);
-                          setDragOverCat(null);
-                        }}
-                        className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
-                          isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
-                        } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
-                        title="Drag to another category or use dropdowns to change Category or Season"
-                      >
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          onError={(e) => {
-                            const el = e.currentTarget;
-                            if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
-                              el.src = `/models/${encodeURIComponent(item.id)}`;
-                            } else {
-                              const parent = el.closest('div');
-                              if (parent) (parent as HTMLElement).style.display = 'none';
-                            }
-                          }}
-                          className="aspect-[3/4] w-full object-cover cursor-pointer"
-                          onClick={() => setLightboxImg(item.url)}
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          disabled={renamingBusy}
+                          value={newCategoryRenameInput}
+                          onChange={(e) => setNewCategoryRenameInput(e.target.value)}
+                          className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-white'
+                            }`}
+                          placeholder="New category name"
                         />
-
-                        {/* Top Overlay: Category Move & Season Badge */}
-                        <div className="absolute top-2 left-2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span
-                            className="p-1 rounded-md bg-black/80 text-white/70 shadow text-[9px] flex items-center gap-0.5 border border-white/10"
-                            title="Drag to another category"
-                          >
-                            <Move size={11} />
-                          </span>
-
-                          <select
-                            value={cat.category}
-                            disabled={isMovingThis}
-                            onChange={(e) => {
-                              const target = e.target.value;
-                              if (target && target !== cat.category) {
-                                void handleMoveModel(item.id, target);
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[9px] font-bold rounded-md bg-black/85 text-white/90 border border-white/20 px-1 py-0.5 cursor-pointer hover:bg-black hover:border-[#e5373f] transition-colors"
-                            title="Quick move to another category"
-                          >
-                            <option value={cat.category} disabled>Move…</option>
-                            {categories.map((c) => (
-                              <option key={c.category} value={c.category} disabled={c.category === cat.category}>
-                                {c.category === cat.category ? `✓ ${c.category}` : `→ ${c.category}`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        {/* Delete Model Button */}
+                        <button
+                          type="submit"
+                          disabled={renamingBusy || !newCategoryRenameInput.trim()}
+                          className="rounded-lg bg-[#e5373f] text-white px-2.5 py-1 text-xs font-bold hover:bg-[#d42d35] transition disabled:opacity-50 cursor-pointer"
+                        >
+                          {renamingBusy ? 'Saving…' : 'Save'}
+                        </button>
                         <button
                           type="button"
-                          disabled={deletingModelId === item.id || isMovingThis}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteModel(item.id);
-                          }}
-                          title="Remove this model from library"
-                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/75 text-white/70 hover:text-[#ff5252] hover:bg-black transition-all opacity-0 group-hover:opacity-100 shadow-md z-10"
+                          disabled={renamingBusy}
+                          onClick={() => setRenamingCategory(null)}
+                          className="rounded-lg border border-white/20 px-2 py-1 text-xs text-white/60 hover:text-white transition cursor-pointer"
                         >
-                          <Trash2 size={13} />
+                          Cancel
                         </button>
+                      </form>
+                    ) : (
+                      <>
+                        <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingCategory(cat.category);
+                            setNewCategoryRenameInput(cat.category);
+                          }}
+                          className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${isLight ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                            }`}
+                          title={`Rename "${cat.category}" category`}
+                        >
+                          <Edit2 size={11} />
+                          <span>Rename</span>
+                        </button>
+                      </>
+                    )}
+                    {isOver && (
+                      <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full animate-pulse">
+                        Drop here to move into "{cat.category}"
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] opacity-50">
+                    {filteredItems.length} {filteredItems.length !== cat.items.length ? `of ${cat.items.length} ` : ''}poses
+                  </span>
+                </div>
 
-                        {/* Moving / Updating Spinner */}
-                        {(isMovingThis || isUpdatingSeason) && (
-                          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1.5 z-20">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            <span className="text-[9px] font-bold text-white">
-                              {isMovingThis ? 'Moving…' : 'Saving Season…'}
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 min-h-[90px]">
+                  {filteredItems.length === 0 ? (
+                    <div className="col-span-full border border-dashed border-white/10 rounded-xl p-4 text-center text-xs opacity-40">
+                      {cat.items.length === 0
+                        ? 'No models in this category yet. Drag and drop any model here to add it.'
+                        : `No models match season "${adminSeasonFilter}". Drag and drop or assign models to this season.`}
+                    </div>
+                  ) : (
+                    filteredItems.map((item) => {
+                      const isDraggingThis = draggedModel?.id === item.id;
+                      const isMovingThis = movingModelId === item.id;
+                      const isUpdatingSeason = updatingModelSeasonId === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', JSON.stringify({ modelId: item.id, currentCategory: cat.category }));
+                            setDraggedModel({ id: item.id, name: item.name, currentCategory: cat.category });
+                          }}
+                          onDragEnd={() => {
+                            setDraggedModel(null);
+                            setDragOverCat(null);
+                          }}
+                          className={`group relative overflow-hidden rounded-xl border transition-all cursor-grab active:cursor-grabbing ${isDraggingThis ? 'opacity-30 scale-95 border-dashed border-[#e5373f]' : ''
+                            } ${isLight ? 'border-gray-200 bg-gray-100 hover:border-gray-400' : 'border-white/5 bg-black/40 hover:border-white/20'}`}
+                          title="Drag to another category or use dropdowns to change Category or Season"
+                        >
+                          <img
+                            src={item.url}
+                            alt={item.name}
+                            onError={(e) => {
+                              const el = e.currentTarget;
+                              if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
+                                el.src = `/models/${encodeURIComponent(item.id)}`;
+                              } else {
+                                const parent = el.closest('div');
+                                if (parent) (parent as HTMLElement).style.display = 'none';
+                              }
+                            }}
+                            className="aspect-[3/4] w-full object-cover cursor-pointer"
+                            onClick={() => setLightboxImg(item.url)}
+                          />
+
+                          {/* Top Overlay: Category Move & Season Badge */}
+                          <div className="absolute top-2 left-2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span
+                              className="p-1 rounded-md bg-black/80 text-white/70 shadow text-[9px] flex items-center gap-0.5 border border-white/10"
+                              title="Drag to another category"
+                            >
+                              <Move size={11} />
                             </span>
-                          </div>
-                        )}
 
-                        {/* Bottom Overlay: Model Name + Quick Season Switcher */}
-                        <div className="absolute bottom-0 inset-x-0 bg-black/80 backdrop-blur-sm px-1.5 py-1 flex items-center justify-between gap-1">
-                          <p className="truncate text-[9px] text-white/90 font-medium max-w-[55%]">
-                            {item.name}
-                          </p>
-                          <select
-                            value={item.season || 'All Seasons'}
-                            disabled={isUpdatingSeason}
-                            onChange={(e) => void handleUpdateModelSeason(item.id, e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[8px] font-bold rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 px-1 py-0.5 cursor-pointer outline-none shrink-0"
-                            title="Assign model to season"
+                            <select
+                              value={cat.category}
+                              disabled={isMovingThis}
+                              onChange={(e) => {
+                                const target = e.target.value;
+                                if (target && target !== cat.category) {
+                                  void handleMoveModel(item.id, target);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[9px] font-bold rounded-md bg-black/85 text-white/90 border border-white/20 px-1 py-0.5 cursor-pointer hover:bg-black hover:border-[#e5373f] transition-colors"
+                              title="Quick move to another category"
+                            >
+                              <option value={cat.category} disabled>Move…</option>
+                              {categories.map((c) => (
+                                <option key={c.category} value={c.category} disabled={c.category === cat.category}>
+                                  {c.category === cat.category ? `✓ ${c.category}` : `→ ${c.category}`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Delete Model Button */}
+                          <button
+                            type="button"
+                            disabled={deletingModelId === item.id || isMovingThis}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteModel(item.id);
+                            }}
+                            title="Remove this model from library"
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/75 text-white/70 hover:text-[#ff5252] hover:bg-black transition-all opacity-0 group-hover:opacity-100 shadow-md z-10"
                           >
-                            <option value="All Seasons" className="bg-neutral-900 text-white">🌐 All</option>
-                            {seasons.map((s) => (
-                              <option key={s} value={s} className="bg-neutral-900 text-white">
-                                {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : ''}{s}
-                              </option>
-                            ))}
-                          </select>
+                            <Trash2 size={13} />
+                          </button>
+
+                          {/* Moving / Updating Spinner */}
+                          {(isMovingThis || isUpdatingSeason) && (
+                            <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1.5 z-20">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              <span className="text-[9px] font-bold text-white">
+                                {isMovingThis ? 'Moving…' : 'Saving Season…'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Bottom Overlay: Model Name + Quick Season Switcher */}
+                          <div className="absolute bottom-0 inset-x-0 bg-black/80 backdrop-blur-sm px-1.5 py-1 flex items-center justify-between gap-1">
+                            <p className="truncate text-[9px] text-white/90 font-medium max-w-[55%]">
+                              {item.name}
+                            </p>
+                            <select
+                              value={item.season || 'All Seasons'}
+                              disabled={isUpdatingSeason}
+                              onChange={(e) => void handleUpdateModelSeason(item.id, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[8px] font-bold rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 px-1 py-0.5 cursor-pointer outline-none shrink-0"
+                              title="Assign model to season"
+                            >
+                              <option value="All Seasons" className="bg-neutral-900 text-white">🌐 All</option>
+                              {seasons.map((s) => (
+                                <option key={s} value={s} className="bg-neutral-900 text-white">
+                                  {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : ''}{s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
     );
   };
 
@@ -5599,9 +5530,8 @@ ${log.stack || 'None'}
               type="button"
               onClick={loadSystemLogs}
               disabled={problemsLoading}
-              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
-                isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
-              }`}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
             >
               <RefreshCw size={12} className={problemsLoading ? 'animate-spin' : ''} />
               Refresh
@@ -5641,13 +5571,12 @@ ${log.stack || 'None'}
               key={mode}
               type="button"
               onClick={() => setProblemFilter(mode)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
-                problemFilter === mode
-                  ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight
-                    ? 'bg-gray-200/80 text-gray-700 hover:bg-gray-300'
-                    : 'bg-white/5 text-white/60 hover:bg-white/10'
-              }`}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${problemFilter === mode
+                ? 'bg-[#e5373f] text-white shadow-sm'
+                : isLight
+                  ? 'bg-gray-200/80 text-gray-700 hover:bg-gray-300'
+                  : 'bg-white/5 text-white/60 hover:bg-white/10'
+                }`}
             >
               {mode === 'all' ? `All (${systemLogs.length})` : mode === 'unresolved' ? `Unresolved (${unresolvedProblemsCount})` : 'Resolved'}
             </button>
@@ -5668,26 +5597,23 @@ ${log.stack || 'None'}
               return (
                 <div
                   key={log.id}
-                  className={`rounded-2xl border p-5 transition-all ${
-                    log.resolved
-                      ? isLight ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-white/5 bg-white/[0.01] opacity-60'
-                      : isLight ? 'border-red-200 bg-red-50/40 shadow-sm' : 'border-red-500/20 bg-red-950/10 shadow-sm'
-                  }`}
+                  className={`rounded-2xl border p-5 transition-all ${log.resolved
+                    ? isLight ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-white/5 bg-white/[0.01] opacity-60'
+                    : isLight ? 'border-red-200 bg-red-50/40 shadow-sm' : 'border-red-500/20 bg-red-950/10 shadow-sm'
+                    }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                        log.severity === 'error'
-                          ? 'bg-[#e5373f] text-white'
-                          : log.severity === 'warning'
-                            ? 'bg-amber-500 text-black'
-                            : 'bg-blue-500 text-white'
-                      }`}>
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${log.severity === 'error'
+                        ? 'bg-[#e5373f] text-white'
+                        : log.severity === 'warning'
+                          ? 'bg-amber-500 text-black'
+                          : 'bg-blue-500 text-white'
+                        }`}>
                         {log.severity}
                       </span>
-                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${
-                        isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
-                      }`}>
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
+                        }`}>
                         [{log.module}]
                       </span>
                       <span className="text-[11px] opacity-50">
@@ -5699,11 +5625,10 @@ ${log.stack || 'None'}
                       <button
                         type="button"
                         onClick={() => copyProblemForAi(log)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold shadow-sm transition ${
-                          isCopied
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-[#e5373f] hover:bg-[#d42d35] text-white'
-                        }`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold shadow-sm transition ${isCopied
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[#e5373f] hover:bg-[#d42d35] text-white'
+                          }`}
                       >
                         {isCopied ? <Check size={12} /> : <Copy size={12} />}
                         {isCopied ? 'Copied for AI agent' : 'Copy problem for AI agent'}
@@ -5712,11 +5637,10 @@ ${log.stack || 'None'}
                       <button
                         type="button"
                         onClick={() => handleToggleResolveProblem(log.id)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                          log.resolved
-                            ? 'border-gray-400 text-gray-500 hover:text-gray-900'
-                            : 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
-                        }`}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${log.resolved
+                          ? 'border-gray-400 text-gray-500 hover:text-gray-900'
+                          : 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
+                          }`}
                       >
                         {log.resolved ? 'Mark Active' : 'Resolve'}
                       </button>
@@ -5815,9 +5739,8 @@ ${log.stack || 'None'}
             type="button"
             onClick={loadGenerations}
             disabled={generationsLoading}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
-              isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
-            }`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}
           >
             <RefreshCw size={12} className={generationsLoading ? 'animate-spin' : ''} />
             Refresh
@@ -5849,18 +5772,16 @@ ${log.stack || 'None'}
         </div>
 
         {/* Filters */}
-        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${
-          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
-        }`}>
+        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+          }`}>
           <div className="flex flex-1 items-center gap-2 min-w-[240px]">
             <input
               type="text"
               value={genSearch}
               onChange={(e) => setGenSearch(e.target.value)}
               placeholder="Search by user email, prompt, ID, error..."
-              className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${
-                isLight ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
-              }`}
+              className={`w-full rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]' : 'border-white/10 bg-black/50 text-white placeholder:text-white/30'
+                }`}
             />
           </div>
 
@@ -5868,9 +5789,8 @@ ${log.stack || 'None'}
             <select
               value={genStatusFilter}
               onChange={(e) => setGenStatusFilter(e.target.value as any)}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-              }`}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed Only</option>
@@ -5882,9 +5802,8 @@ ${log.stack || 'None'}
             <select
               value={genTypeFilter}
               onChange={(e) => setGenTypeFilter(e.target.value as any)}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
-              }`}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
+                }`}
             >
               <option value="all">All Types</option>
               <option value="edited">Edited &amp; Option B</option>
@@ -5896,14 +5815,12 @@ ${log.stack || 'None'}
         </div>
 
         {/* Generations Table */}
-        <div className={`overflow-hidden rounded-3xl border shadow-sm ${
-          isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
-        }`}>
+        <div className={`overflow-hidden rounded-3xl border shadow-sm ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+          }`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${
-                isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/5 text-white/50'
-              }`}>
+              <thead className={`border-b text-[10px] font-bold uppercase tracking-wider ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-white/5 text-white/50'
+                }`}>
                 <tr>
                   <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Type &amp; Res</th>
@@ -5936,143 +5853,141 @@ ${log.stack || 'None'}
                     </tr>
                   ) : (
                     uniqueFiltered.map((g) => {
-                    const isSuccess = g.status === 'completed' || (!g.status && (g.url || g.outputUrl));
-                    const isFailed = g.status === 'failed';
-                    const isRefunded = g.status === 'refunded';
-                    const isProcessing = g.status === 'processing';
-                    const displayUrl = g.outputUrl || g.url;
+                      const isSuccess = g.status === 'completed' || (!g.status && (g.url || g.outputUrl));
+                      const isFailed = g.status === 'failed';
+                      const isRefunded = g.status === 'refunded';
+                      const isProcessing = g.status === 'processing';
+                      const displayUrl = g.outputUrl || g.url;
 
-                    return (
-                      <tr key={g.id} className={`transition-colors ${isLight ? 'hover:bg-gray-50' : 'hover:bg-white/[0.02]'}`}>
-                        <td className="py-3 px-4">
-                          <p className="font-bold text-xs truncate max-w-[180px]">{g.userEmail || 'Anonymous'}</p>
-                          {g.userName && <p className="text-[10px] opacity-70">{g.userName}</p>}
-                          <p className="text-[9px] font-mono opacity-40 truncate max-w-[150px]">ID: {g.userId?.slice(0, 10)}…</p>
-                        </td>
+                      return (
+                        <tr key={g.id} className={`transition-colors ${isLight ? 'hover:bg-gray-50' : 'hover:bg-white/[0.02]'}`}>
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-xs truncate max-w-[180px]">{g.userEmail || 'Anonymous'}</p>
+                            {g.userName && <p className="text-[10px] opacity-70">{g.userName}</p>}
+                            <p className="text-[9px] font-mono opacity-40 truncate max-w-[150px]">ID: {g.userId?.slice(0, 10)}…</p>
+                          </td>
 
-                        <td className="py-3 px-4">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            g.type === 'video'
+                          <td className="py-3 px-4">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${g.type === 'video'
                               ? 'bg-purple-500/20 text-purple-600 border border-purple-500/30'
                               : g.mode === 'swap' || g.type === 'model-swap'
                                 ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-500/30'
                                 : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
-                          }`}>
-                            {g.type === 'video' ? 'Video' : g.mode === 'swap' || g.type === 'model-swap' ? 'Swap' : 'Try-On'}
-                          </span>
-                          {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
-                            <span className="inline-block ml-1 rounded-md px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-amber-400 text-black border border-amber-300 shadow-xs">
-                              ✏️ EDITED
+                              }`}>
+                              {g.type === 'video' ? 'Video' : g.mode === 'swap' || g.type === 'model-swap' ? 'Swap' : 'Try-On'}
                             </span>
-                          )}
-                          <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
-                            {g.resolution || (g.type === 'video' ? 'HD' : '1K')}
-                          </span>
-                        </td>
+                            {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
+                              <span className="inline-block ml-1 rounded-md px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-amber-400 text-black border border-amber-300 shadow-xs">
+                                ✏️ EDITED
+                              </span>
+                            )}
+                            <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
+                              {g.resolution || (g.type === 'video' ? 'HD' : '1K')}
+                            </span>
+                          </td>
 
-                        <td className="py-3 px-4">
-                          <span className={`font-mono text-xs font-bold ${
-                            g.creditsUsed > 0
+                          <td className="py-3 px-4">
+                            <span className={`font-mono text-xs font-bold ${g.creditsUsed > 0
                               ? isLight ? 'text-amber-900 font-extrabold' : 'text-amber-400 font-extrabold'
                               : 'opacity-50'
-                          }`}>
-                            {g.creditsUsed > 0 ? `-${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
-                          </span>
-                        </td>
+                              }`}>
+                              {g.creditsUsed > 0 ? `-${g.creditsUsed} credit${g.creditsUsed > 1 ? 's' : ''}` : '0 credits'}
+                            </span>
+                          </td>
 
-                        <td className="py-3 px-4">
-                          {isSuccess && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-800 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              Completed
-                            </span>
-                          )}
-                          {isFailed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-800 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              Failed
-                            </span>
-                          )}
-                          {isProcessing && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              Processing
-                            </span>
-                          )}
-                          {isRefunded && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 text-cyan-800 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold">
-                              Refunded
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4 max-w-[280px]">
-                          {displayUrl && (
-                            <div className="flex items-center gap-2 mb-1">
-                              {g.type === 'video' ? (
-                                <video
-                                  src={resolveImageUrl(displayUrl)}
-                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20"
-                                  onClick={() => setPreviewGenItem(g)}
-                                />
-                              ) : (
-                                <img
-                                  src={resolveImageUrl(displayUrl)}
-                                  alt="render"
-                                  loading="lazy"
-                                  className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 transition-opacity hover:opacity-90"
-                                  onClick={() => setPreviewGenItem(g)}
-                                />
-                              )}
-                              <span className="text-[10px] opacity-70 underline cursor-pointer" onClick={() => setPreviewGenItem(g)}>
-                                Click to view render
+                          <td className="py-3 px-4">
+                            {isSuccess && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-800 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold">
+                                Completed
                               </span>
-                            </div>
-                          )}
+                            )}
+                            {isFailed && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-800 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold">
+                                Failed
+                              </span>
+                            )}
+                            {isProcessing && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold">
+                                Processing
+                              </span>
+                            )}
+                            {isRefunded && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 text-cyan-800 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold">
+                                Refunded
+                              </span>
+                            )}
+                          </td>
 
-                          {g.error ? (
-                            <div className="rounded-lg bg-rose-500/15 border border-rose-500/30 p-2 text-rose-900 text-[10px] font-medium leading-relaxed">
-                              <strong>Error:</strong> {g.error}
-                            </div>
-                          ) : g.prompt ? (
-                            <p className="text-[10px] opacity-75 truncate max-w-full" title={g.prompt}>
-                              &ldquo;{g.prompt}&rdquo;
-                            </p>
-                          ) : (
-                            <span className="text-[10px] opacity-40">Standard Generation</span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4 whitespace-nowrap text-[11px] opacity-70">
-                          {g.createdAt ? new Date(g.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
-                        </td>
-
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-1.5">
-                            {g.creditsUsed > 0 && !isRefunded && (
-                              <button
-                                type="button"
-                                onClick={() => void handleRefundGeneration(g)}
-                                disabled={refundingGenId === g.id}
-                                className="rounded-full bg-cyan-600 hover:bg-cyan-500 text-white px-2.5 py-1 text-[10px] font-bold uppercase transition disabled:opacity-50"
-                                title="Refund credits to this user"
-                              >
-                                {refundingGenId === g.id ? '…' : `↺ Refund (${g.creditsUsed})`}
-                              </button>
+                          <td className="py-3 px-4 max-w-[280px]">
+                            {displayUrl && (
+                              <div className="flex items-center gap-2 mb-1">
+                                {g.type === 'video' ? (
+                                  <video
+                                    src={resolveImageUrl(displayUrl)}
+                                    className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20"
+                                    onClick={() => setPreviewGenItem(g)}
+                                  />
+                                ) : (
+                                  <img
+                                    src={resolveImageUrl(displayUrl)}
+                                    alt="render"
+                                    loading="lazy"
+                                    className="h-10 w-8 rounded object-cover cursor-pointer border border-white/20 transition-opacity hover:opacity-90"
+                                    onClick={() => setPreviewGenItem(g)}
+                                  />
+                                )}
+                                <span className="text-[10px] opacity-70 underline cursor-pointer" onClick={() => setPreviewGenItem(g)}>
+                                  Click to view render
+                                </span>
+                              </div>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteGeneration(g.id)}
-                              className="rounded-full p-1.5 text-rose-600 hover:bg-rose-500/20 transition"
-                              title="Delete generation entry"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                );
-              })()}
+                            {g.error ? (
+                              <div className="rounded-lg bg-rose-500/15 border border-rose-500/30 p-2 text-rose-900 text-[10px] font-medium leading-relaxed">
+                                <strong>Error:</strong> {g.error}
+                              </div>
+                            ) : g.prompt ? (
+                              <p className="text-[10px] opacity-75 truncate max-w-full" title={g.prompt}>
+                                &ldquo;{g.prompt}&rdquo;
+                              </p>
+                            ) : (
+                              <span className="text-[10px] opacity-40">Standard Generation</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap text-[11px] opacity-70">
+                            {g.createdAt ? new Date(g.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              {g.creditsUsed > 0 && !isRefunded && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRefundGeneration(g)}
+                                  disabled={refundingGenId === g.id}
+                                  className="rounded-full bg-cyan-600 hover:bg-cyan-500 text-white px-2.5 py-1 text-[10px] font-bold uppercase transition disabled:opacity-50"
+                                  title="Refund credits to this user"
+                                >
+                                  {refundingGenId === g.id ? '…' : `↺ Refund (${g.creditsUsed})`}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => void handleDeleteGeneration(g.id)}
+                                className="rounded-full p-1.5 text-rose-600 hover:bg-rose-500/20 transition"
+                                title="Delete generation entry"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  );
+                })()}
               </tbody>
             </table>
           </div>
@@ -6085,9 +6000,8 @@ ${log.stack || 'None'}
             onClick={() => setPreviewGenItem(null)}
           >
             <div
-              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${
-                isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
-              }`}
+              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
+                }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -6179,11 +6093,10 @@ ${log.stack || 'None'}
         </div>
 
         {planSaveStatus && (
-          <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
-            planSaveStatus.ok
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}>
+          <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${planSaveStatus.ok
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+            : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
             {planSaveStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
             <span>{planSaveStatus.message}</span>
           </div>
@@ -6196,11 +6109,10 @@ ${log.stack || 'None'}
             return (
               <div
                 key={pm.id}
-                className={`p-4 rounded-2xl border transition ${
-                  isLight
-                    ? 'bg-gray-50 border-gray-200'
-                    : 'bg-white/[0.02] border-white/10 hover:border-white/20'
-                }`}
+                className={`p-4 rounded-2xl border transition ${isLight
+                  ? 'bg-gray-50 border-gray-200'
+                  : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-1 mb-2">
                   <h4 className="text-xs font-extrabold truncate">{pm.name}</h4>
@@ -6307,9 +6219,8 @@ ${log.stack || 'None'}
                 </div>
 
                 {/* Live effective price calculation */}
-                <div className={`mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] ${
-                  isLight ? 'text-slate-800' : 'text-slate-300'
-                }`}>
+                <div className={`mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] ${isLight ? 'text-slate-800' : 'text-slate-300'
+                  }`}>
                   <span className="opacity-60">Customer Pays:</span>
                   <span className="font-extrabold text-amber-500">
                     {pm.id === 'starter' && p.priceUSD === 0 ? 'Free' : `₹${effectiveInr.toLocaleString('en-IN')}`}
@@ -6329,11 +6240,10 @@ ${log.stack || 'None'}
                         [pm.id]: { ...prev[pm.id], active: !currentActive },
                       }));
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition flex items-center gap-1.5 cursor-pointer ${
-                      p.active !== false
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
-                        : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
-                    }`}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition flex items-center gap-1.5 cursor-pointer ${p.active !== false
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
+                      : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
+                      }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${p.active !== false ? 'bg-emerald-400' : 'bg-red-400'}`} />
                     {p.active !== false ? 'Active' : 'Deactivated'}
@@ -6353,11 +6263,10 @@ ${log.stack || 'None'}
                         [pm.id]: { ...prev[pm.id], deleted: !isDeleted },
                       }));
                     }}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      p.deleted
-                        ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
-                        : 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
-                    }`}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition cursor-pointer ${p.deleted
+                      ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
+                      : 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
+                      }`}
                   >
                     {p.deleted ? 'Restore Plan' : 'Delete / Hide Plan'}
                   </button>
@@ -6399,9 +6308,8 @@ ${log.stack || 'None'}
               type="button"
               onClick={() => void loadGatewayData()}
               disabled={gatewayLoading}
-              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                isLight ? 'border-gray-200 bg-white hover:bg-gray-50 text-slate-800' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-              }`}
+              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${isLight ? 'border-gray-200 bg-white hover:bg-gray-50 text-slate-800' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${gatewayLoading ? 'animate-spin' : ''}`} />
               <span>Refresh Orders</span>
@@ -6470,13 +6378,12 @@ ${log.stack || 'None'}
                   key={f.id}
                   type="button"
                   onClick={() => setGatewayFilter(f.id as typeof gatewayFilter)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${
-                    gatewayFilter === f.id
-                      ? 'bg-[#e5373f] text-white shadow-sm'
-                      : isLight
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${gatewayFilter === f.id
+                    ? 'bg-[#e5373f] text-white shadow-sm'
+                    : isLight
                       ? 'bg-gray-100 hover:bg-gray-200 text-slate-700'
                       : 'bg-white/5 hover:bg-white/10 text-white/70'
-                  }`}
+                    }`}
                 >
                   {f.label}
                 </button>
@@ -6549,15 +6456,14 @@ ${log.stack || 'None'}
                           )}
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            ord.status === 'paid'
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : ord.status === 'review'
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${ord.status === 'paid'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : ord.status === 'review'
                               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                               : ord.status === 'pending'
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          }`}>
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
                             {ord.status === 'paid' && <CheckCircle2 className="w-3 h-3" />}
                             <span>{ord.status}</span>
                           </span>
@@ -6660,11 +6566,10 @@ ${log.stack || 'None'}
           </div>
 
           {gwSettingsStatus && (
-            <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
-              gwSettingsStatus.ok
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
+            <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${gwSettingsStatus.ok
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}>
               {gwSettingsStatus.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
               <span>{gwSettingsStatus.message}</span>
             </div>
@@ -6990,9 +6895,8 @@ ${log.stack || 'None'}
                 void loadAdminUploadSets();
                 void loadGenerations();
               }}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
-              }`}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${isLight ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'
+                }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${adminUploadSetsLoading || generationsLoading ? 'animate-spin' : ''}`} />
               <span>Refresh Assets</span>
@@ -7006,11 +6910,10 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setUserSetsSubTab('sets')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                userSetsSubTab === 'sets'
-                  ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${userSetsSubTab === 'sets'
+                ? 'bg-[#e5373f] text-white shadow-sm'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
             >
               <Layers className="w-3.5 h-3.5" />
               <span>User Sets ({adminUploadSetsList.length})</span>
@@ -7019,11 +6922,10 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setUserSetsSubTab('renders')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                userSetsSubTab === 'renders'
-                  ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${userSetsSubTab === 'renders'
+                ? 'bg-[#e5373f] text-white shadow-sm'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
             >
               <Film className="w-3.5 h-3.5" />
               <span>Generated Renders ({generationsList.filter((g) => g.url || g.outputUrl).length})</span>
@@ -7150,7 +7052,7 @@ ${log.stack || 'None'}
                               <input
                                 type="checkbox"
                                 checked={selectedAssetUrls.some((a) => a.url === s.clothUrl)}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
                               />
                             </div>
@@ -7190,7 +7092,7 @@ ${log.stack || 'None'}
                               <input
                                 type="checkbox"
                                 checked={selectedAssetUrls.some((a) => a.url === s.modelUrl)}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
                               />
                             </div>
@@ -7272,9 +7174,8 @@ ${log.stack || 'None'}
                     if (!targetUrl) return null;
                     const selected = selectedAssetUrls.some((a) => a.url === targetUrl);
                     return (
-                      <div key={g.id} className={`group relative rounded-2xl overflow-hidden border transition flex flex-col ${
-                        selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
-                      } bg-black/40`}>
+                      <div key={g.id} className={`group relative rounded-2xl overflow-hidden border transition flex flex-col ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10'
+                        } bg-black/40`}>
                         <div className="aspect-[3/4] relative overflow-hidden">
                           <img
                             src={resolveImageUrl(targetUrl)}
@@ -7288,7 +7189,7 @@ ${log.stack || 'None'}
                               ✏️ EDITED
                             </span>
                           )}
-                          
+
                           {/* Checkbox */}
                           <div
                             className="absolute top-1.5 right-1.5 z-10"
@@ -7303,7 +7204,7 @@ ${log.stack || 'None'}
                             <input
                               type="checkbox"
                               checked={selected}
-                              onChange={() => {}}
+                              onChange={() => { }}
                               className="w-4 h-4 rounded border-gray-400 text-emerald-600 focus:ring-0 cursor-pointer"
                             />
                           </div>
@@ -7383,11 +7284,10 @@ ${log.stack || 'None'}
                 key={f}
                 type="button"
                 onClick={() => setPhotoshootFilter(f)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition cursor-pointer ${
-                  photoshootFilter === f
-                    ? 'bg-[#e5373f] text-white shadow'
-                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition cursor-pointer ${photoshootFilter === f
+                  ? 'bg-[#e5373f] text-white shadow'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
               >
                 {f === 'queries' ? `Queries (${queriedUsers.length})` : f}
               </button>
@@ -7425,12 +7325,11 @@ ${log.stack || 'None'}
                         <p className="font-bold truncate text-white">{u.email}</p>
                         <p className="text-[10px] opacity-60 truncate">{u.name || 'Client'}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                        u.tier === 'ultra' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${u.tier === 'ultra' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
                         u.tier === 'pro' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                        u.tier === 'ondemand' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                        'bg-white/10 text-white/60'
-                      }`}>
+                          u.tier === 'ondemand' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                            'bg-white/10 text-white/60'
+                        }`}>
                         {u.tier || 'free'}
                       </span>
                     </div>
@@ -7564,13 +7463,12 @@ ${log.stack || 'None'}
                                   setSavingPhotoshootUserId(null);
                                 }
                               }}
-                              className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow cursor-pointer ${
-                                isSaved
-                                  ? 'bg-emerald-600 text-white'
-                                  : isDirty
-                                    ? 'bg-[#e5373f] hover:bg-[#d42d35] text-white ring-2 ring-[#e5373f]/40'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
-                              }`}
+                              className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow cursor-pointer ${isSaved
+                                ? 'bg-emerald-600 text-white'
+                                : isDirty
+                                  ? 'bg-[#e5373f] hover:bg-[#d42d35] text-white ring-2 ring-[#e5373f]/40'
+                                  : 'bg-white/10 hover:bg-white/20 text-white'
+                                }`}
                             >
                               {isSaving ? (
                                 <span>Saving…</span>
@@ -7590,11 +7488,10 @@ ${log.stack || 'None'}
                       <div className="mt-3 space-y-1.5">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="opacity-60">Offer Status:</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            offer.status === 'queried' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${offer.status === 'queried' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
                             offer.status === 'agreed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
-                            'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          }`}>
+                              'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            }`}>
                             {offer.status === 'queried' ? 'Client Question' : offer.status}
                           </span>
                         </div>
@@ -7729,9 +7626,8 @@ ${log.stack || 'None'}
 
     return (
       <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-150">
-        <div className={`w-full max-w-5xl max-h-[92vh] rounded-3xl border shadow-2xl overflow-hidden flex flex-col select-none ${
-          isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
-        }`}>
+        <div className={`w-full max-w-5xl max-h-[92vh] rounded-3xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
+          }`}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
             <div className="flex items-center gap-3">
@@ -7758,11 +7654,10 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => setAssetPickerSubTab('sets')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  assetPickerSubTab === 'sets'
-                    ? 'bg-[#e5373f] text-white shadow-sm'
-                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${assetPickerSubTab === 'sets'
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>User Sets ({filteredSets.length})</span>
@@ -7770,11 +7665,10 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => setAssetPickerSubTab('renders')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  assetPickerSubTab === 'renders'
-                    ? 'bg-[#e5373f] text-white shadow-sm'
-                    : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${assetPickerSubTab === 'renders'
+                  ? 'bg-[#e5373f] text-white shadow-sm'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
               >
                 <Film className="w-3.5 h-3.5" />
                 <span>Renders ({filteredGens.length})</span>
@@ -7820,9 +7714,8 @@ ${log.stack || 'None'}
                         {s.clothUrl && (
                           <div
                             onClick={() => toggleSelect({ url: s.clothUrl, name: `${s.clothName || 'garment'}.png`, userId: s.userId, userEmail: s.userEmail })}
-                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${
-                              isSelected(s.clothUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
-                            }`}
+                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${isSelected(s.clothUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                              }`}
                           >
                             <img src={s.clothUrl} alt={s.clothName} className="w-full h-full object-cover" />
                             <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
@@ -7836,9 +7729,8 @@ ${log.stack || 'None'}
                         {s.modelUrl && (
                           <div
                             onClick={() => toggleSelect({ url: s.modelUrl, name: `${s.modelName || 'model'}.png`, userId: s.userId, userEmail: s.userEmail })}
-                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${
-                              isSelected(s.modelUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
-                            }`}
+                            className={`group relative aspect-[3/4] rounded-xl overflow-hidden border cursor-pointer transition ${isSelected(s.modelUrl) ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                              }`}
                           >
                             <img src={s.modelUrl} alt={s.modelName} className="w-full h-full object-cover" />
                             <span className="absolute bottom-1 inset-x-1 rounded bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
@@ -7888,9 +7780,8 @@ ${log.stack || 'None'}
                         <div
                           key={g.id}
                           onClick={() => toggleSelect({ url: targetUrl, name: `render_${g.id}.png`, userId: g.userId, userEmail: g.userEmail })}
-                          className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border cursor-pointer transition flex flex-col ${
-                            checked ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
-                          }`}
+                          className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border cursor-pointer transition flex flex-col ${checked ? 'ring-2 ring-[#e5373f] border-[#e5373f]' : 'border-white/10 hover:border-white/30'
+                            }`}
                         >
                           <img
                             src={resolveImageUrl(targetUrl)}
