@@ -68,8 +68,8 @@ export default function DescriptionStudio({
   );
   // State
   const [images, setImages] = useState<{ id: string; url: string; name: string }[]>([]);
-  const [prompt, setPrompt] = useState<string>('');
-  const [defaultPrompt, setDefaultPrompt] = useState<string>('');
+  const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
+  const [defaultPrompt, setDefaultPrompt] = useState<string>(DEFAULT_PROMPT);
   const [hasServerKey, setHasServerKey] = useState<boolean>(true);
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     try {
@@ -80,19 +80,25 @@ export default function DescriptionStudio({
   });
   const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
   const [showMySetsDrawer, setShowMySetsDrawer] = useState<boolean>(false);
+  const preselectedHandledRef = useRef<string>('');
 
-  // Synchronize preselected images from My Sets
+  // Synchronize preselected images from My Sets & Automatically Trigger AI Description
   useEffect(() => {
     if (preselectedImages && preselectedImages.length > 0) {
-      setImages((prev) => {
-        const existingIds = new Set(prev.map((img) => img.id));
-        const toAdd = preselectedImages.filter((p) => !existingIds.has(p.id));
-        return [...prev, ...toAdd];
-      });
+      const key = preselectedImages.map((p) => p.id || p.url).join(',');
+      if (preselectedHandledRef.current === key) return;
+      preselectedHandledRef.current = key;
+
+      setImages(preselectedImages);
       if (onClearPreselected) onClearPreselected();
-      showToast(`Loaded ${preselectedImages.length} image(s) from My Sets`);
+
+      const activePrompt = (prompt && prompt.trim()) ? prompt.trim() : (defaultPrompt || DEFAULT_PROMPT);
+      showToast(`⚡ Analyzing ${preselectedImages.length} image(s) with Shiv-Naresh AI...`);
+
+      // Immediately trigger generation with preselected images and default prompt
+      void handleGenerate(preselectedImages, activePrompt);
     }
-  }, [preselectedImages, onClearPreselected]);
+  }, [preselectedImages, onClearPreselected, prompt, defaultPrompt]);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -265,8 +271,14 @@ export default function DescriptionStudio({
   };
 
   // Submit generation request (supports: Images Only, Prompt Only, or Both)
-  const handleGenerate = async () => {
-    if (images.length === 0 && !prompt.trim()) {
+  const handleGenerate = async (
+    customImages?: { id: string; url: string; name: string }[],
+    customPrompt?: string
+  ) => {
+    const targetImages = customImages && customImages.length > 0 ? customImages : images;
+    const effectivePrompt = (customPrompt || prompt).trim() || defaultPrompt || DEFAULT_PROMPT;
+
+    if (targetImages.length === 0 && !effectivePrompt) {
       setErrorMsg('Please upload at least 1 garment photo or enter prompt instructions.');
       return;
     }
@@ -274,8 +286,7 @@ export default function DescriptionStudio({
     setIsGenerating(true);
 
     try {
-      const imageUrls = images.map((img) => img.url);
-      const effectivePrompt = prompt.trim() || defaultPrompt || DEFAULT_PROMPT;
+      const imageUrls = targetImages.map((img) => img.url);
       const res = await api.generateDescription({
         images: imageUrls,
         prompt: effectivePrompt,
@@ -284,7 +295,7 @@ export default function DescriptionStudio({
 
       if (res.ok && res.text) {
         setGeneratedResult(res.text);
-        setActiveTitle(res.item?.title || 'Product Description');
+        setActiveTitle(res.item?.title || targetImages[0]?.name || 'Product Description');
         showToast('🎉 Description generated successfully!');
         void loadHistory();
       }
@@ -673,7 +684,7 @@ export default function DescriptionStudio({
             <button
               type="button"
               disabled={isGenerating || (images.length === 0 && !prompt.trim())}
-              onClick={handleGenerate}
+              onClick={() => void handleGenerate()}
               className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#e5373f] hover:bg-[#d42d35] active:scale-[0.98] text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg transition"
             >
               {isGenerating ? (

@@ -2197,39 +2197,108 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       let mimeType = 'image/jpeg';
       let base64Data = '';
 
+      // 1. Data URI
       if (item.startsWith('data:')) {
         const match = item.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
           mimeType = match[1];
           base64Data = match[2];
         }
-      } else if (item.startsWith('/uploads/')) {
-        // Read directly from disk in <1ms without network overhead
+      }
+
+      // 2. Direct local disk checking for /uploads/
+      if (!base64Data && (item.includes('/uploads/') || item.includes('\\uploads\\'))) {
         try {
-          const localPath = path.join(UPLOADS, item.replace(/^\/uploads\//, ''));
-          if (fsSync.existsSync(localPath)) {
-            const ext = path.extname(localPath).toLowerCase().replace('.', '');
-            mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-            base64Data = fsSync.readFileSync(localPath).toString('base64');
+          const rawName = item.split(/[\/\\]uploads[\/\\]/).pop().split('?')[0].split('#')[0];
+          const filename = path.basename(decodeURIComponent(rawName));
+          const candidates = [
+            path.join(UPLOADS, filename),
+            path.join(DATA, 'uploads', filename),
+            path.join(ROOT, 'server', 'data', 'uploads', filename),
+          ];
+          for (const cand of candidates) {
+            if (fsSync.existsSync(cand) && fsSync.statSync(cand).isFile()) {
+              const ext = path.extname(cand).toLowerCase().replace('.', '');
+              mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+              base64Data = fsSync.readFileSync(cand).toString('base64');
+              break;
+            }
           }
-        } catch {}
-      } else if (item.startsWith('/generated/')) {
-        // Read directly from disk in <1ms without network overhead
+        } catch (e) {
+          console.warn('[DescriptionStudio] Local uploads disk read error:', e);
+        }
+      }
+
+      // 3. Direct local disk checking for /generated/
+      if (!base64Data && (item.includes('/generated/') || item.includes('\\generated\\'))) {
         try {
-          const localPath = path.join(GENERATED, item.replace(/^\/generated\//, ''));
-          if (fsSync.existsSync(localPath)) {
-            const ext = path.extname(localPath).toLowerCase().replace('.', '');
-            mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-            base64Data = fsSync.readFileSync(localPath).toString('base64');
+          const rawName = item.split(/[\/\\]generated[\/\\]/).pop().split('?')[0].split('#')[0];
+          const filename = path.basename(decodeURIComponent(rawName));
+          const candidates = [
+            path.join(GENERATED, filename),
+            path.join(DATA, 'generated', filename),
+            path.join(ROOT, 'server', 'data', 'generated', filename),
+          ];
+          for (const cand of candidates) {
+            if (fsSync.existsSync(cand) && fsSync.statSync(cand).isFile()) {
+              const ext = path.extname(cand).toLowerCase().replace('.', '');
+              mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+              base64Data = fsSync.readFileSync(cand).toString('base64');
+              break;
+            }
           }
-        } catch {}
-      } else {
+        } catch (e) {
+          console.warn('[DescriptionStudio] Local generated disk read error:', e);
+        }
+      }
+
+      // 4. MongoDB fallback (if generation/upload has stored dataUrl)
+      if (!base64Data) {
+        try {
+          const db = await getMongoDb();
+          if (db) {
+            const cleanUrl = item.replace(/^https?:\/\/[^\/]+/i, '').split('?')[0];
+            const filename = path.basename(cleanUrl);
+            const doc = await db.collection('user_generations').findOne({
+              $or: [
+                { url: item },
+                { url: cleanUrl },
+                { highResUrl: item },
+                { highResUrl: cleanUrl },
+                { outputUrl: item },
+                { outputUrl: cleanUrl },
+                { id: filename },
+                { id: cleanUrl.replace(/^\//, '') }
+              ]
+            }) || await db.collection('user_uploads').findOne({
+              $or: [{ id: filename }, { url: cleanUrl }, { url: item }]
+            });
+
+            const candidateDataUrl = doc?.dataUrl || (doc?.url && doc.url.startsWith('data:') ? doc.url : null) || (doc?.highResUrl && doc.highResUrl.startsWith('data:') ? doc.highResUrl : null);
+            if (candidateDataUrl) {
+              const m = /^data:([^;]+);base64,(.+)$/.exec(candidateDataUrl);
+              if (m) {
+                mimeType = m[1];
+                base64Data = m[2];
+              }
+            }
+          }
+        } catch (dbErr) {
+          console.warn('[DescriptionStudio] Mongo fallback search error:', dbErr?.message);
+        }
+      }
+
+      // 5. HTTP fetch fallback (for remote CDN / hosted URLs)
+      if (!base64Data) {
         let fetchUrl = item;
         if (fetchUrl.startsWith('/')) {
-          fetchUrl = `http://localhost:${PORT || 8787}${fetchUrl}`;
+          fetchUrl = `http://127.0.0.1:${PORT || 8787}${fetchUrl}`;
         }
         try {
-          const imgRes = await fetch(fetchUrl, { signal: AbortSignal.timeout(3000) });
+          const imgRes = await fetch(fetchUrl, {
+            signal: AbortSignal.timeout(8000),
+            headers: { 'User-Agent': 'ShivNaresh-Studio/1.0' },
+          });
           if (imgRes.ok) {
             const cType = imgRes.headers.get('content-type');
             if (cType && cType.startsWith('image/')) mimeType = cType.split(';')[0];
@@ -2237,7 +2306,7 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
             base64Data = buf.toString('base64');
           }
         } catch (err) {
-          console.warn('[DescriptionStudio] Error fetching image for Gemini:', item, err.message);
+          console.warn('[DescriptionStudio] Error fetching image for Gemini:', item, err?.message);
         }
       }
 
@@ -2253,6 +2322,12 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
     });
 
     const resolvedImageParts = (await Promise.all(imagePartPromises)).filter(Boolean);
+    if (hasImages && resolvedImageParts.length === 0) {
+      return res.status(400).json({
+        error: 'image_load_failed',
+        message: 'Could not load garment images for AI inspection. Please check that the image is accessible.'
+      });
+    }
     parts.push(...resolvedImageParts);
 
     // Try Gemini models cascade (starting with ultra-fast sub-second flash-lite models)
