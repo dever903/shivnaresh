@@ -118,7 +118,7 @@ const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 const getDefaultBrevoKey = () => String.fromCharCode(120, 107, 101, 121, 115, 105, 98, 45, 57, 100, 55, 55, 51, 55, 54, 102, 48, 102, 57, 97, 55, 99, 52, 99, 99, 101, 48, 101, 53, 49, 100, 99, 101, 49, 50, 101, 51, 49, 102, 57, 53, 99, 54, 56, 51, 97, 97, 55, 48, 48, 53, 49, 51, 101, 54, 51, 51, 49, 53, 50, 100, 50, 101, 97, 49, 56, 51, 54, 100, 52, 100, 48, 45, 51, 77, 52, 107, 112, 69, 103, 117, 105, 84, 97, 86, 65, 119, 80, 118);
 
-export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
+export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the sportswear garment shown in the image(s) (inspecting fabric weave, stitching quality, collar design, logos, colorways, and athletic silhouette) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
 
 ### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
 - Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
@@ -2188,8 +2188,6 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       });
     }
 
-    const parts = [{ text: effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT }];
-
     // Prepare multimodal image parts (up to 8 images per request) if provided
     const limitedImages = hasImages ? images.slice(0, 8) : [];
     const imagePartPromises = limitedImages.map(async (item) => {
@@ -2328,7 +2326,11 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
         message: 'Could not load garment images for AI inspection. Please check that the image is accessible.'
       });
     }
-    parts.push(...resolvedImageParts);
+
+    const parts = [
+      ...resolvedImageParts,
+      { text: effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT }
+    ];
 
     // Try Gemini models cascade (starting with ultra-fast sub-second flash-lite models)
     const candidateModels = [

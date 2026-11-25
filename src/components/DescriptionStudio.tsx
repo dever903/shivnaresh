@@ -25,7 +25,7 @@ interface DescriptionStudioProps {
   onClearPreselected?: () => void;
 }
 
-const DEFAULT_PROMPT = `Analyze the sportswear garment (from the provided images and/or instructions) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
+const DEFAULT_PROMPT = `Analyze the sportswear garment shown in the image(s) (inspecting fabric weave, stitching quality, collar design, logos, colorways, and athletic silhouette) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
 
 ### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
 - Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
@@ -68,6 +68,7 @@ export default function DescriptionStudio({
   );
   // State
   const [images, setImages] = useState<{ id: string; url: string; name: string }[]>([]);
+  const [isFromMySets, setIsFromMySets] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
   const [defaultPrompt, setDefaultPrompt] = useState<string>(DEFAULT_PROMPT);
   const [hasServerKey, setHasServerKey] = useState<boolean>(true);
@@ -82,6 +83,72 @@ export default function DescriptionStudio({
   const [showMySetsDrawer, setShowMySetsDrawer] = useState<boolean>(false);
   const preselectedHandledRef = useRef<string>('');
 
+  // Helper to convert any image URL (local/remote/blob) into a base64 Data URL for Gemini multimodal AI
+  const optimizeImageUrl = async (
+    rawUrl: string,
+    name: string,
+    id?: string
+  ): Promise<{ id: string; url: string; name: string }> => {
+    const fallbackId = id || 'img_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    if (!rawUrl) return { id: fallbackId, url: '', name };
+    if (rawUrl.startsWith('data:')) return { id: fallbackId, url: rawUrl, name };
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      const timer = setTimeout(() => {
+        resolve({ id: fallbackId, url: rawUrl, name });
+      }, 4000);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const maxDim = 1024;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            resolve({ id: fallbackId, url: dataUrl, name });
+            return;
+          }
+        } catch (e) {
+          console.warn('[optimizeImageUrl] canvas export failed:', e);
+        }
+        resolve({ id: fallbackId, url: rawUrl, name });
+      };
+
+      img.onerror = () => {
+        clearTimeout(timer);
+        fetch(getProxiedImageUrl(rawUrl))
+          .then((r) => r.blob())
+          .then((blob) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ id: fallbackId, url: reader.result as string, name });
+            reader.onerror = () => resolve({ id: fallbackId, url: rawUrl, name });
+            reader.readAsDataURL(blob);
+          })
+          .catch(() => resolve({ id: fallbackId, url: rawUrl, name }));
+      };
+
+      img.src = getProxiedImageUrl(rawUrl);
+    });
+  };
+
   // Synchronize preselected images from My Sets & Automatically Trigger AI Description
   useEffect(() => {
     if (preselectedImages && preselectedImages.length > 0) {
@@ -89,14 +156,28 @@ export default function DescriptionStudio({
       if (preselectedHandledRef.current === key) return;
       preselectedHandledRef.current = key;
 
+      setIsFromMySets(true);
+      setErrorMsg(null);
       setImages(preselectedImages);
+
+      void (async () => {
+        showToast(`⚡ Taking selected garment from My Sets...`);
+        // Convert to base64 Data URL so Gemini AI directly receives the multimodal image
+        const optimized = await Promise.all(
+          preselectedImages.map((p) => optimizeImageUrl(p.url, p.name, p.id))
+        );
+        const valid = optimized.filter((item) => item.url);
+        if (valid.length > 0) {
+          setImages(valid);
+        }
+        const activePrompt = (prompt && prompt.trim()) ? prompt.trim() : (defaultPrompt || DEFAULT_PROMPT);
+        showToast(`⚡ Analyzing garment with Shiv-Naresh AI...`);
+
+        // Automatically trigger generation with verified base64 image data
+        void handleGenerate(valid.length > 0 ? valid : preselectedImages, activePrompt);
+      })();
+
       if (onClearPreselected) onClearPreselected();
-
-      const activePrompt = (prompt && prompt.trim()) ? prompt.trim() : (defaultPrompt || DEFAULT_PROMPT);
-      showToast(`⚡ Analyzing ${preselectedImages.length} image(s) with Shiv-Naresh AI...`);
-
-      // Immediately trigger generation with preselected images and default prompt
-      void handleGenerate(preselectedImages, activePrompt);
     }
   }, [preselectedImages, onClearPreselected, prompt, defaultPrompt]);
 
@@ -252,21 +333,17 @@ export default function DescriptionStudio({
   };
 
   // Toggle selection from My Sets
-  const toggleMySetImage = (gen: UserGeneration) => {
+  const toggleMySetImage = async (gen: UserGeneration) => {
     const url = getBestGenUrl(gen);
     if (!url) return;
     const exists = images.some((img) => img.id === gen.id || img.url === url);
     if (exists) {
       setImages((prev) => prev.filter((img) => img.id !== gen.id && img.url !== url));
     } else {
-      setImages((prev) => [
-        ...prev,
-        {
-          id: gen.id,
-          url: resolveImageUrl(url),
-          name: gen.title || `Render #${gen.id.slice(-4)}`,
-        },
-      ]);
+      setIsFromMySets(true);
+      showToast('⚡ Loading image from My Sets...');
+      const opt = await optimizeImageUrl(resolveImageUrl(url), gen.title || `Render #${gen.id.slice(-4)}`, gen.id);
+      setImages((prev) => [...prev, opt]);
     }
   };
 
@@ -286,7 +363,13 @@ export default function DescriptionStudio({
     setIsGenerating(true);
 
     try {
-      const imageUrls = targetImages.map((img) => img.url);
+      const preparedImages = await Promise.all(
+        targetImages.map(async (img) => {
+          if (!img.url || img.url.startsWith('data:')) return img;
+          return optimizeImageUrl(img.url, img.name, img.id);
+        })
+      );
+      const imageUrls = preparedImages.map((img) => img.url).filter(Boolean);
       const res = await api.generateDescription({
         images: imageUrls,
         prompt: effectivePrompt,
@@ -465,7 +548,7 @@ export default function DescriptionStudio({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column (Images & Prompt Form) */}
         <div className="lg:col-span-5 space-y-5">
-          {/* 1. Garment Photo Upload Card */}
+          {/* 1. Garment Photo Selection & Upload Card */}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -484,35 +567,6 @@ export default function DescriptionStudio({
             }}
             className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload Product Images ({images.length})</span>
-              </span>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowMySetsDrawer((prev) => !prev)}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
-                  title="Pick images from your My Sets library"
-                >
-                  <Archive className="w-3 h-3 text-amber-400" />
-                  <span>Pick from My Sets</span>
-                </button>
-
-                {images.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setImages([])}
-                    className="text-[10px] text-zinc-400 hover:text-rose-400 cursor-pointer transition"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* Hidden File Input */}
             <input
               ref={fileInputRef}
@@ -523,63 +577,132 @@ export default function DescriptionStudio({
               className="hidden"
             />
 
-            {/* Drop / Upload Button Area */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const files = e.dataTransfer.files;
-                if (!files || files.length === 0) return;
-                const fileList = Array.from(files);
-                const optimized = await Promise.all(fileList.map((f) => optimizeImageFile(f)));
-                const valid = optimized.filter((item) => item.url);
-                setImages((prev) => [...prev, ...valid]);
-                showToast(`Added ${valid.length} photo(s)`);
-              }}
-              className="p-5 border-2 border-dashed border-white/15 rounded-xl text-center cursor-pointer hover:border-[#e5373f] transition space-y-1.5 bg-black/20"
-            >
-              <Upload className="w-6 h-6 mx-auto text-[#e5373f] opacity-80" />
-              <p className="text-xs font-semibold">Click or drag & drop garment photos here</p>
-              <p className="text-[10px] text-zinc-400">
-                Upload front, back, close-up fabric texture, collar, or embroidery shots (JPEG, PNG, WebP)
-              </p>
-            </div>
+            {images.length > 0 ? (
+              /* When images ARE selected (from My Sets or uploaded): show prominent preview & confirmation, NO manual upload box needed! */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>
+                      {isFromMySets ? 'Garment Selected from My Sets' : `Garment Photos Loaded (${images.length})`}
+                    </span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowMySetsDrawer((prev) => !prev)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
+                      title="Switch or add more from My Sets"
+                    >
+                      <Archive className="w-3 h-3 text-amber-400" />
+                      <span>My Sets</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
+                      title="Upload extra detail shots"
+                    >
+                      <Upload className="w-3 h-3 text-[#e5373f]" />
+                      <span>+ Add More</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImages([]);
+                        setIsFromMySets(false);
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-rose-400 cursor-pointer transition ml-1"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
 
-            {/* Selected Images Grid */}
-            {images.length > 0 && (
-              <div className="space-y-1.5 pt-2">
-                <span className="text-[10px] font-bold uppercase text-zinc-400">
-                  Ready for AI Inspection ({images.length}):
-                </span>
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
+                {/* Selected Images Grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                   {images.map((img) => (
                     <div
                       key={img.id}
-                      className="relative group rounded-xl overflow-hidden border border-white/15 bg-black aspect-[3/4]"
+                      className="relative group rounded-xl overflow-hidden border-2 border-emerald-500/50 bg-black aspect-[3/4] shadow-md"
                     >
                       <img
                         src={img.url}
                         alt={img.name}
                         className="w-full h-full object-cover"
                       />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-4">
+                        <p className="text-[10px] font-bold text-white truncate">{img.name}</p>
+                        <span className="text-[8px] text-emerald-400 font-semibold uppercase">✓ Active for AI</span>
+                      </div>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           removeImage(img.id);
                         }}
-                        className="absolute top-1 right-1 p-1 rounded-full bg-black/80 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition cursor-pointer shadow-md"
+                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/80 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition cursor-pointer shadow-md"
                         title="Remove image"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 text-xs text-emerald-300 font-medium">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    {images.length === 1
+                      ? `Image "${images[0].name}" is actively selected from My Sets. No manual upload needed!`
+                      : `${images.length} images are actively selected and ready. No manual upload needed!`}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* When NO images are selected: user opened Description Studio directly, ask for image or prompt */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Product Photo</span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMySetsDrawer((prev) => !prev)}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer transition"
+                    title="Pick images from your My Sets library"
+                  >
+                    <Archive className="w-3 h-3 text-amber-400" />
+                    <span>Pick from My Sets</span>
+                  </button>
+                </div>
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const files = e.dataTransfer.files;
+                    if (!files || files.length === 0) return;
+                    const fileList = Array.from(files);
+                    const optimized = await Promise.all(fileList.map((f) => optimizeImageFile(f)));
+                    const valid = optimized.filter((item) => item.url);
+                    setImages((prev) => [...prev, ...valid]);
+                    showToast(`Added ${valid.length} photo(s)`);
+                  }}
+                  className="p-6 border-2 border-dashed border-white/15 rounded-xl text-center cursor-pointer hover:border-[#e5373f] transition space-y-2 bg-black/20"
+                >
+                  <Upload className="w-7 h-7 mx-auto text-[#e5373f] opacity-80" />
+                  <p className="text-xs font-semibold">Upload product photos or enter prompt to generate listing</p>
+                  <p className="text-[10px] text-zinc-400">
+                    Upload garment photos here, or click "Pick from My Sets" above
+                  </p>
                 </div>
               </div>
             )}
