@@ -56,31 +56,16 @@ SEO KEYWORDS
 Give 10 keywords separated by commas, with no brand name.`;
 
 export default function DescriptionStudio({
-  user,
   isLight = false,
   userGenerations = [],
   preselectedImages,
   onClearPreselected,
 }: DescriptionStudioProps) {
-  const isAdmin = Boolean(
-    user?.role === 'admin' ||
-    user?.isAdmin ||
-    user?.email === 'jaatshab11223315@gmail.com'
-  );
   // State
   const [images, setImages] = useState<{ id: string; url: string; name: string }[]>([]);
   const [isFromMySets, setIsFromMySets] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
   const [defaultPrompt, setDefaultPrompt] = useState<string>(DEFAULT_PROMPT);
-  const [hasServerKey, setHasServerKey] = useState<boolean>(true);
-  const [customApiKey, setCustomApiKey] = useState<string>(() => {
-    try {
-      return localStorage.getItem('sn_custom_gemini_key') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
   const [showMySetsDrawer, setShowMySetsDrawer] = useState<boolean>(false);
   const preselectedHandledRef = useRef<string>('');
 
@@ -212,7 +197,6 @@ export default function DescriptionStudio({
           const sysDefault = res.defaultPrompt || DEFAULT_PROMPT;
           setDefaultPrompt(sysDefault);
           setPrompt((prev) => (!prev || prev === DEFAULT_PROMPT ? sysDefault : prev));
-          setHasServerKey(res.hasGoogleKey);
         }
       })
       .catch(() => {
@@ -374,7 +358,6 @@ export default function DescriptionStudio({
       const res = await api.generateDescription({
         images: imageUrls,
         prompt: effectivePrompt,
-        apiKey: customApiKey.trim() || undefined,
       });
 
       if (res.ok && res.text) {
