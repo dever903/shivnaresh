@@ -8,7 +8,6 @@ import {
   Trash2,
   Download,
   RefreshCw,
-  Key,
   Archive,
   X,
   RotateCcw,
@@ -25,34 +24,36 @@ interface DescriptionStudioProps {
   onClearPreselected?: () => void;
 }
 
-const DEFAULT_PROMPT = `Analyze the sportswear garment shown in the image(s) (inspecting fabric weave, stitching quality, collar design, logos, colorways, and athletic silhouette) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
+const DEFAULT_PROMPT = `Look carefully at the sportswear garment in the image(s). Check the fabric look, stitching, collar, sleeves, pockets, zipper, logos, colours and overall fit. Then write a professional e-commerce listing for it.
 
-### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
-- Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
+Follow these rules strictly:
 
-### ⚡ 2. SHORT DESCRIPTION (2-3 Lines Quick Summary)
-- Write a punchy, high-impact 2-3 line elevator pitch highlighting the primary look, fabric comfort, and athletic silhouette for catalog cards, WhatsApp, and social media.
+Use only simple, clean, point-wise formatting. Do not use asterisks (**), emojis, markdown symbols, tables or decorative lines.
+Use proper, universal product names (for example "Men's Colourblock Zip-Up Track Jacket"). Do not use any company or brand name in the titles or text, unless I give you one.
+Write only what you can see in the image. If something cannot be confirmed (such as exact fabric or GSM), write "Suggested" next to it.
+Keep the language simple, attractive and easy to read. Avoid exaggerated or filler words.
 
-### 📖 3. BEST IN-DEPTH PRODUCT DESCRIPTION
-- Comprehensive, engaging marketing copy highlighting authentic Indian athletic heritage, modern sports aesthetic, dynamic motion fit, and all-weather durability.
+Give the output in exactly this order:
 
-### 🧵 4. FABRIC & MATERIAL SPECIFICATIONS
-- Detailed composition (e.g. 100% moisture-wicking micro-poly, 4-way stretch spandex blend, GSM weight estimate, breathability, durability).
-
-### 📐 5. DESIGN & KEY FEATURES
-- Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
-
-### 🏃 6. ATHLETIC PERFORMANCE & USE CASES
-- Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
-
-### 📏 7. SIZING & FIT GUIDANCE
-- Athletic taper, relaxed fit, chest/waist sizing advice.
-
-### 🧼 8. WASH & DURABILITY CARE
-- Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
-
-### 🔍 9. SEO & E-COMMERCE TAGS
-- Top 10 high-search-volume keywords separated by commas.`;
+PRODUCT TITLES
+Give 6 titles in a numbered list. Each title should be 12 to 18 words and include gender, garment type, key feature and use. Make 2 for Amazon, 2 for Flipkart and 2 for catalogue or social media.
+SHORT DESCRIPTION
+Write exactly 3 lines. Cover the look, comfort and fit in a punchy way.
+KEY FEATURES
+Write 7 to 8 points. Each point should be one line, start with a short feature name followed by a colon, and then describe the benefit in an impressive but simple way.
+Example: Breathable Fabric: Lightweight material keeps you cool and dry during long workouts.
+FABRIC AND MATERIAL
+Write 4 to 5 short points covering composition, weight, stretch and finish (mark as "Suggested" if not visible).
+DESIGN DETAILS
+Write 5 to 6 short points covering collar, sleeves, pockets, zipper, logo or print, and cuffs and hem.
+BEST USE
+Write 1 line each for sports use, daily wear and season or weather.
+SIZE AND FIT
+Write 3 to 4 short points covering fit type, sizing advice and model details if visible.
+WASH AND CARE
+Write 5 short points with clear do's and don'ts.
+SEO KEYWORDS
+Give 10 keywords separated by commas, with no brand name.`;
 
 export default function DescriptionStudio({
   user,
@@ -210,7 +211,7 @@ export default function DescriptionStudio({
         if (!cancelled && res.ok) {
           const sysDefault = res.defaultPrompt || DEFAULT_PROMPT;
           setDefaultPrompt(sysDefault);
-          setPrompt((prev) => (prev ? prev : sysDefault));
+          setPrompt((prev) => (!prev || prev === DEFAULT_PROMPT ? sysDefault : prev));
           setHasServerKey(res.hasGoogleKey);
         }
       })
@@ -455,94 +456,7 @@ export default function DescriptionStudio({
             </div>
           </div>
         </div>
-
-        {/* Google API Key Status / Toggle (Admin Only) */}
-        {isAdmin && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <div
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
-                hasServerKey || customApiKey
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                  : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  hasServerKey || customApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-              <span>
-                {customApiKey
-                  ? 'Custom Gemini Key Active'
-                  : hasServerKey
-                    ? 'Studio Google Key Active'
-                    : 'No Google Key Found'}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowKeyConfig((prev) => !prev)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 flex items-center gap-1.5 cursor-pointer transition"
-              title="Configure or override Google Gemini API key"
-            >
-              <Key className="w-3.5 h-3.5" />
-              <span>API Key</span>
-            </button>
-          </div>
-        )}
       </div>
-
-      {/* Custom Key Accordion (Admin Only) */}
-      {isAdmin && showKeyConfig && (
-        <div className={`p-4 rounded-2xl border space-y-3 animate-in fade-in ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-zinc-900/80 border-white/10'}`}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-              <Key className="w-4 h-4 text-amber-400" />
-              <span>Custom Google Gemini API Key (Optional Override)</span>
-            </span>
-            <span className="text-[10px] text-zinc-400">
-              By default, the studio uses the server's Google API Key.
-            </span>
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={customApiKey}
-              onChange={(e) => {
-                setCustomApiKey(e.target.value);
-                try {
-                  localStorage.setItem('sn_custom_gemini_key', e.target.value.trim());
-                } catch {
-                  // ignore
-                }
-              }}
-              placeholder="Paste Google AI Studio API Key (AIzaSy...)"
-              className={`flex-1 rounded-xl border px-3 py-2 text-xs font-mono focus:outline-none ${
-                isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/15 bg-black/60 text-white'
-              }`}
-            />
-            {customApiKey && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomApiKey('');
-                  try {
-                    localStorage.removeItem('sn_custom_gemini_key');
-                  } catch {
-                    // ignore
-                  }
-                  showToast('Reverted to studio Google Key');
-                }}
-                className="px-3 py-2 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Main Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -3260,34 +3260,49 @@ function MySetsPanel({
                         <span>Download 1807 × 3000 px</span>
                       </button>
 
-                      {/* Logo Actions: Add HD Logo & Edit / Erase */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      {/* Studio Tools: 3 prominent columns (HD Logo, Eraser, AI Desc) */}
+                      <div className="grid grid-cols-3 gap-1.5">
                         {onAddLogo && (
                           <button
                             type="button"
                             onClick={() => onAddLogo(gen)}
-                            className="w-full rounded-lg bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                            className="w-full rounded-lg bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/30 py-1.5 px-1 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                             title="Add official HD Vector Shiv-Naresh branding to this image in Studio"
                           >
                             <Sparkles className="h-3 w-3 shrink-0 text-amber-300" />
-                            <span className="truncate">Add HD Logo</span>
+                            <span className="whitespace-nowrap">HD Logo</span>
                           </button>
                         )}
                         {onEditLogo && (
                           <button
                             type="button"
                             onClick={() => onEditLogo(gen)}
-                            className="w-full rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/30 py-1.5 px-2 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                            className="w-full rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/30 py-1.5 px-1 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                             title="Open in Logo Eraser Studio to erase unwanted AI logos or select Canva area"
                           >
                             <Eraser className="h-3 w-3 shrink-0" />
-                            <span className="truncate">Edit / Erase</span>
+                            <span className="whitespace-nowrap">Eraser</span>
+                          </button>
+                        )}
+                        {onSendToDescription && (
+                          <button
+                            type="button"
+                            onClick={() => onSendToDescription([gen])}
+                            className={`w-full rounded-lg border py-1.5 px-1 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-xs ${
+                              isLight
+                                ? 'bg-amber-50 hover:bg-amber-500 border-amber-200 text-amber-800 hover:text-black'
+                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-black border-amber-500/30'
+                            }`}
+                            title="Send this image directly to AI Description Studio for product titles & description"
+                          >
+                            <FileText className="h-3 w-3 shrink-0" />
+                            <span className="whitespace-nowrap">AI Desc</span>
                           </button>
                         )}
                       </div>
 
-                      {/* Secondary Utility Actions (Crop, Zoom, View, Delete) */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Utilities Bar: 4 columns (Crop, Zoom, View, Delete) */}
+                      <div className="grid grid-cols-4 gap-1.5">
                         {onZoomCrop && (
                           <button
                             type="button"
@@ -3296,7 +3311,7 @@ function MySetsPanel({
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `crop-${gen.id.slice(0, 6)}`);
                             }}
-                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
                               isLight
                                 ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                                 : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
@@ -3304,7 +3319,7 @@ function MySetsPanel({
                             title="Crop any part of this image and save to Ready to Use or Edited"
                           >
                             <Crop className="h-3 w-3 text-sky-400 shrink-0" />
-                            <span className="truncate">Crop</span>
+                            <span className="whitespace-nowrap">Crop</span>
                           </button>
                         )}
                         {onZoomCrop && (
@@ -3315,7 +3330,7 @@ function MySetsPanel({
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
-                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
+                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
                               isLight
                                 ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                                 : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
@@ -3323,22 +3338,7 @@ function MySetsPanel({
                             title="Open interactive Zoom & Macro Crop Studio (1807×3000 px)"
                           >
                             <Maximize2 className="h-3 w-3 text-emerald-400 shrink-0" />
-                            <span className="truncate">Zoom</span>
-                          </button>
-                        )}
-                        {onSendToDescription && (
-                          <button
-                            type="button"
-                            onClick={() => onSendToDescription([gen])}
-                            className={`flex-1 min-w-0 rounded-lg border py-1.5 px-2 text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
-                              isLight
-                                ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
-                                : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                            }`}
-                            title="Send this image directly to AI Description Studio for product titles & description"
-                          >
-                            <FileText className="h-3 w-3 text-amber-400 shrink-0" />
-                            <span className="truncate">AI Desc</span>
+                            <span className="whitespace-nowrap">Zoom</span>
                           </button>
                         )}
                         <button
@@ -3347,23 +3347,25 @@ function MySetsPanel({
                             const primary = getBestGenUrl(gen);
                             if (primary) safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
                           }}
-                          className={`rounded-lg border p-1.5 text-xs transition cursor-pointer shrink-0 flex items-center justify-center ${
+                          className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
                             isLight
                               ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                               : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
                           }`}
-                          title="Open full image in new tab"
+                          title="Open full image in new tab with interactive pan & zoom"
                         >
-                          <ExternalLink className="h-3.5 w-3.5" />
+                          <ExternalLink className="h-3 w-3 text-sky-400 shrink-0" />
+                          <span className="whitespace-nowrap">View</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleDeleteGen(gen.id)}
                           disabled={deletingGenId === gen.id}
-                          className="rounded-lg border border-red-500/20 p-1.5 text-xs text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center"
+                          className="w-full rounded-lg border border-red-500/20 py-1 px-1 text-[10px] font-semibold text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                           title="Delete image from My Sets (moves safely to Admin Recycle Bin)"
                         >
-                          {deletingGenId === gen.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
+                          <Trash2 className="h-3 w-3 text-red-400 shrink-0" />
+                          <span className="whitespace-nowrap">{deletingGenId === gen.id ? '…' : 'Delete'}</span>
                         </button>
                       </div>
 

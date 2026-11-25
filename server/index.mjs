@@ -118,34 +118,36 @@ const PRIMARY_ADMIN_EMAIL = 'jaatshab11223315@gmail.com';
 const RESEND_DEFAULT_KEY = process.env.RESEND_API_KEY || '';
 const getDefaultBrevoKey = () => String.fromCharCode(120, 107, 101, 121, 115, 105, 98, 45, 57, 100, 55, 55, 51, 55, 54, 102, 48, 102, 57, 97, 55, 99, 52, 99, 99, 101, 48, 101, 53, 49, 100, 99, 101, 49, 50, 101, 51, 49, 102, 57, 53, 99, 54, 56, 51, 97, 97, 55, 48, 48, 53, 49, 51, 101, 54, 51, 51, 49, 53, 50, 100, 50, 101, 97, 49, 56, 51, 54, 100, 52, 100, 48, 45, 51, 77, 52, 107, 112, 69, 103, 117, 105, 84, 97, 86, 65, 119, 80, 118);
 
-export const DEFAULT_DESCRIPTION_PROMPT = `Analyze the sportswear garment shown in the image(s) (inspecting fabric weave, stitching quality, collar design, logos, colorways, and athletic silhouette) and generate the best high-converting e-commerce listing in authentic Shiv-Naresh athletic style:
+export const DEFAULT_DESCRIPTION_PROMPT = `Look carefully at the sportswear garment in the image(s). Check the fabric look, stitching, collar, sleeves, pockets, zipper, logos, colours and overall fit. Then write a professional e-commerce listing for it.
 
-### 🏷️ 1. SUGGESTED PRODUCT NAMES & TITLES (Top 5-8 Best Names)
-- Provide 5 to 8 high-converting, premium athletic product titles (e.g., "Shiv-Naresh AeroShield Dry-Fit Track Jacket | Pro Athletic Edition", "Shiv-Naresh CoreFlex Pro Training Shorts"). Include options for Amazon, Flipkart, and catalog booklets.
+Follow these rules strictly:
 
-### ⚡ 2. SHORT DESCRIPTION (2-3 Lines Quick Summary)
-- Write a punchy, high-impact 2-3 line elevator pitch highlighting the primary look, fabric comfort, and athletic silhouette for catalog cards, WhatsApp, and social media.
+Use only simple, clean, point-wise formatting. Do not use asterisks (**), emojis, markdown symbols, tables or decorative lines.
+Use proper, universal product names (for example "Men's Colourblock Zip-Up Track Jacket"). Do not use any company or brand name in the titles or text, unless I give you one.
+Write only what you can see in the image. If something cannot be confirmed (such as exact fabric or GSM), write "Suggested" next to it.
+Keep the language simple, attractive and easy to read. Avoid exaggerated or filler words.
 
-### 📖 3. BEST IN-DEPTH PRODUCT DESCRIPTION
-- Comprehensive, engaging marketing copy highlighting authentic Indian athletic heritage, modern sports aesthetic, dynamic motion fit, and all-weather durability.
+Give the output in exactly this order:
 
-### 🧵 4. FABRIC & MATERIAL SPECIFICATIONS
-- Detailed composition (e.g. 100% moisture-wicking micro-poly, 4-way stretch spandex blend, GSM weight estimate, breathability, durability).
-
-### 📐 5. DESIGN & KEY FEATURES
-- Cut/pattern, neck/collar style (stand collar, crew, hoodie), sleeve design, pocket placement, zipper specs, reflective piping, high-definition embroidery or logo branding.
-
-### 🏃 6. ATHLETIC PERFORMANCE & USE CASES
-- Specific sports (running, cricket, football, marathon training, badminton, leisure/travel wear).
-
-### 📏 7. SIZING & FIT GUIDANCE
-- Athletic taper, relaxed fit, chest/waist sizing advice.
-
-### 🧼 8. WASH & DURABILITY CARE
-- Machine wash guidelines, temperature, do's & don'ts to preserve fabric elasticity and print.
-
-### 🔍 9. SEO & E-COMMERCE TAGS
-- Top 10 high-search-volume keywords separated by commas.`;
+PRODUCT TITLES
+Give 6 titles in a numbered list. Each title should be 12 to 18 words and include gender, garment type, key feature and use. Make 2 for Amazon, 2 for Flipkart and 2 for catalogue or social media.
+SHORT DESCRIPTION
+Write exactly 3 lines. Cover the look, comfort and fit in a punchy way.
+KEY FEATURES
+Write 7 to 8 points. Each point should be one line, start with a short feature name followed by a colon, and then describe the benefit in an impressive but simple way.
+Example: Breathable Fabric: Lightweight material keeps you cool and dry during long workouts.
+FABRIC AND MATERIAL
+Write 4 to 5 short points covering composition, weight, stretch and finish (mark as "Suggested" if not visible).
+DESIGN DETAILS
+Write 5 to 6 short points covering collar, sleeves, pockets, zipper, logo or print, and cuffs and hem.
+BEST USE
+Write 1 line each for sports use, daily wear and season or weather.
+SIZE AND FIT
+Write 3 to 4 short points covering fit type, sizing advice and model details if visible.
+WASH AND CARE
+Write 5 short points with clear do's and don'ts.
+SEO KEYWORDS
+Give 10 keywords separated by commas, with no brand name.`;
 
 /* Built-in default state seeded when running on fresh/cloud environments */
 const SEED_STATE = {
@@ -2327,9 +2329,23 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
       });
     }
 
+    const now = new Date();
+    const currentDateStr = now.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const currentYear = now.getFullYear();
+
+    const timeAwareness = `[Context Note: Real-time active environment. Today's date is ${currentDateStr}. Current year: ${currentYear}. You possess real-time date awareness. Never output any disclaimers about not knowing today's date or lacking real-time information.]\n\n`;
+
+    const finalPromptText = timeAwareness + (effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT);
+
     const parts = [
       ...resolvedImageParts,
-      { text: effectivePrompt || s.descriptionPrompt || DEFAULT_DESCRIPTION_PROMPT }
+      { text: finalPromptText }
     ];
 
     // Try Gemini models cascade (starting with ultra-fast sub-second flash-lite models)

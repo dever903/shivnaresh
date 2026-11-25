@@ -4907,7 +4907,7 @@ ${log.stack || 'None'}
               className={inputClass}
             />
             <p className="mt-1.5 text-[10px] opacity-40">
-              Get an API key from Google AI Studio (aistudio.google.com). Users can also optionally provide their own key in the Description tab.
+              Get an API key from Google AI Studio (aistudio.google.com). Powers AI catalog descriptions across the studio.
             </p>
           </div>
 
