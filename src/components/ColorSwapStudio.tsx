@@ -946,7 +946,7 @@ export default function ColorSwapStudio({
       let rawImg: any = null;
       if (imgElement && imgElement.naturalWidth > 0) {
         const c = document.createElement('canvas');
-        const maxD = 512;
+        const maxD = 768;
         const scale = Math.min(1.0, maxD / Math.max(imgElement.naturalWidth, imgElement.naturalHeight));
         c.width = Math.round(imgElement.naturalWidth * scale);
         c.height = Math.round(imgElement.naturalHeight * scale);
@@ -1022,11 +1022,13 @@ export default function ColorSwapStudio({
           lbl.includes('hoodie')
         ) {
           for (let i = 0; i < upperData.length; i++) {
-            if (d[i] > 128) {
-              upperData[i] = 255;
-              bothData[i] = 255;
-              upperCount++;
-              bothCount++;
+            if (d[i] > 16) {
+              if (d[i] > upperData[i]) upperData[i] = d[i];
+              if (d[i] > bothData[i]) bothData[i] = d[i];
+              if (d[i] > 100) {
+                upperCount++;
+                bothCount++;
+              }
             }
           }
         }
@@ -1041,11 +1043,13 @@ export default function ColorSwapStudio({
           lbl.includes('jeans')
         ) {
           for (let i = 0; i < lowerData.length; i++) {
-            if (d[i] > 128) {
-              lowerData[i] = 255;
-              bothData[i] = 255;
-              lowerCount++;
-              bothCount++;
+            if (d[i] > 16) {
+              if (d[i] > lowerData[i]) lowerData[i] = d[i];
+              if (d[i] > bothData[i]) bothData[i] = d[i];
+              if (d[i] > 100) {
+                lowerCount++;
+                bothCount++;
+              }
             }
           }
         }
@@ -1218,72 +1222,139 @@ export default function ColorSwapStudio({
     const [tgtL, tgtA, tgtBVal] = rgbToLab(tgtR, tgtG, tgtB);
 
     // =========================================================================
-    // PATH A: PRODUCTION AI SEGFORMER PRECISION ENGINE
+    // PATH A: PRODUCTION AI SEGFORMER PRECISION ENGINE WITH COLOR-GUIDED MATTE
     // =========================================================================
     if (aiGarmentData) {
-      // 1. Edge Softening: 1.5px Anti-Aliased Box Kernel
+      // 1. Wide Separable Anti-Aliased Mask Smoothing (eliminates upscaled staircase borders)
+      const blurR = Math.max(2, Math.min(4, Math.round(W / 350)));
+      const horizAlpha = new Float32Array(W * H);
       const softAlpha = new Float32Array(W * H);
-      let totalGarmentLum = 0;
-      let garmentLumCount = 0;
-      const sampleStride = Math.max(1, Math.floor((W * H) / 10000));
 
       for (let y = 0; y < H; y++) {
-        const y0 = Math.max(0, y - 1);
-        const y1 = Math.min(H - 1, y + 1);
+        const rowOff = y * W;
         for (let x = 0; x < W; x++) {
-          const pIdx = y * W + x;
-          const maskVal = aiGarmentData[pIdx * 4];
-          if (maskVal < 10) continue;
-
-          const x0 = Math.max(0, x - 1);
-          const x1 = Math.min(W - 1, x + 1);
           let sum = 0;
-          let count = 0;
-          for (let ny = y0; ny <= y1; ny++) {
-            const rowOffset = ny * W;
-            for (let nx = x0; nx <= x1; nx++) {
-              sum += aiGarmentData[(rowOffset + nx) * 4] > 128 ? 1 : 0;
-              count++;
-            }
+          let cnt = 0;
+          const x0 = Math.max(0, x - blurR);
+          const x1 = Math.min(W - 1, x + blurR);
+          for (let nx = x0; nx <= x1; nx++) {
+            sum += aiGarmentData[(rowOff + nx) * 4] / 255.0;
+            cnt++;
           }
-          const alpha = sum / count;
+          horizAlpha[rowOff + x] = sum / cnt;
+        }
+      }
+
+      let totalGarmentR = 0, totalGarmentG = 0, totalGarmentB = 0;
+      let garmentLumCount = 0;
+      let minGX = W, maxGX = 0, minGY = H, maxGY = 0;
+      const sampleStride = Math.max(1, Math.floor((W * H) / 12000));
+
+      for (let y = 0; y < H; y++) {
+        const y0 = Math.max(0, y - blurR);
+        const y1 = Math.min(H - 1, y + blurR);
+        for (let x = 0; x < W; x++) {
+          let sum = 0;
+          let cnt = 0;
+          for (let ny = y0; ny <= y1; ny++) {
+            sum += horizAlpha[ny * W + x];
+            cnt++;
+          }
+          const alpha = sum / cnt;
+          const pIdx = y * W + x;
           softAlpha[pIdx] = alpha;
 
-          if (alpha > 0.8 && pIdx % sampleStride === 0) {
-            const i = pIdx * 4;
-            const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-            totalGarmentLum += lum;
-            garmentLumCount++;
+          if (alpha > 0.78) {
+            if (x < minGX) minGX = x;
+            if (x > maxGX) maxGX = x;
+            if (y < minGY) minGY = y;
+            if (y > maxGY) maxGY = y;
+            if (pIdx % sampleStride === 0) {
+              const i = pIdx * 4;
+              totalGarmentR += data[i];
+              totalGarmentG += data[i + 1];
+              totalGarmentB += data[i + 2];
+              garmentLumCount++;
+            }
           }
         }
       }
 
       if (true) {
-        const baseLum = garmentLumCount > 0 ? (totalGarmentLum / garmentLumCount) : 128;
-        const [baseL] = rgbToLab(baseLum, baseLum, baseLum);
+        const baseR = garmentLumCount > 0 ? totalGarmentR / garmentLumCount : 128;
+        const baseG = garmentLumCount > 0 ? totalGarmentG / garmentLumCount : 128;
+        const baseB = garmentLumCount > 0 ? totalGarmentB / garmentLumCount : 128;
+        const [baseL, baseA, baseBVal] = rgbToLab(baseR, baseG, baseB);
 
-        // 2. Pixel Iteration: Multi-Layer Logic + CIELAB Texture Transfer
+        // Estimate studio background color from top corners
+        const cornerPoints = [
+          [4, 4],
+          [W - 5, 4],
+          [4, Math.min(H - 5, 40)],
+          [W - 5, Math.min(H - 5, 40)],
+        ];
+        let bgRSum = 0, bgGSum = 0, bgBSum = 0;
+        for (const [cx, cy] of cornerPoints) {
+          const ci = (Math.max(0, cy) * W + Math.max(0, cx)) * 4;
+          bgRSum += data[ci];
+          bgGSum += data[ci + 1];
+          bgBSum += data[ci + 2];
+        }
+        const [bgL, bgA, bgBVal] = rgbToLab(bgRSum / 4, bgGSum / 4, bgBSum / 4);
+        const garmentMatchesBg = Math.hypot(baseL - bgL, baseA - bgA, baseBVal - bgBVal) < 12.0;
+
+        // Padded Garment Bounding Box for Disconnected Sleeve / Edge Halo Recovery
+        const padX = Math.round((maxGX - minGX) * 0.14);
+        const padY = Math.round((maxGY - minGY) * 0.08);
+        const boxX0 = Math.max(0, minGX - padX);
+        const boxX1 = Math.min(W - 1, maxGX + padX);
+        const boxY0 = Math.max(0, minGY - padY);
+        const boxY1 = Math.min(H - 1, maxGY + padY);
+
+        // 2. Pixel Iteration: Color-Guided Edge Snap + Multi-Layer CIELAB Texture Transfer
         for (let y = 0; y < H; y++) {
           for (let x = 0; x < W; x++) {
             const pIdx = y * W + x;
             const i = pIdx * 4;
 
-            // Strict AI Protect Mask: hair, face, skin, arms, legs
-            if (aiProtectData && aiProtectData[i] > 128) {
+            // Smooth anti-aliased skin/hair/face protection (prevents harsh collar/cuff halo)
+            const prot = aiProtectData ? aiProtectData[i] / 255.0 : 0;
+            if (prot > 0.85) {
               continue;
             }
+            const protAtten = Math.max(0.0, 1.0 - Math.max(0.0, (prot - 0.35) / 0.45));
 
-            const alpha = softAlpha[pIdx];
-            if (alpha < 0.02) {
-              continue;
-            }
+            let alpha = softAlpha[pIdx] * protAtten;
+            const inPaddedBox = x >= boxX0 && x <= boxX1 && y >= boxY0 && y <= boxY1;
 
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
+            const [pL, pA, pBVal] = rgbToLab(r, g, b);
+
+            // Color-Guided Matte Refinement:
+            // - Snaps 1-3px missed border pixels to the true fabric edge (eliminates previous color halo)
+            // - Recovers disconnected sleeve parts (e.g. behind basketball) matching exact garment color
+            if (inPaddedBox && !garmentMatchesBg && prot < 0.4) {
+              const dGarment = Math.hypot(pL - baseL, pA - baseA, pBVal - baseBVal);
+              const dBg = Math.hypot(pL - bgL, pA - bgA, pBVal - bgBVal);
+              const nearMask = alpha > 0.015;
+              const isColorMatch = dGarment < 14.5 && dGarment < dBg * 0.65;
+
+              if (isColorMatch && (nearMask || dGarment < 11.5)) {
+                const boost = Math.min(1.0, (14.5 - dGarment) / 4.5);
+                alpha = Math.max(alpha, boost * protAtten);
+              } else if (alpha > 0.01 && alpha < 0.75 && dBg < 9.5 && dGarment > 14.0) {
+                // Suppress background bleed on soft border
+                alpha = 0;
+              }
+            }
+
+            if (alpha < 0.02) {
+              continue;
+            }
 
             // CIELAB Texture & Luminance Transfer
-            const [pL] = rgbToLab(r, g, b);
             const deltaL = pL - baseL;
 
             let newL: number;
