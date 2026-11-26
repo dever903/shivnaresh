@@ -1395,14 +1395,14 @@ export default function ColorSwapStudio({
             const refL = useColorGate ? srcL : baseL;
             const refA = useColorGate ? srcA : baseA;
             const refB = useColorGate ? srcBVal : baseBVal;
-            if (inPaddedBox && !garmentMatchesBg && prot < 0.5) {
-              const dGarment = Math.hypot(pL - refL, pA - refA, pBVal - refB);
+            if (inPaddedBox && !garmentMatchesBg && prot < (strongFabricMatch ? 0.90 : 0.55)) {
+              const dGarment = Math.hypot((pL - refL) * 0.6, pA - refA, pBVal - refB);
               const dBg = Math.hypot(pL - bgL, pA - bgA, pBVal - bgBVal);
-              const nearMask = alpha > 0.015;
-              const isColorMatch = dGarment < 15.5 && dGarment < dBg * 0.7;
+              const nearMask = alpha > 0.01 || softAlpha[pIdx] > 0.001;
+              const isColorMatch = dGarment < 19.0 && dBg > 8.5 && dGarment < dBg * 0.85;
 
-              if (isColorMatch && (nearMask || dGarment < 12.0)) {
-                const boost = Math.min(1.0, (15.5 - dGarment) / 4.5);
+              if (isColorMatch && (nearMask || dGarment < 15.0)) {
+                const boost = Math.min(1.0, (19.0 - dGarment) / 4.5);
                 alpha = Math.max(alpha, boost * protAtten * colorGate);
               } else if (alpha > 0.01 && alpha < 0.75 && dBg < 9.5 && dGarment > 14.0) {
                 // Suppress background bleed on soft border
