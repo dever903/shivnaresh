@@ -37,7 +37,10 @@ async function loadEnv() {
   }
 }
 await loadEnv();
-const DATA = path.join(__dirname, 'data');
+
+// Serverless / Read-only filesystem tolerance (Vercel uses /tmp as writable storage)
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA = isServerless ? path.join('/tmp', 'data') : path.join(__dirname, 'data');
 const UPLOADS = path.join(DATA, 'uploads');
 const GENERATED = path.join(DATA, 'generated');
 const STATE_FILE = path.join(DATA, 'state.json');
@@ -57,10 +60,14 @@ const PORT = Number(process.env.PORT || 8787);
 
 const PROXY_CACHE_DIR = path.join(DATA, 'cache', 'proxy');
 const WATERMARK_JOBS_DIR = path.join(DATA, 'watermark_jobs');
-await fs.mkdir(UPLOADS, { recursive: true });
-await fs.mkdir(GENERATED, { recursive: true });
-await fs.mkdir(PROXY_CACHE_DIR, { recursive: true });
-await fs.mkdir(WATERMARK_JOBS_DIR, { recursive: true });
+try {
+  await fs.mkdir(UPLOADS, { recursive: true });
+  await fs.mkdir(GENERATED, { recursive: true });
+  await fs.mkdir(PROXY_CACHE_DIR, { recursive: true });
+  await fs.mkdir(WATERMARK_JOBS_DIR, { recursive: true });
+} catch (fsErr) {
+  console.warn('[fs.mkdir] Startup storage notice:', fsErr?.message);
+}
 const LOCAL_WATERMARK_JOBS = new Map();
 
 /* Process-level crash loggers: ensure fatal errors are recorded for Admin diagnostics */
@@ -8394,28 +8401,33 @@ async function recoverStaleGenerations() {
   }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[shivnaresh] api listening on 0.0.0.0:${PORT}`);
+// Start HTTP server in persistent environments (Local / Docker / Render). In serverless (Vercel), export app directly.
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[shivnaresh] api listening on 0.0.0.0:${PORT}`);
 
-  // Run watchdog immediately on startup, then every 60 seconds
-  void recoverStaleGenerations();
-  setInterval(recoverStaleGenerations, 60_000);
+    // Run watchdog immediately on startup, then every 60 seconds
+    void recoverStaleGenerations();
+    setInterval(recoverStaleGenerations, 60_000);
 
-  // Automated Self Keep-Alive: Pings server public URL every 10 minutes to prevent Render idle spin-down
-  const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || process.env.VITE_API_URL || 'https://shivnaresh-api.onrender.com';
-  if (KEEP_ALIVE_URL && !KEEP_ALIVE_URL.includes('localhost') && !KEEP_ALIVE_URL.includes('127.0.0.1')) {
-    const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes (Render sleeps after 15 minutes of inactivity)
-    setInterval(async () => {
-      try {
-        const pingTarget = `${KEEP_ALIVE_URL.replace(/\/+$/, '')}/api/health`;
-        const resp = await fetch(pingTarget, {
-          method: 'GET',
-          headers: { 'User-Agent': 'ShivNaresh-KeepAlive-Worker/1.0' },
-        });
-        console.log(`[KeepAlive] Pinged ${pingTarget} -> HTTP ${resp.status}`);
-      } catch (err) {
-        console.warn('[KeepAlive] Self-ping notice (will retry):', err.message);
-      }
-    }, PING_INTERVAL);
-  }
-});
+    // Automated Self Keep-Alive: Pings server public URL every 10 minutes to prevent Render idle spin-down
+    const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || process.env.VITE_API_URL || 'https://shivnaresh-api.onrender.com';
+    if (KEEP_ALIVE_URL && !KEEP_ALIVE_URL.includes('localhost') && !KEEP_ALIVE_URL.includes('127.0.0.1')) {
+      const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes (Render sleeps after 15 minutes of inactivity)
+      setInterval(async () => {
+        try {
+          const pingTarget = `${KEEP_ALIVE_URL.replace(/\/+$/, '')}/api/health`;
+          const resp = await fetch(pingTarget, {
+            method: 'GET',
+            headers: { 'User-Agent': 'ShivNaresh-KeepAlive-Worker/1.0' },
+          });
+          console.log(`[KeepAlive] Pinged ${pingTarget} -> HTTP ${resp.status}`);
+        } catch (err) {
+          console.warn('[KeepAlive] Self-ping notice (will retry):', err.message);
+        }
+      }, PING_INTERVAL);
+    }
+  });
+}
+
+export default app;

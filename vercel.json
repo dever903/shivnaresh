@@ -5,7 +5,15 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.mjs"
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/models/(.*)",
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
