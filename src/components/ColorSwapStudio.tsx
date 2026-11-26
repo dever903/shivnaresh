@@ -22,10 +22,10 @@ import {
   Shirt,
   Paintbrush,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
-import type { UserGeneration } from '../lib/api';
-import { resolveImageUrl, getProxiedImageUrl } from '../lib/api';
-import { getBestGenUrl, loadSafeCanvasImage } from '../pages/Design';
+import { api, type UserGeneration, resolveImageUrl, getProxiedImageUrl } from '../lib/api';
+import { getBestGenUrl, loadSafeCanvasImage, safeOpenMediaInNewTab } from '../pages/Design';
 import { MsPaintStudio } from './MsPaintStudio';
 
 /* ----------------------------------------------------------------
@@ -428,6 +428,7 @@ export default function ColorSwapStudio({
 
   // Original unmodified image cache for Instant "Restore / Undo"
   const originalBaseDataUrlRef = useRef<string | null>(null);
+  const recoloredPreviewUrlRef = useRef<string | null>(null);
   const [hasRecoloredPreview, setHasRecoloredPreview] = useState<boolean>(false);
 
   // Eyedropper & Canvas state
@@ -448,9 +449,32 @@ export default function ColorSwapStudio({
   // Processing state
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [progressMsg, setProgressMsg] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [recolorResults, setRecolorResults] = useState<RecolorResult[]>([]);
+  const [serverUploads, setServerUploads] = useState<ImageItem[]>([]);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  // Fetch all existing uploaded garments from server so 'Uploads' tab always shows previous + new uploads
+  useEffect(() => {
+    let active = true;
+    api.uploads()
+      .then((res) => {
+        if (!active || !res?.items) return;
+        const mapped: ImageItem[] = res.items
+          .filter((u) => u.url && u.kind !== 'video')
+          .map((u) => ({
+            id: u.id || `up_${u.url}`,
+            url: u.url,
+            title: u.name || 'Uploaded Garment',
+            folder: 'uploads',
+            source: 'upload' as const,
+          }));
+        setServerUploads(mapped);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   // ----------------------------------------------------------------
   // Canva Paint & Area Clone Studio State (MS Paint Pro Style)
@@ -486,6 +510,14 @@ export default function ColorSwapStudio({
       }
     }
 
+    for (const item of serverUploads) {
+      if (!seenIds.has(item.id) && !seenUrls.has(item.url)) {
+        seenIds.add(item.id);
+        seenUrls.add(item.url);
+        list.push(item);
+      }
+    }
+
     userGenerations
       .filter((g) => g.type !== 'video' && Boolean(getBestGenUrl(g)))
       .forEach((g) => {
@@ -498,12 +530,12 @@ export default function ColorSwapStudio({
             url: u,
             title: g.title || `Render #${g.id.slice(-4)}`,
             folder: g.folder || (g.isEdited ? 'edited' : 'generated'),
-            source: 'mysets',
+            source: g.isManualUpload ? 'upload' : 'mysets',
           });
         }
       });
     return list;
-  }, [userGenerations, customUploads]);
+  }, [userGenerations, customUploads, serverUploads]);
 
   // Filtered images list
   const filteredImages = useMemo(() => {
@@ -554,6 +586,7 @@ export default function ColorSwapStudio({
 
         // Cache original base Data URL for instant Undo/Restore
         originalBaseDataUrlRef.current = canvas.toDataURL('image/jpeg', 0.95);
+        recoloredPreviewUrlRef.current = null;
         setHasRecoloredPreview(false);
 
         // Auto-extract dominant palette for Canva tab
@@ -573,7 +606,9 @@ export default function ColorSwapStudio({
   // Keep live canvas restored when switching between subtabs
   useEffect(() => {
     if (subTab === 'swap' && previewCanvasRef.current) {
-      const srcUrl = originalBaseDataUrlRef.current || (activeImage ? activeImage.url : null);
+      const srcUrl = (hasRecoloredPreview && recoloredPreviewUrlRef.current)
+        ? recoloredPreviewUrlRef.current
+        : (originalBaseDataUrlRef.current || (activeImage ? activeImage.url : null));
       if (srcUrl) {
         loadSafeCanvasImage(srcUrl).then((img) => {
           if (!previewCanvasRef.current) return;
@@ -1172,9 +1207,9 @@ export default function ColorSwapStudio({
      ---------------------------------------------------------------- */
   const recolorCanvas = (
     sourceImg: HTMLImageElement,
-    _srcHex: string,
+    srcHex: string,
     tgtHex: string,
-    _tol: number,
+    tol: number,
     lOff: number,
     sMult: number,
     masks?: { garmentMask: HTMLImageElement | null; protectMask: HTMLImageElement | null } | null,
@@ -1220,6 +1255,11 @@ export default function ColorSwapStudio({
 
     const [tgtR, tgtG, tgtB] = hexToRgb(tgtHex);
     const [tgtL, tgtA, tgtBVal] = rgbToLab(tgtR, tgtG, tgtB);
+    const [srcR, srcG, srcB] = hexToRgb(srcHex || '#B0ABA7');
+    const [srcL, srcA, srcBVal] = rgbToLab(srcR, srcG, srcB);
+    const useColorGate = Boolean(srcHex) && tol < 85;
+    const maxColorDist = Math.max(20.0, tol * 1.15);
+    const featherColorDist = maxColorDist + 10.0;
 
     // =========================================================================
     // PATH A: PRODUCTION AI SEGFORMER PRECISION ENGINE WITH COLOR-GUIDED MATTE
@@ -1317,33 +1357,53 @@ export default function ColorSwapStudio({
             const pIdx = y * W + x;
             const i = pIdx * 4;
 
-            // Smooth anti-aliased skin/hair/face protection (prevents harsh collar/cuff halo)
-            const prot = aiProtectData ? aiProtectData[i] / 255.0 : 0;
-            if (prot > 0.85) {
-              continue;
-            }
-            const protAtten = Math.max(0.0, 1.0 - Math.max(0.0, (prot - 0.35) / 0.45));
-
-            let alpha = softAlpha[pIdx] * protAtten;
-            const inPaddedBox = x >= boxX0 && x <= boxX1 && y >= boxY0 && y <= boxY1;
-
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
             const [pL, pA, pBVal] = rgbToLab(r, g, b);
 
+            // Source Color Isolation Gate (keeps two-tone black sleeves, zippers, and logos 100% untouched!)
+            const colorDist = Math.hypot((pL - srcL) * 0.55, pA - srcA, pBVal - srcBVal);
+            let colorGate = 1.0;
+            if (useColorGate) {
+              if (colorDist > featherColorDist) {
+                continue;
+              }
+              if (colorDist > maxColorDist) {
+                const t = (featherColorDist - colorDist) / 10.0;
+                colorGate = t * t * (3 - 2 * t);
+              }
+            }
+
+            // Smooth anti-aliased skin/hair/face protection
+            // If pixel strongly matches the picked garment fabric color (e.g. yellow collar rim), allow full swap unless 92%+ skin
+            const prot = aiProtectData ? aiProtectData[i] / 255.0 : 0;
+            const strongFabricMatch = useColorGate && colorDist < maxColorDist * 0.85;
+            if (prot > (strongFabricMatch ? 0.92 : 0.85)) {
+              continue;
+            }
+            const protAtten = strongFabricMatch && prot < 0.82
+              ? 1.0
+              : Math.max(0.0, 1.0 - Math.max(0.0, (prot - 0.35) / 0.45));
+
+            let alpha = softAlpha[pIdx] * protAtten * colorGate;
+            const inPaddedBox = x >= boxX0 && x <= boxX1 && y >= boxY0 && y <= boxY1;
+
             // Color-Guided Matte Refinement:
             // - Snaps 1-3px missed border pixels to the true fabric edge (eliminates previous color halo)
             // - Recovers disconnected sleeve parts (e.g. behind basketball) matching exact garment color
-            if (inPaddedBox && !garmentMatchesBg && prot < 0.4) {
-              const dGarment = Math.hypot(pL - baseL, pA - baseA, pBVal - baseBVal);
+            const refL = useColorGate ? srcL : baseL;
+            const refA = useColorGate ? srcA : baseA;
+            const refB = useColorGate ? srcBVal : baseBVal;
+            if (inPaddedBox && !garmentMatchesBg && prot < 0.5) {
+              const dGarment = Math.hypot(pL - refL, pA - refA, pBVal - refB);
               const dBg = Math.hypot(pL - bgL, pA - bgA, pBVal - bgBVal);
               const nearMask = alpha > 0.015;
-              const isColorMatch = dGarment < 14.5 && dGarment < dBg * 0.65;
+              const isColorMatch = dGarment < 15.5 && dGarment < dBg * 0.7;
 
-              if (isColorMatch && (nearMask || dGarment < 11.5)) {
-                const boost = Math.min(1.0, (14.5 - dGarment) / 4.5);
-                alpha = Math.max(alpha, boost * protAtten);
+              if (isColorMatch && (nearMask || dGarment < 12.0)) {
+                const boost = Math.min(1.0, (15.5 - dGarment) / 4.5);
+                alpha = Math.max(alpha, boost * protAtten * colorGate);
               } else if (alpha > 0.01 && alpha < 0.75 && dBg < 9.5 && dGarment > 14.0) {
                 // Suppress background bleed on soft border
                 alpha = 0;
@@ -1354,8 +1414,8 @@ export default function ColorSwapStudio({
               continue;
             }
 
-            // CIELAB Texture & Luminance Transfer
-            const deltaL = pL - baseL;
+            // CIELAB Texture & Luminance Transfer (calibrated to picked source fabric lightness)
+            const deltaL = pL - (useColorGate ? srcL : baseL);
 
             let newL: number;
             let newA = tgtA;
@@ -1436,20 +1496,27 @@ export default function ColorSwapStudio({
     itemsToProcess = Array.from(uniqueMap.values());
 
     setIsProcessing(true);
+    setProgressPercent(8);
     const newResults: RecolorResult[] = [];
 
     try {
       for (let i = 0; i < itemsToProcess.length; i++) {
         const item = itemsToProcess[i];
-        setProgressMsg(`AI Segmenting & Swapping color for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
+        const basePct = Math.round((i / itemsToProcess.length) * 85);
+        setProgressPercent(Math.max(10, basePct + 12));
+        setProgressMsg(`AI Segmenting garment for ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
         const loadedImg = await loadSafeCanvasImage(item.url);
+        setProgressPercent(Math.max(25, basePct + 35));
         const masks = await getOrFetchAiMask(item, garmentScope, loadedImg);
 
         if (!masks?.garmentMask) {
           console.warn(`[ColorSwap] AI segmentation mask unavailable for ${item.title}.`);
           continue;
         }
+
+        setProgressPercent(Math.max(55, basePct + 65));
+        setProgressMsg(`Applying ${getColorName(targetHex)} weave color to ${item.title} (${i + 1} of ${itemsToProcess.length})…`);
 
         const recoloredDataUrl = recolorCanvas(
           loadedImg,
@@ -1475,13 +1542,15 @@ export default function ColorSwapStudio({
           };
           newResults.push(resItem);
         }
+        setProgressPercent(Math.min(95, Math.round(((i + 1) / itemsToProcess.length) * 90)));
       }
 
       if (newResults.length === 0) {
-        setError('AI garment segmentation was unavailable. Please ensure the backend server is running on port 8787.');
+        setError('AI garment segmentation could not isolate the garment on this image. Please try another photo or adjust scope.');
         return;
       }
 
+      setProgressPercent(98);
       setRecolorResults((prev) => {
         // Filter out identical previous results for same item & target color to prevent duplicate pose clones
         const newKeys = new Set(newResults.map((n) => `${n.sourceUrl}:::${n.targetHex}`));
@@ -1489,17 +1558,26 @@ export default function ColorSwapStudio({
         return [...newResults, ...filteredPrev];
       });
 
-      // Update live preview canvas with first recolored image
-      if (newResults[0] && previewCanvasRef.current) {
+      // Update live preview canvas with first recolored image (and ensure activeImage is set)
+      if (newResults[0]) {
+        recoloredPreviewUrlRef.current = newResults[0].recoloredUrl;
+        if (!activeImage) {
+          setActiveImage(itemsToProcess[0]);
+        }
         const prevImg = await loadSafeCanvasImage(newResults[0].recoloredUrl);
-        const ctx = previewCanvasRef.current.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height);
-          ctx.drawImage(prevImg, 0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height);
-          setHasRecoloredPreview(true);
+        if (previewCanvasRef.current) {
+          previewCanvasRef.current.width = prevImg.naturalWidth || 1024;
+          previewCanvasRef.current.height = prevImg.naturalHeight || 1024;
+          const ctx = previewCanvasRef.current.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height);
+            ctx.drawImage(prevImg, 0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height);
+            setHasRecoloredPreview(true);
+          }
         }
       }
 
+      setProgressPercent(100);
       showToast(`🎉 Success! Recolored ${newResults.length} pose(s) to ${getColorName(targetHex)}.`);
     } catch (err: any) {
       console.error('[BatchColorSwap] Error:', err);
@@ -1507,6 +1585,7 @@ export default function ColorSwapStudio({
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
+      setProgressPercent(0);
     }
   };
 
@@ -2335,6 +2414,22 @@ export default function ColorSwapStudio({
                   )}
                 </div>
 
+                {/* Progress Bar when Color Swap is running */}
+                {isProcessing && (
+                  <div className={`p-3 rounded-xl border space-y-2 ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
+                    <div className="flex items-center justify-between text-[11px] font-semibold">
+                      <span className="truncate pr-2">{progressMsg || 'Processing color swap…'}</span>
+                      <span className="font-mono text-emerald-400 shrink-0">{progressPercent}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-300 ease-out"
+                        style={{ width: `${Math.max(4, progressPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Batch Execute Action Button */}
                 <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-2">
@@ -2459,6 +2554,15 @@ export default function ColorSwapStudio({
                           >
                             <Paintbrush className="w-3 h-3 text-rose-400" />
                             <span>🖌️ Paint</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => safeOpenMediaInNewTab(item.recoloredUrl, item.title)}
+                            className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-sky-400 border border-zinc-700 flex items-center justify-center cursor-pointer"
+                            title="Open image in new tab with zoom"
+                          >
+                            <ExternalLink className="w-3 h-3" />
                           </button>
 
                           <a
