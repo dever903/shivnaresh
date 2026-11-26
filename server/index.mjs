@@ -1216,7 +1216,8 @@ app.use('/uploads', async (req, res, next) => {
           if (m) {
             const buf = Buffer.from(m[2], 'base64');
             res.set('Content-Type', m[1]);
-            res.set('Cache-Control', 'public, max-age=86400');
+            res.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+            res.set('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000, stale-while-revalidate=86400');
             return res.send(buf);
           }
         }
@@ -1402,7 +1403,8 @@ app.use('/models', async (req, res, next) => {
             // Cache on disk so subsequent requests serve directly
             fs.mkdir(path.dirname(candidate1), { recursive: true }).then(() => fs.writeFile(candidate1, buf)).catch(() => {});
             res.setHeader('Content-Type', `image/${ext}`);
-            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+            res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+            res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000, stale-while-revalidate=86400');
             return res.send(buf);
           }
         }
@@ -1591,7 +1593,8 @@ app.get('/api/proxy-image', async (req, res) => {
           const ct = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
           res.set('Access-Control-Allow-Origin', '*');
           res.set('Content-Type', ct);
-          res.set('Cache-Control', 'public, max-age=604800, immutable');
+          res.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+          res.set('Vercel-CDN-Cache-Control', 'public, s-maxage=31536000, stale-while-revalidate=86400');
           return res.sendFile(hitPath);
         }
       }
