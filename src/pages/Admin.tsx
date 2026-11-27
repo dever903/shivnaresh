@@ -5489,7 +5489,13 @@ ${log.stack || 'None'}
                         try {
                           const clean = targetSeason === 'All Seasons' ? '' : targetSeason;
                           await api.updateModelCategorySeason({ category: cat.category, season: clean });
-                          await loadModels();
+                          setCategories((prev) =>
+                            prev.map((c) =>
+                              c.category === cat.category
+                                ? { ...c, items: c.items.map((it) => ({ ...it, season: clean })) }
+                                : c
+                            )
+                          );
                           alert(`All models in "${cat.category}" updated to "${targetSeason}".`);
                         } catch (err: any) {
                           alert(err?.message || 'Failed to update category season.');
