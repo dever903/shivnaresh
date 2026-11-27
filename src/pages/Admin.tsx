@@ -887,10 +887,11 @@ export default function Admin() {
     })();
   }, []);
 
-  // 5-second silent auto-refresh for live Fashn credits, users, generations, upload sets, custom requests, and gateway orders
+  // 30-second silent auto-refresh (only when tab is visible) to conserve Vercel Fluid CPU
   useEffect(() => {
     if (!access?.admin) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       void Promise.allSettled([
         loadFashnCredits(true),
         loadUsers(true),
@@ -900,7 +901,7 @@ export default function Admin() {
         loadAdminDeliveries(true),
         loadGatewayData(true),
       ]);
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [access?.admin]);
 
@@ -924,7 +925,7 @@ export default function Admin() {
       if (Array.isArray(res?.allowedTabs) && res.allowedTabs.length > 0) {
         setGlobalAllowedTabs(res.allowedTabs);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -4958,13 +4959,12 @@ ${log.stack || 'None'}
                     prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
                   )
                 }
-                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  active
-                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-500'
-                    : isLight
-                      ? 'border-gray-300 bg-gray-100 text-gray-500 line-through'
-                      : 'border-white/10 bg-white/5 text-white/35 line-through'
-                }`}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${active
+                  ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-500'
+                  : isLight
+                    ? 'border-gray-300 bg-gray-100 text-gray-500 line-through'
+                    : 'border-white/10 bg-white/5 text-white/35 line-through'
+                  }`}
               >
                 {active ? '✓ ' : ''}{t.label}
               </button>
@@ -5488,13 +5488,7 @@ ${log.stack || 'None'}
                         try {
                           const clean = targetSeason === 'All Seasons' ? '' : targetSeason;
                           await api.updateModelCategorySeason({ category: cat.category, season: clean });
-                          setCategories((prev) =>
-                            prev.map((c) =>
-                              c.category === cat.category
-                                ? { ...c, items: c.items.map((it) => ({ ...it, season: clean })) }
-                                : c
-                            )
-                          );
+                          await loadModels();
                           alert(`All models in "${cat.category}" updated to "${targetSeason}".`);
                         } catch (err: any) {
                           alert(err?.message || 'Failed to update category season.');
@@ -7759,14 +7753,14 @@ ${log.stack || 'None'}
                                     prev.map((usr) =>
                                       usr.id === targetId || (usr as any)._id === targetId || usr.email === u.email
                                         ? {
-                                            ...usr,
-                                            photoshootsDone: res.photoshootsDone ?? activeDone,
-                                            photoshoots: res.photoshoots ?? activeQuota,
-                                            photoshootsLeft: res.photoshootsLeft ?? activeLeft,
-                                            videosGenerated: res.videosGenerated ?? activeVDone,
-                                            maxVideos: res.maxVideos ?? activeVQuota,
-                                            notifyEmail: res.notifyEmail ?? mailDraft.notifyEmail,
-                                          }
+                                          ...usr,
+                                          photoshootsDone: res.photoshootsDone ?? activeDone,
+                                          photoshoots: res.photoshoots ?? activeQuota,
+                                          photoshootsLeft: res.photoshootsLeft ?? activeLeft,
+                                          videosGenerated: res.videosGenerated ?? activeVDone,
+                                          maxVideos: res.maxVideos ?? activeVQuota,
+                                          notifyEmail: res.notifyEmail ?? mailDraft.notifyEmail,
+                                        }
                                         : usr
                                     )
                                   );

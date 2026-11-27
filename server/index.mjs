@@ -7804,7 +7804,7 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
   }
 });
 
-app.get('/api/notifications', requireAuth, async (req, res) => {
+app.get('/api/notifications', auth.requireUser, async (req, res) => {
   try {
     const userId = String(req.user._id || req.user.id || '');
     const db = await getMongoDb().catch(() => null);
@@ -7830,7 +7830,7 @@ app.get('/api/notifications', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/notifications/mark-seen', requireAuth, async (req, res) => {
+app.post('/api/notifications/mark-seen', auth.requireUser, async (req, res) => {
   try {
     const { ids } = req.body || {};
     const db = await getMongoDb().catch(() => null);
