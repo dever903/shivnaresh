@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
+  Bell,
   Bookmark,
   Camera,
   Check,
@@ -7468,6 +7469,10 @@ export default function Design() {
   });
 
   const [mode, setMode] = useState<ModeId>('tryon');
+  const [globalAllowedTabs, setGlobalAllowedTabs] = useState<string[] | null>(null);
+  const [userNotifications, setUserNotifications] = useState<
+    { id: string; type: string; title: string; message: string; photoshootsLeft?: number; videosLeft?: number; createdAt: string }[]
+  >([]);
   const [quality, setQuality] = useState<'1k' | '2k'>('1k');
   const [show2kConfirmModal, setShow2kConfirmModal] = useState(false);
   const [showHdLogoOverlay, setShowHdLogoOverlay] = useState(false);
@@ -8958,11 +8963,41 @@ export default function Design() {
     if (user?.role === 'admin' || user?.isAdmin) {
       return allStudioTabs;
     }
-    if (user?.allowedTabs && Array.isArray(user.allowedTabs) && user.allowedTabs.length > 0) {
-      return allStudioTabs.filter((tab) => user.allowedTabs!.includes(tab.id));
+    const effectiveTabs =
+      user?.allowedTabs && Array.isArray(user.allowedTabs) && user.allowedTabs.length > 0
+        ? user.allowedTabs
+        : globalAllowedTabs;
+    if (effectiveTabs && Array.isArray(effectiveTabs) && effectiveTabs.length > 0) {
+      return allStudioTabs.filter((tab) => effectiveTabs.includes(tab.id));
     }
     return allStudioTabs;
-  }, [allStudioTabs, user?.allowedTabs, user?.role, user?.isAdmin]);
+  }, [allStudioTabs, user?.allowedTabs, globalAllowedTabs, user?.role, user?.isAdmin]);
+
+  useEffect(() => {
+    api.getTabVisibility().then((res) => {
+      if (Array.isArray(res?.allowedTabs) && res.allowedTabs.length > 0) {
+        setGlobalAllowedTabs(res.allowedTabs);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const fetchNotifs = () => {
+      api.getNotifications().then((res) => {
+        if (active && Array.isArray(res?.notifications)) {
+          setUserNotifications(res.notifications);
+        }
+      }).catch(() => {});
+    };
+    fetchNotifs();
+    const timer = setInterval(fetchNotifs, 20000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (visibleStudioTabs.length > 0 && !visibleStudioTabs.some((t) => t.id === pageView)) {
@@ -11329,6 +11364,37 @@ export default function Design() {
           <div className="mx-auto max-w-6xl px-5 py-2.5 text-xs text-[#ff9aa0] sm:px-8">
             Rendering engine is initializing. If generation is not ready, please contact support.
           </div>
+        </div>
+      )}
+
+      {/* Quota Update Popup Notifications */}
+      {userNotifications.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-[160] max-w-sm w-full space-y-2.5 px-4 sm:px-0">
+          {userNotifications.map((n) => (
+            <div
+              key={n.id}
+              className="rounded-2xl border border-emerald-500/50 bg-[#101216]/95 p-4 text-white shadow-2xl backdrop-blur-md flex items-start gap-3"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                <Bell className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-emerald-400">{n.title}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/85">{n.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserNotifications((prev) => prev.filter((x) => x.id !== n.id));
+                  void api.markNotificationsSeen([n.id]);
+                }}
+                className="text-white/50 hover:text-white text-base leading-none cursor-pointer px-1"
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       )}
 

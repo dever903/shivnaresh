@@ -428,23 +428,21 @@ const readCustomRequests = async () => {
 const writeCustomRequests = async (items) => {
   cachedCustomRequests = { items, time: Date.now() };
   await writeJson(CUSTOM_REQUESTS_FILE, items);
-  (async () => {
-    try {
-      const db = await getMongoDb();
-      if (db && Array.isArray(items)) {
-        const bulk = items.filter((it) => it && it.id).map((it) => ({
-          updateOne: {
-            filter: { id: it.id },
-            update: { $set: it },
-            upsert: true,
-          },
-        }));
-        if (bulk.length > 0) {
-          await db.collection('custom_requests').bulkWrite(bulk, { ordered: false });
-        }
+  try {
+    const db = await getMongoDb();
+    if (db && Array.isArray(items)) {
+      const bulk = items.filter((it) => it && it.id).map((it) => ({
+        updateOne: {
+          filter: { id: it.id },
+          update: { $set: it },
+          upsert: true,
+        },
+      }));
+      if (bulk.length > 0) {
+        await db.collection('custom_requests').bulkWrite(bulk, { ordered: false });
       }
-    } catch { }
-  })().catch(() => { });
+    }
+  } catch { }
 };
 
 const readAdminDeliveries = async () => {
@@ -1021,7 +1019,8 @@ async function syncStudioModelsToDisk() {
       const fileName = parts.length > 1 ? parts[1] : (m.name || 'model');
       const safeCat = String(m.category).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
       if (!safeCat) continue;
-      const targetDir = path.join(MODELS_DIR, safeCat);
+      const isServerlessSync = !!(process.env.VERCEL || process.env.LAMBDA_TASK_ROOT);
+      const targetDir = path.join(isServerlessSync ? path.join('/tmp', 'models') : MODELS_DIR, safeCat);
       const targetFile = path.join(targetDir, fileName);
       if (!fsSync.existsSync(targetFile)) {
         const match = /^data:image\/([a-zA-Z0-9+.-]+)(?:;[a-zA-Z0-9=._-]+)*;base64,(.*)$/is.exec(m.dataUrl);
@@ -1863,7 +1862,8 @@ let cachedFashnTime = 0;
 app.get('/api/admin/fashn-credits', requireAdmin, async (_req, res) => {
   try {
     const state = await readState();
-    if (!state.apiKey) {
+    const apiKey = state.apiKey || process.env.FASHN_API_KEY;
+    if (!apiKey) {
       return res.json({ configured: false, total: 0, subscription: 0, onDemand: 0 });
     }
     // Return cached balance if within 5 seconds, otherwise fetch live from Fashn.ai
@@ -1872,7 +1872,7 @@ app.get('/api/admin/fashn-credits', requireAdmin, async (_req, res) => {
       return res.json(cachedFashnCredits);
     }
     const response = await fetch('https://api.fashn.ai/v1/credits', {
-      headers: { Authorization: `Bearer ${state.apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok && data.credits) {
@@ -2691,7 +2691,9 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'invalid_category', message: 'Category name contains invalid characters.' });
     }
 
-    const targetDir = path.join(MODELS_DIR, safeCat);
+    const isServerless = !!(process.env.VERCEL || process.env.LAMBDA_TASK_ROOT);
+    const baseModelsDir = isServerless ? path.join('/tmp', 'models') : MODELS_DIR;
+    const targetDir = path.join(baseModelsDir, safeCat);
     await fs.mkdir(targetDir, { recursive: true });
 
     // Handle batch upload if models array is provided, otherwise single model
@@ -2768,6 +2770,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
                 name: item.name || safeName,
                 url: publicUrl,
                 remoteUrl,
+                ...(!remoteUrl && item.imageData ? { dataUrl: item.imageData } : {}),
                 deleted: false,
                 createdAt: Date.now(),
                 updatedAt: new Date().toISOString(),
@@ -3158,6 +3161,55 @@ app.post('/api/admin/models/season', requireAdmin, async (req, res) => {
     res.json({ ok: true, id, season: cleanSeason });
   } catch (err) {
     res.status(500).json({ error: 'season_update_failed', message: String(err.message || err) });
+  }
+});
+
+app.post('/api/admin/models/category-season', requireAdmin, async (req, res) => {
+  try {
+    const { category, season } = req.body || {};
+    if (!category || typeof category !== 'string') {
+      return res.status(400).json({ error: 'missing_category', message: 'Category name is required.' });
+    }
+    const safeCat = String(category).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const cleanSeason = String(season || '').trim();
+    const db = await getMongoDb().catch(() => null);
+    if (!db) {
+      return res.status(500).json({ error: 'db_unavailable', message: 'Database unavailable.' });
+    }
+    const now = new Date().toISOString();
+    const resDb = await db.collection('studio_models').updateMany(
+      { category: safeCat, deleted: { $ne: true } },
+      { $set: { season: cleanSeason, updatedAt: now } }
+    );
+    // Also ensure any built-in disk models in public/models/<category> get their season updated
+    try {
+      const diskFiles = (await fs.readdir(path.join(MODELS_DIR, safeCat)).catch(() => [])).filter((f) =>
+        /\.(webp|png|jpe?g)$/i.test(f)
+      );
+      if (diskFiles.length > 0) {
+        const bulk = diskFiles.map((f) => ({
+          updateOne: {
+            filter: { id: `${safeCat}/${f}` },
+            update: {
+              $set: { season: cleanSeason, category: safeCat, updatedAt: now },
+              $setOnInsert: {
+                id: `${safeCat}/${f}`,
+                name: f.replace(/\.[^.]+$/, ''),
+                url: `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(f)}`,
+                deleted: false,
+              },
+            },
+            upsert: true,
+          },
+        }));
+        await db.collection('studio_models').bulkWrite(bulk, { ordered: false });
+      }
+    } catch { }
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
+    res.json({ ok: true, category: safeCat, season: cleanSeason, modifiedCount: resDb.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ error: 'category_season_failed', message: String(err.message || err) });
   }
 });
 
@@ -7024,6 +7076,15 @@ app.post('/api/admin/custom-requests/mark-read', requireAdmin, async (_req, res)
       }
     }
     if (updated) await writeCustomRequests(all);
+    try {
+      const db = await getMongoDb();
+      if (db) {
+        await db.collection('custom_requests').updateMany(
+          { readByAdmin: false },
+          { $set: { readByAdmin: true } }
+        );
+      }
+    } catch { }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'mark_read_failed', message: err.message });
@@ -7578,7 +7639,19 @@ app.post('/api/admin/users/:id/photoshoots', requireAdmin, async (req, res) => {
 app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, res) => {
   try {
     const rawParam = decodeURIComponent(String(req.params.id || '').trim());
-    const { photoshootsDone, photoshoots, email } = req.body || {};
+    const {
+      photoshootsDone,
+      photoshoots,
+      videosDone,
+      videoQuota,
+      maxVideos,
+      email,
+      notifyEmail,
+      sendEmail,
+      emailSubject,
+      emailBody,
+      sendNotification,
+    } = req.body || {};
 
     let user = await auth.findUserById(rawParam);
     if (!user && (email || rawParam)) {
@@ -7609,20 +7682,220 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
       patch.photoshoots = val;
       patch.maxModels = val;
     }
+    if (typeof videosDone === 'number') {
+      const vDoneVal = Math.max(0, Math.floor(videosDone));
+      patch.videosGenerated = vDoneVal;
+      patch.videosDone = vDoneVal;
+    }
+    const nextVideoQuota = typeof videoQuota === 'number' ? videoQuota : (typeof maxVideos === 'number' ? maxVideos : undefined);
+    if (typeof nextVideoQuota === 'number') {
+      const vqVal = Math.max(0, Math.floor(nextVideoQuota));
+      patch.maxVideos = vqVal;
+      patch.videoQuota = vqVal;
+    }
+    if (typeof notifyEmail === 'string') {
+      patch.notifyEmail = notifyEmail.trim();
+    }
 
     await auth.patchUser(targetUserId, patch);
     const updated = (await auth.findUserById(targetUserId)) || { ...user, ...patch };
-    const total = updated.photoshoots || updated.maxModels || 20;
+    const total = updated.photoshoots ?? updated.maxModels ?? 20;
     const done = typeof updated.photoshootsDone === 'number' ? updated.photoshootsDone : Math.floor((updated.modelsGenerated || 0) / 5);
+    const left = Math.max(0, total - done);
+
+    const vTotal = typeof updated.maxVideos === 'number' ? updated.maxVideos : (typeof updated.videoQuota === 'number' ? updated.videoQuota : 15);
+    const vDone = typeof updated.videosGenerated === 'number' ? updated.videosGenerated : (typeof updated.videosDone === 'number' ? updated.videosDone : 0);
+    const vLeft = Math.max(0, vTotal - vDone);
+
+    let emailSent = false;
+    let emailError = '';
+    const recipientEmail = (typeof notifyEmail === 'string' && notifyEmail.trim()) || updated.notifyEmail || user.email;
+    if (sendEmail !== false && recipientEmail) {
+      try {
+        const s = await readState();
+        const apiKey = s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY;
+        const fromEmail = s.resendFromEmail || process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>';
+        if (apiKey) {
+          const subject = (typeof emailSubject === 'string' && emailSubject.trim())
+            ? emailSubject.trim()
+            : `Shiv-Naresh AI Studio: Quota Updated (${left} Photoshoots · ${vLeft} Videos Left)`;
+          const customNoteHtml = (typeof emailBody === 'string' && emailBody.trim())
+            ? `<div style="margin:16px 0;padding:14px 16px;border-left:3px solid #e5373f;background:#16161b;border-radius:8px;color:#e5e7eb;font-size:14px;white-space:pre-line;">${emailBody.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+            : '';
+          const html = `
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:580px;margin:0 auto;background:#0a0a0d;color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #26262e;">
+              <div style="background:linear-gradient(135deg,#e5373f,#9e1b22);padding:26px 30px;">
+                <h1 style="margin:0;font-size:20px;font-weight:800;letter-spacing:0.5px;color:#ffffff;">SHIV-NARESH AI STUDIO</h1>
+                <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.88);">Photoshoot &amp; Video Quota Update</p>
+              </div>
+              <div style="padding:28px 30px;line-height:1.65;">
+                <p style="margin:0 0 12px;font-size:15px;">Hi <strong>${updated.name || user.email}</strong>,</p>
+                <p style="margin:0 0 18px;font-size:14px;color:#d1d5db;">Your studio photoshoot and video quota has been updated. Here is your live balance:</p>
+                ${customNoteHtml}
+                <table style="width:100%;border-collapse:collapse;margin:18px 0;font-size:14px;background:#121217;border-radius:12px;overflow:hidden;">
+                  <tr>
+                    <td style="padding:12px 16px;border-bottom:1px solid #24242c;color:#9ca3af;">📸 Photoshoots</td>
+                    <td style="padding:12px 16px;border-bottom:1px solid #24242c;text-align:right;color:#e5e7eb;">${done} / ${total} used</td>
+                    <td style="padding:12px 16px;border-bottom:1px solid #24242c;text-align:right;font-weight:800;color:#34d399;">${left} Left</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 16px;color:#9ca3af;">🎬 Videos</td>
+                    <td style="padding:12px 16px;text-align:right;color:#e5e7eb;">${vDone} / ${vTotal} used</td>
+                    <td style="padding:12px 16px;text-align:right;font-weight:800;color:#38bdf8;">${vLeft} Left</td>
+                  </tr>
+                </table>
+                <a href="https://shivnaresh.vercel.app/design" style="display:inline-block;padding:12px 26px;background:#e5373f;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;margin-top:8px;">Open AI Studio →</a>
+              </div>
+              <div style="padding:14px 30px;font-size:11px;color:#6b7280;border-top:1px solid #1f1f27;">Shiv-Naresh AI Studio · Automated Quota Notification</div>
+            </div>`;
+          const mailRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fromEmail, to: [recipientEmail], subject, html }),
+          });
+          if (mailRes.ok) {
+            emailSent = true;
+          } else {
+            const errJson = await mailRes.json().catch(() => ({}));
+            emailError = errJson?.message || `HTTP ${mailRes.status}`;
+          }
+        } else {
+          emailError = 'Resend API key not configured';
+        }
+      } catch (e) {
+        emailError = e?.message || 'Email failed';
+      }
+    }
+
+    if (sendNotification !== false) {
+      try {
+        const db = await getMongoDb().catch(() => null);
+        if (db) {
+          await db.collection('notifications').insertOne({
+            userId: targetUserId,
+            userEmail: user.email,
+            type: 'quota_update',
+            title: 'Quota Updated by Admin',
+            message: `Photoshoots: ${left} remaining (${done}/${total} used) · Videos: ${vLeft} remaining (${vDone}/${vTotal} used).`,
+            photoshootsLeft: left,
+            videosLeft: vLeft,
+            seen: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } catch { }
+    }
+
     res.json({
       ok: true,
       id: targetUserId,
       photoshootsDone: done,
       photoshoots: total,
-      photoshootsLeft: Math.max(0, total - done),
+      photoshootsLeft: left,
+      videosGenerated: vDone,
+      maxVideos: vTotal,
+      videosLeft: vLeft,
+      notifyEmail: updated.notifyEmail || '',
+      emailSent,
+      emailError,
     });
   } catch (error) {
     res.status(500).json({ error: 'update_photoshoots_progress_failed', message: error.message });
+  }
+});
+
+app.get('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const userId = String(req.user._id || req.user.id || '');
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return res.json({ notifications: [] });
+    const notifs = await db.collection('notifications')
+      .find({ $or: [{ userId }, { userEmail: req.user.email }], seen: false })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .toArray();
+    res.json({
+      notifications: notifs.map((n) => ({
+        id: String(n._id),
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        photoshootsLeft: n.photoshootsLeft,
+        videosLeft: n.videosLeft,
+        createdAt: n.createdAt,
+      })),
+    });
+  } catch {
+    res.json({ notifications: [] });
+  }
+});
+
+app.post('/api/notifications/mark-seen', requireAuth, async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return res.json({ ok: true });
+    if (Array.isArray(ids) && ids.length > 0) {
+      const { ObjectId } = await import('mongodb');
+      const objIds = ids.map((id) => { try { return new ObjectId(id); } catch { return id; } });
+      await db.collection('notifications').updateMany(
+        { _id: { $in: objIds } },
+        { $set: { seen: true } }
+      );
+    } else {
+      const userId = String(req.user._id || req.user.id || '');
+      await db.collection('notifications').updateMany(
+        { $or: [{ userId }, { userEmail: req.user.email }] },
+        { $set: { seen: true } }
+      );
+    }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
+app.get('/api/tab-visibility', async (_req, res) => {
+  try {
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return res.json({ allowedTabs: null });
+    const doc = await db.collection('app_data').findOne({ _id: 'tab_visibility' });
+    res.json({ allowedTabs: Array.isArray(doc?.allowedTabs) ? doc.allowedTabs : null });
+  } catch {
+    res.json({ allowedTabs: null });
+  }
+});
+
+app.get('/api/admin/tab-visibility', requireAdmin, async (_req, res) => {
+  try {
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return res.json({ allowedTabs: null });
+    const doc = await db.collection('app_data').findOne({ _id: 'tab_visibility' });
+    res.json({ allowedTabs: Array.isArray(doc?.allowedTabs) ? doc.allowedTabs : null });
+  } catch {
+    res.json({ allowedTabs: null });
+  }
+});
+
+app.post('/api/admin/tab-visibility', requireAdmin, async (req, res) => {
+  try {
+    const { allowedTabs, applyToExisting } = req.body || {};
+    if (!Array.isArray(allowedTabs)) {
+      return res.status(400).json({ error: 'invalid_tabs', message: 'allowedTabs array is required.' });
+    }
+    const db = await getMongoDb().catch(() => null);
+    if (!db) return res.status(500).json({ error: 'db_unavailable' });
+    await db.collection('app_data').updateOne(
+      { _id: 'tab_visibility' },
+      { $set: { allowedTabs, updatedAt: new Date().toISOString() } },
+      { upsert: true }
+    );
+    if (applyToExisting !== false) {
+      await db.collection('users').updateMany({}, { $set: { allowedTabs } }).catch(() => {});
+    }
+    res.json({ ok: true, allowedTabs });
+  } catch (err) {
+    res.status(500).json({ error: 'tab_visibility_failed', message: err.message });
   }
 });
 

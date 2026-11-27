@@ -128,6 +128,7 @@ export type User = {
   photoshootOffer?: PhotoshootOffer | null;
   watermarkAccess?: boolean;
   allowedTabs?: string[];
+  notifyEmail?: string;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
@@ -283,6 +284,7 @@ export type AdminUser = {
   photoshootOffer?: PhotoshootOffer | null;
   watermarkAccess?: boolean;
   allowedTabs?: string[];
+  notifyEmail?: string;
   features?: {
     hd2k?: boolean;
     fivePose?: boolean;
@@ -707,10 +709,36 @@ export const api = {
     request<{ ok: boolean; id: string; maxVideos: number }>(`/api/admin/users/${id}/video-limit`, json({ maxVideos })),
   updateUserPhotoshoots: (id: string, photoshoots: number, note?: string) =>
     request<{ ok: boolean; id: string; photoshootOffer: PhotoshootOffer }>(`/api/admin/users/${id}/photoshoots`, json({ photoshoots, note })),
-  updateUserPhotoshootsProgress: (id: string, photoshootsDone: number, photoshoots?: number, email?: string) =>
-    request<{ ok: boolean; id: string; photoshootsDone: number; photoshoots: number; photoshootsLeft: number }>(
+  updateUserPhotoshootsProgress: (
+    id: string,
+    photoshootsDone: number,
+    photoshoots?: number,
+    email?: string,
+    extra?: {
+      videosDone?: number;
+      maxVideos?: number;
+      notifyEmail?: string;
+      sendEmail?: boolean;
+      emailSubject?: string;
+      emailBody?: string;
+      sendNotification?: boolean;
+    }
+  ) =>
+    request<{
+      ok: boolean;
+      id: string;
+      photoshootsDone: number;
+      photoshoots: number;
+      photoshootsLeft: number;
+      videosGenerated?: number;
+      maxVideos?: number;
+      videosLeft?: number;
+      notifyEmail?: string;
+      emailSent?: boolean;
+      emailError?: string;
+    }>(
       `/api/admin/users/${encodeURIComponent(id || email || '')}/photoshoots-progress`,
-      json({ photoshootsDone, photoshoots, email })
+      json({ photoshootsDone, photoshoots, email, ...(extra || {}) })
     ),
   cleanBrokenCache: () => request<{ ok: boolean; message: string }>('/api/admin/clean-broken-cache', { method: 'POST' }),
   cleanUserCache: () => request<{ ok: boolean; message: string }>('/api/user/clean-cache', { method: 'POST' }),
@@ -795,8 +823,20 @@ export const api = {
     request<{ ok: boolean; oldCategory: string; newCategory: string; filesMoved?: number }>('/api/admin/models/rename-category', json(body)),
   updateModelSeason: (body: { id: string; season: string }) =>
     request<{ ok: boolean; id: string; season: string }>('/api/admin/models/season', json(body)),
+  updateModelCategorySeason: (body: { category: string; season: string }) =>
+    request<{ ok: boolean; category: string; season: string; modifiedCount?: number }>('/api/admin/models/category-season', json(body)),
   createSeason: (body: { name: string }) =>
     request<{ ok: boolean; seasons: string[] }>('/api/admin/seasons', json(body)),
+  getTabVisibility: () =>
+    request<{ allowedTabs: string[] | null }>('/api/tab-visibility'),
+  adminGetTabVisibility: () =>
+    request<{ allowedTabs: string[] | null }>('/api/admin/tab-visibility'),
+  adminSaveTabVisibility: (allowedTabs: string[], applyToExisting = true) =>
+    request<{ ok: boolean; allowedTabs: string[] }>('/api/admin/tab-visibility', json({ allowedTabs, applyToExisting })),
+  getNotifications: () =>
+    request<{ notifications: { id: string; type: string; title: string; message: string; photoshootsLeft?: number; videosLeft?: number; createdAt: string }[] }>('/api/notifications'),
+  markNotificationsSeen: (ids?: string[]) =>
+    request<{ ok: boolean }>('/api/notifications/mark-seen', json({ ids })),
 
   /* admin system problem logs */
   systemLogs: () => request<{ logs: SystemLog[]; unresolvedCount: number; total: number }>('/api/admin/system-logs'),

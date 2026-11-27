@@ -128,8 +128,16 @@ export default function Admin() {
   const [quotaEditNote, setQuotaEditNote] = useState<string>('');
   const [quotaUpdating, setQuotaUpdating] = useState(false);
   const [photoshootDrafts, setPhotoshootDrafts] = useState<Record<string, { done: number; quota: number }>>({});
+  const [videoDrafts, setVideoDrafts] = useState<Record<string, { done: number; quota: number }>>({});
+  const [quotaEmailDrafts, setQuotaEmailDrafts] = useState<Record<string, { notifyEmail: string; sendEmail: boolean; subject: string; body: string; expanded?: boolean }>>({});
   const [savingPhotoshootUserId, setSavingPhotoshootUserId] = useState<string | null>(null);
   const [savedPhotoshootUserId, setSavedPhotoshootUserId] = useState<string | null>(null);
+  const [categorySeasonMap, setCategorySeasonMap] = useState<Record<string, string>>({});
+  const [savingCategorySeason, setSavingCategorySeason] = useState<string | null>(null);
+  const [globalAllowedTabs, setGlobalAllowedTabs] = useState<string[]>([
+    'studio', 'color-swap', 'my-sets', 'description', 'custom-requests', 'deliveries', 'video', 'watermark', 'compare',
+  ]);
+  const [savingGlobalTabs, setSavingGlobalTabs] = useState(false);
 
   /* UPI Gateway Admin State */
   const [gatewayOrders, setGatewayOrders] = useState<GatewayOrder[]>([]);
@@ -897,20 +905,36 @@ export default function Admin() {
   }, [access?.admin]);
 
   const prevAlertsRef = useRef<{ requests: number; reviews: number; queries: number }>({ requests: -1, reviews: -1, queries: -1 });
+  const notifiedRequestIdsRef = useRef<Set<string>>(
+    (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('sn_admin_notified_reqs') || '[]');
+        return new Set(Array.isArray(saved) ? saved : []);
+      } catch {
+        return new Set();
+      }
+    })()
+  );
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => { });
     }
+    api.adminGetTabVisibility().then((res) => {
+      if (Array.isArray(res?.allowedTabs) && res.allowedTabs.length > 0) {
+        setGlobalAllowedTabs(res.allowedTabs);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!access?.admin) return;
     const prev = prevAlertsRef.current;
-    const unreadReqs = customRequests.filter((r) => r.readByAdmin === false).length;
+    const unreadList = customRequests.filter((r) => r.readByAdmin === false);
+    const unreadReqs = unreadList.length;
     const currentQueries = usersList.filter((u) => u.photoshootOffer?.status === 'queried').length;
 
-    // Initial load: record baseline without firing alerts
+    // Initial load: record baseline & mark already-loaded IDs so they don't repeat
     if (prev.requests === -1) {
       prevAlertsRef.current = {
         requests: unreadReqs,
@@ -920,12 +944,16 @@ export default function Admin() {
       return;
     }
 
-    // New custom requests received
-    if (unreadReqs > prev.requests) {
-      const diff = unreadReqs - prev.requests;
+    // New custom requests received (only notify once per unique request ID)
+    const newlyUnread = unreadList.filter((r) => r.id && !notifiedRequestIdsRef.current.has(r.id));
+    if (newlyUnread.length > 0) {
+      newlyUnread.forEach((r) => notifiedRequestIdsRef.current.add(r.id));
+      try {
+        localStorage.setItem('sn_admin_notified_reqs', JSON.stringify(Array.from(notifiedRequestIdsRef.current).slice(-200)));
+      } catch { }
       sendAdminNotification(
         '🔔 New Custom Order Received!',
-        `${diff} new custom tailoring request${diff > 1 ? 's' : ''} received from client.`
+        `${newlyUnread.length} new custom tailoring request${newlyUnread.length > 1 ? 's' : ''} received from client.`
       );
     }
 
@@ -1964,7 +1992,7 @@ ${log.stack || 'None'}
             {access?.admin && (
               <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                 }`}>
-                <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
+                <span>Fashn.ai: {fashnCredits?.configured === false ? 'Key Not Set' : (fashnCredits?.total ?? '—')} credits</span>
                 <button
                   type="button"
                   onClick={() => void loadFashnCredits()}
@@ -2187,7 +2215,7 @@ ${log.stack || 'None'}
             {access?.admin && (
               <div className={`hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isLight ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                 }`}>
-                <span>Fashn.ai: {fashnCredits?.total ?? '78'} credits</span>
+                <span>Fashn.ai: {fashnCredits?.configured === false ? 'Key Not Set' : (fashnCredits?.total ?? '—')} credits</span>
                 <button
                   type="button"
                   onClick={() => void loadFashnCredits()}
@@ -2491,14 +2519,19 @@ ${log.stack || 'None'}
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className={`text-3xl font-extrabold ${isLight ? 'text-amber-950 font-black' : 'text-amber-400'}`}>
-              {fashnCredits?.total ?? '78'}
+              {fashnCredits?.configured === false ? 'Key Not Set' : (fashnCredits?.total ?? '—')}
             </span>
             <span className="text-xs opacity-60">actual credits</span>
           </div>
           <div className="mt-3 flex items-center justify-between text-[10px] opacity-70">
-            <span>On-Demand: <strong>{fashnCredits?.onDemand ?? 78}</strong></span>
+            <span>On-Demand: <strong>{fashnCredits?.onDemand ?? 0}</strong></span>
             <span>Sub: <strong>{fashnCredits?.subscription ?? 0}</strong></span>
           </div>
+          {fashnCredits?.error && (
+            <p className="mt-1.5 text-[10px] text-amber-500 truncate" title={fashnCredits.error}>
+              {fashnCredits.error}
+            </p>
+          )}
         </div>
 
         {/* Total Registered Users — PROMINENT DISPLAY */}
@@ -4874,6 +4907,72 @@ ${log.stack || 'None'}
         </div>
       </section>
 
+      {/* Global Tab Visibility for All Existing & Upcoming Users */}
+      <section className={cardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Global User Tab Visibility</h3>
+            <p className="text-[11px] opacity-55 mt-0.5">
+              Choose which Studio tabs are visible to all existing and upcoming users.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={savingGlobalTabs}
+            onClick={async () => {
+              setSavingGlobalTabs(true);
+              try {
+                await api.adminSaveTabVisibility(globalAllowedTabs, true);
+                setUsersList((prev) => prev.map((u) => ({ ...u, allowedTabs: globalAllowedTabs })));
+                alert('Global tab visibility saved and applied to all existing & upcoming users!');
+              } catch (err: any) {
+                alert(err?.message || 'Failed to save tab visibility.');
+              } finally {
+                setSavingGlobalTabs(false);
+              }
+            }}
+            className="rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white px-4 py-2 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+          >
+            {savingGlobalTabs ? 'Applying…' : 'Apply to All Users'}
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[
+            { id: 'studio', label: 'Studio Canvas' },
+            { id: 'color-swap', label: 'Color Swap' },
+            { id: 'my-sets', label: 'My Sets' },
+            { id: 'description', label: 'AI Description' },
+            { id: 'custom-requests', label: 'Send Request' },
+            { id: 'deliveries', label: 'Receive Deliveries' },
+            { id: 'video', label: 'Video Studio' },
+            { id: 'watermark', label: 'Remove Watermark' },
+            { id: 'compare', label: 'Split Compare' },
+          ].map((t) => {
+            const active = globalAllowedTabs.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() =>
+                  setGlobalAllowedTabs((prev) =>
+                    prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                  )
+                }
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  active
+                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-500'
+                    : isLight
+                      ? 'border-gray-300 bg-gray-100 text-gray-500 line-through'
+                      : 'border-white/10 bg-white/5 text-white/35 line-through'
+                }`}
+              >
+                {active ? '✓ ' : ''}{t.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Floating Save Action Bar */}
       <div className={`sticky bottom-6 z-30 flex items-center justify-between rounded-2xl border px-6 py-3.5 shadow-2xl backdrop-blur-md ${isLight ? 'border-gray-300 bg-white/95' : 'border-white/15 bg-[#0e0e13]/95'
         }`}>
@@ -5366,9 +5465,51 @@ ${log.stack || 'None'}
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] opacity-50">
-                    {filteredItems.length} {filteredItems.length !== cat.items.length ? `of ${cat.items.length} ` : ''}poses
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={categorySeasonMap[cat.category] ?? ''}
+                      onChange={(e) => setCategorySeasonMap((prev) => ({ ...prev, [cat.category]: e.target.value }))}
+                      className={`rounded-lg border px-2 py-1 text-[11px] font-semibold focus:outline-none ${isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-white/20 bg-black text-white'}`}
+                      title={`Select season for all models in ${cat.category}`}
+                    >
+                      <option value="">Set Category Season…</option>
+                      <option value="All Seasons">🌐 All Seasons</option>
+                      {seasons.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={savingCategorySeason === cat.category || !(categorySeasonMap[cat.category] ?? '')}
+                      onClick={async () => {
+                        const targetSeason = categorySeasonMap[cat.category] || '';
+                        if (!targetSeason) return;
+                        setSavingCategorySeason(cat.category);
+                        try {
+                          const clean = targetSeason === 'All Seasons' ? '' : targetSeason;
+                          await api.updateModelCategorySeason({ category: cat.category, season: clean });
+                          setCategories((prev) =>
+                            prev.map((c) =>
+                              c.category === cat.category
+                                ? { ...c, items: c.items.map((it) => ({ ...it, season: clean })) }
+                                : c
+                            )
+                          );
+                          alert(`All models in "${cat.category}" updated to "${targetSeason}".`);
+                        } catch (err: any) {
+                          alert(err?.message || 'Failed to update category season.');
+                        } finally {
+                          setSavingCategorySeason(null);
+                        }
+                      }}
+                      className="rounded-lg bg-[#e5373f] hover:bg-[#d42d35] text-white px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-40 cursor-pointer"
+                    >
+                      {savingCategorySeason === cat.category ? 'Applying…' : 'Apply to Category'}
+                    </button>
+                    <span className="text-[11px] opacity-50">
+                      {filteredItems.length} {filteredItems.length !== cat.items.length ? `of ${cat.items.length} ` : ''}poses
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 min-h-[90px]">
@@ -7313,41 +7454,64 @@ ${log.stack || 'None'}
             {filteredUsers.map((u) => {
               const currentQuota = u.photoshoots || u.maxModels || 20;
               const usedPhotoshoots = typeof u.photoshootsDone === 'number' ? u.photoshootsDone : Math.floor((u.modelsGenerated || 0) / 5);
+              const currentVideoQuota = typeof u.maxVideos === 'number' ? u.maxVideos : 15;
+              const usedVideos = typeof u.videosGenerated === 'number' ? u.videosGenerated : 0;
               const offer = u.photoshootOffer;
               const isEditing = quotaEditUserId === u.id;
+              const mailDraft = quotaEmailDrafts[u.id] || {
+                notifyEmail: u.notifyEmail || u.email || '',
+                sendEmail: true,
+                subject: '',
+                body: '',
+                expanded: false,
+              };
+
+              const boxClass = isLight
+                ? 'mt-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-slate-900'
+                : 'mt-3 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-3 text-white';
+              const stepBtnClass = isLight
+                ? 'w-6 h-6 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm'
+                : 'w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm';
+              const numInputClass = isLight
+                ? 'w-14 text-center rounded-lg bg-white border border-slate-300 text-xs font-bold py-1 focus:outline-none focus:border-emerald-600'
+                : 'w-14 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold py-1 focus:outline-none focus:border-emerald-500';
+              const labelClass = isLight ? 'text-[11px] font-semibold text-slate-700' : 'text-[11px] font-semibold text-slate-300';
+              const dividerClass = isLight ? 'border-slate-200' : 'border-white/10';
 
               return (
                 <div key={u.id} className={`${cardClass} space-y-3 flex flex-col justify-between`}>
                   <div>
                     {/* Header: User & Tier */}
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+                    <div className={`flex items-center justify-between pb-2 border-b text-xs ${dividerClass}`}>
                       <div className="truncate max-w-[190px]">
-                        <p className="font-bold truncate text-white">{u.email}</p>
-                        <p className="text-[10px] opacity-60 truncate">{u.name || 'Client'}</p>
+                        <p className={`font-bold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{u.email}</p>
+                        <p className={`text-[10px] truncate ${isLight ? 'text-slate-500' : 'text-white/60'}`}>{u.name || 'Client'}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${u.tier === 'ultra' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
-                        u.tier === 'pro' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                          u.tier === 'ondemand' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                            'bg-white/10 text-white/60'
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${u.tier === 'ultra' ? (isLight ? 'bg-purple-100 text-purple-800 border border-purple-300' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30') :
+                        u.tier === 'pro' ? (isLight ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') :
+                          u.tier === 'ondemand' ? (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30') :
+                            (isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/60')
                         }`}>
                         {u.tier || 'free'}
                       </span>
                     </div>
 
                     {/* Stats & Progress Controls */}
-                    <div className="mt-3 p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className={boxClass}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                        📸 Photoshoot Quota
+                      </p>
                       {/* Delivered Photoshoots Stepper & Input */}
                       <div className="flex items-center justify-between text-xs gap-2">
-                        <span className="text-[11px] font-semibold text-slate-300">Delivered (Done):</span>
+                        <span className={labelClass}>Delivered (Done):</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => {
                               const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
-                              const nextDone = Math.max(0, draft.done - 1);
-                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: nextDone } }));
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: Math.max(0, draft.done - 1) } }));
                             }}
-                            className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm"
+                            className={stepBtnClass}
                             title="Decrease delivered count"
                           >
                             -
@@ -7361,16 +7525,15 @@ ${log.stack || 'None'}
                               const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
                               setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: val } }));
                             }}
-                            className="w-14 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-emerald-400 py-1 focus:outline-none focus:border-emerald-500"
+                            className={`${numInputClass} ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}
                           />
                           <button
                             type="button"
                             onClick={() => {
                               const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
-                              const nextDone = draft.done + 1;
-                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: nextDone } }));
+                              setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, done: draft.done + 1 } }));
                             }}
-                            className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center cursor-pointer transition shadow-sm"
+                            className={stepBtnClass}
                             title="Increase delivered count"
                           >
                             +
@@ -7379,8 +7542,8 @@ ${log.stack || 'None'}
                       </div>
 
                       {/* Total Plan Quota Input */}
-                      <div className="flex items-center justify-between text-xs gap-2 pt-1 border-t border-white/5">
-                        <span className="text-[11px] font-semibold text-slate-300">Total Quota:</span>
+                      <div className={`flex items-center justify-between text-xs gap-2 pt-1.5 border-t ${dividerClass}`}>
+                        <span className={labelClass}>Total Quota:</span>
                         <div className="flex items-center gap-1.5">
                           <input
                             type="number"
@@ -7391,52 +7554,188 @@ ${log.stack || 'None'}
                               const draft = photoshootDrafts[u.id] || { done: usedPhotoshoots, quota: currentQuota };
                               setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { ...draft, quota: val } }));
                             }}
-                            className="w-28 text-center rounded-lg bg-black/70 border border-white/20 text-xs font-bold text-amber-300 py-1 focus:outline-none focus:border-amber-500"
-                            title="Set custom photoshoot quota (any number, e.g. 50, 200, 500, 1000)"
+                            className={`w-24 text-center rounded-lg border text-xs font-bold py-1 focus:outline-none ${isLight ? 'bg-white border-slate-300 text-amber-700 focus:border-amber-600' : 'bg-black/70 border-white/20 text-amber-300 focus:border-amber-500'}`}
+                            title="Set custom photoshoot quota"
                           />
-                          <span className="text-[10px] text-white/50">shoots</span>
+                          <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-white/50'}`}>shoots</span>
                         </div>
                       </div>
 
-                      {/* Remaining Calculation Badge & Quick Steppers */}
+                      {/* Video Quota Section */}
+                      <div className={`pt-2 border-t space-y-2 ${dividerClass}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
+                          🎬 Video Quota
+                        </p>
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className={labelClass}>Videos Done:</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const vd = videoDrafts[u.id] || { done: usedVideos, quota: currentVideoQuota };
+                                setVideoDrafts((prev) => ({ ...prev, [u.id]: { ...vd, done: Math.max(0, vd.done - 1) } }));
+                              }}
+                              className={stepBtnClass}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={videoDrafts[u.id]?.done ?? usedVideos}
+                              onChange={(e) => {
+                                const val = Math.max(0, Number(e.target.value));
+                                const vd = videoDrafts[u.id] || { done: usedVideos, quota: currentVideoQuota };
+                                setVideoDrafts((prev) => ({ ...prev, [u.id]: { ...vd, done: val } }));
+                              }}
+                              className={`${numInputClass} ${isLight ? 'text-sky-700' : 'text-sky-400'}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const vd = videoDrafts[u.id] || { done: usedVideos, quota: currentVideoQuota };
+                                setVideoDrafts((prev) => ({ ...prev, [u.id]: { ...vd, done: vd.done + 1 } }));
+                              }}
+                              className={stepBtnClass}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className={labelClass}>Video Quota:</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              value={videoDrafts[u.id]?.quota ?? currentVideoQuota}
+                              onChange={(e) => {
+                                const val = Math.max(0, Number(e.target.value));
+                                const vd = videoDrafts[u.id] || { done: usedVideos, quota: currentVideoQuota };
+                                setVideoDrafts((prev) => ({ ...prev, [u.id]: { ...vd, quota: val } }));
+                              }}
+                              className={`w-24 text-center rounded-lg border text-xs font-bold py-1 focus:outline-none ${isLight ? 'bg-white border-slate-300 text-sky-700 focus:border-sky-600' : 'bg-black/70 border-white/20 text-sky-300 focus:border-sky-500'}`}
+                            />
+                            <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-white/50'}`}>videos</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Remaining Calculation Badge & Mail Settings */}
                       {(() => {
                         const activeDone = photoshootDrafts[u.id]?.done ?? usedPhotoshoots;
                         const activeQuota = photoshootDrafts[u.id]?.quota ?? currentQuota;
                         const activeLeft = Math.max(0, activeQuota - activeDone);
+                        const activeVDone = videoDrafts[u.id]?.done ?? usedVideos;
+                        const activeVQuota = videoDrafts[u.id]?.quota ?? currentVideoQuota;
+                        const activeVLeft = Math.max(0, activeVQuota - activeVDone);
                         const isSaving = savingPhotoshootUserId === u.id;
                         const isSaved = savedPhotoshootUserId === u.id;
-                        const isDirty = photoshootDrafts[u.id] !== undefined && (photoshootDrafts[u.id].done !== usedPhotoshoots || photoshootDrafts[u.id].quota !== currentQuota);
+                        const isDirty =
+                          (photoshootDrafts[u.id] !== undefined && (photoshootDrafts[u.id].done !== usedPhotoshoots || photoshootDrafts[u.id].quota !== currentQuota)) ||
+                          (videoDrafts[u.id] !== undefined && (videoDrafts[u.id].done !== usedVideos || videoDrafts[u.id].quota !== currentVideoQuota));
 
                         return (
-                          <div className="space-y-2 pt-1 border-t border-white/5">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-emerald-400 font-bold">
-                                {activeLeft} photoshoots remaining
-                              </span>
+                          <div className={`space-y-2.5 pt-2 border-t ${dividerClass}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+                              <div className="space-y-0.5">
+                                <div className={`font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                                  {activeLeft} photoshoots remaining
+                                </div>
+                                <div className={`font-bold ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
+                                  {activeVLeft} videos remaining
+                                </div>
+                              </div>
                               <div className="flex items-center gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const nextDone = activeDone + 1;
-                                    setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: nextDone, quota: activeQuota } }));
-                                  }}
-                                  className="px-2 py-0.5 rounded bg-emerald-600/30 border border-emerald-500/40 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold cursor-pointer transition"
-                                  title="Quick +1"
+                                  onClick={() => setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: activeDone + 1, quota: activeQuota } }))}
+                                  className={`px-2 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition ${isLight ? 'bg-emerald-100 border-emerald-300 hover:bg-emerald-200 text-emerald-800' : 'bg-emerald-600/30 border-emerald-500/40 hover:bg-emerald-600/50 text-emerald-300'}`}
+                                  title="Quick +1 Photoshoot"
                                 >
-                                  +1 Today
+                                  +1 Shoot
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const nextDone = activeDone + 2;
-                                    setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: nextDone, quota: activeQuota } }));
-                                  }}
-                                  className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer transition"
-                                  title="Quick +2"
+                                  onClick={() => setVideoDrafts((prev) => ({ ...prev, [u.id]: { done: activeVDone + 1, quota: activeVQuota } }))}
+                                  className={`px-2 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition ${isLight ? 'bg-sky-100 border-sky-300 hover:bg-sky-200 text-sky-800' : 'bg-sky-600/30 border-sky-500/40 hover:bg-sky-600/50 text-sky-300'}`}
+                                  title="Quick +1 Video"
                                 >
-                                  +2
+                                  +1 Video
                                 </button>
                               </div>
+                            </div>
+
+                            {/* Notification Mail Option (Set / Edit Mail + Auto-Send) */}
+                            <div className={`rounded-xl border p-2.5 space-y-1.5 ${isLight ? 'bg-white border-slate-200' : 'bg-black/30 border-white/10'}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold">
+                                  <input
+                                    type="checkbox"
+                                    checked={mailDraft.sendEmail}
+                                    onChange={(e) =>
+                                      setQuotaEmailDrafts((prev) => ({
+                                        ...prev,
+                                        [u.id]: { ...mailDraft, sendEmail: e.target.checked },
+                                      }))
+                                    }
+                                    className="rounded accent-emerald-600"
+                                  />
+                                  <span>Auto-send Email on Save</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setQuotaEmailDrafts((prev) => ({
+                                      ...prev,
+                                      [u.id]: { ...mailDraft, expanded: !mailDraft.expanded },
+                                    }))
+                                  }
+                                  className="text-[10px] font-semibold text-[#e5373f] hover:underline cursor-pointer"
+                                >
+                                  {mailDraft.expanded ? 'Hide Mail' : 'Edit Mail'}
+                                </button>
+                              </div>
+                              <input
+                                type="email"
+                                value={mailDraft.notifyEmail}
+                                onChange={(e) =>
+                                  setQuotaEmailDrafts((prev) => ({
+                                    ...prev,
+                                    [u.id]: { ...mailDraft, notifyEmail: e.target.value },
+                                  }))
+                                }
+                                placeholder="Recipient email address..."
+                                className={`w-full rounded-lg border px-2 py-1 text-[11px] focus:outline-none ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-black/60 border-white/15 text-white'}`}
+                              />
+                              {mailDraft.expanded && (
+                                <div className="space-y-1.5 pt-1">
+                                  <input
+                                    type="text"
+                                    value={mailDraft.subject}
+                                    onChange={(e) =>
+                                      setQuotaEmailDrafts((prev) => ({
+                                        ...prev,
+                                        [u.id]: { ...mailDraft, subject: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="Custom email subject (optional)"
+                                    className={`w-full rounded-lg border px-2 py-1 text-[11px] focus:outline-none ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-black/60 border-white/15 text-white'}`}
+                                  />
+                                  <textarea
+                                    rows={2}
+                                    value={mailDraft.body}
+                                    onChange={(e) =>
+                                      setQuotaEmailDrafts((prev) => ({
+                                        ...prev,
+                                        [u.id]: { ...mailDraft, body: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="Optional custom note inside the email..."
+                                    className={`w-full rounded-lg border px-2 py-1 text-[11px] focus:outline-none resize-none ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-black/60 border-white/15 text-white'}`}
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             {/* Prominent Save Button */}
@@ -7447,35 +7746,56 @@ ${log.stack || 'None'}
                                 const targetId = u.id || (u as any)._id || u.email;
                                 setSavingPhotoshootUserId(targetId);
                                 try {
-                                  const res = await api.updateUserPhotoshootsProgress(targetId, activeDone, activeQuota, u.email);
+                                  const res = await api.updateUserPhotoshootsProgress(targetId, activeDone, activeQuota, u.email, {
+                                    videosDone: activeVDone,
+                                    maxVideos: activeVQuota,
+                                    notifyEmail: mailDraft.notifyEmail,
+                                    sendEmail: mailDraft.sendEmail,
+                                    emailSubject: mailDraft.subject,
+                                    emailBody: mailDraft.body,
+                                    sendNotification: true,
+                                  });
                                   setUsersList((prev) =>
                                     prev.map((usr) =>
                                       usr.id === targetId || (usr as any)._id === targetId || usr.email === u.email
-                                        ? { ...usr, photoshootsDone: res.photoshootsDone ?? activeDone, photoshoots: res.photoshoots ?? activeQuota, photoshootsLeft: res.photoshootsLeft ?? activeLeft }
+                                        ? {
+                                            ...usr,
+                                            photoshootsDone: res.photoshootsDone ?? activeDone,
+                                            photoshoots: res.photoshoots ?? activeQuota,
+                                            photoshootsLeft: res.photoshootsLeft ?? activeLeft,
+                                            videosGenerated: res.videosGenerated ?? activeVDone,
+                                            maxVideos: res.maxVideos ?? activeVQuota,
+                                            notifyEmail: res.notifyEmail ?? mailDraft.notifyEmail,
+                                          }
                                         : usr
                                     )
                                   );
                                   setSavedPhotoshootUserId(targetId);
                                   setTimeout(() => setSavedPhotoshootUserId((curr) => (curr === targetId ? null : curr)), 3500);
+                                  if (mailDraft.sendEmail && res.emailError) {
+                                    alert(`Quota saved & user notified in panel, but email failed: ${res.emailError}`);
+                                  }
                                 } catch (err: any) {
-                                  alert(err?.message || 'Failed to update photoshoot progress');
+                                  alert(err?.message || 'Failed to update quota');
                                 } finally {
                                   setSavingPhotoshootUserId(null);
                                 }
                               }}
-                              className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow cursor-pointer ${isSaved
+                              className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow cursor-pointer ${isSaved
                                 ? 'bg-emerald-600 text-white'
                                 : isDirty
                                   ? 'bg-[#e5373f] hover:bg-[#d42d35] text-white ring-2 ring-[#e5373f]/40'
-                                  : 'bg-white/10 hover:bg-white/20 text-white'
+                                  : isLight
+                                    ? 'bg-slate-800 hover:bg-slate-900 text-white'
+                                    : 'bg-white/10 hover:bg-white/20 text-white'
                                 }`}
                             >
                               {isSaving ? (
-                                <span>Saving…</span>
+                                <span>Saving &amp; Notifying…</span>
                               ) : isSaved ? (
-                                <span>✓ Saved Successfully!</span>
+                                <span>✓ Saved, Emailed &amp; Notified!</span>
                               ) : (
-                                <span>Save Changes (Done &amp; Quota)</span>
+                                <span>Save Quota &amp; Notify User</span>
                               )}
                             </button>
                           </div>
