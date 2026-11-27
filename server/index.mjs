@@ -275,6 +275,8 @@ const DEFAULTS = {
   admin2faEnabled: false,
   /* about section developer profile image */
   developerImageUrl: '',
+  /* studio model category display order */
+  categoryOrder: [],
 };
 
 const readJson = async (file, fallback) => {
@@ -384,7 +386,7 @@ const readUploadSets = async () => {
 
 const writeUploadSets = async (sets) => {
   cachedUploadSets = { items: sets, time: Date.now() };
-  await writeJson(UPLOAD_SETS_FILE, sets);
+  await writeJson(UPLOAD_SETS_FILE, sets).catch(() => { });
   try {
     const db = await getMongoDb();
     if (db) {
@@ -427,7 +429,7 @@ const readCustomRequests = async () => {
 
 const writeCustomRequests = async (items) => {
   cachedCustomRequests = { items, time: Date.now() };
-  await writeJson(CUSTOM_REQUESTS_FILE, items);
+  await writeJson(CUSTOM_REQUESTS_FILE, items).catch(() => { });
   try {
     const db = await getMongoDb();
     if (db && Array.isArray(items)) {
@@ -472,24 +474,22 @@ const readAdminDeliveries = async () => {
 
 const writeAdminDeliveries = async (items) => {
   cachedAdminDeliveries = { items, time: Date.now() };
-  await writeJson(ADMIN_DELIVERIES_FILE, items);
-  (async () => {
-    try {
-      const db = await getMongoDb();
-      if (db && Array.isArray(items)) {
-        const bulk = items.filter((it) => it && it.id).map((it) => ({
-          updateOne: {
-            filter: { id: it.id },
-            update: { $set: it },
-            upsert: true,
-          },
-        }));
-        if (bulk.length > 0) {
-          await db.collection('admin_deliveries').bulkWrite(bulk, { ordered: false });
-        }
+  await writeJson(ADMIN_DELIVERIES_FILE, items).catch(() => { });
+  try {
+    const db = await getMongoDb();
+    if (db && Array.isArray(items)) {
+      const bulk = items.filter((it) => it && it.id).map((it) => ({
+        updateOne: {
+          filter: { id: it.id },
+          update: { $set: it },
+          upsert: true,
+        },
+      }));
+      if (bulk.length > 0) {
+        await db.collection('admin_deliveries').bulkWrite(bulk, { ordered: false });
       }
-    } catch { }
-  })().catch(() => { });
+    }
+  } catch { }
 };
 
 const readSystemLogs = async () => {
@@ -698,7 +698,7 @@ const writeGenerations = async (list) => {
   const deduped = deduplicateGenerations(list);
   const safeList = Array.isArray(deduped) ? deduped.slice(0, 1000) : [];
   cachedGenerations = { items: safeList, time: Date.now() };
-  await writeJson(GENERATIONS_FILE, safeList);
+  await writeJson(GENERATIONS_FILE, safeList).catch(() => { });
   try {
     const db = await getMongoDb();
     if (db && safeList.length > 0) {
@@ -878,6 +878,37 @@ async function uploadToCloudinary(dataUrl, userId, kind) {
   // Seamless fallback to high-speed static local asset storage
   const localUrl = await saveLocalAsset(dataUrl, 'sets', `${userId}-${kind}`);
   return { url: localUrl, secure_url: localUrl, publicId: `local-${kind}-${Date.now()}` };
+}
+
+/** Best-effort Cloudinary asset destruction from a remoteUrl */
+async function destroyCloudinaryByUrl(url) {
+  if (!url || typeof url !== 'string' || !url.includes('res.cloudinary.com')) return;
+  try {
+    const match = /res\.cloudinary\.com\/[^/]+\/(image|video)\/upload\/(?:v\d+\/)?(.+?)\.[a-z0-9]+(?:[?#].*)?$/i.exec(url);
+    if (!match) return;
+    const resourceType = match[1] || 'image';
+    const publicId = decodeURIComponent(match[2]);
+    const s = await readState().catch(() => ({}));
+    const cloudName = String(s.cloudinaryCloudName || process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+    const apiKey = String(s.cloudinaryApiKey || process.env.CLOUDINARY_API_KEY || '').trim();
+    const apiSecret = String(s.cloudinaryApiSecret || process.env.CLOUDINARY_API_SECRET || '').trim();
+    if (!cloudName || !apiKey || !apiSecret || !/^\d+$/.test(apiKey)) return;
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signStr = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+    const signature = crypto.createHash('sha1').update(signStr).digest('hex');
+
+    const form = new FormData();
+    form.append('public_id', publicId);
+    form.append('timestamp', String(timestamp));
+    form.append('api_key', apiKey);
+    form.append('signature', signature);
+
+    await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`, {
+      method: 'POST',
+      body: form,
+    }).catch(() => { });
+  } catch { }
 }
 
 const mask = (key) => (key ? `${key.slice(0, 6)}…${key.slice(-4)}` : '');
@@ -1140,6 +1171,17 @@ async function listModels(forceFresh = false) {
       out.push({ category, items });
     }
   }
+  const state = await readState().catch(() => ({}));
+  const orderList = Array.isArray(state?.categoryOrder) ? state.categoryOrder : [];
+  const orderMap = new Map(orderList.map((cat, idx) => [String(cat).toLowerCase(), idx]));
+  out.sort((a, b) => {
+    const idxA = orderMap.get(String(a.category).toLowerCase());
+    const idxB = orderMap.get(String(b.category).toLowerCase());
+    if (idxA !== undefined && idxB !== undefined) return idxA - idxB;
+    if (idxA !== undefined) return -1;
+    if (idxB !== undefined) return 1;
+    return String(a.category).localeCompare(String(b.category));
+  });
   cachedModelCategories = out;
   cachedModelsTime = now;
   return out;
@@ -3243,6 +3285,22 @@ app.post('/api/admin/seasons', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/models/reorder-categories', requireAdmin, async (req, res) => {
+  try {
+    const { orderedCategories } = req.body || {};
+    if (!Array.isArray(orderedCategories)) {
+      return res.status(400).json({ error: 'invalid_order', message: 'orderedCategories array is required.' });
+    }
+    const categoryOrder = orderedCategories.map((c) => String(c || '').trim()).filter(Boolean);
+    await patchState({ categoryOrder });
+    cachedModelCategories = null;
+    cachedModelsTime = 0;
+    res.json({ ok: true, categoryOrder });
+  } catch (err) {
+    res.status(500).json({ error: 'reorder_categories_failed', message: String(err.message || err) });
+  }
+});
+
 app.get('/api/models', async (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   const categories = await listModels();
@@ -3263,11 +3321,12 @@ app.get('/api/uploads', async (_req, res) => {
       if (db) {
         const dbUploads = await db
           .collection('user_uploads')
-          .find({}, { projection: { dataUrl: 0 } })
+          .find({ deleted: { $ne: true } }, { projection: { dataUrl: 0 } })
           .sort({ createdAt: -1 })
           .limit(100)
           .toArray();
         for (const u of dbUploads) {
+          if (u.deleted) continue;
           const resolvedUrl = u.remoteUrl || u.url || `/uploads/${encodeURIComponent(u.id || '')}`;
           itemsMap.set(u.id || u.url, {
             id: u.id || u.url,
@@ -3341,12 +3400,22 @@ app.get('/api/uploads', async (_req, res) => {
   }
 });
 
-app.delete('/api/uploads/:id', async (req, res) => {
+app.delete('/api/uploads/:id', auth.requireUser, async (req, res) => {
   try {
-    const file = req.params.id;
+    let file = String(req.params.id || '').trim();
+    try { file = decodeURIComponent(file).trim(); } catch { }
     /* prevent path traversal */
-    if (file.includes('..') || file.includes('/') || file.includes('\\')) {
+    if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) {
       return res.status(400).json({ error: 'bad_id', message: 'Invalid file name.' });
+    }
+    const now = Date.now();
+    const deletedBy = req.user?.email || String(req.user?._id || 'user');
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('user_uploads').updateOne(
+        { id: file },
+        { $set: { deleted: true, deletedAt: now, deletedBy } }
+      );
     }
     const target = path.join(UPLOADS, file);
     await fs.unlink(target).catch(() => { });
@@ -3358,7 +3427,7 @@ app.delete('/api/uploads/:id', async (req, res) => {
         await saveHosted(hosted);
       }
     } catch { /* non-fatal */ }
-    res.json({ ok: true, deleted: file });
+    res.json({ ok: true, deleted: file, inBin: true });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: String(error.message || error) });
   }
@@ -6240,13 +6309,12 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
     }
 
     if (db) {
-      try {
-        await db.collection('generations').updateOne(
-          { id: req.params.id },
-          { $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy } }
-        );
-      } catch { }
+      await db.collection('generations').updateOne(
+        { id: req.params.id },
+        { $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy } }
+      );
     }
+    cachedGenerations = { items: null, time: 0 };
 
     res.json({ ok: true, deleted: req.params.id, inBin: true, refunded, refundedCredits });
   } catch (error) {
@@ -6298,6 +6366,7 @@ app.post('/api/user/generations/batch-delete', auth.requireUser, async (req, res
         $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy },
       }).catch((err) => console.warn('[generations] batch delete MongoDB error:', err.message));
     }
+    cachedGenerations = { items: null, time: 0 };
 
     res.json({ ok: true, deletedCount: ids.length, inBin: true });
   } catch (error) {
@@ -6487,6 +6556,41 @@ app.post('/api/upload-sets', auth.requireUser, async (req, res) => {
   }
 });
 
+app.post('/api/upload-sets/reorder', auth.requireUser, async (req, res) => {
+  try {
+    const { orderedIds } = req.body || {};
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ error: 'invalid_order', message: 'orderedIds array is required.' });
+    }
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const allSets = await readUploadSets();
+
+    const orderMap = new Map(orderedIds.map((id, idx) => [String(id), idx + 1]));
+    let nextNumber = orderedIds.length + 1;
+    const userSets = [];
+    for (const s of allSets) {
+      const sUserId = s.userId ? String(s.userId) : '';
+      const sEmail = (s.userEmail || '').toLowerCase().trim();
+      const isOwner = isAdmin || (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail) || (!sUserId && !sEmail);
+      if (!isOwner) continue;
+      if (orderMap.has(String(s.id))) {
+        s.setNumber = orderMap.get(String(s.id));
+      } else {
+        s.setNumber = nextNumber++;
+      }
+      userSets.push(s);
+    }
+
+    await writeUploadSets(allSets);
+    userSets.sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0));
+    res.json({ ok: true, items: userSets });
+  } catch (error) {
+    res.status(500).json({ error: 'reorder_failed', message: String(error.message || error) });
+  }
+});
+
 app.delete('/api/upload-sets/:id', auth.requireUser, async (req, res) => {
   try {
     const currentUserId = String(req.user._id);
@@ -6501,6 +6605,7 @@ app.delete('/api/upload-sets/:id', auth.requireUser, async (req, res) => {
     if (idx === -1) return res.status(404).json({ error: 'not_found', message: 'Set not found.' });
     allSets.splice(idx, 1);
     await writeUploadSets(allSets);
+    cachedUploadSets = { items: null, time: 0 };
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: String(error.message || error) });
@@ -6712,6 +6817,14 @@ app.delete('/api/custom-requests/:id', auth.requireUser, async (req, res) => {
     item.deletedAt = Date.now();
     item.deletedBy = req.user.email || 'user';
     await writeCustomRequests(all);
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('custom_requests').updateOne(
+        { id },
+        { $set: { deleted: true, deletedAt: item.deletedAt, deletedBy: item.deletedBy } }
+      );
+    }
+    cachedCustomRequests = { items: null, time: 0 };
     res.json({ ok: true, deleted: id, message: 'Custom request moved to bin.' });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
@@ -6730,6 +6843,14 @@ app.delete('/api/admin/custom-requests/:id', requireAdmin, async (req, res) => {
     item.deletedAt = Date.now();
     item.deletedBy = req.user?.email || 'admin';
     await writeCustomRequests(all);
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('custom_requests').updateOne(
+        { id },
+        { $set: { deleted: true, deletedAt: item.deletedAt, deletedBy: item.deletedBy } }
+      );
+    }
+    cachedCustomRequests = { items: null, time: 0 };
     res.json({ ok: true, deleted: id, message: 'Custom request moved to bin.' });
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
@@ -7053,6 +7174,14 @@ app.delete('/api/user/deliveries/:id', auth.requireUser, async (req, res) => {
     item.deletedAt = Date.now();
     item.deletedBy = req.user.email || 'user';
     await writeAdminDeliveries(all);
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('admin_deliveries').updateOne(
+        { id },
+        { $set: { deleted: true, deletedAt: item.deletedAt, deletedBy: item.deletedBy } }
+      );
+    }
+    cachedAdminDeliveries = { items: null, time: 0 };
     res.json({ ok: true, message: 'Delivery moved to bin.' });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });
@@ -7371,13 +7500,21 @@ app.delete('/api/admin/deliveries/:id', requireAdmin, async (req, res) => {
     item.deletedAt = Date.now();
     item.deletedBy = req.user?.email || 'admin';
     await writeAdminDeliveries(all);
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      await db.collection('admin_deliveries').updateOne(
+        { id },
+        { $set: { deleted: true, deletedAt: item.deletedAt, deletedBy: item.deletedBy } }
+      );
+    }
+    cachedAdminDeliveries = { items: null, time: 0 };
     res.json({ ok: true, message: 'Delivery moved to bin.' });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });
   }
 });
 
-/* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests, Deliveries & Generations) */
+/* ---------------------------------------------------- Admin Recycle Bin (Deleted Requests, Deliveries, Generations & Uploads) */
 app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
   try {
     const db = await getMongoDb();
@@ -7389,10 +7526,22 @@ app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
     const deletedRequests = allRequests.filter((r) => r.deleted === true);
     const deletedDeliveries = allDeliveries.filter((d) => d.deleted === true);
     let deletedGenerations = [];
+    let deletedUploads = [];
     if (db) {
       try {
         const dbDeleted = await db.collection('generations').find({ $or: [{ deleted: true }, { isDeleted: true }] }).sort({ deletedAt: -1 }).toArray();
         deletedGenerations = (dbDeleted || []).map((it) => {
+          const clean = { ...it };
+          delete clean._id;
+          return clean;
+        });
+      } catch { }
+      try {
+        const dbDeletedUploads = await db.collection('user_uploads')
+          .find({ deleted: true }, { projection: { dataUrl: 0 } })
+          .sort({ deletedAt: -1 })
+          .toArray();
+        deletedUploads = (dbDeletedUploads || []).map((it) => {
           const clean = { ...it };
           delete clean._id;
           return clean;
@@ -7405,11 +7554,13 @@ app.get('/api/admin/bin', requireAdmin, async (_req, res) => {
     deletedRequests.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     deletedDeliveries.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     deletedGenerations.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+    deletedUploads.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
     res.json({
       requests: deletedRequests,
       deliveries: deletedDeliveries,
       generations: deletedGenerations,
-      total: deletedRequests.length + deletedDeliveries.length + deletedGenerations.length,
+      uploads: deletedUploads,
+      total: deletedRequests.length + deletedDeliveries.length + deletedGenerations.length + deletedUploads.length,
     });
   } catch (err) {
     res.status(500).json({ error: 'fetch_bin_failed', message: err.message });
@@ -7432,6 +7583,7 @@ app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
       if (db) {
         await db.collection('custom_requests').updateOne({ id }, { $unset: { deleted: '', deletedAt: '', deletedBy: '' } });
       }
+      cachedCustomRequests = { items: null, time: 0 };
       return res.json({ ok: true, id });
     } else if (type === 'delivery') {
       const all = await readAdminDeliveries();
@@ -7445,6 +7597,7 @@ app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
       if (db) {
         await db.collection('admin_deliveries').updateOne({ id }, { $unset: { deleted: '', deletedAt: '', deletedBy: '' } });
       }
+      cachedAdminDeliveries = { items: null, time: 0 };
       return res.json({ ok: true, id });
     } else if (type === 'generation' || type === 'image') {
       const all = await readGenerations();
@@ -7462,6 +7615,15 @@ app.post('/api/admin/bin/restore', requireAdmin, async (req, res) => {
           { $unset: { deleted: '', isDeleted: '', deletedAt: '', deletedBy: '' } }
         );
       }
+      cachedGenerations = { items: null, time: 0 };
+      return res.json({ ok: true, id });
+    } else if (type === 'upload' || type === 'user_upload') {
+      if (db) {
+        await db.collection('user_uploads').updateOne(
+          { id },
+          { $unset: { deleted: '', deletedAt: '', deletedBy: '' } }
+        );
+      }
       return res.json({ ok: true, id });
     }
     res.status(400).json({ error: 'invalid_type' });
@@ -7476,28 +7638,66 @@ app.delete('/api/admin/bin/:type/:id', requireAdmin, async (req, res) => {
     const db = await getMongoDb();
     if (type === 'request' || type === 'custom_request') {
       const all = await readCustomRequests();
+      const target = all.find((r) => r.id === id);
+      if (target?.remoteUrl) await destroyCloudinaryByUrl(target.remoteUrl);
+      if (target?.deliveredImageUrl) await destroyCloudinaryByUrl(target.deliveredImageUrl);
       const filtered = all.filter((r) => r.id !== id);
-      await writeJson(CUSTOM_REQUESTS_FILE, filtered);
+      await writeJson(CUSTOM_REQUESTS_FILE, filtered).catch(() => { });
       if (db) {
+        const doc = await db.collection('custom_requests').findOne({ id }).catch(() => null);
+        if (doc?.remoteUrl) await destroyCloudinaryByUrl(doc.remoteUrl);
+        if (doc?.deliveredImageUrl) await destroyCloudinaryByUrl(doc.deliveredImageUrl);
         await db.collection('custom_requests').deleteOne({ id });
       }
+      cachedCustomRequests = { items: null, time: 0 };
       return res.json({ ok: true, message: 'Custom request permanently deleted from bin.' });
     } else if (type === 'delivery') {
       const all = await readAdminDeliveries();
+      const target = all.find((d) => d.id === id);
+      if (target?.remoteUrl) await destroyCloudinaryByUrl(target.remoteUrl);
       const filtered = all.filter((d) => d.id !== id);
-      await writeJson(ADMIN_DELIVERIES_FILE, filtered);
+      await writeJson(ADMIN_DELIVERIES_FILE, filtered).catch(() => { });
       if (db) {
+        const doc = await db.collection('admin_deliveries').findOne({ id }).catch(() => null);
+        if (doc?.remoteUrl) await destroyCloudinaryByUrl(doc.remoteUrl);
         await db.collection('admin_deliveries').deleteOne({ id });
       }
+      cachedAdminDeliveries = { items: null, time: 0 };
       return res.json({ ok: true, message: 'Delivery permanently deleted from bin.' });
     } else if (type === 'generation' || type === 'image') {
       const all = await readGenerations();
+      const target = all.find((g) => g.id === id);
+      if (target?.remoteUrl) await destroyCloudinaryByUrl(target.remoteUrl);
+      if (target?.url) await destroyCloudinaryByUrl(target.url);
+      if (target?.outputUrl) await destroyCloudinaryByUrl(target.outputUrl);
       const filtered = all.filter((g) => g.id !== id);
       await writeGenerations(filtered);
       if (db) {
+        const doc = await db.collection('generations').findOne({ id }).catch(() => null);
+        if (doc?.remoteUrl) await destroyCloudinaryByUrl(doc.remoteUrl);
+        if (doc?.url) await destroyCloudinaryByUrl(doc.url);
+        if (doc?.outputUrl) await destroyCloudinaryByUrl(doc.outputUrl);
         await db.collection('generations').deleteOne({ id });
       }
+      cachedGenerations = { items: null, time: 0 };
       return res.json({ ok: true, message: 'Generation permanently deleted from bin.' });
+    } else if (type === 'upload' || type === 'user_upload') {
+      if (db) {
+        const doc = await db.collection('user_uploads').findOne({ id }).catch(() => null);
+        if (doc?.remoteUrl) await destroyCloudinaryByUrl(doc.remoteUrl);
+        await db.collection('user_uploads').deleteOne({ id });
+      }
+      if (id && !id.includes('..') && !id.includes('/') && !id.includes('\\')) {
+        await fs.unlink(path.join(UPLOADS, id)).catch(() => { });
+      }
+      try {
+        const hosted = await readHosted();
+        if (hosted.uploads?.[id]) {
+          delete hosted.uploads[id];
+          await saveHosted(hosted);
+        }
+      } catch { }
+      return res.json({ ok: true, message: 'Upload permanently deleted from bin.' });
     }
     res.status(400).json({ error: 'invalid_type' });
   } catch (err) {
@@ -7516,17 +7716,19 @@ app.post('/api/admin/bin/empty', requireAdmin, async (_req, res) => {
 
     const activeRequests = allRequests.filter((r) => !r.deleted);
     const deletedReqCount = allRequests.length - activeRequests.length;
-    await writeJson(CUSTOM_REQUESTS_FILE, activeRequests);
+    await writeJson(CUSTOM_REQUESTS_FILE, activeRequests).catch(() => { });
     if (db) {
       await db.collection('custom_requests').deleteMany({ deleted: true });
     }
+    cachedCustomRequests = { items: null, time: 0 };
 
     const activeDeliveries = allDeliveries.filter((d) => !d.deleted);
     const deletedDelCount = allDeliveries.length - activeDeliveries.length;
-    await writeJson(ADMIN_DELIVERIES_FILE, activeDeliveries);
+    await writeJson(ADMIN_DELIVERIES_FILE, activeDeliveries).catch(() => { });
     if (db) {
       await db.collection('admin_deliveries').deleteMany({ deleted: true });
     }
+    cachedAdminDeliveries = { items: null, time: 0 };
 
     const activeGenerations = allGenerations.filter((g) => !g.deleted && !g.isDeleted);
     const deletedGenCount = allGenerations.length - activeGenerations.length;
@@ -7534,8 +7736,17 @@ app.post('/api/admin/bin/empty', requireAdmin, async (_req, res) => {
     if (db) {
       await db.collection('generations').deleteMany({ $or: [{ deleted: true }, { isDeleted: true }] });
     }
+    cachedGenerations = { items: null, time: 0 };
 
-    res.json({ ok: true, purged: deletedReqCount + deletedDelCount + deletedGenCount });
+    let deletedUploadCount = 0;
+    if (db) {
+      const deletedUploads = await db.collection('user_uploads').find({ deleted: true }, { projection: { id: 1, remoteUrl: 1 } }).toArray().catch(() => []);
+      await Promise.allSettled(deletedUploads.map((u) => (u.remoteUrl ? destroyCloudinaryByUrl(u.remoteUrl) : Promise.resolve())));
+      const delRes = await db.collection('user_uploads').deleteMany({ deleted: true });
+      deletedUploadCount = delRes.deletedCount || 0;
+    }
+
+    res.json({ ok: true, purged: deletedReqCount + deletedDelCount + deletedGenCount + deletedUploadCount });
   } catch (err) {
     res.status(500).json({ error: 'empty_bin_failed', message: err.message });
   }
@@ -8186,8 +8397,50 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
       if (typeof patch.maxModels !== 'number' && typeof user.maxModels !== 'number' && typeof user.photoshoots !== 'number') patch.maxModels = 20;
     }
 
+    const creditsChanged = typeof patch.credits === 'number' && patch.credits !== (Number(user.credits) || 0);
+    const tierChanged = typeof patch.tier === 'string' && patch.tier !== (user.tier || 'free');
+    const photoshootsChanged =
+      (typeof patch.photoshoots === 'number' && patch.photoshoots !== (Number(user.photoshoots ?? user.maxModels) || 0)) ||
+      (typeof patch.maxModels === 'number' && patch.maxModels !== (Number(user.maxModels ?? user.photoshoots) || 0));
+    const maxVideosChanged = typeof patch.maxVideos === 'number' && patch.maxVideos !== (Number(user.maxVideos) || 0);
+    const allowedTabsChanged = Array.isArray(patch.allowedTabs) && JSON.stringify(patch.allowedTabs) !== JSON.stringify(user.allowedTabs || []);
+
     await auth.patchUser(id, patch);
     const updated = await auth.findUserById(id);
+
+    if (creditsChanged || tierChanged || photoshootsChanged || maxVideosChanged || allowedTabsChanged) {
+      try {
+        const db = await getMongoDb().catch(() => null);
+        if (db && updated) {
+          const totalPhotoshoots = Number(updated.photoshoots ?? updated.maxModels) || 0;
+          const donePhotoshoots = Number(updated.photoshootsDone ?? updated.modelsGenerated) || 0;
+          const photoshootsLeft = Math.max(0, totalPhotoshoots - donePhotoshoots);
+          const totalVideos = Number(updated.maxVideos) || 0;
+          const doneVideos = Number(updated.videosGenerated) || 0;
+          const videosLeft = Math.max(0, totalVideos - doneVideos);
+          const parts = [];
+          if (tierChanged) parts.push(`Plan: ${String(updated.tier || 'free').toUpperCase()}`);
+          if (creditsChanged) parts.push(`Credits: ${updated.credits ?? 0}`);
+          if (photoshootsChanged) parts.push(`Photoshoots: ${photoshootsLeft} remaining`);
+          if (maxVideosChanged) parts.push(`Videos: ${videosLeft} remaining`);
+          if (allowedTabsChanged) parts.push('Feature tabs updated');
+          await db.collection('notifications').insertOne({
+            userId: String(updated._id || updated.id || id),
+            userEmail: updated.email,
+            type: 'quota_update',
+            title: 'Account Updated by Admin',
+            message: parts.join(' · '),
+            credits: updated.credits,
+            tier: updated.tier,
+            photoshootsLeft,
+            videosLeft,
+            seen: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } catch { }
+    }
+
     res.json({ ok: true, user: auth.publicUser(updated) });
   } catch (error) {
     res.status(500).json({ error: 'update_user_failed', message: error.message });
@@ -8262,6 +8515,7 @@ app.delete('/api/admin/generations/:id', requireAdmin, async (req, res) => {
       const db = await getMongoDb();
       if (db) await db.collection('generations').deleteOne({ id: req.params.id });
     } catch { }
+    cachedGenerations = { items: null, time: 0 };
     res.json({ ok: true, deleted: req.params.id });
   } catch (err) {
     res.status(500).json({ error: 'delete_failed', message: err.message });

@@ -2303,6 +2303,8 @@ function MySetsPanel({
   loadingGenerations,
   setError,
   onUseSet,
+  onDeleteSet,
+  onReorderSets,
   refreshSets,
   refreshGenerations,
   onDeleteGeneration,
@@ -2326,6 +2328,8 @@ function MySetsPanel({
   loadingGenerations: boolean;
   setError: (msg: string) => void;
   onUseSet: (set: UploadSet) => void;
+  onDeleteSet?: (id: string) => void;
+  onReorderSets?: (ordered: UploadSet[]) => void;
   refreshSets: () => void;
   refreshGenerations: () => void;
   onDeleteGeneration: (id: string) => void;
@@ -2627,16 +2631,43 @@ function MySetsPanel({
     }
   }
 
+  const [draggingSetId, setDraggingSetId] = useState<string | null>(null);
+  const [dragOverSetId, setDragOverSetId] = useState<string | null>(null);
+
   async function deleteSet(id: string) {
     if (!confirm('Are you sure you want to delete this saved outfit set?')) return;
     setDeletingSetId(id);
     try {
+      onDeleteSet?.(id);
       await api.deleteUploadSet(id);
       refreshSets();
     } catch (e) {
+      refreshSets();
       setError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
       setDeletingSetId('');
+    }
+  }
+
+  async function handleDropSet(targetSetId: string) {
+    if (!draggingSetId || draggingSetId === targetSetId) {
+      setDraggingSetId(null);
+      setDragOverSetId(null);
+      return;
+    }
+    const fromIdx = uploadSets.findIndex((s) => s.id === draggingSetId);
+    const toIdx = uploadSets.findIndex((s) => s.id === targetSetId);
+    setDraggingSetId(null);
+    setDragOverSetId(null);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...uploadSets];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    onReorderSets?.(next);
+    try {
+      await api.reorderUploadSets(next.map((s) => s.id));
+    } catch (err: any) {
+      console.warn('[MySets] Failed to persist set order:', err?.message);
     }
   }
 
@@ -3456,11 +3487,37 @@ function MySetsPanel({
                 <h3 className="text-xs font-semibold uppercase tracking-wider">Saved outfit sets ({uploadSets.length})</h3>
               </div>
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {uploadSets.map((set) => (
+                {uploadSets.map((set) => {
+                  const isDragging = draggingSetId === set.id;
+                  const isDragOver = dragOverSetId === set.id && draggingSetId !== set.id;
+                  return (
                   <div
                     key={set.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
-                      }`}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggingSetId(set.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', set.id);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverSetId !== set.id) setDragOverSetId(set.id);
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (dragOverSetId === set.id) setDragOverSetId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      void handleDropSet(set.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingSetId(null);
+                      setDragOverSetId(null);
+                    }}
+                    title="Drag to reorder set"
+                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm cursor-grab active:cursor-grabbing transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'} ${isDragging ? 'opacity-40 scale-95' : ''} ${isDragOver ? 'border-[#e5373f] ring-2 ring-[#e5373f]/50' : ''}`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -3530,7 +3587,8 @@ function MySetsPanel({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -8765,11 +8823,11 @@ export default function Design() {
   }
 
   const previousGarmentsList = (() => {
-    const map = new Map<string, { url: string; name: string; at: number }>();
+    const map = new Map<string, { id?: string; url: string; name: string; at: number }>();
     uploads.forEach((u) => {
       const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
       if (!isModel && !brokenImageUrls.has(u.url)) {
-        map.set(u.url, { url: u.url, name: u.name || 'Garment', at: u.at || 0 });
+        map.set(u.url, { id: u.id, url: u.url, name: u.name || 'Garment', at: u.at || 0 });
       }
     });
     uploadSets.forEach((s) => {
@@ -8782,7 +8840,7 @@ export default function Design() {
   })();
 
   const previousModelsList = (() => {
-    const map = new Map<string, { url: string; name: string; at: number }>();
+    const map = new Map<string, { id?: string; url: string; name: string; at: number }>();
     uploads.forEach((u) => {
       const isModel = u.kind === 'model' || u.id?.startsWith('model-') || u.url?.includes('model-');
       if (isModel && !brokenImageUrls.has(u.url)) {
@@ -8792,7 +8850,7 @@ export default function Design() {
         const key = cleanName && !/^custom model|model|upload$/i.test(cleanName) ? cleanName : u.url;
         const existing = map.get(key);
         if (!existing || (u.at || 0) > (existing.at || 0)) {
-          map.set(key, { url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
+          map.set(key, { id: u.id, url: u.url, name: u.name || 'Custom Model', at: u.at || 0 });
         }
       }
     });
@@ -8832,6 +8890,17 @@ export default function Design() {
       /* non-fatal */
     }
   }, []);
+
+  const handleDeleteUpload = useCallback(async (id: string | undefined, url: string) => {
+    setUploads((prev) => prev.filter((u) => (id ? u.id !== id : u.url !== url)));
+    if (!id) return;
+    try {
+      await api.deleteUpload(id);
+    } catch (err: any) {
+      void loadUploads();
+      setError(err?.message || 'Failed to delete upload');
+    }
+  }, [loadUploads]);
 
   const loadUploadSets = useCallback(async () => {
     setLoadingSets(true);
@@ -8939,24 +9008,77 @@ export default function Design() {
     }).catch(() => {});
   }, []);
 
+  const playedNotifSoundsRef = useRef<Set<string>>((() => {
+    try {
+      const raw = localStorage.getItem('sn_played_notif_sounds');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set<string>(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set<string>();
+    }
+  })());
+
+  const playNotificationChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes = [587.33, 880]; // D5 -> A5 crisp chime
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+        gain.gain.setValueAtTime(0.0001, now + idx * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.14, now + idx * 0.11 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 0.32);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.11);
+        osc.stop(now + idx * 0.11 + 0.34);
+      });
+      setTimeout(() => {
+        void ctx.close().catch(() => {});
+      }, 900);
+    } catch {
+      /* AudioContext may be blocked before user gesture */
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     let active = true;
     const fetchNotifs = () => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       api.getNotifications().then((res) => {
-        if (active && Array.isArray(res?.notifications)) {
-          setUserNotifications(res.notifications);
+        if (!active || !Array.isArray(res?.notifications)) return;
+        const fresh = res.notifications.filter((n) => n?.id && !playedNotifSoundsRef.current.has(n.id));
+        if (fresh.length > 0) {
+          fresh.forEach((n) => playedNotifSoundsRef.current.add(n.id));
+          try {
+            const arr = Array.from(playedNotifSoundsRef.current).slice(-200);
+            localStorage.setItem('sn_played_notif_sounds', JSON.stringify(arr));
+          } catch {}
+          playNotificationChime();
         }
+        setUserNotifications(res.notifications);
       }).catch(() => {});
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchNotifs();
+    };
     fetchNotifs();
-    const timer = setInterval(fetchNotifs, 60000);
+    const timer = setInterval(fetchNotifs, 12000);
+    window.addEventListener('focus', fetchNotifs);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener('focus', fetchNotifs);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [user]);
+  }, [user, playNotificationChime]);
 
   useEffect(() => {
     if (visibleStudioTabs.length > 0 && !visibleStudioTabs.some((t) => t.id === pageView)) {
@@ -11500,6 +11622,8 @@ export default function Design() {
           loadingGenerations={loadingGenerations}
           setError={setError}
           onUseSet={handleUseSet}
+          onDeleteSet={(id) => setUploadSets((prev) => prev.filter((s) => s.id !== id))}
+          onReorderSets={(ordered) => setUploadSets(ordered)}
           refreshSets={loadUploadSets}
           refreshGenerations={loadUserGenerations}
           onAddGenerations={(newItems) => {
@@ -13572,7 +13696,7 @@ export default function Design() {
                             key={s.id}
                             type="button"
                             onClick={() => handleUseSet(s)}
-                            className={`shrink-0 w-32 rounded-xl border p-2 text-left transition-all cursor-pointer group ${isLight
+                            className={`card-lift-glow shrink-0 w-32 rounded-xl border p-2 text-left cursor-pointer group ${isLight
                               ? 'border-gray-200 bg-white hover:border-[#e5373f] hover:shadow-sm'
                               : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
                               }`}
@@ -13643,34 +13767,48 @@ export default function Design() {
                         {previousGarmentsList.map((item, idx) => {
                           const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
                           return (
-                            <button
-                              key={item.url || idx}
-                              type="button"
-                              onClick={() => {
-                                const pick = { url: item.url, preview: item.url, name: item.name };
-                                addClassifiedGarment(pick);
-                                setCloth(pick);
-                              }}
-                              className={`shrink-0 w-20 h-28 sm:w-24 sm:h-32 rounded-2xl border overflow-hidden relative group transition-all text-left cursor-pointer ${isSelected
-                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-105'
-                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                                }`}
-                              title={`Select ${item.name}`}
-                            >
-                              <img
-                                src={item.url}
-                                alt={item.name}
-                                onError={() => markGlobalBrokenUrl(item.url)}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              />
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
-                                <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
-                              </div>
-                              <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
-                                }`}>
-                                {isSelected ? '✓' : '+'}
-                              </span>
-                            </button>
+                            <div key={item.url || idx} className="relative shrink-0 group">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const pick = { url: item.url, preview: item.url, name: item.name };
+                                  addClassifiedGarment(pick);
+                                  setCloth(pick);
+                                }}
+                                className={`card-lift-glow w-20 h-28 sm:w-24 sm:h-32 rounded-2xl border overflow-hidden relative text-left cursor-pointer ${isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-105'
+                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                  }`}
+                                title={`Select ${item.name}`}
+                              >
+                                <img
+                                  src={item.url}
+                                  alt={item.name}
+                                  onError={() => markGlobalBrokenUrl(item.url)}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
+                                  <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
+                                </div>
+                                <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
+                                  }`}>
+                                  {isSelected ? '✓' : '+'}
+                                </span>
+                              </button>
+                              {item.id && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDeleteUpload(item.id, item.url);
+                                  }}
+                                  className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
+                                  title="Delete uploaded garment"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -14081,23 +14219,37 @@ export default function Design() {
                             selectedModels.some((p) => p && p.url === item.url) ||
                             model?.url === item.url;
                           return (
-                            <button
-                              key={item.url || idx}
-                              type="button"
-                              onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                              className={`shrink-0 w-14 h-16 rounded-xl border overflow-hidden relative group transition-all hover:scale-105 ${isSelected
-                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                                }`}
-                              title={`Select ${item.name}`}
-                            >
-                              <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                              {isSelected && (
-                                <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[9px] font-bold shadow">
-                                  ✓
-                                </span>
+                            <div key={item.url || idx} className="relative shrink-0 group">
+                              <button
+                                type="button"
+                                onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                className={`card-lift-glow w-14 h-16 rounded-xl border overflow-hidden relative ${isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                  }`}
+                                title={`Select ${item.name}`}
+                              >
+                                <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                                {isSelected && (
+                                  <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[9px] font-bold shadow">
+                                    ✓
+                                  </span>
+                                )}
+                              </button>
+                              {item.id && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDeleteUpload(item.id, item.url);
+                                  }}
+                                  className="absolute top-1 left-1 w-4 h-4 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
+                                  title="Delete uploaded model"
+                                >
+                                  ×
+                                </button>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -14166,7 +14318,7 @@ export default function Design() {
                                       key={item.id}
                                       type="button"
                                       onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                      className={`group relative overflow-hidden rounded-md border transition ${isSelected
+                                      className={`card-lift-glow group relative overflow-hidden rounded-md border ${isSelected
                                         ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
                                         : isLight
                                           ? 'border-gray-200 hover:border-gray-400'
@@ -14211,24 +14363,38 @@ export default function Design() {
                               selectedModels.some((p) => p && p.url === item.url) ||
                               model?.url === item.url;
                             return (
-                              <button
-                                key={item.url || idx}
-                                type="button"
-                                onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                className={`group relative overflow-hidden rounded-md border transition ${isSelected
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                  : isLight
-                                    ? 'border-gray-200 hover:border-gray-400'
-                                    : 'border-transparent hover:border-white/30'
-                                  }`}
-                              >
-                                <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
-                                {isSelected && (
-                                  <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
-                                    ✓
-                                  </span>
+                              <div key={item.url || idx} className="relative group">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                  className={`card-lift-glow w-full relative overflow-hidden rounded-md border ${isSelected
+                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                    : isLight
+                                      ? 'border-gray-200 hover:border-gray-400'
+                                      : 'border-transparent hover:border-white/30'
+                                    }`}
+                                >
+                                  <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
+                                  {isSelected && (
+                                    <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
+                                      ✓
+                                    </span>
+                                  )}
+                                </button>
+                                {item.id && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleDeleteUpload(item.id, item.url);
+                                    }}
+                                    className="absolute top-1 left-1 w-4 h-4 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
+                                    title="Delete uploaded model"
+                                  >
+                                    ×
+                                  </button>
                                 )}
-                              </button>
+                              </div>
                             );
                           })}
                         </div>

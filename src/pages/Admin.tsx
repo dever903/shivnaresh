@@ -12,6 +12,7 @@ import {
   type AdminSettings,
   type AdminUser,
   type AdminGeneration,
+  type BinUploadItem,
   type CustomRequest,
   type HostStatus,
   type ModelCategory,
@@ -284,6 +285,7 @@ export default function Admin() {
   const [binRequests, setBinRequests] = useState<CustomRequest[]>([]);
   const [binDeliveries, setBinDeliveries] = useState<AdminDelivery[]>([]);
   const [binGenerations, setBinGenerations] = useState<AdminGeneration[]>([]);
+  const [binUploads, setBinUploads] = useState<BinUploadItem[]>([]);
   const [binLoading, setBinLoading] = useState(false);
   const [binCount, setBinCount] = useState(0);
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
@@ -1736,6 +1738,7 @@ ${log.stack || 'None'}
       setBinRequests(res.requests || []);
       setBinDeliveries(res.deliveries || []);
       setBinGenerations(res.generations || []);
+      setBinUploads(res.uploads || []);
       setBinCount(res.total || 0);
     } catch (e) {
       console.warn('Failed to load admin bin:', e);
@@ -1744,7 +1747,7 @@ ${log.stack || 'None'}
     }
   }
 
-  async function handleRestoreItem(type: 'request' | 'delivery' | 'generation', id: string) {
+  async function handleRestoreItem(type: 'request' | 'delivery' | 'generation' | 'upload', id: string) {
     try {
       await api.restoreBinItem(type, id);
       await loadBin();
@@ -1756,7 +1759,7 @@ ${log.stack || 'None'}
     }
   }
 
-  async function handlePermanentlyDeleteItem(type: 'request' | 'delivery' | 'generation', id: string) {
+  async function handlePermanentlyDeleteItem(type: 'request' | 'delivery' | 'generation' | 'upload', id: string) {
     if (!window.confirm('Permanently delete this item? This action is irreversible.')) return;
     try {
       await api.permanentlyDeleteBinItem(type, id);
@@ -3707,6 +3710,86 @@ ${log.stack || 'None'}
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Deleted User Uploads Section */}
+              {binUploads.length > 0 && (
+                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-4 flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    <span>Deleted User Uploads ({binUploads.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {binUploads.map((up) => {
+                      const thumbUrl = up.remoteUrl || up.url || '';
+                      return (
+                        <div
+                          key={up.id}
+                          className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900' : 'bg-black/30 border-white/5 text-white'
+                            }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {thumbUrl ? (
+                              <img
+                                src={thumbUrl}
+                                alt={up.name || 'Deleted upload'}
+                                className="w-14 h-18 object-cover rounded-lg border border-white/10 bg-black/40 shrink-0"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-14 h-18 rounded-lg border border-white/10 bg-black/40 flex items-center justify-center shrink-0 text-xl text-zinc-500">
+                                🖼️
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs">{up.name || 'User Upload'}</span>
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-semibold uppercase">
+                                  {up.kind || 'upload'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/20 text-red-400 font-semibold uppercase">
+                                  Deleted
+                                </span>
+                              </div>
+                              <p className="text-[11px] opacity-70">
+                                User: <span className="font-semibold">{up.userEmail || up.userId || 'Unknown'}</span>
+                                {up.at ? ` · Uploaded: ${new Date(up.at).toLocaleDateString()}` : ''}
+                              </p>
+                              {up.deletedAt && (
+                                <p className="text-[10px] text-red-400">
+                                  Moved to Bin: {new Date(up.deletedAt).toLocaleString()} {up.deletedBy ? `by ${up.deletedBy}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => void handleRestoreItem('upload', up.id)}
+                              className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                              title="Restore upload back to user library"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Restore</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handlePermanentlyDeleteItem('upload', up.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                              title="Permanently erase forever from database and storage"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Permanently</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Deleted Studio Images & Generations Section */}
               {binGenerations.length > 0 && (
                 <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
@@ -5328,12 +5411,25 @@ ${log.stack || 'None'}
 
         {/* Categories & Models Grid with Drag-and-Drop and Quick Move */}
         <div className="grid gap-6">
-          {categories.map((cat) => {
+          {categories.map((cat, catIdx) => {
             const isOver = dragOverCat === cat.category;
             const filteredItems = cat.items.filter((item) => {
               if (adminSeasonFilter === 'all') return true;
               return !item.season || item.season.toLowerCase() === adminSeasonFilter.toLowerCase();
             });
+            const moveCategoryOrder = async (direction: -1 | 1) => {
+              const targetIdx = catIdx + direction;
+              if (targetIdx < 0 || targetIdx >= categories.length) return;
+              const next = [...categories];
+              const [moved] = next.splice(catIdx, 1);
+              next.splice(targetIdx, 0, moved);
+              updateCategoriesAndCache(next);
+              try {
+                await api.reorderModelCategories(next.map((c) => c.category));
+              } catch (err: any) {
+                console.warn('[admin] Failed to reorder categories:', err?.message);
+              }
+            };
             return (
               <div
                 key={cat.category}
@@ -5404,6 +5500,26 @@ ${log.stack || 'None'}
                       </form>
                     ) : (
                       <>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={catIdx === 0}
+                            onClick={() => void moveCategoryOrder(-1)}
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+                            title="Move category up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            disabled={catIdx === categories.length - 1}
+                            onClick={() => void moveCategoryOrder(1)}
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+                            title="Move category down"
+                          >
+                            ↓
+                          </button>
+                        </div>
                         <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{cat.category}</h3>
                         <button
                           type="button"

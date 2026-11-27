@@ -221,6 +221,20 @@ export type UserGeneration = {
   createdAt: number;
 };
 
+export type BinUploadItem = {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  url: string;
+  remoteUrl?: string;
+  name?: string;
+  kind?: string;
+  at?: number;
+  deleted?: boolean;
+  deletedAt?: number;
+  deletedBy?: string;
+};
+
 export type AdminGeneration = {
   id: string;
   jobId?: string;
@@ -484,8 +498,8 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
     } catch (err: any) {
       lastError = err;
       if (err instanceof ApiError) {
-        // Do not retry predictable client errors (400, 401, 403, 404), BUT DO RETRY 429 & 502/503/504
-        if (err.status < 500 && err.status !== 429 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
+        // Do not retry predictable client errors (400-499) or explicit 500 JSON responses; DO retry 429 & 502/503/504
+        if (err.status !== 429 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
           throw err;
         }
       }
@@ -644,10 +658,10 @@ export const api = {
 
   /* Admin Recycle Bin */
   getAdminBin: () =>
-    request<{ requests: CustomRequest[]; deliveries: AdminDelivery[]; generations?: AdminGeneration[]; total: number }>('/api/admin/bin'),
-  restoreBinItem: (type: 'request' | 'delivery' | 'generation', id: string) =>
+    request<{ requests: CustomRequest[]; deliveries: AdminDelivery[]; generations?: AdminGeneration[]; uploads?: BinUploadItem[]; total: number }>('/api/admin/bin'),
+  restoreBinItem: (type: 'request' | 'delivery' | 'generation' | 'upload', id: string) =>
     request<{ ok: boolean; item?: any }>('/api/admin/bin/restore', json({ type, id })),
-  permanentlyDeleteBinItem: (type: 'request' | 'delivery' | 'generation', id: string) =>
+  permanentlyDeleteBinItem: (type: 'request' | 'delivery' | 'generation' | 'upload', id: string) =>
     request<{ ok: boolean; message: string }>(`/api/admin/bin/${type}/${id}`, { method: 'DELETE' }),
   emptyAdminBin: () =>
     request<{ ok: boolean; purged: number }>('/api/admin/bin/empty', { method: 'POST' }),
@@ -792,6 +806,8 @@ export const api = {
     prompt: string;
   }) => request<UploadSet>('/api/upload-sets', json(body)),
   deleteUploadSet: (id: string) => request<{ ok: boolean }>(`/api/upload-sets/${id}`, { method: 'DELETE' }),
+  reorderUploadSets: (orderedIds: string[]) =>
+    request<{ ok: boolean }>('/api/upload-sets/reorder', json({ orderedIds })),
   adminUploadSets: () => request<{ items: UploadSet[]; total: number }>('/api/admin/upload-sets'),
 
   /* AI Product Description */
@@ -825,6 +841,8 @@ export const api = {
     request<{ ok: boolean; oldId: string; newId: string; targetCategory: string }>('/api/admin/models/move', json(body)),
   renameAdminModelCategory: (body: { oldCategory: string; newCategory: string }) =>
     request<{ ok: boolean; oldCategory: string; newCategory: string; filesMoved?: number }>('/api/admin/models/rename-category', json(body)),
+  reorderModelCategories: (orderedCategories: string[]) =>
+    request<{ ok: boolean; categoryOrder?: string[] }>('/api/admin/models/reorder-categories', json({ orderedCategories })),
   updateModelSeason: (body: { id: string; season: string }) =>
     request<{ ok: boolean; id: string; season: string }>('/api/admin/models/season', json(body)),
   updateModelCategorySeason: (body: { category: string; season: string }) =>
