@@ -830,12 +830,13 @@ export default function Admin() {
     void loadHost();
   }, [access?.admin]);
 
-  // Live polling for diagnostics & technical problems so failures are seen immediately
+  // Live polling for diagnostics & technical problems (paused when tab hidden)
   useEffect(() => {
     if (!access?.admin) return;
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       void loadSystemLogs();
-    }, 6000);
+    }, 45000);
     return () => clearInterval(timer);
   }, [access?.admin]);
 

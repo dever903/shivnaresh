@@ -8985,6 +8985,7 @@ export default function Design() {
     if (!user) return;
     let active = true;
     const fetchNotifs = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       api.getNotifications().then((res) => {
         if (active && Array.isArray(res?.notifications)) {
           setUserNotifications(res.notifications);
@@ -8992,7 +8993,7 @@ export default function Design() {
       }).catch(() => {});
     };
     fetchNotifs();
-    const timer = setInterval(fetchNotifs, 20000);
+    const timer = setInterval(fetchNotifs, 60000);
     return () => {
       active = false;
       clearInterval(timer);
@@ -9100,11 +9101,12 @@ export default function Design() {
     };
   }, [loadUploadSets, loadCustomRequests, loadDeliveriesUnread, loadUserGenerations, loadUploads]);
 
-  /* Poll unread deliveries in background every 15s */
+  /* Poll unread deliveries in background every 60s (only when tab visible) */
   useEffect(() => {
     const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       void loadDeliveriesUnread();
-    }, 15000);
+    }, 60000);
     return () => clearInterval(pollTimer);
   }, [loadDeliveriesUnread]);
 
