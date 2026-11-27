@@ -47,6 +47,7 @@ import { useTheme, ThemeToggle } from '../lib/theme';
 import {
   api,
   ApiError,
+  compressImageForUpload,
   downloadDirectFile,
   fileToDataUrl,
   getProxiedImageUrl,
@@ -2602,14 +2603,14 @@ function MySetsPanel({
     setSaving(true);
     setSaveError('');
     try {
-      const clothDataUrl = pendingCloth ? await fileToDataUrl(pendingCloth.file) : undefined;
-      const modelDataUrl = pendingModel ? await fileToDataUrl(pendingModel.file) : undefined;
+      const clothCompressed = pendingCloth ? await compressImageForUpload(pendingCloth.file) : undefined;
+      const modelCompressed = pendingModel ? await compressImageForUpload(pendingModel.file) : undefined;
 
       await api.createUploadSet({
-        clothDataUrl,
-        clothName: pendingCloth?.file.name,
-        modelDataUrl,
-        modelName: pendingModel?.file.name,
+        clothDataUrl: clothCompressed?.dataUrl,
+        clothName: clothCompressed?.name || pendingCloth?.file.name,
+        modelDataUrl: modelCompressed?.dataUrl,
+        modelName: modelCompressed?.name || pendingModel?.file.name,
         prompt: setPromptText.trim(),
       });
 
@@ -3146,9 +3147,7 @@ function MySetsPanel({
                                 const el = e.currentTarget;
                                 const curSrc = el.src || '';
                                 if (!curSrc.includes('/api/proxy-image') && primary.startsWith('http')) {
-                                  const rawBase = ((import.meta as any).env?.VITE_API_URL || '').trim();
-                                  const apiBase = rawBase.includes('shivnaresh-api.onrender.com') ? '' : rawBase.replace(/\/+$/, '');
-                                  el.src = `${apiBase}/api/proxy-image?url=${encodeURIComponent(primary)}`;
+                                  el.src = getProxiedImageUrl(primary);
                                   return;
                                 }
                                 el.style.display = 'none';
@@ -3637,47 +3636,6 @@ function MySetsPanel({
   );
 }
 
-/* Fast client-side image compression helper to ensure instant, reliable uploads */
-async function compressForUpload(file: File, maxDim = 1600, quality = 0.85): Promise<string> {
-  if (!file.type.startsWith('image/') || file.size < 250 * 1024) {
-    return fileToDataUrl(file);
-  }
-  return new Promise<string>((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      } else {
-        fileToDataUrl(file).then(resolve);
-      }
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      fileToDataUrl(file).then(resolve);
-    };
-    img.src = url;
-  });
-}
-
 /** Universal client-side image rotator: rotates any image URL, Data URL, or File by degrees (default 90 deg) and returns new dataUrl + File */
 async function rotateImage(imageSource: string | File, degrees = 90): Promise<{ dataUrl: string; file: File }> {
   return new Promise((resolve, reject) => {
@@ -3955,11 +3913,11 @@ function CustomRequestsPanel({
       setUploadProgressState({ current: 0, total: totalFiles });
 
       const uploadSingle = async (item: { file: File; kind: 'cloth' | 'model' }) => {
-        const compressed = await compressForUpload(item.file);
-        const upRes = await api.upload(compressed, item.kind, item.file.name);
+        const compressed = await compressImageForUpload(item.file);
+        const upRes = await api.upload(compressed.dataUrl, item.kind, compressed.name);
         completedCount++;
         setUploadProgressState({ current: completedCount, total: totalFiles });
-        return upRes.url || compressed;
+        return upRes.url || compressed.dataUrl;
       };
 
       // Concurrency pool of 3
@@ -6181,7 +6139,7 @@ function VideoStudioPanel({
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const dataUrl = await fileToDataUrl(file);
+                        const { dataUrl } = await compressImageForUpload(file);
                         setVideoEditRefImage(dataUrl);
                       }}
                     />
@@ -11217,20 +11175,27 @@ export default function Design() {
             {/* Theme Toggle */}
             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
-            {/* Photoshoot Counter Pill */}
+            {/* Photoshoot & Video Quota Counter Pill */}
             {user && (() => {
               const totalQuota = user.photoshoots || user.maxModels || 20;
               const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
               const leftCount = Math.max(0, totalQuota - doneCount);
+              const totalVideos = typeof user.maxVideos === 'number' ? user.maxVideos : 15;
+              const doneVideos = typeof user.videosGenerated === 'number' ? user.videosGenerated : 0;
+              const leftVideos = Math.max(0, totalVideos - doneVideos);
               return (
                 <span
-                  className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-white/10 bg-white/5 text-slate-300'
+                  className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/5 text-slate-200'
                     }`}
-                  title={`${doneCount} delivered by studio, ${leftCount} remaining out of ${totalQuota}`}
+                  title={`Photoshoots: ${doneCount}/${totalQuota} used (${leftCount} left) · Videos: ${doneVideos}/${totalVideos} used (${leftVideos} left)`}
                 >
                   <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
                   <span>
-                    📸 {doneCount} / {totalQuota} Photoshoots Done ({leftCount} Left)
+                    📸 {doneCount}/{totalQuota} ({leftCount} Left)
+                  </span>
+                  <span className="opacity-30">|</span>
+                  <span>
+                    🎬 {doneVideos}/{totalVideos} ({leftVideos} Left)
                   </span>
                 </span>
               );
@@ -11369,34 +11334,70 @@ export default function Design() {
         </div>
       )}
 
-      {/* Quota Update Popup Notifications */}
+      {/* Quota Update Centered Popup Notification */}
       {userNotifications.length > 0 && (
-        <div className="fixed bottom-5 right-5 z-[160] max-w-sm w-full space-y-2.5 px-4 sm:px-0">
-          {userNotifications.map((n) => (
-            <div
-              key={n.id}
-              className="rounded-2xl border border-emerald-500/50 bg-[#101216]/95 p-4 text-white shadow-2xl backdrop-blur-md flex items-start gap-3"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                <Bell className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-emerald-400">{n.title}</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/85">{n.message}</p>
+        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-500/40 bg-[#101216] p-6 text-white shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+                  <Bell className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-emerald-400">
+                    {userNotifications[0].title}
+                  </h3>
+                  <p className="text-[11px] text-white/50">Studio Quota Notification</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setUserNotifications((prev) => prev.filter((x) => x.id !== n.id));
-                  void api.markNotificationsSeen([n.id]);
+                  const ids = userNotifications.map((x) => x.id);
+                  setUserNotifications([]);
+                  void api.markNotificationsSeen(ids);
                 }}
-                className="text-white/50 hover:text-white text-base leading-none cursor-pointer px-1"
-                title="Dismiss"
+                className="text-white/50 hover:text-white text-xl leading-none cursor-pointer px-1"
+                title="Close"
               >
                 ×
               </button>
             </div>
-          ))}
+
+            <div className="space-y-2.5 max-h-60 overflow-y-auto">
+              {userNotifications.map((n) => (
+                <div key={n.id} className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-2">
+                  <p className="text-xs leading-relaxed text-white/90">{n.message}</p>
+                  {(typeof n.photoshootsLeft === 'number' || typeof n.videosLeft === 'number') && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {typeof n.photoshootsLeft === 'number' && (
+                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[11px] font-bold text-emerald-300">
+                          📸 {n.photoshootsLeft} Photoshoots Left
+                        </span>
+                      )}
+                      {typeof n.videosLeft === 'number' && (
+                        <span className="rounded-full bg-sky-500/20 border border-sky-500/40 px-3 py-1 text-[11px] font-bold text-sky-300">
+                          🎬 {n.videosLeft} Videos Left
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const ids = userNotifications.map((x) => x.id);
+                setUserNotifications([]);
+                void api.markNotificationsSeen(ids);
+              }}
+              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-bold text-white transition cursor-pointer shadow-lg"
+            >
+              Got It
+            </button>
+          </div>
         </div>
       )}
 
@@ -12932,7 +12933,7 @@ export default function Design() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const dataUrl = await fileToDataUrl(file);
+                      const { dataUrl } = await compressImageForUpload(file);
                       selectSwapSource({ url: dataUrl, name: file.name });
                     }}
                   />
@@ -13009,7 +13010,7 @@ export default function Design() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const dataUrl = await fileToDataUrl(file);
+                      const { dataUrl } = await compressImageForUpload(file);
                       selectSwapTarget({ url: dataUrl, name: file.name });
                     }}
                   />
@@ -16009,7 +16010,7 @@ export default function Design() {
                         onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (!f) return;
-                          const dataUrl = await fileToDataUrl(f);
+                          const { dataUrl } = await compressImageForUpload(f);
                           setEditRefImage({ url: dataUrl, name: f.name });
                         }}
                       />

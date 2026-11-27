@@ -1,9 +1,9 @@
 services:
-  # Full-Stack Web Service: Runs React Frontend (dist) + Node.js Express Backend together on https://shivnaresh-studio.onrender.com
   - type: web
     name: shivnaresh-studio
     runtime: node
-    buildCommand: npm install --include=dev && npm run build
+    plan: free
+    buildCommand: npm install --omit=dev --ignore-scripts
     startCommand: node server/index.mjs
     healthCheckPath: /api/health
     envVars:

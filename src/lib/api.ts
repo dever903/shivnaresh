@@ -436,7 +436,7 @@ export const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' 
 
 export function getApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return API_BASE ? `${API_BASE}${cleanPath}` : cleanPath;
+  return API_BASE && cleanPath.startsWith('/api') ? `${API_BASE}${cleanPath}` : cleanPath;
 }
 
 export function resolveImageUrl(url: string | null | undefined): string {
@@ -444,7 +444,11 @@ export function resolveImageUrl(url: string | null | undefined): string {
   if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data') || url.startsWith('/api') || url.startsWith('/models'))) {
+  // Static /models/... assets must always load from the Vercel frontend origin, never Render
+  if (url.startsWith('/models/') || url === '/models') {
+    return url;
+  }
+  if (API_BASE && (url.startsWith('/hosted') || url.startsWith('/generated') || url.startsWith('/uploads') || url.startsWith('/hood-presets') || url.startsWith('/data') || url.startsWith('/api'))) {
     return `${API_BASE}${url}`;
   }
   return url;
@@ -455,7 +459,7 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const targetUrl = url.startsWith('http') ? url : getApiUrl(url);
   const isHeavyEndpoint = url.includes('/generate') || url.includes('/upload') || url.includes('/job');
   const timeoutMs = isHeavyEndpoint ? 90000 : 35000;
   const effectiveRetries = url.includes('/generate') ? 1 : retries;
@@ -1014,86 +1018,151 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+export type CompressedImageResult = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
+
+function encodeCanvasForUpload(canvas: HTMLCanvasElement, quality: number, baseName: string): CompressedImageResult {
+  const webpUrl = canvas.toDataURL('image/webp', quality);
+  const useWebp = webpUrl.startsWith('data:image/webp');
+  const dataUrl = useWebp ? webpUrl : canvas.toDataURL('image/jpeg', quality);
+  const mimeType = useWebp ? 'image/webp' : 'image/jpeg';
+  const ext = useWebp ? '.webp' : '.jpg';
+  const cleanBase = baseName.replace(/\.[^.]+$/, '') || 'image';
+  const commaIdx = dataUrl.indexOf(',');
+  const size = commaIdx >= 0 ? Math.round((dataUrl.length - commaIdx - 1) * 0.75) : dataUrl.length;
+  return { dataUrl, name: `${cleanBase}${ext}`, mimeType, size };
+}
+
+/**
+ * Lightweight client-side image compression (WebP/JPEG, max 1400px, quality 0.84).
+ * Shrinks 5MB+ camera photos to ~120-200KB before hitting Render RAM, Cloudinary, or MongoDB.
+ */
+export async function compressImageForUpload(
+  file: File,
+  options?: { maxDim?: number; quality?: number }
+): Promise<CompressedImageResult> {
+  const maxDim = options?.maxDim ?? 1400;
+  const quality = options?.quality ?? 0.84;
+
+  if (!file.type.startsWith('image/')) {
+    const dataUrl = await fileToDataUrl(file);
+    return { dataUrl, name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Invalid image format'));
+      el.src = objectUrl;
+    });
+
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) {
+      const dataUrl = await fileToDataUrl(file);
+      return { dataUrl, name: file.name, mimeType: file.type, size: file.size };
+    }
+
+    // Skip re-encoding if already small and within dimension limits
+    if (w <= maxDim && h <= maxDim && file.size <= 150 * 1024 && (file.type === 'image/webp' || file.type === 'image/jpeg')) {
+      const dataUrl = await fileToDataUrl(file);
+      return { dataUrl, name: file.name, mimeType: file.type, size: file.size };
+    }
+
+    let targetW = w;
+    let targetH = h;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        targetH = Math.round((h * maxDim) / w);
+        targetW = maxDim;
+      } else {
+        targetW = Math.round((w * maxDim) / h);
+        targetH = maxDim;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      const dataUrl = await fileToDataUrl(file);
+      return { dataUrl, name: file.name, mimeType: file.type, size: file.size };
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    return encodeCanvasForUpload(canvas, quality, file.name);
+  } catch {
+    const dataUrl = await fileToDataUrl(file);
+    return { dataUrl, name: file.name, mimeType: file.type, size: file.size };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 /**
  * High-fidelity client standardizer:
  * For models: Preserves natural portrait aspect ratio without forced white letterboxing.
  * For garments: Enforces square catalog dimensions with clean studio backdrop.
- * Downsamples huge camera files to max 1600-1800px at 0.88-0.90 quality for ultra-fast <100ms uploads.
+ * Downsamples huge camera files to max 1400px at 0.84 WebP/JPEG for ~120-200KB uploads.
  */
-export function prepareAndStandardizeImage(file: File, kind: 'cloth' | 'model' = 'model'): Promise<{ dataUrl: string; name: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read image file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Invalid image format'));
-      img.onload = () => {
-        const { naturalWidth: w, naturalHeight: h } = img;
-        if (!w || !h) {
-          resolve({ dataUrl: String(reader.result), name: file.name });
-          return;
-        }
+export async function prepareAndStandardizeImage(file: File, kind: 'cloth' | 'model' = 'model'): Promise<{ dataUrl: string; name: string }> {
+  if (kind === 'model') {
+    const compressed = await compressImageForUpload(file, { maxDim: 1400, quality: 0.84 });
+    return { dataUrl: compressed.dataUrl, name: compressed.name };
+  }
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve({ dataUrl: String(reader.result), name: file.name });
-          return;
-        }
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Invalid image format'));
+      el.src = objectUrl;
+    });
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) {
+      return { dataUrl: await fileToDataUrl(file), name: file.name };
+    }
 
-        if (kind === 'model') {
-          // Model poses: 100% preserve natural aspect ratio (portrait 3:4 / 9:16) with zero white bars
-          const maxDim = 1600;
-          let targetW = w;
-          let targetH = h;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              targetH = Math.round((h * maxDim) / w);
-              targetW = maxDim;
-            } else {
-              targetW = Math.round((w * maxDim) / h);
-              targetH = maxDim;
-            }
-          }
-          canvas.width = targetW;
-          canvas.height = targetH;
-          ctx.drawImage(img, 0, 0, targetW, targetH);
-          const standardizedUrl = canvas.toDataURL('image/jpeg', 0.88);
-          resolve({ dataUrl: standardizedUrl, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
-          return;
-        }
+    const maxSide = Math.max(w, h);
+    const targetSide = Math.min(1400, Math.max(1024, maxSide));
 
-        // Garments (cloth): Standard square e-commerce dimensions
-        const maxSide = Math.max(w, h);
-        const targetSide = Math.min(1800, Math.max(1024, maxSide));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetSide;
+    canvas.height = targetSide;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return { dataUrl: await fileToDataUrl(file), name: file.name };
+    }
 
-        canvas.width = targetSide;
-        canvas.height = targetSide;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, targetSide, targetSide);
 
-        // Clean white studio backdrop
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, targetSide, targetSide);
+    const scale = Math.min(targetSide / w, targetSide / h);
+    const renderW = Math.round(w * scale);
+    const renderH = Math.round(h * scale);
+    const offsetX = Math.round((targetSide - renderW) / 2);
+    const offsetY = Math.round((targetSide - renderH) / 2);
 
-        // Center proportionally with zero distortion or crop
-        const scale = Math.min(targetSide / w, targetSide / h);
-        const renderW = Math.round(w * scale);
-        const renderH = Math.round(h * scale);
-        const offsetX = Math.round((targetSide - renderW) / 2);
-        const offsetY = Math.round((targetSide - renderH) / 2);
-
-        ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
-
-        // High-efficiency JPEG at 0.90 quality: instant network upload with pristine quality
-        const standardizedUrl = canvas.toDataURL('image/jpeg', 0.90);
-        resolve({ dataUrl: standardizedUrl, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
+    ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+    const encoded = encodeCanvasForUpload(canvas, 0.84, file.name);
+    return { dataUrl: encoded.dataUrl, name: encoded.name };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 /**

@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, Mail, ShieldCheck, ArrowLeft, RefreshCw, X } from 'lucide-react';
-import { api, ApiError, getToken, setToken, type User } from '../lib/api';
+import { api, ApiError, getApiUrl, getToken, setToken, type User } from '../lib/api';
 import { useTheme, ThemeToggle } from '../lib/theme';
-
-const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
-const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
 
 const FIELD =
   'mt-2 w-full rounded-xl border border-white/12 bg-black/50 px-3.5 py-3 pr-11 text-sm text-white placeholder:text-white/25 focus:border-white/45 focus:outline-none focus:ring-0';
@@ -539,7 +536,7 @@ export default function Login() {
               </div>
 
               <a
-                href={`${API_BASE}/api/auth/google/start?next=${encodeURIComponent(next)}&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
+                href={getApiUrl(`/api/auth/google/start?next=${encodeURIComponent(next)}&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`)}
                 className={`flex w-full items-center justify-center gap-3 rounded-full border px-6 py-3 text-sm font-medium transition-colors ${
                   isLight
                     ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50 shadow-sm'

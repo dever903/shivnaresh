@@ -409,7 +409,7 @@ const readCustomRequests = async () => {
     try {
       const db = await getMongoDb();
       if (db) {
-        const raw = await db.collection('custom_requests').find().sort({ createdAt: -1 }).limit(100).toArray();
+        const raw = await db.collection('custom_requests').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
         if (raw && raw.length > 0) {
           items = raw.map((it) => {
             const clean = { ...it };
@@ -454,7 +454,7 @@ const readAdminDeliveries = async () => {
     try {
       const db = await getMongoDb();
       if (db) {
-        const raw = await db.collection('admin_deliveries').find().sort({ createdAt: -1 }).limit(100).toArray();
+        const raw = await db.collection('admin_deliveries').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
         if (raw && raw.length > 0) {
           items = raw.map((it) => {
             const clean = { ...it };
@@ -673,7 +673,7 @@ const readGenerations = async () => {
   try {
     const db = await getMongoDb();
     if (db) {
-      const items = await db.collection('generations').find().sort({ createdAt: -1 }).limit(150).toArray();
+      const items = await db.collection('generations').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(150).toArray();
       if (items && items.length > 0) {
         const cleanItems = items.map((it) => {
           const clean = { ...it };
@@ -1164,6 +1164,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Fast keep-alive health endpoint registered before body parsers, static, and auth (zero DB/disk calls)
+app.get(['/api/health', '/health', '/api/ping'], (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    ok: true,
+    status: 'online',
+    uptime: Math.round(process.uptime()),
+    timestamp: Date.now(),
+    service: 'shivnaresh-augmented-studio',
+  });
+});
+
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 /* Handle client JSON parse / payload size errors gracefully without dropping socket connection */
@@ -1205,10 +1217,16 @@ app.use('/uploads', async (req, res, next) => {
         let doc = await db.collection('user_uploads').findOne({
           $or: [{ id: filename }, { url: `/uploads/${filename}` }]
         });
+        if (doc?.remoteUrl && /^https?:\/\//i.test(doc.remoteUrl)) {
+          return res.redirect(302, doc.remoteUrl);
+        }
         if (!doc || !doc.dataUrl) {
           doc = await db.collection('admin_delivery_files').findOne({
             $or: [{ id: filename }, { url: `/uploads/${filename}` }]
           });
+          if (doc?.remoteUrl && /^https?:\/\//i.test(doc.remoteUrl)) {
+            return res.redirect(302, doc.remoteUrl);
+          }
         }
         if (doc && doc.dataUrl) {
           const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(doc.dataUrl);
@@ -1530,16 +1548,6 @@ const upiGateway = createUpiGateway({
 });
 app.use('/api/upi-gateway', upiGateway.router);
 app.use('/api/v1', upiGateway.router);
-
-app.get(['/api/health', '/health', '/api/ping'], (_req, res) => {
-  res.json({
-    ok: true,
-    status: 'online',
-    uptime: Math.round(process.uptime()),
-    timestamp: Date.now(),
-    service: 'shivnaresh-augmented-studio',
-  });
-});
 
 /* ------------------------------------------------------------- image proxy & catalog direct download */
 app.get('/api/proxy-image', async (req, res) => {
@@ -2760,22 +2768,26 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       const modelSeason = String(item.season || req.body.season || '').trim();
       if (db) {
         try {
+          const modelUpdate = {
+            $set: {
+              id: modelId,
+              category: safeCat,
+              season: modelSeason,
+              name: item.name || safeName,
+              url: publicUrl,
+              remoteUrl,
+              ...(!remoteUrl && item.imageData ? { dataUrl: item.imageData } : {}),
+              deleted: false,
+              createdAt: Date.now(),
+              updatedAt: new Date().toISOString(),
+            },
+          };
+          if (remoteUrl) {
+            modelUpdate.$unset = { dataUrl: '' };
+          }
           await db.collection('studio_models').updateOne(
             { id: modelId },
-            {
-              $set: {
-                id: modelId,
-                category: safeCat,
-                season: modelSeason,
-                name: item.name || safeName,
-                url: publicUrl,
-                remoteUrl,
-                ...(!remoteUrl && item.imageData ? { dataUrl: item.imageData } : {}),
-                deleted: false,
-                createdAt: Date.now(),
-                updatedAt: new Date().toISOString(),
-              },
-            },
+            modelUpdate,
             { upsert: true }
           );
         } catch (dbErr) {
@@ -3232,9 +3244,7 @@ app.post('/api/admin/seasons', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/models', async (_req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   const categories = await listModels();
   const state = await readState();
   const seasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? state.seasons : ['Summer', 'Winter'];
@@ -3508,25 +3518,32 @@ app.post('/api/upload', async (req, res) => {
       name,
     });
 
-    // Run remote host sync in background so network latency never blocks the UI
-    hostImage(buffer, name).then(async (hosted) => {
-      if (hosted?.url) {
-        try {
-          const map = await readHosted();
-          map.uploads = map.uploads || {};
-          map.uploads[file] = hosted.url;
-          await saveHosted(map);
-
-          const db = await getMongoDb();
-          if (db) {
-            await db.collection('user_uploads').updateOne(
-              { id: file },
-              { $set: { remoteUrl: hosted.url } }
-            );
-          }
-        } catch { }
+    // Run remote host sync in background so network latency never blocks the UI;
+    // strip redundant base64 dataUrl from MongoDB once Cloudinary/remote URL succeeds.
+    (async () => {
+      const cdn = await uploadToCloudinary(imgStr, String(req.user?._id || 'anon'), String(kind || 'cloth')).catch(() => null);
+      let remoteUrl = cdn?.url && /^https?:\/\//i.test(cdn.url) ? cdn.url : null;
+      if (!remoteUrl) {
+        const hosted = await hostImage(buffer, name).catch(() => null);
+        if (hosted?.url && /^https?:\/\//i.test(hosted.url)) {
+          remoteUrl = hosted.url;
+        }
       }
-    }).catch(() => { });
+      if (remoteUrl) {
+        const map = await readHosted();
+        map.uploads = map.uploads || {};
+        map.uploads[file] = remoteUrl;
+        await saveHosted(map);
+
+        const db = await getMongoDb();
+        if (db) {
+          await db.collection('user_uploads').updateOne(
+            { id: file },
+            { $set: { remoteUrl }, $unset: { dataUrl: '' } }
+          );
+        }
+      }
+    })().catch(() => { });
   } catch (error) {
     res.status(500).json({ error: 'upload_failed', message: String(error.message || error) });
   }
@@ -7314,7 +7331,14 @@ app.post('/api/admin/deliveries', requireAdmin, async (req, res) => {
             for (const item of mediaToBackup) {
               try {
                 const cdn = await uploadToCloudinary(item.dataUrl, recipientUserId || 'delivery', `media-${Date.now()}`);
-                if (cdn?.url) {
+                if (cdn?.url && /^https?:\/\//i.test(cdn.url)) {
+                  const db = await getMongoDb().catch(() => null);
+                  if (db) {
+                    await db.collection('admin_delivery_files').updateOne(
+                      { id: item.filename || path.basename(item.localUrl) },
+                      { $set: { remoteUrl: cdn.url }, $unset: { dataUrl: '' } }
+                    ).catch(() => { });
+                  }
                   const freshAll = await readAdminDeliveries();
                   const target = freshAll.find((d) => d.id === newDelivery.id);
                   if (target) {
@@ -7713,18 +7737,23 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
     if (sendEmail !== false && recipientEmail) {
       try {
         const s = await readState();
+        const rawBrevoKey = s.brevoApiKey || process.env.BREVO_API_KEY || '';
+        const brevoKey = String(rawBrevoKey).split(/[\r\n]/)[0].trim();
+        const brevoSenderEmail = String(s.brevoSenderEmail || process.env.BREVO_SENDER_EMAIL || PRIMARY_ADMIN_EMAIL).split(/[\r\n]/)[0].trim();
+        const brevoSenderName = String(s.brevoSenderName || process.env.BREVO_SENDER_NAME || 'Shiv-Naresh AI Studio').split(/[\r\n]/)[0].trim();
+
         const rawResendKey = s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY || '';
         const apiKey = String(rawResendKey).split(/[\r\n]/)[0].trim();
         const rawFromEmail = s.resendFromEmail || process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>';
         const fromEmail = String(rawFromEmail).split(/[\r\n]/)[0].trim();
-        if (apiKey) {
-          const subject = (typeof emailSubject === 'string' && emailSubject.trim())
-            ? emailSubject.trim()
-            : `Shiv-Naresh AI Studio: Quota Updated (${left} Photoshoots · ${vLeft} Videos Left)`;
-          const customNoteHtml = (typeof emailBody === 'string' && emailBody.trim())
-            ? `<div style="margin:16px 0;padding:14px 16px;border-left:3px solid #e5373f;background:#16161b;border-radius:8px;color:#e5e7eb;font-size:14px;white-space:pre-line;">${emailBody.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
-            : '';
-          const html = `
+
+        const subject = (typeof emailSubject === 'string' && emailSubject.trim())
+          ? emailSubject.trim()
+          : `Shiv-Naresh AI Studio: Quota Updated (${left} Photoshoots · ${vLeft} Videos Left)`;
+        const customNoteHtml = (typeof emailBody === 'string' && emailBody.trim())
+          ? `<div style="margin:16px 0;padding:14px 16px;border-left:3px solid #e5373f;background:#16161b;border-radius:8px;color:#e5e7eb;font-size:14px;white-space:pre-line;">${emailBody.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+          : '';
+        const html = `
             <div style="font-family:Arial,Helvetica,sans-serif;max-width:580px;margin:0 auto;background:#0a0a0d;color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #26262e;">
               <div style="background:linear-gradient(135deg,#e5373f,#9e1b22);padding:26px 30px;">
                 <h1 style="margin:0;font-size:20px;font-weight:800;letter-spacing:0.5px;color:#ffffff;">SHIV-NARESH AI STUDIO</h1>
@@ -7750,6 +7779,28 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
               </div>
               <div style="padding:14px 30px;font-size:11px;color:#6b7280;border-top:1px solid #1f1f27;">Shiv-Naresh AI Studio · Automated Quota Notification</div>
             </div>`;
+
+        if (brevoKey) {
+          const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { accept: 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sender: { name: brevoSenderName, email: brevoSenderEmail },
+              replyTo: { name: 'Shiv-Naresh Support', email: PRIMARY_ADMIN_EMAIL },
+              to: [{ email: recipientEmail }],
+              subject,
+              htmlContent: html,
+            }),
+          });
+          if (brevoRes.ok) {
+            emailSent = true;
+          } else {
+            const bErr = await brevoRes.json().catch(() => ({}));
+            emailError = bErr?.message || `Brevo HTTP ${brevoRes.status}`;
+          }
+        }
+
+        if (!emailSent && apiKey) {
           const mailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -7757,12 +7808,13 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
           });
           if (mailRes.ok) {
             emailSent = true;
+            emailError = '';
           } else {
             const errJson = await mailRes.json().catch(() => ({}));
-            emailError = errJson?.message || `HTTP ${mailRes.status}`;
+            emailError = emailError || errJson?.message || `HTTP ${mailRes.status}`;
           }
-        } else {
-          emailError = 'Resend API key not configured';
+        } else if (!emailSent && !brevoKey) {
+          emailError = 'Email API key (Brevo / Resend) not configured';
         }
       } catch (e) {
         emailError = e?.message || 'Email failed';
@@ -7858,6 +7910,7 @@ app.post('/api/notifications/mark-seen', auth.requireUser, async (req, res) => {
 });
 
 app.get('/api/tab-visibility', async (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
     const db = await getMongoDb().catch(() => null);
     if (!db) return res.json({ allowedTabs: null });
@@ -7931,6 +7984,43 @@ app.post('/api/admin/clean-broken-cache', requireAdmin, async (_req, res) => {
     res.json({ ok: true, message: `Server caches purged. Cleaned ${cleanedCount} dead upload records.` });
   } catch (err) {
     res.status(500).json({ error: 'cache_clean_failed', message: err.message });
+  }
+});
+
+app.post('/api/admin/compact-storage', requireAdmin, async (_req, res) => {
+  try {
+    const db = await getMongoDb();
+    if (!db) return res.status(503).json({ error: 'db_unavailable' });
+
+    const httpsFilter = { remoteUrl: { $regex: /^https:\/\//i }, dataUrl: { $exists: true } };
+    const [uploadsRes, modelsRes, deliveryFilesRes] = await Promise.all([
+      db.collection('user_uploads').updateMany(httpsFilter, { $unset: { dataUrl: '' } }),
+      db.collection('studio_models').updateMany(httpsFilter, { $unset: { dataUrl: '' } }),
+      db.collection('admin_delivery_files').updateMany(httpsFilter, { $unset: { dataUrl: '' } }),
+    ]);
+
+    const keepLogs = await db
+      .collection('system_logs')
+      .find({}, { projection: { _id: 1 } })
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .toArray();
+    let trimmedSystemLogs = 0;
+    if (keepLogs.length === 100) {
+      const keepIds = keepLogs.map((d) => d._id);
+      const trimRes = await db.collection('system_logs').deleteMany({ _id: { $nin: keepIds } });
+      trimmedSystemLogs = trimRes.deletedCount || 0;
+    }
+
+    res.json({
+      ok: true,
+      strippedUserUploads: uploadsRes.modifiedCount || 0,
+      strippedStudioModels: modelsRes.modifiedCount || 0,
+      strippedDeliveryFiles: deliveryFilesRes.modifiedCount || 0,
+      trimmedSystemLogs,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'compact_storage_failed', message: err.message });
   }
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   api,
+  compressImageForUpload,
   resolveImageUrl,
   fileToDataUrl,
   prepareAndStandardizeImage,
@@ -253,25 +254,21 @@ export default function Admin() {
   const modelFileInput = useRef<HTMLInputElement>(null);
   const devPhotoFileRef = useRef<HTMLInputElement>(null);
 
-  function handleDevPhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleDevPhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = String(reader.result || '');
+    try {
+      const { dataUrl } = await compressImageForUpload(file, { maxDim: 1024, quality: 0.84 });
       setDevProfile((prev) => ({ ...prev, avatar: dataUrl }));
       setDeveloperImageUrl(dataUrl);
-      try {
-        const res = await api.upload(dataUrl, 'model', 'developer-avatar');
-        if (res?.url) {
-          setDevProfile((prev) => ({ ...prev, avatar: res.url }));
-          setDeveloperImageUrl(res.url);
-        }
-      } catch (uploadErr) {
-        console.warn('Developer photo background upload note:', uploadErr);
+      const res = await api.upload(dataUrl, 'model', 'developer-avatar');
+      if (res?.url) {
+        setDevProfile((prev) => ({ ...prev, avatar: res.url }));
+        setDeveloperImageUrl(res.url);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (uploadErr) {
+      console.warn('Developer photo background upload note:', uploadErr);
+    }
   }
 
   /* Problem Logs State (Defaults to unresolved so resolved errors are not shown) */
@@ -1571,51 +1568,6 @@ ${log.stack || 'None'}
     }
   }
 
-  async function compressImageForDispatch(file: File, maxDim = 2048, quality = 0.85): Promise<{ dataUrl: string; size: number }> {
-    if (!file.type.startsWith('image/')) {
-      return new Promise((resolve) => {
-        const r = new FileReader();
-        r.onload = () => resolve({ dataUrl: String(r.result), size: file.size });
-        r.readAsDataURL(file);
-      });
-    }
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve({ dataUrl: String(e.target?.result), size: file.size });
-            return;
-          }
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', quality);
-          resolve({ dataUrl, size: Math.round(dataUrl.length * 0.75) });
-        };
-        img.onerror = () => resolve({ dataUrl: String(e.target?.result), size: file.size });
-        img.src = String(e.target?.result);
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function addFilesToDispatch(files: FileList | File[] | null, forceType?: 'photo' | 'video' | 'zip' | 'folder') {
     if (!files || files.length === 0) return;
     const fileArr = Array.from(files);
@@ -1629,13 +1581,13 @@ ${log.stack || 'None'}
           forceType || (isVid ? 'video' : isZip ? 'zip' : isImg ? 'photo' : 'folder');
 
         if (isImg) {
-          const comp = await compressImageForDispatch(file);
+          const comp = await compressImageForUpload(file);
           return {
             dataUrl: comp.dataUrl,
-            name: file.name,
+            name: comp.name,
             size: comp.size,
             type: detectedType,
-            mimeType: 'image/jpeg',
+            mimeType: comp.mimeType,
             preview: comp.dataUrl,
           };
         } else {
@@ -3165,15 +3117,23 @@ ${log.stack || 'None'}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          const dataUrl = await fileToDataUrl(file);
-                          setReplyAttachment({
-                            dataUrl,
-                            name: file.name,
-                            size: file.size,
-                            type: file.type || 'application/octet-stream',
-                          });
                           if (file.type.startsWith('image/')) {
-                            setReplyImageUrl(dataUrl);
+                            const comp = await compressImageForUpload(file);
+                            setReplyAttachment({
+                              dataUrl: comp.dataUrl,
+                              name: comp.name,
+                              size: comp.size,
+                              type: comp.mimeType,
+                            });
+                            setReplyImageUrl(comp.dataUrl);
+                          } else {
+                            const dataUrl = await fileToDataUrl(file);
+                            setReplyAttachment({
+                              dataUrl,
+                              name: file.name,
+                              size: file.size,
+                              type: file.type || 'application/octet-stream',
+                            });
                           }
                           if (replyStatus !== 'delivered') setReplyStatus('delivered');
                         }}
