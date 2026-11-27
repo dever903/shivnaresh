@@ -7713,8 +7713,10 @@ app.post('/api/admin/users/:id/photoshoots-progress', requireAdmin, async (req, 
     if (sendEmail !== false && recipientEmail) {
       try {
         const s = await readState();
-        const apiKey = s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY;
-        const fromEmail = s.resendFromEmail || process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>';
+        const rawResendKey = s.resendApiKey || process.env.RESEND_API_KEY || RESEND_DEFAULT_KEY || '';
+        const apiKey = String(rawResendKey).split(/[\r\n]/)[0].trim();
+        const rawFromEmail = s.resendFromEmail || process.env.RESEND_FROM_EMAIL || 'Shiv-Naresh AI Studio <onboarding@resend.dev>';
+        const fromEmail = String(rawFromEmail).split(/[\r\n]/)[0].trim();
         if (apiKey) {
           const subject = (typeof emailSubject === 'string' && emailSubject.trim())
             ? emailSubject.trim()
