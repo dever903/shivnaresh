@@ -2348,7 +2348,6 @@ function MySetsPanel({
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
 }) {
-  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('all');
   const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('ready');
   const [draggedGenId, setDraggedGenId] = useState<string | null>(null);
   const [customGenOrder, setCustomGenOrder] = useState<string[]>(() => {
@@ -3202,7 +3201,6 @@ function MySetsPanel({
                 {displayedImages.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'edge-light border-[var(--line-1)] bg-[var(--ink-1)]'
                     draggable
                     onDragStart={(e) => {
                       setDraggedGenId(gen.id);
