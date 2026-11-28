@@ -1093,13 +1093,19 @@ async function listModels(forceFresh = false) {
         const parts = String(m.id || '').split('/');
         const fileName = parts.length > 1 ? parts[1] : (m.name || 'model');
         const safeLocalUrl = `/models/${encodeURIComponent(m.category)}/${encodeURIComponent(fileName)}`;
+        const fallbackAssetUrl = `/api/models/asset?id=${encodeURIComponent(m.id)}`;
         const validRemote = (m.remoteUrl && !m.remoteUrl.includes('ibb.co') && !m.remoteUrl.includes('imgbb')) ? m.remoteUrl : null;
         const validUrl = (m.url && !m.url.includes('ibb.co') && !m.url.includes('imgbb')) ? m.url : null;
+        const isUploadedAtRuntime = Number(m.createdAt || 0) > 0;
+        const resolvedUrl =
+          validRemote ||
+          (validUrl && (!isUploadedAtRuntime || !validUrl.startsWith('/models/')) ? validUrl : null) ||
+          (isUploadedAtRuntime ? fallbackAssetUrl : safeLocalUrl);
 
         categoriesMap.get(m.category).set(m.id, {
           id: m.id,
           name: m.name || fileName.replace(/\.[^.]+$/, ''),
-          url: validRemote || validUrl || safeLocalUrl,
+          url: resolvedUrl,
           season: m.season || '',
           category: m.category,
           createdAt: m.createdAt || 0,
@@ -3260,7 +3266,7 @@ app.post('/api/admin/models', requireAdmin, async (req, res) => {
       const filePath = path.join(targetDir, fileName);
       await fs.writeFile(filePath, rawBuffer);
 
-      let publicUrl = `/models/${encodeURIComponent(safeCat)}/${encodeURIComponent(fileName)}`;
+      let publicUrl = `/api/models/asset?id=${encodeURIComponent(modelId)}`;
       let remoteUrl = null;
       try {
         if (item.imageData) {
@@ -3771,9 +3777,53 @@ app.post('/api/admin/models/reorder-categories', requireAdmin, async (req, res) 
   }
 });
 
+app.get('/api/models/asset', async (req, res) => {
+  try {
+    const id = String(req.query.id || '').trim();
+    if (!id || id.includes('..')) {
+      return res.status(400).json({ error: 'invalid_id' });
+    }
+    const parts = id.split('/');
+    if (parts.length === 2) {
+      const candidatePaths = [
+        path.join(MODELS_DIR, parts[0], parts[1]),
+        path.join('/tmp', 'models', parts[0], parts[1]),
+      ];
+      for (const p of candidatePaths) {
+        try {
+          const buf = await fs.readFile(p);
+          const ext = path.extname(parts[1]).toLowerCase();
+          const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
+          res.setHeader('Content-Type', mime);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          return res.send(buf);
+        } catch { }
+      }
+    }
+    const db = await getMongoDb().catch(() => null);
+    if (db) {
+      const doc = await db.collection('studio_models').findOne({ id, deleted: { $ne: true } });
+      if (doc?.dataUrl && typeof doc.dataUrl === 'string') {
+        const match = /^data:([^;]+);base64,(.*)$/is.exec(doc.dataUrl.trim());
+        if (match) {
+          res.setHeader('Content-Type', match[1]);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          return res.send(Buffer.from(match[2], 'base64'));
+        }
+      }
+      if (doc?.remoteUrl && !doc.remoteUrl.includes('ibb.co')) {
+        return res.redirect(302, doc.remoteUrl);
+      }
+    }
+    return res.status(404).json({ error: 'model_not_found' });
+  } catch (err) {
+    return res.status(500).json({ error: 'model_asset_failed', message: String(err?.message || err) });
+  }
+});
+
 app.get('/api/models', async (_req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  const categories = await listModels();
+  const categories = await listModels(true);
   const state = await readState();
   const seasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? state.seasons : ['Summer', 'Winter'];
   res.json({ categories, seasons });

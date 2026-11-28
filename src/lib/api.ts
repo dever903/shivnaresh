@@ -574,7 +574,7 @@ export const api = {
 
   /* customer studio */
   studio: () => request<Studio>('/api/studio'),
-  models: () => request<{ categories: ModelCategory[]; seasons?: string[] }>('/api/models'),
+  models: () => request<{ categories: ModelCategory[]; seasons?: string[] }>(`/api/models?t=${Date.now()}`, { cache: 'no-store' }),
   uploads: () => request<{ items: { id: string; name: string; url: string; kind?: string; at?: number }[] }>('/api/uploads'),
   upload: (dataUrl: string, kind: 'cloth' | 'model', name: string) =>
     request<{

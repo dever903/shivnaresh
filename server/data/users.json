@@ -25,8 +25,8 @@
     "maxModels": 100,
     "maxVideos": 20,
     "planExpiresAt": null,
-    "dailyModelsUsed": 18,
-    "modelsGenerated": 17,
+    "dailyModelsUsed": 19,
+    "modelsGenerated": 18,
     "allowedTabs": [
       "studio",
       "color-swap",
@@ -34,8 +34,12 @@
       "description",
       "custom-requests",
       "deliveries",
+      "video",
+      "watermark",
       "compare"
-    ]
+    ],
+    "photoshoots": 100,
+    "watermarkAccess": true
   },
   {
     "_id": "49d56d0c-5117-4ea4-8a60-62b6bbf29a0b",
@@ -46,7 +50,7 @@
     "salt": "0de555d4a4aea5b7a944e63321faf70d",
     "hash": "cdda2ad81e5c7fbae4a6e9387c8ba644ec8c3b4e64b9c6a6808096609b5db290e63659a21fe20776b0b0218ed9f9bdaae80cf60675e5e81bf24db3bf5990ff06",
     "passwordSetAt": "2026-11-01T00:00:00.000Z",
-    "credits": 100,
+    "credits": 99,
     "tier": "ultra",
     "role": "admin",
     "isAdmin": true,
@@ -61,8 +65,8 @@
     },
     "maxModels": 100,
     "maxVideos": 6,
-    "dailyModelsUsed": 90,
-    "modelsGenerated": 75,
+    "dailyModelsUsed": 91,
+    "modelsGenerated": 76,
     "planExpiresAt": 1798451882779,
     "photoshoots": 150,
     "photoshootsDone": 15,
