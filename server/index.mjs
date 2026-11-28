@@ -1065,7 +1065,6 @@ async function syncStudioModelsToDisk() {
 }
 
 async function listModels(forceFresh = false) {
-  void syncStudioModelsToDisk();
   const now = Date.now();
   if (!forceFresh && cachedModelCategories && now - cachedModelsTime < 30_000) {
     return cachedModelCategories;
@@ -3821,9 +3820,10 @@ app.get('/api/models/asset', async (req, res) => {
   }
 });
 
-app.get('/api/models', async (_req, res) => {
+app.get('/api/models', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  const categories = await listModels(true);
+  const forceFresh = String(req.query?.fresh || '') === '1';
+  const categories = await listModels(forceFresh);
   const state = await readState();
   const seasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? state.seasons : ['Summer', 'Winter'];
   res.json({ categories, seasons });
@@ -9676,3 +9676,4 @@ if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
 }
 
 export default app;
+                                

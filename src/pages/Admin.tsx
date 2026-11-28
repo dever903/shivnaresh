@@ -1321,7 +1321,7 @@ export default function Admin() {
       if (modelFileInput.current) {
         modelFileInput.current.value = '';
       }
-      const freshModels = await api.models();
+      const freshModels = await api.models(true);
       updateCategoriesAndCache(freshModels.categories);
       if (freshModels.seasons) setSeasons(freshModels.seasons);
       setTimeout(() => setModelMessage(''), 6000);
@@ -1380,7 +1380,7 @@ export default function Admin() {
     setRenamingBusy(true);
     try {
       await api.renameAdminModelCategory({ oldCategory: oldCat, newCategory: trimmedNew });
-      const freshModels = await api.models();
+      const freshModels = await api.models(true);
       updateCategoriesAndCache(freshModels.categories);
       if (uploadModelCat === oldCat) {
         setUploadModelCat(trimmedNew);
@@ -1456,7 +1456,7 @@ export default function Admin() {
     setMovingModelId(modelId);
     try {
       await api.moveAdminModel({ id: modelId, targetCategory });
-      const freshModels = await api.models();
+      const freshModels = await api.models(true);
       updateCategoriesAndCache(freshModels.categories);
     } catch (err: any) {
       alert(`Could not move model: ${err.message || err}`);

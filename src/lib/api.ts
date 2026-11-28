@@ -447,7 +447,8 @@ export class ApiError extends Error {
 }
 
 const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
-export const API_BASE = rawApiBase.replace(/\/+$/, '');
+// Ignore suspended shivnaresh-api.onrender.com so Vercel same-origin /api works without 503 retry hangs
+export const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
 
 export function getApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -574,7 +575,7 @@ export const api = {
 
   /* customer studio */
   studio: () => request<Studio>('/api/studio'),
-  models: () => request<{ categories: ModelCategory[]; seasons?: string[] }>(`/api/models?t=${Date.now()}`, { cache: 'no-store' }),
+  models: (fresh = false) => request<{ categories: ModelCategory[]; seasons?: string[] }>(`/api/models?t=${Date.now()}${fresh ? '&fresh=1' : ''}`, { cache: 'no-store' }),
   uploads: () => request<{ items: { id: string; name: string; url: string; kind?: string; at?: number }[] }>('/api/uploads'),
   upload: (dataUrl: string, kind: 'cloth' | 'model', name: string) =>
     request<{
