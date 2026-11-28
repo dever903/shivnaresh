@@ -712,7 +712,7 @@ export default function DescriptionStudio({
                   title={m.hint}
                   onClick={() => {
                     setAiMode(m.id);
-                    if (m.id !== 'listing' && prompt === DEFAULT_PROMPT) {
+                    if (m.id === 'blank') {
                       setPrompt('');
                     } else if (m.id === 'listing' && !prompt.trim()) {
                       setPrompt(defaultPrompt || DEFAULT_PROMPT);
@@ -737,7 +737,7 @@ export default function DescriptionStudio({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={8}
-              placeholder="Edit prompt instructions here..."
+              placeholder={aiMode === 'blank' ? 'Ask AI anything or type your custom prompt...' : 'Edit prompt instructions here...'}
               className={`w-full rounded-xl border p-3 text-xs leading-relaxed focus:outline-none transition ${
                 isLight ? 'border-gray-300 bg-gray-50 text-gray-900 focus:border-[#e5373f]' : 'border-white/15 bg-black/60 text-white focus:border-[#e5373f]'
               }`}

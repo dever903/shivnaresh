@@ -6699,13 +6699,18 @@ app.get('/api/upload-sets', auth.requireUser, async (req, res) => {
   try {
     const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
-    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const canViewAll = Boolean(
+      req.user.isAdmin ||
+      req.user.role === 'admin' ||
+      req.user.features?.canViewAllAssets ||
+      req.user.canViewAllAssets
+    );
     const allSets = await readUploadSets();
     const sets = allSets.filter((s) => {
-      if (isAdmin) return true;
+      if (canViewAll) return true;
       const sUserId = s.userId ? String(s.userId) : '';
       const sEmail = (s.userEmail || '').toLowerCase().trim();
-      return (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail) || (!sUserId && !sEmail);
+      return (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
     });
     sets.sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0));
     res.json({ items: sets });
