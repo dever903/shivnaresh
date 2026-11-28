@@ -112,8 +112,8 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
       daily_limit: 500000,
       bank_details: {
         accountHolder: 'PAWAN KUMAR',
-        accountNumber: '43128905432',
-        ifsc: 'SBIN0001234',
+        accountNumber: '41614259248',
+        ifsc: 'SBIN0011558',
         bankName: 'State Bank of India',
         branch: 'Delhi University ARSD Branch',
       },
