@@ -10999,6 +10999,13 @@ async function runActualGeneration() {
       };
       setFivePoseItems([singleInitialPose]);
       setSelectedPoseIndex(0);
+      activePoseIndexRef.current = -1;
+      batchPayloadRef.current = null;
+      setProgress(5);
+      setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
+
+      const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
+      const singlePayload: Record<string, unknown> = {
         ...payload,
         ...(singleModel?.url ? { model: singleModel.url } : {}),
       ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
