@@ -115,7 +115,7 @@ export function createUpiGateway({ dataDir, getState, patchState, auth, recordPr
         accountNumber: process.env.BANK_ACCOUNT_NUMBER || '41614259248',
         ifsc: process.env.BANK_IFSC || 'SBIN0011558',
         bankName: process.env.BANK_NAME || 'State Bank of India',
-        branch: process.env.BANK_BRANCH || 'Delhi University ARSD Branch',
+        branch: process.env.BANK_BRANCH || 'Yamuna Vihar',
       },
     },
     {
