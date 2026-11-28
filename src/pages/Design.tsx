@@ -7396,32 +7396,22 @@ export default function Design() {
       return categories;
     }
     const target = modelCategoryFilter.toLowerCase();
-    if (target === 'summer') {
-      return categories.filter((c) => {
-        const name = c.category.toLowerCase();
-        return name.includes('summer') || name === 'only shirt' || name === 'tshirt' || name === 'female';
-      });
-    }
-    if (target === 'winter') {
-      return categories.filter((c) => {
-        const name = c.category.toLowerCase();
-        return name.includes('winter') || name === 'tracksuite' || name === 'jacket' || name === 'hoodie';
-      });
+    if (target === 'summer' || target === 'winter') {
+      return categories
+        .map((c: any) => {
+          const catSeason = String(c?.season || '').trim().toLowerCase();
+          const matchedItems = c.items.filter((item: any) => {
+            const effectiveSeason = String(item?.season || catSeason || '').trim().toLowerCase();
+            if (effectiveSeason) return effectiveSeason === target;
+            const catName = c.category.toLowerCase();
+            if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
+            return catName.includes('winter') || catName === 'tracksuite' || catName === 'jacket' || catName === 'hoodie';
+          });
+          return { ...c, items: matchedItems };
+        })
+        .filter((c) => c.items.length > 0);
     }
     return categories.filter((c) => c.category.toLowerCase() === target);
-    return categories
-      .map((c) => {
-        const matchedItems = c.items.filter((item: any) => {
-          const itemSeason = String(item?.season || '').trim().toLowerCase();
-          if (itemSeason) return itemSeason === target;
-          const catName = c.category.toLowerCase();
-          if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
-          if (target === 'winter') return catName.includes('winter') || catName === 'tracksuite' || catName === 'jacket' || catName === 'hoodie';
-          return catName === target;
-        });
-        return { ...c, items: matchedItems };
-      })
-      .filter((c) => c.items.length > 0);
   }, [categories, modelCategoryFilter]);
 
   const modelCategoryTabs = useMemo(() => {
