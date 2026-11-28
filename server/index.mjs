@@ -368,16 +368,18 @@ const readUploadSets = async () => {
     return cachedUploadSets.items;
   }
   let sets = [];
+  let loadedFromDb = false;
   try {
     const db = await getMongoDb();
     if (db) {
       const doc = await db.collection('app_data').findOne({ _id: 'upload_sets' });
       if (doc && Array.isArray(doc.sets)) {
         sets = doc.sets;
+        loadedFromDb = true;
       }
     }
   } catch { }
-  if (!sets || sets.length === 0) {
+  if (!loadedFromDb) {
     sets = await readJson(UPLOAD_SETS_FILE, []);
   }
   cachedUploadSets = { items: sets, time: Date.now() };
@@ -406,22 +408,20 @@ const readCustomRequests = async () => {
   if (cachedCustomRequests.items && Date.now() - cachedCustomRequests.time < 5000) {
     return cachedCustomRequests.items;
   }
-  let items = await readJson(CUSTOM_REQUESTS_FILE, []);
-  if (!items || items.length === 0) {
-    try {
-      const db = await getMongoDb();
-      if (db) {
-        const raw = await db.collection('custom_requests').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
-        if (raw && raw.length > 0) {
-          items = raw.map((it) => {
-            const clean = { ...it };
-            delete clean._id;
-            return clean;
-          });
-          void writeJson(CUSTOM_REQUESTS_FILE, items);
-        }
-      }
-    } catch { }
+  let items = null;
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const raw = await db.collection('custom_requests').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
+      items = (raw || []).map((it) => {
+        const clean = { ...it };
+        delete clean._id;
+        return clean;
+      });
+    }
+  } catch { }
+  if (!items) {
+    items = await readJson(CUSTOM_REQUESTS_FILE, []);
   }
   cachedCustomRequests = { items, time: Date.now() };
   return items;
@@ -451,22 +451,20 @@ const readAdminDeliveries = async () => {
   if (cachedAdminDeliveries.items && Date.now() - cachedAdminDeliveries.time < 5000) {
     return cachedAdminDeliveries.items;
   }
-  let items = await readJson(ADMIN_DELIVERIES_FILE, []);
-  if (!items || items.length === 0) {
-    try {
-      const db = await getMongoDb();
-      if (db) {
-        const raw = await db.collection('admin_deliveries').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
-        if (raw && raw.length > 0) {
-          items = raw.map((it) => {
-            const clean = { ...it };
-            delete clean._id;
-            return clean;
-          });
-          void writeJson(ADMIN_DELIVERIES_FILE, items);
-        }
-      }
-    } catch { }
+  let items = null;
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      const raw = await db.collection('admin_deliveries').find({}, { projection: { dataUrl: 0 } }).sort({ createdAt: -1 }).limit(100).toArray();
+      items = (raw || []).map((it) => {
+        const clean = { ...it };
+        delete clean._id;
+        return clean;
+      });
+    }
+  } catch { }
+  if (!items) {
+    items = await readJson(ADMIN_DELIVERIES_FILE, []);
   }
   cachedAdminDeliveries = { items, time: Date.now() };
   return items;
@@ -1193,6 +1191,15 @@ const app = express();
 /* Enable Gzip / Brotli response compression to minimize bandwidth usage */
 app.use(compression());
 
+/* Allow POST /api/.../delete as a proxy-safe alias for DELETE /api/... */
+app.use('/api', (req, _res, next) => {
+  if (req.method === 'POST' && req.path.endsWith('/delete') && req.path !== '/admin/models/delete') {
+    req.method = 'DELETE';
+    req.url = req.url.replace(/\/delete(\?.*)?$/, '$1');
+  }
+  next();
+});
+
 /* Enable Cross-Origin Resource Sharing (CORS) for all Render and web origins */
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -1838,6 +1845,27 @@ app.get('/api/download-proxy', async (req, res) => {
 });
 
 /* what the customer-facing studio is allowed to know */
+const DEFAULT_HEADER_LINKS = {
+  home: true,
+  design: true,
+  removeLogo: true,
+  pricing: true,
+  about: true,
+  contact: true,
+  terms: true,
+  startDesign: true,
+};
+
+const normalizeHeaderLinks = (raw) => {
+  const out = { ...DEFAULT_HEADER_LINKS };
+  if (raw && typeof raw === 'object') {
+    for (const k of Object.keys(DEFAULT_HEADER_LINKS)) {
+      if (k in raw) out[k] = Boolean(raw[k]);
+    }
+  }
+  return out;
+};
+
 app.get('/api/studio', async (_req, res) => {
   const s = await readState();
   res.json({
@@ -1847,6 +1875,7 @@ app.get('/api/studio', async (_req, res) => {
     resolution: s.resolution,
     generationMode: s.generationMode,
     defaultMode: s.defaultMode,
+    headerLinks: normalizeHeaderLinks(s.headerLinks),
   });
 });
 
@@ -2002,6 +2031,7 @@ app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
     brevoApiKeyMasked: mask(s.brevoApiKey || process.env.BREVO_API_KEY || getDefaultBrevoKey()),
     admin2faEnabled: Boolean(s.admin2faEnabled),
     developerImageUrl: s.developerImageUrl || '',
+    headerLinks: normalizeHeaderLinks(s.headerLinks),
     plans: { ...DEFAULT_PLANS, ...(s.plans || {}) },
   });
 });
@@ -2138,6 +2168,7 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
     ...('admin2faEnabled' in body ? { admin2faEnabled: Boolean(body.admin2faEnabled) } : {}),
     ...('developerImageUrl' in body ? { developerImageUrl: String(body.developerImageUrl).trim() } : {}),
     ...('descriptionPrompt' in body ? { descriptionPrompt: String(body.descriptionPrompt) } : {}),
+    ...(body.headerLinks && typeof body.headerLinks === 'object' ? { headerLinks: normalizeHeaderLinks(body.headerLinks) } : {}),
   };
   if (typeof body.googleApiKey === 'string' && body.googleApiKey.trim() && !body.googleApiKey.includes('•')) {
     patch.googleApiKey = body.googleApiKey.trim();
@@ -2497,6 +2528,106 @@ app.post('/api/description/generate', auth.requireUser, async (req, res) => {
   } catch (err) {
     console.error('[DescriptionStudio] Error:', err);
     res.status(500).json({ error: 'internal_error', message: err.message });
+  }
+});
+
+const AI_ASSIST_SYSTEM_PROMPTS = {
+  'enhance-prompt': `You are an expert AI fashion & sportswear photography director. Given the user's brief and optional garment/model images, output ONLY a single crisp, studio-grade Try-On prompt (max 55 words, no quotes, no markdown, no bullets). Focus on fabric drape, authentic logo/print preservation, natural studio lighting, fit, and realistic athlete posture.`,
+  'inspect-garment': `You are a senior sportswear textile & apparel QC specialist. Inspect the garment image(s) and return a structured breakdown using clean plain-text headings: GARMENT TYPE, PROBABLE FABRIC & GSM, STITCHING & COLLAR/CUFFS, COLOR PALETTE (with approximate HEX codes), BRANDING/LOGO PLACEMENT, and STUDIO TRY-ON RECOMMENDATIONS.`,
+  'b2b-pitch': `You are a sportswear B2B sales director for team kits & institutional orders. Write a persuasive, ready-to-send B2B WhatsApp/Email quotation pitch highlighting customization, sublimation durability, bulk sizing (S-3XL), and turnaround readiness. Keep it crisp and professional.`,
+  'outfit-stylist': `You are a professional sportswear stylist. Based on the uploaded garment/notes, suggest 3 complete kit combinations (top, bottom, socks/footwear, and accent color hex codes) plus camera/lighting directions for a high-converting catalog photoshoot.`,
+  'social-copy': `You are a D2C sportswear growth marketer. Create: 1) Three punchy Instagram Reels hooks, 2) Two high-converting ad captions with CTA, and 3) 12 targeted sportswear hashtags. Keep it clean and directly usable.`,
+  'custom': `You are Shiv-Naresh Studio's advanced AI Sportswear Copilot. Answer the user's request accurately, practically, and concisely using any attached garment/model images and studio context.`,
+};
+
+app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
+  try {
+    const { action = 'custom', prompt = '', images = [], context = {} } = req.body || {};
+    const s = await readState();
+    const effectiveApiKey = String(s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+    if (!effectiveApiKey) {
+      return res.status(400).json({
+        error: 'no_api_key',
+        message: 'No Google Gemini API Key configured. Please set GEMINI_API_KEY or add it in Admin Settings.',
+      });
+    }
+
+    const parts = [];
+    const limitedImages = Array.isArray(images) ? images.filter((u) => typeof u === 'string' && u.trim()).slice(0, 4) : [];
+    for (const item of limitedImages) {
+      let mimeType = 'image/jpeg';
+      let base64Data = '';
+      if (item.startsWith('data:')) {
+        const m = item.match(/^data:([^;]+);base64,(.+)$/);
+        if (m) {
+          mimeType = m[1];
+          base64Data = m[2];
+        }
+      } else {
+        let fetchUrl = item.startsWith('/') ? `http://127.0.0.1:${PORT || 8787}${item}` : item;
+        try {
+          const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(6000) });
+          if (r.ok) {
+            const ct = r.headers.get('content-type');
+            if (ct && ct.startsWith('image/')) mimeType = ct.split(';')[0];
+            base64Data = Buffer.from(await r.arrayBuffer()).toString('base64');
+          }
+        } catch { }
+      }
+      if (base64Data) parts.push({ inlineData: { mimeType, data: base64Data } });
+    }
+
+    const sysInstruction = AI_ASSIST_SYSTEM_PROMPTS[action] || AI_ASSIST_SYSTEM_PROMPTS.custom;
+    const ctxText = context && Object.keys(context).length ? `\nStudio Context: ${JSON.stringify(context)}` : '';
+    const userPrompt = String(prompt || '').trim() || 'Analyze the garment and provide expert studio output.';
+    parts.push({ text: `${sysInstruction}${ctxText}\n\nUser Request: ${userPrompt}` });
+
+    const candidateModels = [
+      'gemini-flash-lite-latest',
+      'gemini-flash-latest',
+      'gemini-2.5-flash',
+      'gemini-pro-latest',
+    ];
+    let text = null;
+    let modelUsed = '';
+    let lastError = null;
+    for (const model of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
+        const geminiRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { temperature: action === 'enhance-prompt' ? 0.35 : 0.45, maxOutputTokens: 1200 },
+          }),
+          signal: AbortSignal.timeout(9000),
+        });
+        const geminiData = await geminiRes.json();
+        if (geminiRes.ok && geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+          text = geminiData.candidates[0].content.parts[0].text.trim();
+          modelUsed = model;
+          break;
+        }
+        if (geminiData.error) {
+          lastError = geminiData.error.message || JSON.stringify(geminiData.error);
+          if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) break;
+        }
+      } catch (err) {
+        lastError = err?.message || 'Gemini request failed';
+      }
+    }
+
+    if (!text) {
+      return res.status(502).json({
+        error: 'gemini_error',
+        message: lastError || 'Gemini AI could not complete the request.',
+      });
+    }
+    res.json({ ok: true, text, action, modelUsed });
+  } catch (err) {
+    console.error('[AIAssist] Error:', err);
+    res.status(500).json({ error: 'internal_error', message: err?.message || 'Internal AI error' });
   }
 });
 
@@ -3302,7 +3433,7 @@ app.post('/api/admin/models/reorder-categories', requireAdmin, async (req, res) 
 });
 
 app.get('/api/models', async (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.setHeader('Cache-Control', 'no-store');
   const categories = await listModels();
   const state = await readState();
   const seasons = Array.isArray(state.seasons) && state.seasons.length > 0 ? state.seasons : ['Summer', 'Winter'];
@@ -3404,21 +3535,37 @@ app.delete('/api/uploads/:id', auth.requireUser, async (req, res) => {
   try {
     let file = String(req.params.id || '').trim();
     try { file = decodeURIComponent(file).trim(); } catch { }
-    /* prevent path traversal */
-    if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) {
+    if (!file || file.includes('..')) {
       return res.status(400).json({ error: 'bad_id', message: 'Invalid file name.' });
     }
+    const isSafeFilename = !file.includes('/') && !file.includes('\\');
     const now = Date.now();
     const deletedBy = req.user?.email || String(req.user?._id || 'user');
     const db = await getMongoDb().catch(() => null);
     if (db) {
-      await db.collection('user_uploads').updateOne(
-        { id: file },
+      const orFilters = [{ id: file }, { url: file }, { remoteUrl: file }];
+      if (/^[0-9a-fA-F]{24}$/.test(file)) {
+        try {
+          const { ObjectId } = await import('mongodb');
+          orFilters.push({ _id: new ObjectId(file) });
+        } catch { }
+      }
+      const resUpd = await db.collection('user_uploads').updateMany(
+        { $or: orFilters },
         { $set: { deleted: true, deletedAt: now, deletedBy } }
       );
+      if (resUpd.matchedCount === 0 && isSafeFilename) {
+        await db.collection('user_uploads').updateOne(
+          { id: file },
+          { $set: { id: file, deleted: true, deletedAt: now, deletedBy } },
+          { upsert: true }
+        );
+      }
     }
-    const target = path.join(UPLOADS, file);
-    await fs.unlink(target).catch(() => { });
+    if (isSafeFilename) {
+      const target = path.join(UPLOADS, file);
+      await fs.unlink(target).catch(() => { });
+    }
     /* also remove from hosted.json */
     try {
       const hosted = await readHosted();
@@ -6249,17 +6396,30 @@ app.post('/api/user/generations/batch-rename', auth.requireUser, async (req, res
   }
 });
 
-app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
+const buildGenerationIdFilter = async (rawId) => {
+  const id = String(rawId || '').trim();
+  const orFilters = [{ id }];
+  if (/^[0-9a-fA-F]{24}$/.test(id)) {
+    try {
+      const { ObjectId } = await import('mongodb');
+      orFilters.push({ _id: new ObjectId(id) });
+    } catch { }
+  }
+  return orFilters.length === 1 ? orFilters[0] : { $or: orFilters };
+};
+
+const handleDeleteUserGeneration = async (req, res) => {
   try {
     const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
     const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
     const db = await getMongoDb();
+    const idFilter = await buildGenerationIdFilter(req.params.id);
 
     let gen = null;
     if (db) {
       try {
-        gen = await db.collection('generations').findOne({ id: req.params.id });
+        gen = await db.collection('generations').findOne(idFilter);
       } catch { }
     }
     const list = await readGenerations();
@@ -6310,7 +6470,7 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
 
     if (db) {
       await db.collection('generations').updateOne(
-        { id: req.params.id },
+        idFilter,
         { $set: { deleted: true, isDeleted: true, deletedAt: now, deletedBy } }
       );
     }
@@ -6320,7 +6480,10 @@ app.delete('/api/user/generations/:id', auth.requireUser, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'delete_failed', message: error.message });
   }
-});
+};
+
+app.delete('/api/user/generations/:id', auth.requireUser, handleDeleteUserGeneration);
+app.post('/api/user/generations/:id/delete', auth.requireUser, handleDeleteUserGeneration);
 
 app.post('/api/user/generations/batch-delete', auth.requireUser, async (req, res) => {
   try {
@@ -6593,13 +6756,14 @@ app.post('/api/upload-sets/reorder', auth.requireUser, async (req, res) => {
 
 app.delete('/api/upload-sets/:id', auth.requireUser, async (req, res) => {
   try {
-    const currentUserId = String(req.user._id);
+    const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
     const allSets = await readUploadSets();
     const idx = allSets.findIndex((s) => {
       const sUserId = s.userId ? String(s.userId) : '';
       const sEmail = (s.userEmail || '').toLowerCase().trim();
-      const isOwner = (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
+      const isOwner = isAdmin || (sUserId && sUserId === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail) || (!sUserId && !sEmail);
       return s.id === req.params.id && isOwner;
     });
     if (idx === -1) return res.status(404).json({ error: 'not_found', message: 'Set not found.' });
@@ -8464,7 +8628,10 @@ app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
     let list = [];
     if (db) {
       try {
-        const docs = await db.collection('generations').find({}).sort({ createdAt: -1 }).limit(500).toArray();
+        const docs = await db.collection('generations').find({
+          deleted: { $ne: true },
+          isDeleted: { $ne: true },
+        }).sort({ createdAt: -1 }).limit(500).toArray();
         if (docs && docs.length > 0) {
           list = docs.map((it) => {
             const clean = { ...it };
@@ -8480,7 +8647,10 @@ app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
       list = await readGenerations();
     }
 
-    const sorted = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((g) => ({
+    const sorted = [...list]
+      .filter((g) => g.deleted !== true && g.isDeleted !== true)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .map((g) => ({
       ...g,
       isEdited: Boolean(
         g.isEdited ||
@@ -8508,13 +8678,14 @@ app.get('/api/admin/generations', requireAdmin, async (_req, res) => {
 
 app.delete('/api/admin/generations/:id', requireAdmin, async (req, res) => {
   try {
+    const db = await getMongoDb();
+    if (db) {
+      const idFilter = await buildGenerationIdFilter(req.params.id);
+      await db.collection('generations').deleteMany(idFilter);
+    }
     const list = await readGenerations();
     const filtered = list.filter((g) => g.id !== req.params.id);
-    await writeGenerations(filtered);
-    try {
-      const db = await getMongoDb();
-      if (db) await db.collection('generations').deleteOne({ id: req.params.id });
-    } catch { }
+    await writeJson(GENERATIONS_FILE, filtered).catch(() => { });
     cachedGenerations = { items: null, time: 0 };
     res.json({ ok: true, deleted: req.params.id });
   } catch (err) {

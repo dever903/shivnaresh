@@ -30,7 +30,7 @@ Follow these rules strictly:
 
 Use only simple, clean, point-wise formatting. Do not use asterisks (**), emojis, markdown symbols, tables or decorative lines.
 Use proper, universal product names (for example "Men's Colourblock Zip-Up Track Jacket"). Do not use any company or brand name in the titles or text, unless I give you one.
-Write only what you can see in the image. If something cannot be confirmed (such as exact fabric or GSM), write "Suggested" next to it.
+Write only what you can see in the image. If something cannot be confirmed (such as exact fabric or GSM), write "Suggested"next to it.
 Keep the language simple, attractive and easy to read. Avoid exaggerated or filler words.
 
 Give the output in exactly this order:
@@ -43,7 +43,7 @@ KEY FEATURES
 Write 7 to 8 points. Each point should be one line, start with a short feature name followed by a colon, and then describe the benefit in an impressive but simple way.
 Example: Breathable Fabric: Lightweight material keeps you cool and dry during long workouts.
 FABRIC AND MATERIAL
-Write 4 to 5 short points covering composition, weight, stretch and finish (mark as "Suggested" if not visible).
+Write 4 to 5 short points covering composition, weight, stretch and finish (mark as "Suggested"if not visible).
 DESIGN DETAILS
 Write 5 to 6 short points covering collar, sleeves, pockets, zipper, logo or print, and cuffs and hem.
 BEST USE
@@ -55,13 +55,27 @@ Write 5 short points with clear do's and don'ts.
 SEO KEYWORDS
 Give 10 keywords separated by commas, with no brand name.`;
 
+type AiStudioMode = 'blank' | 'listing' | 'enhance-prompt' | 'inspect-garment' | 'outfit-stylist' | 'b2b-pitch' | 'social-copy';
+
+const AI_STUDIO_MODES: { id: AiStudioMode; label: string; hint: string }[] = [
+  { id: 'blank', label: 'Blank (Ask Anything)', hint: 'Start with a blank prompt — ask AI anything or give any custom command' },
+  { id: 'listing', label: 'E-Commerce Listing', hint: 'Amazon / Flipkart / Shopify SEO titles, bullets & specs' },
+  { id: 'enhance-prompt', label: 'Try-On Prompt Architect', hint: 'Generate a studio-grade Fashn Try-On prompt from garment' },
+  { id: 'inspect-garment', label: 'QC & Fabric Inspector', hint: 'Detect collar, stitching, color hex codes & GSM estimate' },
+  { id: 'outfit-stylist', label: 'Outfit & Color Stylist', hint: 'Suggest matching kit combinations & lighting directions' },
+  { id: 'b2b-pitch', label: 'B2B Bulk Pitch', hint: 'Ready-to-send WhatsApp / Email team kit quotation pitch' },
+  { id: 'social-copy', label: 'Reels & Ad Copy', hint: 'Instagram Reels hooks, ad captions & targeted hashtags' },
+];
+
 export default function DescriptionStudio({
+  user = null,
   isLight = false,
   userGenerations = [],
   preselectedImages,
   onClearPreselected,
 }: DescriptionStudioProps) {
   // State
+  const [aiMode, setAiMode] = useState<AiStudioMode>('listing');
   const [images, setImages] = useState<{ id: string; url: string; name: string }[]>([]);
   const [isFromMySets, setIsFromMySets] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
@@ -75,7 +89,7 @@ export default function DescriptionStudio({
     name: string,
     id?: string
   ): Promise<{ id: string; url: string; name: string }> => {
-    const fallbackId = id || 'img_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const fallbackId = id || 'img_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     if (!rawUrl) return { id: fallbackId, url: '', name };
     if (rawUrl.startsWith('data:')) return { id: fallbackId, url: rawUrl, name };
 
@@ -147,7 +161,7 @@ export default function DescriptionStudio({
       setImages(preselectedImages);
 
       void (async () => {
-        showToast(`⚡ Taking selected garment from My Sets...`);
+        showToast(`Taking selected garment from My Sets...`);
         // Convert to base64 Data URL so Gemini AI directly receives the multimodal image
         const optimized = await Promise.all(
           preselectedImages.map((p) => optimizeImageUrl(p.url, p.name, p.id))
@@ -157,7 +171,7 @@ export default function DescriptionStudio({
           setImages(valid);
         }
         const activePrompt = (prompt && prompt.trim()) ? prompt.trim() : (defaultPrompt || DEFAULT_PROMPT);
-        showToast(`⚡ Analyzing garment with Shiv-Naresh AI...`);
+        showToast(`Analyzing garment with Shiv-Naresh AI...`);
 
         // Automatically trigger generation with verified base64 image data
         void handleGenerate(valid.length > 0 ? valid : preselectedImages, activePrompt);
@@ -244,7 +258,7 @@ export default function DescriptionStudio({
         const src = e.target?.result;
         if (typeof src !== 'string') {
           resolve({
-            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            id: 'up_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             url: '',
             name: file.name,
           });
@@ -273,21 +287,21 @@ export default function DescriptionStudio({
             ctx.drawImage(img, 0, 0, w, h);
             const optimizedUrl = canvas.toDataURL('image/jpeg', 0.82);
             resolve({
-              id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+              id: 'up_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
               url: optimizedUrl,
               name: file.name,
             });
             return;
           }
           resolve({
-            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            id: 'up_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             url: src,
             name: file.name,
           });
         };
         img.onerror = () => {
           resolve({
-            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            id: 'up_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             url: src,
             name: file.name,
           });
@@ -326,7 +340,7 @@ export default function DescriptionStudio({
       setImages((prev) => prev.filter((img) => img.id !== gen.id && img.url !== url));
     } else {
       setIsFromMySets(true);
-      showToast('⚡ Loading image from My Sets...');
+      showToast('Loading image from My Sets...');
       const opt = await optimizeImageUrl(resolveImageUrl(url), gen.title || `Render #${gen.id.slice(-4)}`, gen.id);
       setImages((prev) => [...prev, opt]);
     }
@@ -337,8 +351,12 @@ export default function DescriptionStudio({
     customImages?: { id: string; url: string; name: string }[],
     customPrompt?: string
   ) => {
+    if (!user) {
+      window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
     const targetImages = customImages && customImages.length > 0 ? customImages : images;
-    const effectivePrompt = (customPrompt || prompt).trim() || defaultPrompt || DEFAULT_PROMPT;
+    const effectivePrompt = (customPrompt || prompt).trim() || (aiMode === 'listing' ? (defaultPrompt || DEFAULT_PROMPT) : '');
 
     if (targetImages.length === 0 && !effectivePrompt) {
       setErrorMsg('Please upload at least 1 garment photo or enter prompt instructions.');
@@ -355,16 +373,30 @@ export default function DescriptionStudio({
         })
       );
       const imageUrls = preparedImages.map((img) => img.url).filter(Boolean);
-      const res = await api.generateDescription({
-        images: imageUrls,
-        prompt: effectivePrompt,
-      });
 
-      if (res.ok && res.text) {
-        setGeneratedResult(res.text);
-        setActiveTitle(res.item?.title || targetImages[0]?.name || 'Product Description');
-        showToast('🎉 Description generated successfully!');
-        void loadHistory();
+      if (aiMode === 'listing') {
+        const res = await api.generateDescription({
+          images: imageUrls,
+          prompt: effectivePrompt || DEFAULT_PROMPT,
+        });
+        if (res.ok && res.text) {
+          setGeneratedResult(res.text);
+          setActiveTitle(res.item?.title || targetImages[0]?.name || 'Product Description');
+          showToast('Description generated successfully!');
+          void loadHistory();
+        }
+      } else {
+        const modeMeta = AI_STUDIO_MODES.find((m) => m.id === aiMode);
+        const res = await api.aiAssist({
+          action: aiMode === 'blank' ? 'custom' : aiMode,
+          prompt: effectivePrompt || modeMeta?.hint || 'Analyze the garment.',
+          images: imageUrls,
+        });
+        if (res.ok && res.text) {
+          setGeneratedResult(res.text);
+          setActiveTitle(modeMeta?.label || 'AI Studio Output');
+          showToast(`${modeMeta?.label || 'AI Output'} ready!`);
+        }
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to generate product description from Gemini AI.');
@@ -378,7 +410,7 @@ export default function DescriptionStudio({
     if (!generatedResult) return;
     navigator.clipboard.writeText(generatedResult);
     setCopied(true);
-    showToast('📋 Copied full description to clipboard!');
+    showToast('Copied full description to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -462,7 +494,7 @@ export default function DescriptionStudio({
               setImages((prev) => [...prev, ...valid]);
               showToast(`Added ${valid.length} photo(s)`);
             }}
-            className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}
+            className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-[#C9A468]/35 bg-[#263B32] text-[#F5F0E7] shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}
           >
             {/* Hidden File Input */}
             <input
@@ -551,7 +583,7 @@ export default function DescriptionStudio({
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>
                     {images.length === 1
-                      ? `Image "${images[0].name}" is actively selected from My Sets. No manual upload needed!`
+                      ? `Image "${images[0].name}"is actively selected from My Sets. No manual upload needed!`
                       : `${images.length} images are actively selected and ready. No manual upload needed!`}
                   </span>
                 </div>
@@ -598,7 +630,7 @@ export default function DescriptionStudio({
                   <Upload className="w-7 h-7 mx-auto text-[#e5373f] opacity-80" />
                   <p className="text-xs font-semibold">Upload product photos or enter prompt to generate listing</p>
                   <p className="text-[10px] text-zinc-400">
-                    Upload garment photos here, or click "Pick from My Sets" above
+                    Upload garment photos here, or click "Pick from My Sets"above
                   </p>
                 </div>
               </div>
@@ -659,11 +691,11 @@ export default function DescriptionStudio({
           )}
 
           {/* 2. Prompt Configuration Card */}
-          <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
-            <div className="flex items-center justify-between gap-2">
+          <div className={`rounded-2xl border p-4 space-y-3 ${isLight ? 'border-[#C9A468]/35 bg-[#263B32] text-[#F5F0E7] shadow-sm' : 'border-zinc-800 bg-[#0e0e12]'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-[#e5373f] flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Description Prompt</span>
+                <span>Gemini AI Studio Mode</span>
               </span>
 
               <button
@@ -676,6 +708,34 @@ export default function DescriptionStudio({
                 <span>Reset to Default</span>
               </button>
             </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {AI_STUDIO_MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  title={m.hint}
+                  onClick={() => {
+                    setAiMode(m.id);
+                    if (m.id !== 'listing' && prompt === DEFAULT_PROMPT) {
+                      setPrompt('');
+                    } else if (m.id === 'listing' && !prompt.trim()) {
+                      setPrompt(defaultPrompt || DEFAULT_PROMPT);
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                    aiMode === m.id
+                      ? 'bg-[#e5373f] text-white shadow-sm'
+                      : 'bg-white/5 text-white/75 hover:bg-white/10 hover:text-white border border-white/10'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] opacity-65">
+              {AI_STUDIO_MODES.find((m) => m.id === aiMode)?.hint}
+            </p>
 
             {/* Prompt Textarea */}
             <textarea
@@ -690,7 +750,7 @@ export default function DescriptionStudio({
 
             <div className="flex items-center justify-between text-[11px] text-zinc-400">
               <span className="flex items-center gap-1">
-                💡 <span className="opacity-80">Flexible: Send <b>Images only</b>, <b>Prompt only</b>, or <b>Both</b></span>
+                 <span className="opacity-80">Flexible: Send <b>Images only</b>, <b>Prompt only</b>, or <b>Both</b></span>
               </span>
             </div>
 
@@ -769,7 +829,7 @@ export default function DescriptionStudio({
                 <div className="py-20 text-center space-y-3">
                   <RefreshCw className="w-8 h-8 mx-auto text-[#e5373f] animate-spin opacity-80" />
                   <p className="text-xs font-semibold flex items-center justify-center gap-1.5">
-                    <span>⚡</span>
+                    <span></span>
                     <span>High-Speed AI Multimodal Inspection in Progress...</span>
                   </p>
                   <p className="text-[11px] text-zinc-400 max-w-sm mx-auto">
@@ -791,7 +851,7 @@ export default function DescriptionStudio({
                   <FileText className="w-10 h-10 mx-auto text-zinc-500 opacity-50" />
                   <p className="text-xs font-medium">No description generated yet.</p>
                   <p className="text-[10px] text-zinc-400 max-w-xs mx-auto">
-                    Upload your product photos on the left and click "Generate Product Description" to start.
+                    Upload your product photos on the left and click "Generate Product Description"to start.
                   </p>
                 </div>
               )}
@@ -851,7 +911,7 @@ export default function DescriptionStudio({
                         onClick={(e) => {
                           e.stopPropagation();
                           navigator.clipboard.writeText(item.text);
-                          showToast('📋 Copied description!');
+                          showToast('Copied description!');
                         }}
                         className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                         title="Copy text"

@@ -97,61 +97,61 @@ const BRUSH_DEFS: {
   desc: string;
   iconBg: string;
 }[] = [
-  {
-    id: 'brush',
-    name: 'Brush',
-    desc: 'Simple yet clean, bit thicker than pencil tool. Round solid stroke.',
-    iconBg: '#E5373F',
-  },
-  {
-    id: 'calligraphy1',
-    name: 'Calligraphy 1',
-    desc: 'Angled flat nib 45° right. Thin down-left, thick down-right.',
-    iconBg: '#4A5568',
-  },
-  {
-    id: 'calligraphy2',
-    name: 'Calligraphy 2',
-    desc: 'Angled flat nib 45° left. Thin down-right, thick down-left.',
-    iconBg: '#4A5568',
-  },
-  {
-    id: 'airbrush',
-    name: 'Airbrush',
-    desc: 'Fine mist spray. Holding mouse builds up density continuously.',
-    iconBg: '#3182CE',
-  },
-  {
-    id: 'oil',
-    name: 'Oil Brush',
-    desc: 'Thick multi-bristle stroke that runs out of paint over distance.',
-    iconBg: '#D69E2E',
-  },
-  {
-    id: 'crayon',
-    name: 'Crayon',
-    desc: 'Rough, grainy waxy texture with porous gaps for texture.',
-    iconBg: '#DD6B20',
-  },
-  {
-    id: 'marker',
-    name: 'Marker',
-    desc: 'Semi-transparent chisel nib. Overlapping strokes darken and blend.',
-    iconBg: '#38A169',
-  },
-  {
-    id: 'natural_pencil',
-    name: 'Natural Pencil',
-    desc: 'Fine graphite line with authentic tooth, grain, and friction.',
-    iconBg: '#718096',
-  },
-  {
-    id: 'watercolor',
-    name: 'Watercolor',
-    desc: 'Translucent watery wash with feathered edges that fades gracefully.',
-    iconBg: '#805AD5',
-  },
-];
+    {
+      id: 'brush',
+      name: 'Brush',
+      desc: 'Simple yet clean, bit thicker than pencil tool. Round solid stroke.',
+      iconBg: '#E5373F',
+    },
+    {
+      id: 'calligraphy1',
+      name: 'Calligraphy 1',
+      desc: 'Angled flat nib 45° right. Thin down-left, thick down-right.',
+      iconBg: '#4A5568',
+    },
+    {
+      id: 'calligraphy2',
+      name: 'Calligraphy 2',
+      desc: 'Angled flat nib 45° left. Thin down-right, thick down-left.',
+      iconBg: '#4A5568',
+    },
+    {
+      id: 'airbrush',
+      name: 'Airbrush',
+      desc: 'Fine mist spray. Holding mouse builds up density continuously.',
+      iconBg: '#3182CE',
+    },
+    {
+      id: 'oil',
+      name: 'Oil Brush',
+      desc: 'Thick multi-bristle stroke that runs out of paint over distance.',
+      iconBg: '#D69E2E',
+    },
+    {
+      id: 'crayon',
+      name: 'Crayon',
+      desc: 'Rough, grainy waxy texture with porous gaps for texture.',
+      iconBg: '#DD6B20',
+    },
+    {
+      id: 'marker',
+      name: 'Marker',
+      desc: 'Semi-transparent chisel nib. Overlapping strokes darken and blend.',
+      iconBg: '#38A169',
+    },
+    {
+      id: 'natural_pencil',
+      name: 'Natural Pencil',
+      desc: 'Fine graphite line with authentic tooth, grain, and friction.',
+      iconBg: '#718096',
+    },
+    {
+      id: 'watercolor',
+      name: 'Watercolor',
+      desc: 'Translucent watery wash with feathered edges that fades gracefully.',
+      iconBg: '#805AD5',
+    },
+  ];
 
 // Helper: RGB/HEX conversions
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -249,6 +249,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [canvasDims, setCanvasDims] = useState<{ w: number; h: number }>({ w: 1024, h: 1024 });
 
   // Runtime State for Drawing
   const isMouseDownRef = useRef<boolean>(false);
@@ -257,6 +258,8 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   const strokeDistanceRef = useRef<number>(0); // for Oil and Watercolor fade
   const airbrushTimerRef = useRef<number | null>(null);
   const currentPointerPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(1);
 
   // Selection Drag / Transform State
   const isSelectingBoxRef = useRef<boolean>(false);
@@ -348,11 +351,12 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
       base.height = H;
       overlay.width = W;
       overlay.height = H;
+      setCanvasDims({ w: W, h: H });
 
       const container = canvasContainerRef.current;
-      const vH = container ? container.clientHeight : 540;
-      const vW = container ? container.clientWidth : 750;
-      const fitZoom = Math.min(1.0, Math.min((vW - 48) / W, (vH - 48) / H));
+      const vH = container && container.clientHeight > 120 ? container.clientHeight : 540;
+      const vW = container && container.clientWidth > 120 ? container.clientWidth : 750;
+      const fitZoom = Math.min(1.0, (vW - 48) / W, (vH - 48) / H);
       setZoomLevel(Math.max(0.15, Number(fitZoom.toFixed(2))));
 
       const ctx = base.getContext('2d');
@@ -385,6 +389,11 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         base.height = H;
         overlay.width = W;
         overlay.height = H;
+        setCanvasDims({ w: W, h: H });
+        const container = canvasContainerRef.current;
+        const vH = container && container.clientHeight > 120 ? container.clientHeight : 540;
+        const vW = container && container.clientWidth > 120 ? container.clientWidth : 750;
+        setZoomLevel(Math.max(0.15, Number(Math.min(1.0, (vW - 48) / W, (vH - 48) / H).toFixed(2))));
         const ctx = base.getContext('2d');
         if (ctx) {
           ctx.fillStyle = '#FFFFFF';
@@ -414,6 +423,11 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             base.height = H;
             overlay.width = W;
             overlay.height = H;
+            setCanvasDims({ w: W, h: H });
+            const container = canvasContainerRef.current;
+            const vH = container && container.clientHeight > 120 ? container.clientHeight : 540;
+            const vW = container && container.clientWidth > 120 ? container.clientWidth : 750;
+            setZoomLevel(Math.max(0.15, Number(Math.min(1.0, (vW - 48) / W, (vH - 48) / H).toFixed(2))));
             const ctx = base.getContext('2d');
             if (ctx) {
               ctx.fillStyle = '#FFFFFF';
@@ -971,7 +985,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
       origW: rect.w,
       origH: rect.h,
     });
-    showToast('✂️ Area extracted! Drag corner handles to scale, or drag inside to move.');
+    showToast('Area extracted! Drag corner handles to scale, or drag inside to move.');
   };
 
   const commitSelectionToCanvas = () => {
@@ -983,7 +997,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
     setActiveSelection(null);
     redrawOverlay();
     pushHistory();
-    showToast('📌 Area stamped onto canvas!');
+    showToast('Area stamped onto canvas!');
   };
 
   // Stamp continuous copy when holding Shift while dragging selection (Classic MS Paint)
@@ -1329,7 +1343,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
     if (!base || !onSendToColorSwap) return;
     const dataUrl = base.toDataURL('image/jpeg', 0.95);
     onSendToColorSwap(dataUrl, `${imageTitle} (Painted)`);
-    showToast('🔄 Sent to Color Swap as active pose!');
+    showToast('Sent to Color Swap as active pose!');
   };
 
   const handleLocalImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1340,7 +1354,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
       const result = event.target?.result as string;
       if (result) {
         loadCanvasImage(result);
-        showToast('📸 Loaded uploaded image into canvas!');
+        showToast('Loaded uploaded image into canvas!');
       }
     };
     reader.readAsDataURL(file);
@@ -1396,13 +1410,12 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             <button
               type="button"
               onClick={() => setShowImageDrawer((v) => !v)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                showImageDrawer
-                  ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight
-                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
-                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${showImageDrawer
+                ? 'bg-[#e5373f] text-white shadow-sm'
+                : isLight
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                }`}
               title="Show / Hide Models and Image Catalog"
             >
               <Layers className="w-3.5 h-3.5" />
@@ -1493,7 +1506,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 title="Send edited canvas to Color Swap"
               >
                 <RefreshCw className="w-3 h-3 text-sky-400" />
-                <span>🔄 Color Swap</span>
+                <span> Color Swap</span>
               </button>
             )}
 
@@ -1514,7 +1527,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                   className="px-2 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
                   title="Save to Edited"
                 >
-                  💾 Edited
+                  Edited
                 </button>
               </>
             )}
@@ -1543,11 +1556,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 setActiveTool('select');
                 setActiveShape(null);
               }}
-              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${
-                activeTool === 'select'
-                  ? 'bg-[#0078D7] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
-              }`}
+              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${activeTool === 'select'
+                ? 'bg-[#0078D7] text-white shadow-sm'
+                : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                }`}
               title="Select Tool: Drag box to extract. Drag 4 corners to scale. Shift+Drag to stamp!"
             >
               <Scissors className="w-4 h-4" />
@@ -1560,11 +1572,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 setActiveTool('eraser');
                 setActiveShape(null);
               }}
-              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${
-                activeTool === 'eraser'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
-              }`}
+              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${activeTool === 'eraser'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                }`}
               title="Eraser (Right-click or erase to Color 2 background)"
             >
               <Eraser className="w-4 h-4" />
@@ -1577,11 +1588,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 setActiveTool('eyedropper');
                 setActiveShape(null);
               }}
-              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${
-                activeTool === 'eyedropper'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
-              }`}
+              className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-0.5 transition cursor-pointer ${activeTool === 'eyedropper'
+                ? 'bg-sky-600 text-white shadow-sm'
+                : isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-800' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'
+                }`}
               title="Eyedropper: Click on canvas to sample color. Left-click for Color 1, Right-click for Color 2."
             >
               <Pipette className="w-4 h-4" />
@@ -1598,11 +1608,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 setActiveShape(null);
                 setBrushDropdownOpen((o) => !o);
               }}
-              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition cursor-pointer ${
-                activeTool === 'brush'
-                  ? 'border-[#e5373f] bg-[#e5373f]/15 text-zinc-100 ring-1 ring-[#e5373f]'
-                  : isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
-              }`}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition cursor-pointer ${activeTool === 'brush'
+                ? 'border-[#e5373f] bg-[#e5373f]/15 text-zinc-100 ring-1 ring-[#e5373f]'
+                : isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
+                }`}
               title="Click to open 3x3 menu of all 9 MS Paint Brushes"
             >
               <div
@@ -1642,11 +1651,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                         setBrushDropdownOpen(false);
                         showToast(`Brush switched to: ${b.name}`);
                       }}
-                      className={`p-2 rounded-xl border flex flex-col items-center text-center cursor-pointer transition ${
-                        activeBrush === b.id
-                          ? 'border-[#e5373f] bg-[#e5373f]/20 ring-1 ring-[#e5373f]'
-                          : 'border-white/10 bg-zinc-900/60 hover:bg-zinc-800'
-                      }`}
+                      className={`p-2 rounded-xl border flex flex-col items-center text-center cursor-pointer transition ${activeBrush === b.id
+                        ? 'border-[#e5373f] bg-[#e5373f]/20 ring-1 ring-[#e5373f]'
+                        : 'border-white/10 bg-zinc-900/60 hover:bg-zinc-800'
+                        }`}
                       title={`${b.name}: ${b.desc}`}
                     >
                       <div
@@ -1663,7 +1671,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] text-zinc-400 italic">
-                  💡 {currentBrushDef.desc}
+                  {currentBrushDef.desc}
                 </div>
               </div>
             )}
@@ -1674,9 +1682,8 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             <button
               type="button"
               onClick={() => setSizeDropdownOpen((o) => !o)}
-              className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
-                isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
-              }`}
+              className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-2 cursor-pointer transition ${isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
+                }`}
               title="Stroke Size (Ctrl + / Ctrl -)"
             >
               <div className="flex flex-col items-center justify-center w-4 h-4">
@@ -1700,11 +1707,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                         setBrushSize(preset.value);
                         setSizeDropdownOpen(false);
                       }}
-                      className={`w-full p-2 rounded-lg flex items-center justify-between text-xs cursor-pointer transition ${
-                        brushSize === preset.value
-                          ? 'bg-[#e5373f] text-white font-bold'
-                          : 'hover:bg-zinc-800 text-zinc-300'
-                      }`}
+                      className={`w-full p-2 rounded-lg flex items-center justify-between text-xs cursor-pointer transition ${brushSize === preset.value
+                        ? 'bg-[#e5373f] text-white font-bold'
+                        : 'hover:bg-zinc-800 text-zinc-300'
+                        }`}
                     >
                       <span>{preset.label}</span>
                       <span
@@ -1738,11 +1744,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             <button
               type="button"
               onClick={() => setShapeDropdownOpen((o) => !o)}
-              className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 cursor-pointer transition ${
-                activeTool === 'shape'
-                  ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                  : isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
-              }`}
+              className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 cursor-pointer transition ${activeTool === 'shape'
+                ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
+                : isLight ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800' : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300'
+                }`}
               title="Shapes: Rectangle, Circle, Star with brush-textured outlines"
             >
               <div className="flex items-center gap-1">
@@ -1775,11 +1780,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                           setShapeDropdownOpen(false);
                           showToast(`Shape selected: ${s.label}. Drag to draw on canvas.`);
                         }}
-                        className={`p-2 rounded-lg border flex flex-col items-center gap-1 text-xs cursor-pointer ${
-                          activeShape === s.id && activeTool === 'shape'
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 font-bold'
-                            : 'border-white/10 hover:bg-zinc-800 text-zinc-300'
-                        }`}
+                        className={`p-2 rounded-lg border flex flex-col items-center gap-1 text-xs cursor-pointer ${activeShape === s.id && activeTool === 'shape'
+                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 font-bold'
+                          : 'border-white/10 hover:bg-zinc-800 text-zinc-300'
+                          }`}
                       >
                         {s.icon}
                         <span className="text-[10px]">{s.label}</span>
@@ -1815,22 +1819,20 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                     <button
                       type="button"
                       onClick={() => setShapeFillMode('none')}
-                      className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer ${
-                        shapeFillMode === 'none'
-                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                          : 'border-white/10 text-zinc-400'
-                      }`}
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer ${shapeFillMode === 'none'
+                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                        : 'border-white/10 text-zinc-400'
+                        }`}
                     >
                       No Fill
                     </button>
                     <button
                       type="button"
                       onClick={() => setShapeFillMode('color2')}
-                      className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer ${
-                        shapeFillMode === 'color2'
-                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                          : 'border-white/10 text-zinc-400'
-                      }`}
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border cursor-pointer ${shapeFillMode === 'color2'
+                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                        : 'border-white/10 text-zinc-400'
+                        }`}
                     >
                       Solid (Color 2)
                     </button>
@@ -1845,11 +1847,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             {/* Color 1 */}
             <div
               onClick={() => setActiveColorSlot(1)}
-              className={`p-1.5 rounded-xl border flex flex-col items-center cursor-pointer transition ${
-                activeColorSlot === 1
-                  ? 'border-[#0078D7] ring-2 ring-[#0078D7]/40 bg-[#0078D7]/10'
-                  : 'border-white/10 hover:border-white/30'
-              }`}
+              className={`p-1.5 rounded-xl border flex flex-col items-center cursor-pointer transition ${activeColorSlot === 1
+                ? 'border-[#0078D7] ring-2 ring-[#0078D7]/40 bg-[#0078D7]/10'
+                : 'border-white/10 hover:border-white/30'
+                }`}
               title="Color 1 (Foreground / Left-Click)"
             >
               <span
@@ -1862,11 +1863,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             {/* Color 2 */}
             <div
               onClick={() => setActiveColorSlot(2)}
-              className={`p-1.5 rounded-xl border flex flex-col items-center cursor-pointer transition ${
-                activeColorSlot === 2
-                  ? 'border-[#0078D7] ring-2 ring-[#0078D7]/40 bg-[#0078D7]/10'
-                  : 'border-white/10 hover:border-white/30'
-              }`}
+              className={`p-1.5 rounded-xl border flex flex-col items-center cursor-pointer transition ${activeColorSlot === 2
+                ? 'border-[#0078D7] ring-2 ring-[#0078D7]/40 bg-[#0078D7]/10'
+                : 'border-white/10 hover:border-white/30'
+                }`}
               title="Color 2 (Background / Right-Click)"
             >
               <span
@@ -1894,11 +1894,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                       setColor2(item.hex);
                       showToast(`Color 2 set to: ${item.hex}`);
                     }}
-                    className={`w-5 h-5 rounded border cursor-pointer transition hover:scale-110 shadow-xs relative ${
-                      color1.toLowerCase() === item.hex.toLowerCase()
-                        ? 'ring-2 ring-[#0078D7] border-white z-10'
-                        : 'border-white/20'
-                    }`}
+                    className={`w-5 h-5 rounded border cursor-pointer transition hover:scale-110 shadow-xs relative ${color1.toLowerCase() === item.hex.toLowerCase()
+                      ? 'ring-2 ring-[#0078D7] border-white z-10'
+                      : 'border-white/20'
+                      }`}
                     style={{ backgroundColor: item.hex }}
                     title={`${item.name} (${item.hex}) - Left: Color 1, Right: Color 2`}
                   />
@@ -1961,19 +1960,18 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                 {[
                   { id: 'all', label: 'All' },
                   { id: 'ready', label: '⭐ Ready' },
-                  { id: 'edited', label: '✏️ Edited' },
-                  { id: 'generated', label: '📸 Gen' },
-                  { id: 'uploads', label: '📤 Uploads' },
+                  { id: 'edited', label: 'Edited' },
+                  { id: 'generated', label: 'Gen' },
+                  { id: 'uploads', label: 'Uploads' },
                 ].map((f) => (
                   <button
                     key={f.id}
                     type="button"
                     onClick={() => setImageCategoryFilter(f.id)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border cursor-pointer transition ${
-                      imageCategoryFilter === f.id
-                        ? 'border-[#e5373f] bg-[#e5373f]/20 text-[#e5373f]'
-                        : 'border-white/10 text-zinc-400 hover:text-white'
-                    }`}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border cursor-pointer transition ${imageCategoryFilter === f.id
+                      ? 'border-[#e5373f] bg-[#e5373f]/20 text-[#e5373f]'
+                      : 'border-white/10 text-zinc-400 hover:text-white'
+                      }`}
                   >
                     {f.label}
                   </button>
@@ -2013,11 +2011,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
                     if (onSelectImage) onSelectImage(img);
                     showToast(`Loaded: ${img.title}`);
                   }}
-                  className={`w-20 shrink-0 p-1 rounded-xl border flex flex-col items-center text-center cursor-pointer transition hover:scale-105 ${
-                    isSelected
-                      ? 'border-[#e5373f] ring-2 ring-[#e5373f] bg-[#e5373f]/10'
-                      : 'border-white/10 bg-zinc-900/60 hover:bg-zinc-800'
-                  }`}
+                  className={`w-20 shrink-0 p-1 rounded-xl border flex flex-col items-center text-center cursor-pointer transition hover:scale-105 ${isSelected
+                    ? 'border-[#e5373f] ring-2 ring-[#e5373f] bg-[#e5373f]/10'
+                    : 'border-white/10 bg-zinc-900/60 hover:bg-zinc-800'
+                    }`}
                   title={`Click to edit ${img.title}`}
                 >
                   <img
@@ -2047,14 +2044,14 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         <div className="flex items-center justify-between text-xs text-zinc-400 px-1 mb-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-zinc-200">
-              {activeTool === 'brush' && `🖌️ ${currentBrushDef.name} (${brushSize}px) — Left-click: Color 1, Right-click: Color 2`}
-              {activeTool === 'eraser' && `🧹 Eraser (${brushSize}px) — Erases to Color 2 Background`}
+              {activeTool === 'brush' && ` ${currentBrushDef.name} (${brushSize}px) — Left-click: Color 1, Right-click: Color 2`}
+              {activeTool === 'eraser' && `Eraser (${brushSize}px) — Erases to Color 2 Background`}
               {activeTool === 'select' &&
                 (activeSelection
-                  ? `✂️ Area Selected (${activeSelection.w}×${activeSelection.h}px) — Drag 4 corners to scale. Hold Shift to stamp!`
-                  : `✂️ Select Tool — Drag a box over any garment area to extract it`)}
-              {activeTool === 'shape' && `📐 ${activeShape?.toUpperCase()} with ${shapeOutlineBrush} texture`}
-              {activeTool === 'eyedropper' && `🧪 Eyedropper Active — Click anywhere on garment to sample color`}
+                  ? `Area Selected (${activeSelection.w}×${activeSelection.h}px) — Drag 4 corners to scale. Hold Shift to stamp!`
+                  : `Select Tool — Drag a box over any garment area to extract it`)}
+              {activeTool === 'shape' && ` ${activeShape?.toUpperCase()} with ${shapeOutlineBrush} texture`}
+              {activeTool === 'eyedropper' && `Eyedropper Active — Click anywhere on garment to sample color`}
             </span>
           </div>
 
@@ -2076,22 +2073,50 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         {/* Scrollable Viewport Container for Canvas */}
         <div
           ref={canvasContainerRef}
-          className="relative rounded-xl overflow-auto border border-white/10 bg-zinc-950 p-6 min-h-[500px] max-h-[76vh] flex"
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              const delta = e.deltaY < 0 ? 0.08 : -0.08;
+              setZoomLevel((z) => Math.min(4, Math.max(0.15, Number((z + delta).toFixed(2)))));
+            }
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              pinchStartDistRef.current = Math.hypot(dx, dy);
+              pinchStartZoomRef.current = zoomLevel;
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && pinchStartDistRef.current) {
+              e.preventDefault();
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.hypot(dx, dy);
+              const ratio = dist / pinchStartDistRef.current;
+              setZoomLevel(Math.min(4, Math.max(0.15, Number((pinchStartZoomRef.current * ratio).toFixed(2)))));
+            }
+          }}
+          onTouchEnd={() => {
+            pinchStartDistRef.current = null;
+          }}
+          className="relative rounded-xl overflow-auto border border-[#C9A468]/30 bg-zinc-950 p-6 min-h-[500px] max-h-[76vh] flex touch-pan-x touch-pan-y"
         >
           <div
             style={{
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.1s ease-out',
+              width: `${Math.max(120, Math.round(canvasDims.w * zoomLevel))}px`,
+              height: `${Math.max(120, Math.round(canvasDims.h * zoomLevel))}px`,
+              transition: 'width 0.08s ease-out, height 0.08s ease-out',
             }}
-            className="relative shadow-2xl m-auto shrink-0"
+            className="relative shadow-2xl shrink-0 m-auto"
           >
             {/* Base Drawing Canvas */}
             <canvas
               ref={baseCanvasRef}
               width={1024}
               height={1024}
-              className="rounded-lg block shadow-2xl bg-white"
+              className="rounded-lg block shadow-2xl bg-white w-full h-full"
             />
 
             {/* Overlay Canvas for floating selection marquee, 4 corner handles, and shapes */}
@@ -2103,13 +2128,12 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
-              className={`absolute inset-0 rounded-lg ${
-                activeTool === 'eyedropper'
+              className={`absolute inset-0 w-full h-full rounded-lg ${activeTool === 'eyedropper'
+                ? 'cursor-crosshair'
+                : activeTool === 'select'
                   ? 'cursor-crosshair'
-                  : activeTool === 'select'
-                    ? 'cursor-crosshair'
-                    : 'cursor-crosshair'
-              }`}
+                  : 'cursor-crosshair'
+                }`}
             />
           </div>
 
@@ -2140,7 +2164,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
         {/* Bottom Helper Bar */}
         <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-2">
           <span>
-            💡 <strong>MS Paint Pro Tips:</strong> Drag 4 corner handles to scale extracted area smoothly. Hold <strong>Shift</strong> while dragging selection to continuously stamp a repeating pattern across fabric. Right-click with any brush to paint with <strong>Color 2</strong>.
+            <strong>MS Paint Pro Tips:</strong> Drag 4 corner handles to scale extracted area smoothly. Hold <strong>Shift</strong> while dragging selection to continuously stamp a repeating pattern across fabric. Right-click with any brush to paint with <strong>Color 2</strong>.
           </span>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] font-mono">Shortcuts: Ctrl + / Ctrl - for Brush Size | Ctrl+Z Undo</span>

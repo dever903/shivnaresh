@@ -17,6 +17,7 @@ export type Studio = {
   resolution: string;
   generationMode: string;
   defaultMode: string;
+  headerLinks?: Record<string, boolean>;
 };
 
 export type PlanConfig = {
@@ -62,6 +63,7 @@ export type AdminSettings = {
   brevoApiKeyMasked?: string;
   admin2faEnabled?: boolean;
   developerImageUrl?: string;
+  headerLinks?: Record<string, boolean>;
   defaultPrompt: string;
   defaultModel: string;
   resolution: string;
@@ -533,6 +535,19 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+async function deleteRequest<T>(path: string): Promise<T> {
+  try {
+    return await request<T>(path, { method: 'DELETE' }, 1);
+  } catch (err) {
+    if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 405 && err.status !== 429) {
+      throw err;
+    }
+    const [basePath, query] = path.split('?');
+    const postPath = `${basePath}/delete${query ? `?${query}` : ''}`;
+    return request<T>(postPath, json({}));
+  }
+}
+
 export const api = {
   /* accounts */
   authConfig: () => request<{ google: boolean; storage: 'mongodb' | 'local' }>('/api/auth/config'),
@@ -587,7 +602,7 @@ export const api = {
       { method: 'POST' }
     ),
   unlockUser: () => request<{ ok: boolean }>('/api/user/unlock', { method: 'POST' }),
-  deleteUpload: (id: string) => request<{ ok: boolean; deleted: string }>(`/api/uploads/${id}`, { method: 'DELETE' }),
+  deleteUpload: (id: string) => deleteRequest<{ ok: boolean; deleted: string }>(`/api/uploads/${encodeURIComponent(id)}`),
   collections: () => request<{ items: Collection[] }>('/api/collections'),
   createCollection: (name: string) => request<Collection>('/api/collections', json({ name })),
   addToCollection: (id: string, url: string, label = '') =>
@@ -607,7 +622,7 @@ export const api = {
     requestType?: string;
   }) => request<CustomRequest>('/api/custom-requests', json(body)),
   deleteCustomRequest: (id: string) =>
-    request<{ ok: boolean; deleted: string }>(`/api/custom-requests/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; deleted: string }>(`/api/custom-requests/${encodeURIComponent(id)}`),
   updateCustomRequest: (id: string, body: { prompt?: string; color?: string; requestType?: string }) =>
     request<CustomRequest>(`/api/custom-requests/${id}`, { ...json(body), method: 'PUT' }),
   adminCustomRequests: () => request<{ items: CustomRequest[]; total: number }>('/api/admin/custom-requests'),
@@ -650,11 +665,11 @@ export const api = {
     }>;
   }) => request<AdminDelivery>('/api/admin/deliveries', json(body)),
   deleteAdminDelivery: (id: string) =>
-    request<{ ok: boolean; message: string }>(`/api/admin/deliveries/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; message: string }>(`/api/admin/deliveries/${encodeURIComponent(id)}`),
   deleteUserDelivery: (id: string) =>
-    request<{ ok: boolean; message: string }>(`/api/user/deliveries/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; message: string }>(`/api/user/deliveries/${encodeURIComponent(id)}`),
   deleteAdminCustomRequest: (id: string) =>
-    request<{ ok: boolean; message: string }>(`/api/admin/custom-requests/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; message: string }>(`/api/admin/custom-requests/${encodeURIComponent(id)}`),
 
   /* Admin Recycle Bin */
   getAdminBin: () =>
@@ -662,7 +677,7 @@ export const api = {
   restoreBinItem: (type: 'request' | 'delivery' | 'generation' | 'upload', id: string) =>
     request<{ ok: boolean; item?: any }>('/api/admin/bin/restore', json({ type, id })),
   permanentlyDeleteBinItem: (type: 'request' | 'delivery' | 'generation' | 'upload', id: string) =>
-    request<{ ok: boolean; message: string }>(`/api/admin/bin/${type}/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; message: string }>(`/api/admin/bin/${encodeURIComponent(type)}/${encodeURIComponent(id)}`),
   emptyAdminBin: () =>
     request<{ ok: boolean; purged: number }>('/api/admin/bin/empty', { method: 'POST' }),
 
@@ -698,9 +713,8 @@ export const api = {
   batchRenameUserGenerations: (ids: string[], title: string) =>
     request<{ ok: boolean; count: number; title: string }>('/api/user/generations/batch-rename', json({ ids, title })),
   deleteUserGeneration: (id: string, refund = false) =>
-    request<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
-      `/api/user/generations/${id}${refund ? '?refund=true' : ''}`,
-      { method: 'DELETE' }
+    deleteRequest<{ ok: boolean; deleted: string; refunded?: boolean; refundedCredits?: number }>(
+      `/api/user/generations/${encodeURIComponent(id)}${refund ? '?refund=true' : ''}`
     ),
   batchDeleteUserGenerations: (ids: string[]) =>
     request<{ ok: boolean; deletedCount: number; inBin: boolean }>(
@@ -763,7 +777,7 @@ export const api = {
   respondPhotoshootOffer: (action: 'agree' | 'query', queryText?: string) =>
     request<{ ok: boolean; status: string; photoshoots?: number; userQuery?: string }>('/api/user/photoshoot-response', json({ action, queryText })),
   deleteUser: (id: string) =>
-    request<{ ok: boolean; id: string }>(`/api/admin/users/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; id: string }>(`/api/admin/users/${encodeURIComponent(id)}`),
 
   /* admin all generations */
   adminGenerations: () =>
@@ -776,7 +790,7 @@ export const api = {
       processingCount: number;
     }>('/api/admin/generations'),
   adminDeleteGeneration: (id: string) =>
-    request<{ ok: boolean; deleted: string }>(`/api/admin/generations/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean; deleted: string }>(`/api/admin/generations/${encodeURIComponent(id)}`),
   adminRefundGeneration: (id: string) =>
     request<{ ok: boolean; refundedCredits: number; userEmail: string; newBalance: number }>(
       `/api/admin/generations/${id}/refund`,
@@ -805,7 +819,7 @@ export const api = {
     modelDataUrl?: string; modelName?: string;
     prompt: string;
   }) => request<UploadSet>('/api/upload-sets', json(body)),
-  deleteUploadSet: (id: string) => request<{ ok: boolean }>(`/api/upload-sets/${id}`, { method: 'DELETE' }),
+  deleteUploadSet: (id: string) => deleteRequest<{ ok: boolean }>(`/api/upload-sets/${encodeURIComponent(id)}`),
   reorderUploadSets: (orderedIds: string[]) =>
     request<{ ok: boolean }>('/api/upload-sets/reorder', json({ orderedIds })),
   adminUploadSets: () => request<{ items: UploadSet[]; total: number }>('/api/admin/upload-sets'),
@@ -818,9 +832,14 @@ export const api = {
       '/api/description/generate',
       json(body)
     ),
+  aiAssist: (body: { action: string; prompt?: string; images?: string[]; context?: Record<string, unknown> }) =>
+    request<{ ok: boolean; text: string; action: string; modelUsed?: string }>(
+      '/api/ai/assist',
+      json(body)
+    ),
   getDescriptionHistory: () => request<{ ok: boolean; items: DescriptionHistoryItem[] }>('/api/description/history'),
   deleteDescriptionHistory: (id: string) =>
-    request<{ ok: boolean }>(`/api/description/history/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean }>(`/api/description/history/${encodeURIComponent(id)}`),
 
   /* admin studio models */
   uploadAdminModel: (body: { category: string; season?: string; name?: string; imageData?: string; models?: { name: string; imageData: string; season?: string }[] }) =>
@@ -865,7 +884,7 @@ export const api = {
   toggleResolveLog: (id: string) =>
     request<{ ok: boolean; item: SystemLog }>(`/api/admin/system-logs/${id}/resolve`, { method: 'POST' }),
   deleteSystemLog: (id: string) =>
-    request<{ ok: boolean }>(`/api/admin/system-logs/${id}`, { method: 'DELETE' }),
+    deleteRequest<{ ok: boolean }>(`/api/admin/system-logs/${encodeURIComponent(id)}`),
   clearSystemLogs: () => request<{ ok: boolean }>('/api/admin/system-logs/clear', { method: 'POST' }),
   reportClientError: (body: { title?: string; message: string; module?: string; details?: unknown; stack?: string }) =>
     request<{ ok: boolean }>('/api/client-error', json(body)),
@@ -1210,7 +1229,7 @@ export function getProxiedImageUrl(url: string): string {
  * 2. Dimensions: Between 1000px and 3000px (defaults to high-res 2400x2400px square).
  * 3. Proportional model/garment centering with zero stretching, distortion, or cropping.
  * 4. Pure studio backdrop padding (#ffffff or seamless corner match).
- * 5. Solves "Dimensions must be between 1000x1000 and 3000x3000 / Only square images allowed" errors.
+ * 5. Solves "Dimensions must be between 1000x1000 and 3000x3000 / Only square images allowed"errors.
  */
 export async function formatCatalogSquare(
   imageSource: string | Blob,
@@ -1500,7 +1519,7 @@ export async function downloadDirectFile(
 
       // Magic byte check (avoid saving 404 HTML / 500 JSON error as .png)
       const header = new Uint8Array(await candidateBlob.slice(0, 4).arrayBuffer());
-      if (header[0] === 0x3c || header[0] === 0x7b) continue; // '<' or '{'
+      if (header[0] === 0x3c || header[0] === 0x7b) continue; // '<'or '{'
 
       triggerBlobDownload(candidateBlob, filename);
       return;

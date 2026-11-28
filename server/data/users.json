@@ -4,32 +4,82 @@
     "email": "jaatshab11223315@gmail.com",
     "name": "Jaat Shab",
     "provider": "google",
-    "createdAt": "2026-10-30T08:38:56.129Z",
-    "salt": "0de555d4a4aea5b7a944e63321faf70d",
-    "hash": "6e3a5c1341cd1f86b3982bc242695e60c98ae27316b86cf3d9a2df91c04fb51d0c797ccf8c8314758710bf25fb0aece43f2aa7acb2e13ed6ba36c2cb2469f203",
-    "passwordSetAt": "2026-10-30T08:39:07.499Z",
+    "createdAt": "2026-10-29T20:25:29.196Z",
+    "salt": "ace7ce7b97fbcf852f6affc252306be3",
+    "hash": "f2ab994e49ed77e58642fd4a4566b26849e77f57cd016bf0f6a4742d703e325be2ce0a43383a8fe184b7a7b9ea530f97d0ae6d16a00a9514a3afc64dc37608bb",
+    "passwordSetAt": "2026-10-29T20:25:42.812Z",
     "googleId": "105192009141743489539",
-    "credits": 394,
+    "credits": 0,
     "creditsLocked": false,
     "phone": "+916398743132",
     "avatar": "",
     "isAdmin": true,
     "role": "admin",
-    "tier": "ultra"
+    "tier": "free",
+    "features": {
+      "hd2k": true,
+      "fivePose": true,
+      "video": true,
+      "customRequests": true
+    },
+    "maxModels": 100,
+    "maxVideos": 20,
+    "planExpiresAt": null,
+    "dailyModelsUsed": 18,
+    "modelsGenerated": 17,
+    "allowedTabs": [
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare",
+      "studio",
+      "my-sets",
+      "color-swap"
+    ]
   },
   {
     "_id": "49d56d0c-5117-4ea4-8a60-62b6bbf29a0b",
     "email": "order@shivnaresh.com",
-    "name": "Order Department",
+    "name": "order",
     "provider": "password",
-    "createdAt": "2026-11-01T00:00:00.000Z",
+    "createdAt": "2026-11-03T10:18:51.164Z",
     "salt": "0de555d4a4aea5b7a944e63321faf70d",
     "hash": "cdda2ad81e5c7fbae4a6e9387c8ba644ec8c3b4e64b9c6a6808096609b5db290e63659a21fe20776b0b0218ed9f9bdaae80cf60675e5e81bf24db3bf5990ff06",
     "passwordSetAt": "2026-11-01T00:00:00.000Z",
-    "credits": 500,
-    "tier": "ultra",
+    "credits": 0,
+    "tier": "free",
     "role": "admin",
-    "isAdmin": true
+    "isAdmin": true,
+    "phone": "",
+    "avatar": "",
+    "creditsLocked": false,
+    "features": {
+      "hd2k": true,
+      "fivePose": true,
+      "video": true,
+      "customRequests": true
+    },
+    "maxModels": 150,
+    "maxVideos": 6,
+    "dailyModelsUsed": 90,
+    "modelsGenerated": 75,
+    "planExpiresAt": null,
+    "photoshoots": 150,
+    "photoshootsDone": 15,
+    "watermarkAccess": true,
+    "allowedTabs": [
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare",
+      "studio",
+      "my-sets",
+      "color-swap"
+    ],
+    "notifyEmail": "yashveerja8@gmail.com",
+    "videoQuota": 6,
+    "videosDone": 1,
+    "videosGenerated": 1
   },
   {
     "_id": "4a57b413-d672-480c-81e4-819303a591e5",
@@ -41,7 +91,16 @@
     "salt": "63834a79410910ebcac9dc56d81daf5a",
     "hash": "367f0513d934d0446fcfc12a0a602ea0229bddd83d5be950613fc4c2cd351cca14856ae8e4580e401fcf5d1d785fd4d6fbd231d1968b0da2f341d0978dfc6df2",
     "passwordSetAt": "2026-11-01T05:34:34.218Z",
-    "tier": "free"
+    "tier": "free",
+    "allowedTabs": [
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare",
+      "studio",
+      "my-sets",
+      "color-swap"
+    ]
   },
   {
     "_id": "bbb5a008-603c-4886-8bf9-6bfc00dbf628",
@@ -50,9 +109,18 @@
     "avatar": "https://lh3.googleusercontent.com/a/ACg8ocJf5kByRd34Uewo7wx1agr6aWyGULgwLCKbjNu1j0rbWkahVw=s96-c",
     "provider": "google",
     "credits": 10,
-    "createdAt": "2026-11-01T15:20:57.981Z",
+    "createdAt": "2026-10-29T20:10:37.778Z",
     "salt": "3fb57aaa026634620f9a96be46286692",
     "hash": "ba5218b66f56410c86b4a5519b7539d2af4a48fa0064d51c1dc6b3a3735218cc49022d350ba4eb39ef25425f8a887bc8f26ec75e28070f3fb43555783cfb0ccb",
-    "passwordSetAt": "2026-11-01T15:21:11.253Z"
+    "passwordSetAt": "2026-11-01T15:21:11.253Z",
+    "allowedTabs": [
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare",
+      "studio",
+      "my-sets",
+      "color-swap"
+    ]
   }
 ]

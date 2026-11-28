@@ -67,7 +67,7 @@ function numberToWordsINR(amount: number): string {
   if (remainder > 0) parts.push(convertThreeDigits(remainder));
 
   let res = `${parts.join(' ')} Rupees`;
-  if (paise > 0) res += ` and ${convertTwoDigits(paise)} Paise`;
+  if (paise > 0) res += `and ${convertTwoDigits(paise)} Paise`;
   return `${res} Only`;
 }
 
@@ -259,7 +259,7 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
 </head>
 <body>
   <div class="invoice-card">
-    <div class="two-col header-rule" style="align-items: flex-end;">
+    <div class="two-col header-rule"style="align-items: flex-end;">
       <div>
         <h1 class="brand-title">INVOICE</h1>
       </div>
@@ -269,7 +269,7 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
       </div>
     </div>
 
-    <div class="two-col" style="margin-bottom: 14px;">
+    <div class="two-col"style="margin-bottom: 14px;">
       <div>
         <div class="col-title">FROM (SELLER)</div>
         <div class="party-name">Pawan Kumar</div>
@@ -282,7 +282,7 @@ function printInvoiceDocument(order: GatewayOrder | null, plan: Plan | null, _cl
         <div class="party-name">Shiv-Naresh Sports Private Limited</div>
         <div class="party-detail">E-23, Karampura,</div>
         <div class="party-detail">New Delhi - 110015</div>
-        <div class="party-detail" style="font-family: monospace; font-size: 10.5px; margin-top: 2px;">CIN: U18109DL1998PTC097659</div>
+        <div class="party-detail"style="font-family: monospace; font-size: 10.5px; margin-top: 2px;">CIN: U18109DL1998PTC097659</div>
       </div>
     </div>
 
@@ -548,11 +548,20 @@ export default function Pricing() {
 
   /* Code 1450903 Invoice Generation & Expandable Features State */
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
+  const [flippedPlans, setFlippedPlans] = useState<Record<string, boolean>>({});
   const [verificationCode, setVerificationCode] = useState('');
   const [invoiceGenerated, setInvoiceGenerated] = useState(false);
   const [codeSubmitError, setCodeSubmitError] = useState('');
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [showBankDetails, setShowBankDetails] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     // Real-time live USD to INR exchange rate fetcher
@@ -782,7 +791,7 @@ export default function Pricing() {
 
   return (
     <div className={`min-h-screen font-sans antialiased ${
-      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
+      isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[#070709] text-white'
     }`}>
       <style>{`
         @page {
@@ -827,25 +836,33 @@ export default function Pricing() {
         }
       `}</style>
       {/* Top Header */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-        isLight ? 'border-[#82b095] bg-[#97c1a9]/90' : 'border-white/10 bg-[#0a0a0f]/85'
+      <header className={`sticky top-0 z-40 border-b transition-all duration-200 ${
+        isLight
+          ? scrolled
+            ? 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-xl shadow-sm'
+            : 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-md'
+          : scrolled
+          ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/95 backdrop-blur-xl shadow-lg'
+          : 'edge-light border-white/10 bg-[var(--ink-0,#0C0C0E)]/85 backdrop-blur-md'
       }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
-          <a href="/" className="flex items-center gap-2.5" title="Return to Home">
+          <a href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]" title="Return to Home">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e5373f] text-xs font-semibold text-white">
               SN
             </span>
             <div className="flex flex-col">
               <span className={`text-sm font-semibold tracking-wider ${
-                isLight ? 'text-gray-900' : 'text-white'
+                isLight ? 'text-gray-900' : 'text-[var(--text-hi,#F5F2EC)]'
               }`}>
                 Shiv-Naresh
               </span>
-              <span className="text-[10px] font-medium text-[#e5373f] -mt-0.5">
+              <span className={`text-[10px] font-semibold -mt-0.5 ${isLight ? 'text-[#9e1c23]' : 'text-[var(--accent,#C9A468)]'}`}>
                 Studio
               </span>
             </div>
-            <span className="rounded bg-[#e5373f]/10 border border-[#e5373f]/20 px-2 py-0.5 text-[10px] font-medium text-[#e5373f] hidden sm:inline-block ml-1">
+            <span className={`rounded px-2 py-0.5 text-[10px] font-semibold hidden sm:inline-block ml-1 border ${
+              isLight ? 'bg-[#e5373f]/15 border-[#9e1c23]/30 text-[#9e1c23]' : 'bg-[var(--accent,#C9A468)]/10 border-[var(--accent,#C9A468)]/25 text-[var(--accent,#C9A468)]'
+            }`}>
               Pricing
             </span>
           </a>
@@ -854,7 +871,7 @@ export default function Pricing() {
             <button
               type="button"
               onClick={toggleTheme}
-              className={`rounded-lg border p-2 text-xs transition-colors ${
+              className={`key-press rounded-lg border p-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                 isLight
                   ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
                   : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
@@ -865,7 +882,7 @@ export default function Pricing() {
             </button>
             <a
               href="/design"
-              className="rounded-lg bg-[#e5373f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
+              className="rounded-lg bg-[#e5373f] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#cf2c34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]"
             >
               Open Studio
             </a>
@@ -876,16 +893,16 @@ export default function Pricing() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <p className="text-xs font-medium text-[#e5373f] mb-3">
+          <p className={`text-xs font-semibold mb-3 ${isLight ? 'text-[#9e1c23]' : 'text-[var(--accent,#C9A468)]'}`}>
             Sportswear studio plans
           </p>
           <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight mb-4 ${
-            isLight ? 'text-gray-900' : 'text-white'
+            isLight ? 'text-slate-950' : 'text-white'
           }`}>
             Plans for squad kits and seasonal collections
           </h1>
-          <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed opacity-75 ${
-            isLight ? 'text-gray-700' : 'text-slate-300'
+          <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed ${
+            isLight ? 'text-slate-900/85' : 'text-slate-300 opacity-75'
           }`}>
             High-resolution photorealistic photoshoot poses (1 photoshoot = 6 poses) and cinematic motion videos with commercial licensing.
           </p>
@@ -907,7 +924,7 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 mb-16 items-stretch">
           {plansList.filter((p) => !p.deleted).map((plan) => {
             const inrPrice = plan.priceINR && plan.priceINR > 0 ? plan.priceINR : Math.round(plan.priceUSD * usdToInrRate);
             const userTier = currentUser?.tier || 'free';
@@ -918,18 +935,21 @@ export default function Pricing() {
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-2xl p-6 flex flex-col justify-between transition-colors border ${
+                data-cursor="OPEN"
+                className={`card-lift-glow relative rounded-2xl p-6 flex flex-col justify-between transition-colors border h-full ${
+                  plan.featured ? 'conic-border-card' : ''
+                } ${
                   isCurrentPlan
                     ? isLight
-                      ? 'bg-emerald-50/40 border-emerald-500 shadow-sm ring-1 ring-emerald-500'
-                      : 'bg-emerald-950/20 border-emerald-500/60 shadow-sm ring-1 ring-emerald-500/40'
+                      ? 'bg-emerald-50/90 border-emerald-600 shadow-sm ring-1 ring-emerald-600'
+                      : 'edge-light bg-emerald-950/20 border-emerald-500/60 shadow-sm ring-1 ring-emerald-500/40'
                     : plan.featured
                       ? isLight
-                        ? 'bg-white border-[#e5373f] shadow-sm ring-1 ring-[#e5373f]'
-                        : 'bg-[#121217] border-[#e5373f]/60 shadow-sm ring-1 ring-[#e5373f]/40'
+                        ? 'bg-white border-[var(--accent,#C9A468)] shadow-sm ring-1 ring-[var(--accent,#C9A468)]'
+                        : 'edge-light bg-[var(--ink-1,#141418)] border-[var(--accent,#C9A468)]/60 shadow-sm'
                       : isLight
                         ? 'bg-white border-gray-200 shadow-sm'
-                        : 'bg-[#101014] border-white/10 shadow-sm'
+                        : 'edge-light bg-[var(--ink-1,#141418)] border-white/10 shadow-sm'
                 }`}
               >
                 {isCurrentPlan ? (
@@ -947,16 +967,16 @@ export default function Pricing() {
                 )}
 
                 <div>
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between">
+                  <div className="mb-4 min-h-[84px]">
+                    <div className="flex items-center justify-between gap-2">
                       <h3 className={`text-xl font-bold tracking-wide mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>{plan.name}</h3>
                       {isDeactivated && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-400 font-bold uppercase">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-500 font-bold uppercase shrink-0">
                           Deactivated
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs min-h-[32px] leading-relaxed ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>{plan.tagline}</p>
+                    <p className={`text-xs min-h-[36px] leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>{plan.tagline}</p>
                   </div>
 
                   {/* Price Block */}
@@ -965,34 +985,86 @@ export default function Pricing() {
                       <span className={`text-3xl sm:text-4xl font-extrabold ${isLight ? 'text-gray-900' : 'text-white'}`}>
                         ${plan.priceUSD}
                       </span>
-                      <span className={`text-xs font-semibold ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>/ month</span>
+                      <span className={`text-xs font-semibold ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>/ month</span>
                     </div>
                     {plan.priceUSD > 0 ? (
-                      <p className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isLight ? 'text-amber-700' : 'text-amber-400/90'}`}>
-                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR {plan.priceINR && plan.priceINR > 0 ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold">Fixed INR</span> : <span className={isLight ? 'text-gray-400 font-normal' : 'text-slate-500 font-normal'}>(@ ₹{usdToInrRate}/USD live)</span>}
+                      <p className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isLight ? 'text-amber-800' : 'text-amber-400/90'}`}>
+                        ≈ ₹{inrPrice.toLocaleString('en-IN')} INR {plan.priceINR && plan.priceINR > 0 ? <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isLight ? 'bg-amber-100 text-amber-900' : 'bg-amber-500/10 text-amber-500'}`}>Fixed INR</span> : <span className={isLight ? 'text-gray-600 font-normal' : 'text-slate-500 font-normal'}>(@ ₹{usdToInrRate}/USD live)</span>}
                       </p>
                     ) : (
                       <p className={`text-xs font-semibold mt-1 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>100% Free Signup Forever</p>
                     )}
                   </div>
 
-                  {/* Simplified Specifications: Photoshoots, Videos, Credits ONLY */}
-                  <div className={`space-y-2 mb-4 text-xs rounded-xl p-3.5 border ${
-                    isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
-                  }`}>
-                    <div className="flex justify-between items-center py-0.5">
-                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Photoshoots:</span>
-                      <span className={`font-semibold text-right text-xs max-w-[60%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
-                        {plan.specs.photoshoots || plan.specs.models}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-0.5">
-                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Videos:</span>
-                      <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.videos}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-0.5">
-                      <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Credits:</span>
-                      <span className={`font-bold text-right ${isLight ? 'text-[#e5373f]' : 'text-amber-400'}`}>{plan.specs.credits}</span>
+                  {/* 6.13 Interactive Front/Back Spec Flip Card */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={Boolean(flippedPlans[plan.id])}
+                    aria-label={`Flip ${plan.name} specifications`}
+                    onClick={() => setFlippedPlans((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setFlippedPlans((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }));
+                      }
+                    }}
+                    className={`flip-card mb-4 h-[146px] cursor-pointer rounded-xl focus-visible:outline-none ${
+                      flippedPlans[plan.id] ? 'is-flipped' : ''
+                    }`}
+                  >
+                    <div className="flip-card-inner">
+                      {/* Front: Quotas */}
+                      <div className={`flip-card-front absolute inset-0 flex flex-col justify-between rounded-xl p-3.5 border text-xs ${
+                        isLight ? 'bg-gray-50 border-gray-200 text-slate-800' : 'bg-black/40 border-white/10 text-slate-300'
+                      }`}>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start gap-2 py-0.5">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Photoshoots:</span>
+                            <span className={`font-semibold text-right text-xs max-w-[60%] ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>
+                              {plan.specs.photoshoots || plan.specs.models}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2 py-0.5">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Videos:</span>
+                            <span className={`font-semibold text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.videos}</span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2 py-0.5">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Credits:</span>
+                            <span className={`font-bold text-right ${isLight ? 'text-[#b91c1c]' : 'text-[var(--accent,#C9A468)]'}`}>{plan.specs.credits}</span>
+                          </div>
+                        </div>
+                        <p className={`text-[10px] font-mono uppercase tracking-[0.12em] text-right ${isLight ? 'text-gray-500' : 'text-[var(--accent,#C9A468)]/80'}`}>
+                          Tap / hover for specs &rarr;
+                        </p>
+                      </div>
+
+                      {/* Back: Turnaround, Resolution & Pose Specs */}
+                      <div className={`flip-card-back absolute inset-0 flex flex-col justify-between rounded-xl p-3.5 border text-xs ${
+                        isLight ? 'bg-white border-gray-300 text-slate-900' : 'edge-light bg-[var(--ink-2,#1C1C22)] border-[var(--accent,#C9A468)]/40 text-slate-200'
+                      }`}>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Turnaround:</span>
+                            <span className={`font-semibold text-right ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{plan.specs.delivery}</span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Resolution:</span>
+                            <span className="font-semibold text-right">{plan.specs.resolution}</span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Poses / Shoot:</span>
+                            <span className="font-semibold text-right">5–6 Multi-Angle</span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Support:</span>
+                            <span className="font-semibold text-right truncate max-w-[58%]">{plan.specs.support}</span>
+                          </div>
+                        </div>
+                        <p className={`text-[10px] font-mono uppercase tracking-[0.12em] text-right ${isLight ? 'text-gray-500' : 'text-[var(--accent,#C9A468)]/80'}`}>
+                          &larr; Back to quotas
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -1000,10 +1072,11 @@ export default function Pricing() {
                   <div className="mb-6">
                     <button
                       type="button"
+                      aria-expanded={Boolean(expandedPlans[plan.id])}
                       onClick={() => setExpandedPlans((prev) => ({ ...prev, [plan.id]: !prev[plan.id] }))}
-                      className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border ${
+                      className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${
                         isLight
-                          ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          ? 'border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-800'
                           : 'border-white/10 bg-white/5 hover:bg-white/10 text-slate-300'
                       }`}
                     >
@@ -1011,27 +1084,33 @@ export default function Pricing() {
                       {expandedPlans[plan.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
 
-                    {expandedPlans[plan.id] && (
-                      <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs">
-                        <div className="flex justify-between items-center py-0.5">
-                          <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Turnaround:</span>
-                          <span className={`font-medium text-right ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{plan.specs.delivery}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-0.5">
-                          <span className={isLight ? 'text-gray-500' : 'text-slate-400'}>Resolution:</span>
-                          <span className={`font-medium text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.resolution}</span>
-                        </div>
-                        <div className="pt-2 space-y-2">
-                          <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>Full Specifications</p>
-                          {plan.features.map((feat, idx) => (
-                            <div key={idx} className={`flex items-start gap-2 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
-                              <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                              <span>{feat}</span>
-                            </div>
-                          ))}
+                    <div
+                      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none ${
+                        expandedPlans[plan.id] ? 'grid-rows-[1fr] opacity-100 mt-3' : 'grid-rows-[0fr] opacity-0'
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className={`pt-3 border-t space-y-2 text-xs ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+                          <div className="flex justify-between items-center py-0.5">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Turnaround:</span>
+                            <span className={`font-medium text-right ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{plan.specs.delivery}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-0.5">
+                            <span className={isLight ? 'text-gray-600' : 'text-slate-400'}>Resolution:</span>
+                            <span className={`font-medium text-right ${isLight ? 'text-gray-900' : 'text-slate-200'}`}>{plan.specs.resolution}</span>
+                          </div>
+                          <div className="pt-2 space-y-2">
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-600' : 'text-slate-400'}`}>Full Specifications</p>
+                            {plan.features.map((feat, idx) => (
+                              <div key={idx} className={`flex items-start gap-2 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-slate-300'}`}>
+                                <Check className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isLight ? 'text-amber-700' : 'text-amber-500'}`} />
+                                <span>{feat}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
@@ -1055,11 +1134,12 @@ export default function Pricing() {
                 ) : (
                   <button
                     onClick={() => handleChoosePlan(plan)}
-                    className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 ${plan.featured
-                      ? 'bg-[#e5373f] text-white hover:bg-[#d42d35] shadow-lg shadow-[#e5373f]/25'
+                    data-cursor="OPEN"
+                    className={`btn-fill-swipe key-press w-full py-3 px-4 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${plan.featured
+                      ? 'bg-[#e5373f] text-white shadow-lg shadow-[#e5373f]/25'
                       : plan.priceUSD === 0
-                        ? isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200' : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
-                        : isLight ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-100'
+                        ? isLight ? 'bg-gray-100 text-gray-900 border border-gray-200' : 'bg-white/10 text-white border border-white/10'
+                        : isLight ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
                       }`}
                   >
                     {plan.priceUSD === 0 ? 'Start Free Forever' : `Pay ₹${inrPrice.toLocaleString('en-IN')}`}
@@ -1086,7 +1166,7 @@ export default function Pricing() {
               </div>
               <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Custom order guarantee</h4>
               <p className={`text-xs leading-relaxed opacity-75`}>
-                Bespoke and custom orders are fulfilled directly by our our studio team within 24 to 48 hours.
+                Bespoke and custom orders are fulfilled directly by our studio team within 24 to 48 hours.
               </p>
             </div>
             <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
@@ -1099,7 +1179,7 @@ export default function Pricing() {
               </p>
             </div>
             <div className={`p-4 rounded-xl border ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#15151b] border-white/5'}`}>
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-[#C9A468]/15 flex items-center justify-center text-[#E7CFA4] mb-3">
                 <Building2 className="w-4 h-4" />
               </div>
               <h4 className={`text-sm font-semibold mb-1 ${isLight ? 'text-gray-900' : 'text-white'}`}>Commercial rights</h4>
@@ -1113,8 +1193,8 @@ export default function Pricing() {
         {/* FAQs */}
         <div className="max-w-3xl mx-auto mb-16">
           <div className="text-center mb-10">
-            <h3 className={`text-2xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>Frequently Asked Questions</h3>
-            <p className={`text-xs ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>Everything you need to know about billing, quotas, and support</p>
+            <h3 className={`text-2xl font-bold mb-2 ${isLight ? 'text-slate-950' : 'text-white'}`}>Frequently Asked Questions</h3>
+            <p className={`text-xs ${isLight ? 'text-slate-900/80' : 'text-slate-400'}`}>Everything you need to know about billing, quotas, and support</p>
           </div>
           <div className="space-y-4">
             <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-gray-200 text-slate-900 shadow-sm' : 'bg-[#101014] border-white/10'}`}>
@@ -1151,12 +1231,13 @@ export default function Pricing() {
       {/* Modal 1: Terms & Conditions Agreement */}
       {showTermsModal && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className={`border rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative ${
+          <div className={`modal-scale-in border rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative ${
             isLight ? 'bg-white border-gray-200 text-slate-900' : 'bg-[#101014] border-white/10 text-white'
           }`}>
             <button
               onClick={() => setShowTermsModal(false)}
-              className={`absolute top-5 right-5 p-1 rounded-lg ${
+              aria-label="Close terms modal"
+              className={`absolute top-5 right-5 p-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${
                 isLight ? 'text-gray-400 hover:text-gray-900' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -1191,7 +1272,7 @@ export default function Pricing() {
             </div>
             <p className={`text-xs mb-6 ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>
               Read complete details in our{' '}
-              <a href="/terms" target="_blank" className="text-amber-500 underline inline-flex items-center gap-1 font-semibold">
+              <a href="/terms"target="_blank"className="text-amber-500 underline inline-flex items-center gap-1 font-semibold">
                 Terms and Conditions <ExternalLink className="w-3 h-3" />
               </a>.
             </p>
@@ -1206,7 +1287,7 @@ export default function Pricing() {
               </button>
               <button
                 onClick={handleAgreeTerms}
-                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black text-xs font-bold uppercase tracking-wider shadow-lg shadow-amber-500/20"
+                className="flex-1 py-3 px-4 rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] hover:from-amber-300 hover:to-amber-400 text-black text-xs font-bold uppercase tracking-wider shadow-lg shadow-amber-500/20"
               >
                 I Agree & Proceed
               </button>
@@ -1218,7 +1299,7 @@ export default function Pricing() {
       {/* Simplified Checkout Modal (Fixed Amount QR, UPI ID, Code 1450903 Unlock & Generate Invoice) */}
       {showCheckoutModal && selectedPlan && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex justify-center items-start sm:items-center p-3 sm:p-4">
-          <div className={`relative w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
+          <div className={`modal-scale-in relative w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col ${
             isLight ? 'bg-white text-slate-900 border-gray-200' : 'bg-[#0f1117] text-white border-white/10'
           }`}>
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
@@ -1232,7 +1313,8 @@ export default function Pricing() {
                   setVerificationCode('');
                   setCodeSubmitError('');
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close checkout modal"
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1255,7 +1337,7 @@ export default function Pricing() {
                   </div>
 
                   {/* Printable Invoice Container Matching Official PDF */}
-                  <div id="printable-invoice" className="bg-white text-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto font-sans border border-[#bbbbbb]">
+                  <div id="printable-invoice"className="bg-white text-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto font-sans border border-[#bbbbbb]">
                     {/* Header */}
                     <div className="flex justify-between items-end border-b-2 border-[#1F3A5F] pb-4">
                       <div>
@@ -1471,7 +1553,8 @@ export default function Pricing() {
                       {/* 1-Tap Mobile UPI Intent Link */}
                       <a
                         href={activeOrder?.upi_intent || upiPayLink}
-                        className="block w-full py-2.5 px-3 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-center font-semibold text-xs transition cursor-pointer"
+                        data-cursor="OPEN"
+                        className="link-border-draw block w-full py-2.5 px-3 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white text-center font-semibold text-xs transition cursor-pointer"
                       >
                         Pay via mobile UPI app (PhonePe / GPay / Paytm)
                       </a>
@@ -1487,9 +1570,15 @@ export default function Pricing() {
                         <button
                           type="button"
                           onClick={handleCopyUpi}
-                          className="py-1 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1"
+                          data-cursor="COPY"
+                          aria-live="polite"
+                          className={`key-press py-1 px-3 rounded-lg border text-[11px] font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                            copiedUpi
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
+                              : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                          }`}
                         >
-                          <Copy className="w-3 h-3" />
+                          {copiedUpi ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                           <span>{copiedUpi ? 'Copied' : 'Copy UPI'}</span>
                         </button>
                       </div>
@@ -1620,7 +1709,7 @@ export default function Pricing() {
             {/* Modal 3: Fullscreen Enlarged QR Modal */}
       {showEnlargedQr && (
         <div className="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0c1017] border-2 border-amber-500/60 p-6 rounded-3xl max-w-sm w-full text-center shadow-2xl relative">
+          <div className="bg-[#0c1017] border-2 border-amber-500/60 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl relative">
             <button
               onClick={() => setShowEnlargedQr(false)}
               className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"
@@ -1630,7 +1719,7 @@ export default function Pricing() {
             <h4 className="text-base font-bold text-white mb-2">Scan & Pay via UPI</h4>
             <p className="text-xs text-slate-400 mb-3">{selectedPlan?.name} Plan &middot; PAWAN KUMAR</p>
             <div className="bg-white p-3 rounded-2xl shadow-xl inline-block mb-3">
-              <img src={localQrDataUrl} alt="Enlarged UPI QR" className="w-64 h-64 sm:w-72 sm:h-72 object-contain mx-auto" />
+              <img src={localQrDataUrl} alt="Enlarged UPI QR"className="w-64 h-64 sm:w-72 sm:h-72 object-contain mx-auto" />
             </div>
             <p className="text-xs font-mono text-amber-400 font-bold">{upiId}</p>
             <p className="text-sm font-black text-emerald-400 mt-1">₹{inrAmount.toLocaleString('en-IN')}</p>

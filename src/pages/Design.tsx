@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { SeasonDockFilter } from '../components/SeasonDockFilter';
 import {
   Bell,
   Bookmark,
@@ -91,21 +92,21 @@ export type GarmentRole =
 export type TryOnTarget = 'upper' | 'lower' | 'both';
 
 export const GARMENT_ROLE_LABELS: Record<string, string> = {
-  'top-front': '👕 Top Front',
-  'top-back': '🔄 Top Back',
-  'bottom': '👖 Bottom',
-  'collar': '👔 Collar / Neck',
-  'logo': '🔍 Logo / Brand Close-Up',
-  'detail': '✨ Fabric / Tag / Detail',
-  'left-sleeve': '👈 Left Sleeve',
-  'right-sleeve': '👉 Right Sleeve',
-  'left-bottom': '🩳 Left Bottom',
-  'right-bottom': '🩳 Right Bottom',
-  'custom': '✏️ Custom View',
-  'tops-front': '👕 Top Front',
-  'tops-back': '🔄 Top Back',
-  'bottoms': '👖 Bottom',
-  'unknown': '❓ Garment Angle',
+  'top-front': 'Top Front',
+  'top-back': 'Top Back',
+  'bottom': 'Bottom',
+  'collar': 'Collar / Neck',
+  'logo': 'Logo / Brand Close-Up',
+  'detail': 'Fabric / Tag / Detail',
+  'left-sleeve': 'Left Sleeve',
+  'right-sleeve': 'Right Sleeve',
+  'left-bottom': 'Left Bottom',
+  'right-bottom': 'Right Bottom',
+  'custom': 'Custom View',
+  'tops-front': 'Top Front',
+  'tops-back': 'Top Back',
+  'bottoms': 'Bottom',
+  'unknown': 'Garment Angle',
 };
 
 export interface ClassifiedGarment {
@@ -199,7 +200,7 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     id: 'pair-1',
     name: 'Format 1: Black-Red Cricket Windcheater (Hood-Down + 4cm Stand Collar)',
     badge: 'Cricket Windcheater',
-    icon: '🧥',
+    icon: '',
     frontThumb: '/hood-presets/pair1-front.webp',
     backThumb: '/hood-presets/pair1-back.webp',
     tagline: '4cm Stand Collar + Pointed Kite Hood Back',
@@ -215,7 +216,7 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     id: 'pair-2',
     name: 'Format 2: White Track Jacket Tape-Print (5cm Stand Collar, 100% Hoodless)',
     badge: '100% Hoodless',
-    icon: '👔',
+    icon: '',
     frontThumb: '/hood-presets/pair2-front.webp',
     backThumb: '/hood-presets/pair2-back.webp',
     tagline: '5cm Black Stand Collar + Smooth Nape Back (NO Hood)',
@@ -231,7 +232,7 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     id: 'pair-3',
     name: 'Format 3: Funnel Collar Windcheater (7cm Tall Funnel + Packable Hood Flat)',
     badge: 'Tall Funnel Collar',
-    icon: '🏃‍♂️',
+    icon: '‍',
     frontThumb: '/hood-presets/pair3-front.webp',
     backThumb: '/hood-presets/pair3-back.webp',
     tagline: '7cm Chin Funnel Collar + Packable Hood Laid Flat Back',
@@ -247,7 +248,7 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     id: 'pair-4',
     name: 'Format 4: Royal Blue Tracksuit (4.5cm Collar + Flat Pointed Hood Fold)',
     badge: 'Tonal Tracksuit',
-    icon: '🌧️',
+    icon: '',
     frontThumb: '/hood-presets/pair4-front.webp',
     backThumb: '/hood-presets/pair4-back.webp',
     tagline: '4.5cm Blue Stand Collar + Flat Center-Fold Hood Back',
@@ -263,7 +264,7 @@ export const HOOD_PAIR_FORMATS: HoodPairFormat[] = [
     id: 'pair-5',
     name: 'Format 5: GLA University Fleece Hoodie (Thick Nape Hood Roll + Chest Drawstrings)',
     badge: 'Fleece Hoodie',
-    icon: '🎽',
+    icon: '',
     frontThumb: '/hood-presets/pair5-front.webp',
     backThumb: '/hood-presets/pair5-back.webp',
     tagline: 'Rolled Inner Collar & Drawstrings + Thick Nape Hood Roll Back',
@@ -282,7 +283,7 @@ export const HOOD_STYLE_OPTIONS = [
     id: 'auto' as const,
     name: 'Auto Detect',
     badge: 'Smart AI',
-    icon: '🪄',
+    icon: '',
     tagline: 'Automatic Hood Detection',
     description: 'AI flat-lay photo ko scan karke khud decide karega hood lagana hai ya nahi.',
     recommendedFor: 'T-Shirts, Jackets & Tracksuits',
@@ -291,7 +292,7 @@ export const HOOD_STYLE_OPTIONS = [
     id: 'draped' as const,
     name: 'Draped (Catalog)',
     badge: 'Standard E-Com',
-    icon: '🧥',
+    icon: '',
     tagline: 'Peeche Gira Hua (Shoulder Draped)',
     description: 'Hood gale ke peeche neatly folded rahega, drawstrings aage chest par hanging. 90% catalog me yahi use hota hai.',
     recommendedFor: 'Catalog Shoots (Front & Back)',
@@ -300,7 +301,7 @@ export const HOOD_STYLE_OPTIONS = [
     id: 'on-head' as const,
     name: 'On Head (Sports)',
     badge: 'Athletic Look',
-    icon: '🏃‍♂️',
+    icon: '‍',
     tagline: 'Sar Par Pehna Hua (Hood Up)',
     description: 'Model hood ko sar par pehnega athletic running, training aur warm-up look me.',
     recommendedFor: 'Winter Training & Running',
@@ -309,7 +310,7 @@ export const HOOD_STYLE_OPTIONS = [
     id: 'none' as const,
     name: 'No Hood (Stand Collar)',
     badge: 'Classic Zip',
-    icon: '👔',
+    icon: '',
     tagline: 'Stand-Up Zip Collar / Bina Hood',
     description: 'Clean high-zip stand collar bina kisi hood attachment ke.',
     recommendedFor: 'Classic Tracksuits, Zip Jackets',
@@ -479,7 +480,7 @@ function ImageConfirmPopup({
 }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-      <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-[#111116] p-6 shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#111116] p-6 shadow-2xl">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
           Confirm {kind === 'cloth' ? 'Garment' : 'Model'} Image
         </p>
@@ -538,7 +539,7 @@ export function safeOpenMediaInNewTab(
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport"content="width=device-width, initial-scale=1">
   <title>${title.replace(/</g, '&lt;')}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -559,20 +560,20 @@ export function safeOpenMediaInNewTab(
 <body>
   ${isVideo ? `
     <div id="viewport">
-      <video src="${resolved}" controls autoplay loop playsinline></video>
+      <video src="${resolved}"controls autoplay loop playsinline></video>
     </div>
   ` : `
     <div id="topBar">
       <span class="brand">Shiv-Naresh</span>
-      <button class="btn" id="btnZoomOut" title="Zoom Out (–)">–</button>
+      <button class="btn"id="btnZoomOut"title="Zoom Out (–)">–</button>
       <span id="zoomVal">100%</span>
-      <button class="btn" id="btnZoomIn" title="Zoom In (+)">+</button>
-      <button class="btn" id="btnFit" title="Fit to Screen (0)">Fit</button>
-      <button class="btn" id="btnActual" title="100% Actual Size">1:1</button>
-      <a class="btn" id="btnDownload" href="${resolved}" download="shivnaresh-master-view.png" style="background:#059669;border-color:#10b981;">Download</a>
+      <button class="btn"id="btnZoomIn"title="Zoom In (+)">+</button>
+      <button class="btn"id="btnFit"title="Fit to Screen (0)">Fit</button>
+      <button class="btn"id="btnActual"title="100% Actual Size">1:1</button>
+      <a class="btn"id="btnDownload"href="${resolved}"download="shivnaresh-master-view.png"style="background:#059669;border-color:#10b981;">Download</a>
     </div>
     <div id="viewport">
-      <img id="previewImg" src="${resolved}" alt="Preview" draggable="false" />
+      <img id="previewImg"src="${resolved}"alt="Preview"draggable="false" />
     </div>
     <div id="hints">Scroll mouse wheel to zoom &bull; Drag to pan &bull; Double click to zoom in</div>
     <script>
@@ -588,7 +589,7 @@ export function safeOpenMediaInNewTab(
         var startY = 0;
 
         function update() {
-          img.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+          img.style.transform = 'translate('+ panX + 'px, '+ panY + 'px) scale('+ scale + ')';
           zoomVal.textContent = Math.round(scale * 100) + '%';
         }
 
@@ -667,7 +668,7 @@ export function safeOpenMediaInNewTab(
       try {
         win.location.href = resolved;
         return;
-      } catch {}
+      } catch { }
     }
   }
 
@@ -680,7 +681,7 @@ export function safeOpenMediaInNewTab(
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
-    try { document.body.removeChild(a); } catch {}
+    try { document.body.removeChild(a); } catch { }
   }, 1000);
 }
 
@@ -850,17 +851,17 @@ function GarmentPhotoTourModal({
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-3xl h-[88vh] max-h-[700px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
+        className={`w-full max-w-3xl h-[88vh] max-h-[700px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-[#263B32] border-[#C9A468]/40 text-[#F5F0E7]' : 'bg-[#0f0f14] border-zinc-800 text-zinc-100'
           }`}
       >
         {/* Header */}
         <div
-          className={`shrink-0 px-5 py-4 border-b flex items-center justify-between ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/40'
+          className={`shrink-0 px-5 py-4 border-b flex items-center justify-between ${isLight ? 'border-[#C9A468]/25 bg-[#1E3028]' : 'border-zinc-800/80 bg-zinc-900/40'
             }`}
         >
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800 text-base text-zinc-200 border border-zinc-700/60 shadow-inner">
-              📸
+
             </span>
             <div>
               <div className="flex items-center gap-2">
@@ -1001,7 +1002,7 @@ function GarmentPhotoTourModal({
                     }`}
                 >
                   <div className="flex items-start gap-2.5">
-                    <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5">⚡</span>
+                    <span className="text-amber-400 text-sm font-bold shrink-0 mt-0.5"></span>
                     <div className="text-[11px] leading-relaxed">
                       <strong className={`font-semibold ${isLight ? 'text-amber-900' : 'text-amber-300'}`}>Why this matters: </strong>
                       {s.whyItMatters}
@@ -1015,7 +1016,7 @@ function GarmentPhotoTourModal({
 
         {/* Footer Controls */}
         <div
-          className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-between gap-3 ${isLight ? 'border-zinc-200 bg-zinc-50' : 'border-zinc-800/80 bg-zinc-900/60'
+          className={`shrink-0 px-5 py-3.5 border-t flex items-center justify-between gap-3 ${isLight ? 'border-[#C9A468]/25 bg-[#1E3028] text-[#F5F0E7]' : 'border-zinc-800/80 bg-zinc-900/60'
             }`}
         >
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -1075,7 +1076,7 @@ function GarmentPhotoTourModal({
                 }}
                 className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 text-xs font-bold transition shadow cursor-pointer flex items-center gap-1.5"
               >
-                <span>📸 Start Uploading Now</span>
+                <span> Start Uploading Now</span>
               </button>
             )}
           </div>
@@ -1399,7 +1400,7 @@ function ZoomCropDownloadModal({
           ctx.fillStyle = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
           ctx.fillRect(0, 0, targetW, targetH);
         }
-      } catch {}
+      } catch { }
 
       const projScale = targetW / V_w;
       const destW = screenW * projScale;
@@ -1723,7 +1724,7 @@ function ZoomCropDownloadModal({
                 onClick={() => void handleApplyCropForGeneration()}
                 className="w-full rounded-xl bg-[#e5373f] hover:bg-[#c92a32] text-white py-3 px-4 text-xs font-bold uppercase tracking-wider transition shadow-lg cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <span>✂️ Use This Zoomed View for Generation</span>
+                <span> Use This Zoomed View for Generation</span>
               </button>
             )}
 
@@ -1733,7 +1734,7 @@ function ZoomCropDownloadModal({
                   type="button"
                   disabled={isExporting}
                   onClick={() => void handleSaveCropToFolder('ready')}
-                  className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black py-2.5 px-2 text-[11px] font-bold uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] hover:from-amber-400 hover:to-amber-500 text-black py-2.5 px-2 text-[11px] font-bold uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                   title="Save cropped image directly to My Sets in Ready to Use sub-tab"
                 >
                   <span>⭐ Save to Ready</span>
@@ -1745,7 +1746,7 @@ function ZoomCropDownloadModal({
                   className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white py-2.5 px-2 text-[11px] font-bold uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                   title="Save cropped image directly to My Sets in Edited sub-tab"
                 >
-                  <span>💾 Save to Edited</span>
+                  <span> Save to Edited</span>
                 </button>
               </div>
             )}
@@ -1973,8 +1974,8 @@ function AvatarCropModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-      <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-[#121217] p-6 text-white shadow-2xl">
+    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+      <div className="modal-scale-in w-full max-w-sm rounded-2xl border border-white/20 bg-[#121217] p-6 text-white shadow-2xl">
         <h3 className="text-base font-bold">Crop & Position Profile Picture</h3>
         <p className="text-xs text-white/50 mt-1">Adjust zoom and alignment for your avatar</p>
 
@@ -2112,7 +2113,7 @@ function UserProfileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       {tempCropImage && (
         <AvatarCropModal
           imageUrl={tempCropImage}
@@ -2124,7 +2125,7 @@ function UserProfileModal({
         />
       )}
       <div
-        className={`w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-colors ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
+        className={`modal-scale-in w-full max-w-md rounded-2xl border p-7 shadow-2xl transition-colors ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/20 text-white'
           }`}
       >
         {/* Header */}
@@ -2185,7 +2186,7 @@ function UserProfileModal({
                 }`}>
                 {user.credits} credits
               </span>
-              <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-500 uppercase">
+              <span className="rounded-full bg-[#C9A468]/15 border border-[#C9A468]/40 px-2 py-0.5 text-[9px] font-bold text-[#E7CFA4] uppercase">
                 {user.tier || 'Free'} Tier
               </span>
               <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase border ${isLight ? 'bg-cyan-100 text-cyan-950 border-cyan-300' : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
@@ -2347,7 +2348,16 @@ function MySetsPanel({
   batchBrandProgress?: { current: number; total: number } | null;
   isLight: boolean;
 }) {
-  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('all');
+  const [filter, setFilter] = useState<'ready' | 'edited' | 'generated' | 'all' | 'videos' | 'sets'>('ready');
+  const [draggedGenId, setDraggedGenId] = useState<string | null>(null);
+  const [customGenOrder, setCustomGenOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('my_sets_gen_order');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showInstructions, setShowInstructions] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedGenIds, setSelectedGenIds] = useState<string[]>([]);
@@ -2571,15 +2581,38 @@ function MySetsPanel({
     filter === 'ready'
       ? readyGenerations
       : filter === 'edited'
-      ? editedGenerations
-      : filter === 'generated'
-      ? generatedGenerations
-      : imageGenerations
+        ? editedGenerations
+        : filter === 'generated'
+          ? generatedGenerations
+          : imageGenerations
   ).slice().sort((a, b) => {
+    if (customGenOrder.length > 0) {
+      const idxA = customGenOrder.indexOf(a.id);
+      const idxB = customGenOrder.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+    }
     const timeA = Math.max(a.folderMovedAt || 0, a.updatedAt || 0, a.createdAt || 0);
     const timeB = Math.max(b.folderMovedAt || 0, b.updatedAt || 0, b.createdAt || 0);
     return timeB - timeA;
   });
+
+  const handleReorderGenCard = (fromId: string, toId: string) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const currentIds = displayedImages.map((g) => g.id);
+    const fromIdx = currentIds.indexOf(fromId);
+    const toIdx = currentIds.indexOf(toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const nextOrder = [...currentIds];
+    const [moved] = nextOrder.splice(fromIdx, 1);
+    nextOrder.splice(toIdx, 0, moved);
+    const merged = Array.from(new Set([...nextOrder, ...customGenOrder]));
+    setCustomGenOrder(merged);
+    try {
+      localStorage.setItem('my_sets_gen_order', JSON.stringify(merged));
+    } catch { }
+  };
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
     const file = e.target.files?.[0];
@@ -2721,32 +2754,35 @@ function MySetsPanel({
   return (
     <div
       onDragOver={(e) => {
+        if (draggedGenId || !e.dataTransfer?.types?.includes('Files')) return;
         e.preventDefault();
         e.stopPropagation();
         setIsDragOverMySets(true);
       }}
       onDragLeave={(e) => {
+        if (draggedGenId) return;
         e.preventDefault();
         e.stopPropagation();
         setIsDragOverMySets(false);
       }}
       onDrop={(e) => {
+        if (draggedGenId || !e.dataTransfer?.files?.length) {
+          setIsDragOverMySets(false);
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         setIsDragOverMySets(false);
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          void uploadFilesToMySets(Array.from(e.dataTransfer.files));
-        }
+        void uploadFilesToMySets(Array.from(e.dataTransfer.files));
       }}
-      className={`mx-auto max-w-6xl px-5 py-8 sm:px-8 relative transition-all ${
-        isDragOverMySets ? 'ring-2 ring-[#e5373f] bg-[#e5373f]/5 rounded-3xl' : ''
-      }`}
+      className={`mx-auto max-w-6xl px-5 py-8 sm:px-8 relative transition-all ${isDragOverMySets ? 'ring-2 ring-[#e5373f] bg-[#e5373f]/5 rounded-2xl' : ''
+        }`}
     >
       {/* Visual Drag & Drop Overlay */}
       {isDragOverMySets && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/85 backdrop-blur-md pointer-events-none">
-          <div className="p-8 rounded-3xl border-2 border-dashed border-[#e5373f] bg-[#0e0e12] text-center space-y-3 shadow-2xl">
-            <Upload className="w-12 h-12 mx-auto text-[#e5373f] animate-bounce" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/85 backdrop-blur-sm pointer-events-none">
+          <div className="group p-8 rounded-2xl border-2 border-dashed border-[#e5373f] bg-[#0e0e12] text-center space-y-3 shadow-2xl">
+            <Upload className="w-12 h-12 mx-auto text-[#e5373f] transition-transform duration-200 group-hover:-translate-y-1" />
             <p className="text-lg font-bold text-white uppercase tracking-wider">Drop Any Number of Images to Upload</p>
             <p className="text-xs text-zinc-400">All photos will be saved directly into your All Archive library</p>
           </div>
@@ -2841,11 +2877,11 @@ function MySetsPanel({
       <div className="mt-6 flex flex-wrap items-center gap-2 border-b pb-4 border-white/10">
         {[
           { id: 'ready', label: `⭐ 1. Ready to Use (${readyGenerations.length})` },
-          { id: 'edited', label: `✏️ 2. Edited (${editedGenerations.length})` },
-          { id: 'generated', label: `📸 3. Generated (${generatedGenerations.length})` },
-          { id: 'all', label: `📁 All Archive (${totalCount})` },
-          { id: 'videos', label: `🎥 Videos (${videoGenerations.length})` },
-          { id: 'sets', label: `🥋 Saved Outfits (${uploadSets.length})` },
+          { id: 'edited', label: `2. Edited (${editedGenerations.length})` },
+          { id: 'generated', label: `3. Generated (${generatedGenerations.length})` },
+          { id: 'all', label: `All Archive (${totalCount})` },
+          { id: 'videos', label: `Videos (${videoGenerations.length})` },
+          { id: 'sets', label: `Saved Outfits (${uploadSets.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -2870,7 +2906,7 @@ function MySetsPanel({
       </div>
 
       {formOpen && (
-        <div className={`mt-6 rounded-3xl border p-6 backdrop-blur-md ${isLight ? 'border-gray-200 bg-white shadow-md' : 'border-white/15 bg-white/[0.03]'}`}>
+        <div className={`mt-6 rounded-2xl border p-6 backdrop-blur-md ${isLight ? 'border-gray-200 bg-white shadow-md' : 'border-white/15 bg-white/[0.03]'}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-gray-700' : 'text-white/60'}`}>
             Save pair to permanent archive
           </h3>
@@ -3033,10 +3069,10 @@ function MySetsPanel({
                     {filter === 'ready'
                       ? `⭐ Ready to Use studio images (${readyGenerations.length})`
                       : filter === 'edited'
-                      ? `✏️ Edited studio images (${editedGenerations.length})`
-                      : filter === 'generated'
-                      ? `📸 Raw generated images (${generatedGenerations.length})`
-                      : `All studio images (${imageGenerations.length})`}
+                        ? `Edited studio images (${editedGenerations.length})`
+                        : filter === 'generated'
+                          ? `Raw generated images (${generatedGenerations.length})`
+                          : `All studio images (${imageGenerations.length})`}
                   </h3>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -3066,7 +3102,7 @@ function MySetsPanel({
                         void onBatchAddLogo(targets);
                       }}
                       disabled={isBatchBranding || displayedImages.length === 0}
-                      className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] hover:from-amber-400 hover:to-amber-500 text-black px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       title="Automatically stamp official HD vector Shiv-Naresh logo onto all generated images or selected images"
                     >
                       <Sparkles className="h-3.5 w-3.5 shrink-0" />
@@ -3074,8 +3110,8 @@ function MySetsPanel({
                         {isBatchBranding
                           ? `Branding (${batchBrandProgress?.current || 0}/${batchBrandProgress?.total || 0})…`
                           : selectedGenIds.length > 0
-                            ? `✨ Add HD Logo on Selected (${selectedGenIds.length})`
-                            : `✨ Add HD Logo on All (${displayedImages.length})`}
+                            ? `Add HD Logo on Selected (${selectedGenIds.length})`
+                            : `Add HD Logo on All (${displayedImages.length})`}
                       </span>
                     </button>
                   )}
@@ -3129,7 +3165,7 @@ function MySetsPanel({
                         className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 text-[11px] font-bold shadow transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                         title="Move all selected images to Edited sub-tab"
                       >
-                        <span>{batchMovingFolder === 'edited' ? 'Moving…' : `✏️ Move to Edited (${selectedGenIds.length})`}</span>
+                        <span>{batchMovingFolder === 'edited' ? 'Moving…' : `Move to Edited (${selectedGenIds.length})`}</span>
                       </button>
                       <button
                         type="button"
@@ -3147,7 +3183,7 @@ function MySetsPanel({
                         title="Move all selected images to Admin Recycle Bin"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        <span>{batchDeleting ? 'Moving to Bin…' : `🗑️ Delete Selected (${selectedGenIds.length})`}</span>
+                        <span>{batchDeleting ? 'Moving to Bin…' : `Delete Selected (${selectedGenIds.length})`}</span>
                       </button>
                     </>
                   )}
@@ -3157,12 +3193,34 @@ function MySetsPanel({
                 {displayedImages.map((gen) => (
                   <div
                     key={gen.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedGenId(gen.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => {
+                      if (draggedGenId && draggedGenId !== gen.id) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedGenId && draggedGenId !== gen.id) {
+                        handleReorderGenCard(draggedGenId, gen.id);
+                      }
+                      setDraggedGenId(null);
+                    }}
+                    onDragEnd={() => setDraggedGenId(null)}
+                    title="Drag & drop to reorder image position"
+                    className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+                      draggedGenId === gen.id ? 'opacity-50 ring-2 ring-[#C9A468]' : ''
+                    } ${isLight ? 'border-gray-200 bg-white' : 'edge-light border-[var(--line-1)] bg-[var(--ink-1)]'
                       }`}
                   >
                     <div>
                       <div
-                        className="relative rounded-xl overflow-hidden bg-black/60 aspect-[3/4] cursor-pointer group"
+                        data-cursor="VIEW"
+                        className="relative rounded-xl overflow-hidden bg-black/60 aspect-[4/5] cursor-pointer group"
                       >
                         {(() => {
                           const primary = getBestGenUrl(gen);
@@ -3172,7 +3230,7 @@ function MySetsPanel({
                               src={resolveImageUrl(primary)}
                               alt=""
                               loading="lazy"
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain bg-black/25"
                               onClick={() => safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render')}
                               onError={(e) => {
                                 const el = e.currentTarget;
@@ -3186,7 +3244,7 @@ function MySetsPanel({
                                 if (parent && !parent.querySelector('.broken-img-placeholder')) {
                                   const ph = document.createElement('div');
                                   ph.className = 'broken-img-placeholder absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-900/90 text-zinc-400 select-none';
-                                  ph.innerHTML = '<span class="text-3xl mb-1">🖼️</span><span class="text-xs font-semibold text-zinc-200">Image Expired or Incomplete</span><span class="text-[10px] text-zinc-400 mt-1">Click trash icon below to move to Recycle Bin</span>';
+                                  ph.innerHTML = '<span class="text-3xl mb-1"></span><span class="text-xs font-semibold text-zinc-200">Image Expired or Incomplete</span><span class="text-[10px] text-zinc-400 mt-1">Click trash icon below to move to Recycle Bin</span>';
                                   parent.appendChild(ph);
                                 }
                               }}
@@ -3196,7 +3254,7 @@ function MySetsPanel({
                         {/* EDITED Badge Sticker */}
                         {Boolean(gen.isEdited || gen.type === 'edit' || (gen.prompt && /\b(edit|edited|option b)\b/i.test(gen.prompt))) && (
                           <span className="absolute top-2 right-2 rounded-md bg-amber-400 text-black px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-md z-10 border border-amber-300">
-                            ✏️ EDITED
+                            EDITED
                           </span>
                         )}
                         <label
@@ -3216,8 +3274,28 @@ function MySetsPanel({
                           />
                         </label>
                       </div>
+                      {/* Optical hierarchy: label -> name */}
+                      <div className="mt-2.5 flex items-center justify-between text-[10px] opacity-70">
+                        <span className="font-mono uppercase tracking-[0.12em]">{new Date(gen.createdAt).toLocaleDateString()}</span>
+                        {gen.isManualUpload ? (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                            Uploaded Asset
+                          </span>
+                        ) : (
+                          <span className={`text-[9px] font-semibold uppercase tracking-[0.14em] ${isLight ? 'text-gray-500' : 'text-[var(--accent)]'}`}>
+                            Studio Render
+                          </span>
+                        )}
+                        {gen.color && (
+                          <span className="flex items-center gap-1 font-medium text-emerald-400">
+                            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: gen.color }} />
+                            <span>{gen.colorName || gen.color}</span>
+                          </span>
+                        )}
+                      </div>
+
                       {/* Name / Title with inline rename edit */}
-                      <div className="mt-2.5 flex items-center justify-between gap-1.5 min-h-[26px]">
+                      <div className="mt-1 flex items-center justify-between gap-1.5 min-h-[26px]">
                         {editingGenId === gen.id ? (
                           <div className="flex items-center gap-1.5 w-full">
                             <input
@@ -3230,19 +3308,19 @@ function MySetsPanel({
                               }}
                               autoFocus
                               placeholder="Image name..."
-                              className="flex-1 text-xs font-semibold px-2 py-0.5 rounded border border-[#e5373f] bg-black text-white focus:outline-none"
+                              className="flex-1 text-xs font-semibold px-2 py-0.5 rounded border border-[#e5373f] bg-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             />
                             <button
                               type="button"
                               onClick={() => void handleSaveSingleTitle(gen.id)}
-                              className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer transition"
+                              className="key-press px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             >
                               Save
                             </button>
                             <button
                               type="button"
                               onClick={() => setEditingGenId('')}
-                              className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-[10px] cursor-pointer"
+                              className="key-press px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-[10px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             >
                               ✕
                             </button>
@@ -3250,7 +3328,7 @@ function MySetsPanel({
                         ) : (
                           <div className="flex items-center justify-between w-full min-w-0 gap-1.5">
                             <span
-                              className="text-xs font-bold truncate cursor-pointer hover:text-[#e5373f] transition"
+                              className="text-xs font-bold truncate cursor-pointer hover:text-[var(--accent)] transition"
                               title="Click to rename this image"
                               onClick={() => {
                                 setEditingGenId(gen.id);
@@ -3265,7 +3343,7 @@ function MySetsPanel({
                                 setEditingGenId(gen.id);
                                 setEditTitleText(gen.title || gen.prompt || `Render #${gen.id.slice(0, 6)}`);
                               }}
-                              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 shrink-0 transition cursor-pointer"
+                              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 shrink-0 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                               title="Rename this image"
                             >
                               <Edit3 className="h-3 w-3" />
@@ -3273,29 +3351,14 @@ function MySetsPanel({
                           </div>
                         )}
                       </div>
-
-                      <div className="mt-1 flex items-center justify-between text-[10px] opacity-60">
-                        <span className="font-mono">{new Date(gen.createdAt).toLocaleDateString()}</span>
-                        {gen.isManualUpload && (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                            Uploaded Asset
-                          </span>
-                        )}
-                        {gen.color && (
-                          <span className="flex items-center gap-1 font-medium text-emerald-400">
-                            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: gen.color }} />
-                            <span>{gen.colorName || gen.color}</span>
-                          </span>
-                        )}
-                      </div>
                       {gen.prompt && (
-                        <p className={`mt-2 text-xs line-clamp-2 ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
+                        <p className={`mt-1.5 text-xs line-clamp-2 ${isLight ? 'text-gray-600' : 'text-[var(--text-mid)]'}`}>
                           "{gen.prompt}"
                         </p>
                       )}
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                    <div className={`mt-3 pt-3 border-t space-y-2 ${isLight ? 'border-gray-200' : 'border-[var(--line-1)]'}`}>
                       {/* Primary Download Action: Full-width premium catalog button (never overflows) */}
                       <button
                         type="button"
@@ -3304,7 +3367,7 @@ function MySetsPanel({
                           const targetUrl = resolveImageUrl(primary);
                           if (targetUrl) void downloadDirectFile(targetUrl, `shivnaresh-studio-1807x3000-${gen.id.slice(0, 6)}.png`);
                         }}
-                        className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-center py-2 px-3 text-xs font-bold tracking-wide transition-all shadow-md hover:shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/30"
+                        className="key-press w-full rounded-xl bg-[#263B32] text-[#F5F0E7] hover:from-emerald-500 hover:to-emerald-400 text-white text-center py-2 px-3 text-xs font-bold tracking-wide transition-all shadow-md hover:shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         title="Download high-resolution catalog standard image (1807 × 3000 px)"
                       >
                         <Download className="h-4 w-4 shrink-0" />
@@ -3339,11 +3402,10 @@ function MySetsPanel({
                           <button
                             type="button"
                             onClick={() => onSendToDescription([gen])}
-                            className={`w-full rounded-lg border py-1.5 px-1 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-xs ${
-                              isLight
+                            className={`w-full rounded-lg border py-1.5 px-1 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-xs ${isLight
                                 ? 'bg-amber-50 hover:bg-amber-500 border-amber-200 text-amber-800 hover:text-black'
                                 : 'bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-black border-amber-500/30'
-                            }`}
+                              }`}
                             title="Send this image directly to AI Description Studio for product titles & description"
                           >
                             <FileText className="h-3 w-3 shrink-0" />
@@ -3362,11 +3424,10 @@ function MySetsPanel({
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `crop-${gen.id.slice(0, 6)}`);
                             }}
-                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
-                              isLight
+                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${isLight
                                 ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                                 : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                            }`}
+                              }`}
                             title="Crop any part of this image and save to Ready to Use or Edited"
                           >
                             <Crop className="h-3 w-3 text-sky-400 shrink-0" />
@@ -3381,11 +3442,10 @@ function MySetsPanel({
                               const targetUrl = resolveImageUrl(primary);
                               if (targetUrl) onZoomCrop(targetUrl, `studio-${gen.id.slice(0, 6)}`);
                             }}
-                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
-                              isLight
+                            className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${isLight
                                 ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                                 : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                            }`}
+                              }`}
                             title="Open interactive Zoom & Macro Crop Studio (1807×3000 px)"
                           >
                             <Maximize2 className="h-3 w-3 text-emerald-400 shrink-0" />
@@ -3398,11 +3458,10 @@ function MySetsPanel({
                             const primary = getBestGenUrl(gen);
                             if (primary) safeOpenMediaInNewTab(primary, gen.prompt || 'Shiv-Naresh Render');
                           }}
-                          className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${
-                            isLight
+                          className={`w-full rounded-lg border py-1 px-1 text-[10px] font-semibold transition cursor-pointer flex items-center justify-center gap-1 ${isLight
                               ? 'border-gray-200 text-slate-700 hover:bg-gray-100'
                               : 'border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                          }`}
+                            }`}
                           title="Open full image in new tab with interactive pan & zoom"
                         >
                           <ExternalLink className="h-3 w-3 text-sky-400 shrink-0" />
@@ -3452,7 +3511,7 @@ function MySetsPanel({
                                 className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Edited sub-tab"
                               >
-                                ✏️ Edited
+                                Edited
                               </button>
                             )}
                             {gen.folder !== 'generated' && (
@@ -3466,7 +3525,7 @@ function MySetsPanel({
                                 className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-white font-bold transition cursor-pointer"
                                 title="Move this image to Generated sub-tab"
                               >
-                                📸 Generated
+                                Generated
                               </button>
                             )}
                           </div>
@@ -3491,102 +3550,102 @@ function MySetsPanel({
                   const isDragging = draggingSetId === set.id;
                   const isDragOver = dragOverSetId === set.id && draggingSetId !== set.id;
                   return (
-                  <div
-                    key={set.id}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggingSetId(set.id);
-                      e.dataTransfer.effectAllowed = 'move';
-                      e.dataTransfer.setData('text/plain', set.id);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      if (dragOverSetId !== set.id) setDragOverSetId(set.id);
-                    }}
-                    onDragLeave={(e) => {
-                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                      if (dragOverSetId === set.id) setDragOverSetId(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      void handleDropSet(set.id);
-                    }}
-                    onDragEnd={() => {
-                      setDraggingSetId(null);
-                      setDragOverSetId(null);
-                    }}
-                    title="Drag to reorder set"
-                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm cursor-grab active:cursor-grabbing transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'} ${isDragging ? 'opacity-40 scale-95' : ''} ${isDragOver ? 'border-[#e5373f] ring-2 ring-[#e5373f]/50' : ''}`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-3 py-0.5 text-xs font-semibold text-[#ff9aa0]">
-                          Set {set.setNumber}
-                        </span>
-                        <span className="text-[10px] opacity-40 font-mono">
-                          {new Date(set.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="overflow-hidden rounded-xl bg-black/40">
-                          {set.clothUrl ? (
-                            <img src={set.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
-                          ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
-                              <Layers className="h-5 w-5" />
-                            </div>
-                          )}
-                          <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.clothName || 'Garment'}</p>
+                    <div
+                      key={set.id}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggingSetId(set.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', set.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverSetId !== set.id) setDragOverSetId(set.id);
+                      }}
+                      onDragLeave={(e) => {
+                        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                        if (dragOverSetId === set.id) setDragOverSetId(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        void handleDropSet(set.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingSetId(null);
+                        setDragOverSetId(null);
+                      }}
+                      title="Drag to reorder set"
+                      className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm cursor-grab active:cursor-grabbing transition-all ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/50'} ${isDragging ? 'opacity-40 scale-95' : ''} ${isDragOver ? 'border-[#e5373f] ring-2 ring-[#e5373f]/50' : ''}`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-3 py-0.5 text-xs font-semibold text-[#ff9aa0]">
+                            Set {set.setNumber}
+                          </span>
+                          <span className="text-[10px] opacity-40 font-mono">
+                            {new Date(set.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
 
-                        <div className="overflow-hidden rounded-xl bg-black/40">
-                          {set.modelUrl ? (
-                            <img src={set.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
-                          ) : (
-                            <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
-                              <UserIcon className="h-5 w-5" />
-                            </div>
-                          )}
-                          <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.modelName || 'Model'}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="overflow-hidden rounded-xl bg-black/40">
+                            {set.clothUrl ? (
+                              <img src={set.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                            ) : (
+                              <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
+                                <Layers className="h-5 w-5" />
+                              </div>
+                            )}
+                            <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.clothName || 'Garment'}</p>
+                          </div>
+
+                          <div className="overflow-hidden rounded-xl bg-black/40">
+                            {set.modelUrl ? (
+                              <img src={set.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                            ) : (
+                              <div className="flex aspect-[3/4] w-full items-center justify-center text-xl opacity-20">
+                                <UserIcon className="h-5 w-5" />
+                              </div>
+                            )}
+                            <p className="text-center text-[9px] opacity-50 py-1 truncate px-1">{set.modelName || 'Model'}</p>
+                          </div>
                         </div>
+
+                        {set.prompt && (
+                          <p className={`mt-3 rounded-xl p-2 text-[10px] line-clamp-2 ${isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/5 text-white/60'}`}>
+                            "{set.prompt}"
+                          </p>
+                        )}
                       </div>
 
-                      {set.prompt && (
-                        <p className={`mt-3 rounded-xl p-2 text-[10px] line-clamp-2 ${isLight ? 'bg-gray-100 text-gray-700' : 'bg-white/5 text-white/60'}`}>
-                          "{set.prompt}"
-                        </p>
-                      )}
+                      <div className="mt-5 flex gap-2 border-t border-white/5 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => onUseSet(set)}
+                          className="flex-1 rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2 text-xs font-semibold uppercase tracking-wider transition shadow-sm"
+                        >
+                          Use in studio
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => safeOpenMediaInNewTab(set.clothUrl || set.modelUrl, set.clothName || 'Outfit Set')}
+                          className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
+                            }`}
+                          title="Open images in new tab"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteSet(set.id)}
+                          disabled={deletingSetId === set.id}
+                          className="rounded-full border border-red-500/20 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
+                        >
+                          {deletingSetId === set.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="mt-5 flex gap-2 border-t border-white/5 pt-3">
-                      <button
-                        type="button"
-                        onClick={() => onUseSet(set)}
-                        className="flex-1 rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white py-2 text-xs font-semibold uppercase tracking-wider transition shadow-sm"
-                      >
-                        Use in studio
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => safeOpenMediaInNewTab(set.clothUrl || set.modelUrl, set.clothName || 'Outfit Set')}
-                        className={`rounded-full border p-2 text-xs transition ${isLight ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-white/15 text-white hover:bg-white/10'
-                          }`}
-                        title="Open images in new tab"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void deleteSet(set.id)}
-                        disabled={deletingSetId === set.id}
-                        className="rounded-full border border-red-500/20 p-2 text-xs text-red-400 hover:bg-red-500/10 transition"
-                      >
-                        {deletingSetId === set.id ? '…' : <Trash2 className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  </div>
                   );
                 })}
               </div>
@@ -3618,7 +3677,7 @@ function MySetsPanel({
               <Layers className="h-8 w-8 mx-auto mb-2 text-current/30" />
               <p className="text-sm font-semibold">Your wardrobe archive is empty.</p>
               <p className="text-xs opacity-50 mt-1 max-w-sm mx-auto">
-                Generate images and fashion videos in the studio or click "+ New wardrobe set" above to store your first combination.
+                Generate images and fashion videos in the studio or click "+ New wardrobe set"above to store your first combination.
               </p>
             </div>
           )}
@@ -3634,9 +3693,8 @@ function MySetsPanel({
       {showBatchRenameModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div
-            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${
-              isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/15 text-white'
-            }`}
+            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121217] border-white/15 text-white'
+              }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -3659,9 +3717,8 @@ function MySetsPanel({
               value={batchRenameText}
               onChange={(e) => setBatchRenameText(e.target.value)}
               placeholder="e.g. Shiv-Naresh Pro Tracksuit Navy Blue"
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#e5373f] ${
-                isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/15 bg-black/50 text-white'
-              }`}
+              className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-[#e5373f] ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/15 bg-black/50 text-white'
+                }`}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -4203,12 +4260,12 @@ function CustomRequestsPanel({
       <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-6 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Bespoke Custom Requests & Deliveries</h1>
+            <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-[#F5F0E7]' : 'text-white'}`}>Bespoke Custom Requests & Deliveries</h1>
             <span className="rounded-full bg-[#e5373f]/20 border border-[#e5373f]/40 px-2.5 py-0.5 text-[9px] font-bold text-[#e5373f] uppercase tracking-wider">
               24–48h Delivery Guarantee
             </span>
           </div>
-          <p className={`mt-1 text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
+          <p className={`mt-1 text-xs ${isLight ? 'text-[#D5CFC4]' : 'text-white/50'}`}>
             Submit custom garments & poses to studio designers, and receive high-res photos, videos, and production folders.
           </p>
         </div>
@@ -4271,7 +4328,7 @@ function CustomRequestsPanel({
           <Inbox className="w-3.5 h-3.5" />
           <span>Receive Deliveries</span>
           {unreadDeliveriesCount > 0 ? (
-            <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[10px] font-bold text-white animate-pulse">
+            <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[10px] font-bold text-white">
               {unreadDeliveriesCount} New
             </span>
           ) : deliveries.length > 0 ? (
@@ -4283,7 +4340,7 @@ function CustomRequestsPanel({
       {panelTab === 'send' ? (
         <>
           {/* Prominent Photoshoot Quota & Upload Allowance Info Card */}
-          <div className={`mt-5 p-4 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-sm' : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
+          <div className={`mt-5 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-sm' : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
             }`}>
             <div className="flex items-center gap-3">
               <span className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -4314,7 +4371,7 @@ function CustomRequestsPanel({
 
           {/* Submission Form */}
           {formOpen && (
-            <div className={`mt-6 rounded-3xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
+            <div className={`mt-6 rounded-2xl border p-7 shadow-lg backdrop-blur-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/15 bg-white/[0.03]'
               }`}>
               <div className="flex items-center justify-between">
                 <h3 className={`text-sm font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Submit design request to studio tailors</h3>
@@ -4611,20 +4668,20 @@ function CustomRequestsPanel({
           {loading ? (
             <div className={`py-20 text-center text-sm ${isLight ? 'text-slate-800' : 'text-white/40'}`}>Loading custom orders…</div>
           ) : requests.length === 0 ? (
-            <div className={`mt-12 rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+            <div className={`mt-12 rounded-2xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
               }`}>
-              <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request" above.</p>
+              <p className={`text-sm ${isLight ? 'text-slate-900 font-medium' : 'text-white/40'}`}>No custom studio orders yet. Click "+ New Custom Request"above.</p>
             </div>
           ) : (
             <div className="mt-8 space-y-6">
               {requests.map((req) => (
                 <div
                   key={req.id}
-                  className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+                  className={`rounded-2xl border p-6 backdrop-blur-sm shadow-md ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
                     }`}
                 >
                   {/* Status Header */}
-                  <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${isLight ? 'border-[#78a48b]' : 'border-white/5'
+                  <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4 ${isLight ? 'border-[#C9A468]/35' : 'border-white/5'
                     }`}>
                     <div className="flex items-center gap-3">
                       <span
@@ -4645,13 +4702,13 @@ function CustomRequestsPanel({
                         Ordered {new Date(req.createdAt).toLocaleDateString()}
                       </span>
                       {req.requestType && (
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase font-semibold ${isLight ? 'bg-[#2E473C] border border-[#C9A468]/35 text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
                           }`}>
                           {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
                         </span>
                       )}
                       {req.color && (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${isLight ? 'bg-[#78a48b] border border-[#6b997e] text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${isLight ? 'bg-[#2E473C] border border-[#C9A468]/35 text-slate-900' : 'bg-white/5 border border-white/10 text-white/70'
                           }`}>
                           <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: req.color }} />
                           {req.color}
@@ -4759,7 +4816,7 @@ function CustomRequestsPanel({
                             <button
                               type="button"
                               onClick={() => safeOpenMediaInNewTab(req.deliveredImageUrl || '', `Bespoke Custom Request #${req.id} Render`)}
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${isLight ? 'border-[#78a48b] bg-[#78a48b] text-slate-900 hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${isLight ? 'border-[#C9A468]/35 bg-[#C9A468] text-[#1A1408] hover:bg-[#6b997e]' : 'border-white/20 text-white hover:bg-white/10'
                                 }`}
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
@@ -4911,7 +4968,7 @@ function CustomRequestsPanel({
               Loading your deliveries...
             </div>
           ) : deliveries.length === 0 ? (
-            <div className={`mt-8 rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+            <div className={`mt-8 rounded-2xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
               }`}>
               <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30 text-amber-500" />
               <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>No Deliveries Received Yet</h3>
@@ -4931,7 +4988,7 @@ function CustomRequestsPanel({
                 return (
                   <div
                     key={delivery.id}
-                    className={`rounded-3xl border p-6 backdrop-blur-sm shadow-md transition-all ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+                    className={`rounded-2xl border p-6 backdrop-blur-sm shadow-md transition-all ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
                       }`}
                   >
                     {/* Header */}
@@ -4939,7 +4996,7 @@ function CustomRequestsPanel({
                       }`}>
                       <div className="flex items-center gap-3">
                         <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isPhoto
-                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          ? 'bg-[#C9A468]/15 text-[#E7CFA4] border border-[#C9A468]/40'
                           : isVideo
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             : isZip
@@ -4980,16 +5037,16 @@ function CustomRequestsPanel({
 
                       <div className="flex items-center gap-2 flex-wrap">
                         {delivery.assets && delivery.assets.length > 0 ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
-                            📦 {delivery.assets.length} Production Assets
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A468]/15 text-[#E7CFA4]">
+                            {delivery.assets.length} Production Assets
                           </span>
                         ) : isPhoto ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">
-                            📷 {delivery.mediaUrls?.length || (delivery.fileUrl ? 1 : 0)} Photos
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A468]/15 text-[#E7CFA4]">
+                            {delivery.mediaUrls?.length || (delivery.fileUrl ? 1 : 0)} Photos
                           </span>
                         ) : null}
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${isPhoto
-                          ? 'bg-purple-500/20 text-purple-300'
+                          ? 'bg-[#C9A468]/15 text-[#E7CFA4]'
                           : isVideo
                             ? 'bg-blue-500/20 text-blue-300'
                             : isZip
@@ -5046,17 +5103,17 @@ function CustomRequestsPanel({
                             <div className="flex items-center gap-1.5 text-xs">
                               {delivery.assets.some(a => a.type === 'video') && (
                                 <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 text-[10px] font-semibold">
-                                  🎬 {delivery.assets.filter(a => a.type === 'video').length} Video(s)
+                                  {delivery.assets.filter(a => a.type === 'video').length} Video(s)
                                 </span>
                               )}
                               {delivery.assets.some(a => a.type === 'zip') && (
                                 <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-semibold">
-                                  📦 {delivery.assets.filter(a => a.type === 'zip').length} ZIP(s)
+                                  {delivery.assets.filter(a => a.type === 'zip').length} ZIP(s)
                                 </span>
                               )}
                               {delivery.assets.some(a => a.type === 'folder') && (
                                 <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
-                                  📁 {delivery.assets.filter(a => a.type === 'folder').length} Folder(s)
+                                  {delivery.assets.filter(a => a.type === 'folder').length} Folder(s)
                                 </span>
                               )}
                             </div>
@@ -5101,7 +5158,7 @@ function CustomRequestsPanel({
                           />
                         ) : (
                           <p className="text-xs opacity-60 italic">
-                            {isZip ? '📦 ZIP archive package ready for download' : isVideo ? '🎬 Video render file ready' : 'Assets received from studio atelier'}
+                            {isZip ? 'ZIP archive package ready for download' : isVideo ? 'Video render file ready' : 'Assets received from studio atelier'}
                           </p>
                         )}
 
@@ -5137,7 +5194,7 @@ function CustomRequestsPanel({
                                         const blob = await resp.blob();
                                         zip.file(ast.name || `asset-${i + 1}`, blob);
                                       }
-                                    } catch {}
+                                    } catch { }
                                   }
                                   const zipBlob = await zip.generateAsync({ type: 'blob' });
                                   const blobUrl = URL.createObjectURL(zipBlob);
@@ -5170,7 +5227,7 @@ function CustomRequestsPanel({
 
                           return (
                             <div className="space-y-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-[#E7CFA4] flex items-center gap-1">
                                 <Camera className="w-3.5 h-3.5" />
                                 <span>Photos ({validPhotos.length})</span>
                               </p>
@@ -5180,9 +5237,8 @@ function CustomRequestsPanel({
                                   return (
                                     <div
                                       key={uIdx}
-                                      className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${
-                                        selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
-                                      } bg-black`}
+                                      className={`relative group aspect-square rounded-2xl overflow-hidden border transition cursor-pointer ${selected ? 'border-emerald-500 ring-2 ring-emerald-500/50' : 'border-white/10 hover:border-white/30'
+                                        } bg-black`}
                                       onClick={() => setLightboxImg(url)}
                                     >
                                       <img
@@ -5305,9 +5361,8 @@ function CustomRequestsPanel({
                                 {zips.map((zip, zIdx) => (
                                   <div
                                     key={zIdx}
-                                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
-                                      isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
-                                    }`}
+                                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${isLight ? 'bg-amber-50/60 border-amber-200' : 'bg-amber-500/10 border-amber-500/25'
+                                      }`}
                                   >
                                     <div className="flex items-center gap-3 truncate">
                                       <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
@@ -5566,6 +5621,10 @@ function VideoStudioPanel({
       setError('Another generation is currently in progress. At one time only one generation is allowed.');
       return;
     }
+    if (!user) {
+      window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
     setError('');
     setShowConfirmModal(true);
   }
@@ -5627,10 +5686,10 @@ function VideoStudioPanel({
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
-      {/* "Are You Sure?" Video Confirmation Modal */}
+      {/* "Are You Sure?"Video Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white">
                 {isEditingVideo ? 'Confirm Video Edit Generation' : 'Confirm Video Generation'}
@@ -5698,7 +5757,7 @@ function VideoStudioPanel({
       )}
 
       {/* Banner */}
-      <div className={`relative overflow-hidden rounded-3xl border p-8 ${isLight
+      <div className={`relative overflow-hidden rounded-2xl border p-8 ${isLight
         ? 'border-red-200 bg-red-50/50 shadow-sm'
         : 'border-[#e5373f]/30 bg-[#e5373f]/10'
         }`}>
@@ -5768,7 +5827,7 @@ function VideoStudioPanel({
 
       {/* Form Interface */}
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
-        <div className={`rounded-3xl border p-6 space-y-5 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+        <div className={`rounded-2xl border p-6 space-y-5 ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
           {/* Step 1: Base Images (Upload Any Number) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -5813,11 +5872,10 @@ function VideoStudioPanel({
                 }
               }}
               onClick={() => fileRef.current?.click()}
-              className={`mt-1.5 rounded-2xl border-2 border-dashed p-4 text-center transition-all cursor-pointer ${
-                isLight
+              className={`mt-1.5 rounded-2xl border-2 border-dashed p-4 text-center transition-all cursor-pointer ${isLight
                   ? 'border-gray-300 bg-gray-50/70 hover:border-gray-400 hover:bg-gray-100/60'
                   : 'border-white/20 bg-black/40 hover:border-white/40 hover:bg-black/60'
-              }`}
+                }`}
             >
               {uploadingFiles ? (
                 <div className="flex flex-col items-center justify-center py-6">
@@ -5856,7 +5914,7 @@ function VideoStudioPanel({
                     </span>
                   </div>
                   <p className={`mt-2 text-[11px] font-medium ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
-                    {videoImages.length} image{videoImages.length > 1 ? 's' : ''} loaded. Click "+ Add More" or select another as Start Frame below.
+                    {videoImages.length} image{videoImages.length > 1 ? 's' : ''} loaded. Click "+ Add More"or select another as Start Frame below.
                   </p>
                 </div>
               )}
@@ -5889,13 +5947,12 @@ function VideoStudioPanel({
                       <div
                         key={idx}
                         onClick={() => setPrimaryImgIdx(idx)}
-                        className={`group relative rounded-lg border overflow-hidden transition-all cursor-pointer flex flex-col ${
-                          isPrimary
+                        className={`group relative rounded-lg border overflow-hidden transition-all cursor-pointer flex flex-col ${isPrimary
                             ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-md scale-[1.02]'
                             : isLight
                               ? 'border-gray-200 bg-white hover:border-gray-400'
                               : 'border-white/10 bg-white/5 hover:border-white/30'
-                        }`}
+                          }`}
                         title={isPrimary ? 'Current Start Frame' : 'Click to set as Start Frame'}
                       >
                         <button
@@ -5918,10 +5975,9 @@ function VideoStudioPanel({
                           alt={`Angle ${idx + 1}`}
                           className="aspect-[3/4] w-full object-cover"
                         />
-                        <div className={`p-1 text-center text-[9px] font-semibold truncate ${
-                          isPrimary ? 'bg-emerald-600 text-white font-bold' : (isLight ? 'bg-gray-100 text-gray-700' : 'bg-black/60 text-white/70')
-                        }`}>
-                          {isPrimary ? '★ Start Frame' : `#${idx + 1}`}
+                        <div className={`p-1 text-center text-[9px] font-semibold truncate ${isPrimary ? 'bg-emerald-600 text-white font-bold' : (isLight ? 'bg-gray-100 text-gray-700' : 'bg-black/60 text-white/70')
+                          }`}>
+                          {isPrimary ? 'Start Frame' : `#${idx + 1}`}
                         </div>
                       </div>
                     );
@@ -5955,20 +6011,19 @@ function VideoStudioPanel({
             {/* Smart Motion Preset Pills */}
             <div className="mt-2 flex flex-wrap gap-1.5">
               {[
-                { label: '🏃 Dynamic Track Sprint', text: 'Athlete in full dynamic sprint, powerful strides down track, dynamic low tracking camera' },
-                { label: '🚶 Fashion Runway Walk', text: 'Model walks briskly down fashion runway, graceful turn at edge, crisp fabric drape' },
-                { label: '🔄 360° Studio Orbit', text: 'Smooth 360-degree camera orbit revealing front, back, and athletic details seamlessly' },
-                { label: '🔍 Logo & Insignia Zoom', text: 'Smooth steady camera glide zooming in on the chest Shiv-Naresh insignia and technical activewear stitching' },
+                { label: 'Dynamic Track Sprint', text: 'Athlete in full dynamic sprint, powerful strides down track, dynamic low tracking camera' },
+                { label: 'Fashion Runway Walk', text: 'Model walks briskly down fashion runway, graceful turn at edge, crisp fabric drape' },
+                { label: '360° Studio Orbit', text: 'Smooth 360-degree camera orbit revealing front, back, and athletic details seamlessly' },
+                { label: 'Logo & Insignia Zoom', text: 'Smooth steady camera glide zooming in on the chest Shiv-Naresh insignia and technical activewear stitching' },
               ].map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
                   onClick={() => setVideoPrompt(preset.text)}
-                  className={`text-[10px] font-medium rounded-lg px-2 py-1 transition cursor-pointer border ${
-                    isLight
+                  className={`text-[10px] font-medium rounded-lg px-2 py-1 transition cursor-pointer border ${isLight
                       ? 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
                       : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {preset.label}
                 </button>
@@ -6060,7 +6115,7 @@ function VideoStudioPanel({
                 ✓ Fixed price: {videoCreditCost} credits only. Zero extra charge for multiple angles.
               </span>
             </div>
-            <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-purple-600 border border-purple-500/20">
+            <span className="rounded-full bg-[#C9A468]/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#E7CFA4] border border-[#C9A468]/40">
               Video quota: {videosGenerated} / {maxVideos > 0 ? maxVideos : 'Unlimited'}
             </span>
           </div>
@@ -6075,7 +6130,7 @@ function VideoStudioPanel({
               : isLocked
                 ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/30 text-rose-300 border border-rose-500/30'
                 : isLimitReached
-                  ? isLight ? 'cursor-not-allowed bg-purple-100 text-purple-700 border border-purple-300' : 'cursor-not-allowed bg-purple-600/30 text-purple-300 border border-purple-500/30'
+                  ? isLight ? 'cursor-not-allowed bg-[#C9A468]/20 text-[#E7CFA4] border border-[#C9A468]/40' : 'cursor-not-allowed bg-[#C9A468] text-[#E7CFA4] border border-[#C9A468]/40'
                   : !hasEnoughCredits
                     ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-400 font-bold' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : 'bg-[#e5373f] text-white shadow-[#e5373f]/25 hover:bg-[#d42d35]'
@@ -6101,7 +6156,7 @@ function VideoStudioPanel({
         </div>
 
         {/* Video Preview Canvas */}
-        <div className={`flex flex-col items-center justify-center rounded-3xl border p-8 text-center ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
+        <div className={`flex flex-col items-center justify-center rounded-2xl border p-8 text-center ${isLight ? 'border-gray-200 bg-white shadow-sm' : 'border-white/10 bg-black/50'
           }`}>
           {videoResult ? (
             <div className="space-y-4 w-full max-w-sm">
@@ -6642,7 +6697,7 @@ function CompareStudio({
       onTouchEnd={handleTouchEnd}
     >
       {/* Header Bar */}
-      <div className={`p-4 rounded-3xl border transition shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
+      <div className={`p-4 rounded-2xl border transition shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.03] border-white/10'
         }`}>
         <div>
           <div className="flex items-center gap-2">
@@ -6809,11 +6864,11 @@ function CompareStudio({
       {/* Candidate Selectors: Visual Thumbnail Strips */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* LEFT SELECTOR: Reference Garments (Visual Thumbnails) */}
-        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        <div className={`p-3.5 rounded-2xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
           }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C9A468]" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
                 1. Reference Garment ({visibleRefCandidates.length})
               </span>
@@ -6856,8 +6911,8 @@ function CompareStudio({
                 type="button"
                 onClick={() => { setLeftUrl(c.url); setLeftName(c.name); }}
                 className={`shrink-0 w-16 h-22 sm:w-20 sm:h-28 rounded-xl border overflow-hidden relative group transition-all text-left cursor-pointer ${leftUrl === c.url
-                  ? 'border-purple-500 ring-2 ring-purple-500/60 shadow-lg scale-105'
-                  : isLight ? 'border-gray-200 bg-white hover:border-purple-400' : 'border-white/10 bg-black/40 hover:border-white/30'
+                  ? 'border-[#C9A468]/40 ring-2 ring-[#C9A468]/50 shadow-lg scale-105'
+                  : isLight ? 'border-gray-200 bg-white hover:border-[#C9A468]/40' : 'border-white/10 bg-black/40 hover:border-white/30'
                   }`}
                 title={c.name}
               >
@@ -6874,7 +6929,7 @@ function CompareStudio({
                   <p className="text-[9px] font-bold text-white truncate leading-tight text-center">{c.label}</p>
                 </div>
                 {leftUrl === c.url && (
-                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-bold shadow">
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#C9A468] text-white flex items-center justify-center text-[10px] font-bold shadow">
                     ✓
                   </span>
                 )}
@@ -6884,7 +6939,7 @@ function CompareStudio({
         </div>
 
         {/* RIGHT SELECTOR: AI Renders / My Sets (Visual Thumbnails) */}
-        <div className={`p-3.5 rounded-3xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        <div className={`p-3.5 rounded-2xl border transition shadow-sm space-y-2 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
           }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -6964,10 +7019,10 @@ function CompareStudio({
         /* DUAL SPLIT VIEWPORTS (Side by Side 1807×3000) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* LEFT VIEWPORT: Reference Garment */}
-          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
             }`}>
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs font-bold text-purple-400">Reference: {leftName}</span>
+              <span className="text-xs font-bold text-[#E7CFA4]">Reference: {leftName}</span>
               <div className="flex items-center gap-1.5">
                 <input
                   type="range"
@@ -6980,7 +7035,7 @@ function CompareStudio({
                     setLeftZoom(z);
                     if (isSynced) setZoom(z);
                   }}
-                  className="w-16 sm:w-24 accent-purple-500 cursor-pointer"
+                  className="w-16 sm:w-24 accent-[#C9A468] cursor-pointer"
                   title="Garment Zoom (100% to 500%)"
                 />
                 <button
@@ -6995,7 +7050,7 @@ function CompareStudio({
                 >
                   <ZoomOut className="w-3 h-3" />
                 </button>
-                <span className="text-[10px] font-mono font-bold text-purple-400 w-11 text-center">
+                <span className="text-[10px] font-mono font-bold text-[#E7CFA4] w-11 text-center">
                   {Math.round(activeLeftZoom * 100)}%
                 </span>
                 <button
@@ -7062,7 +7117,7 @@ function CompareStudio({
           </div>
 
           {/* RIGHT VIEWPORT: Generated Render */}
-          <div className={`p-4 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+          <div className={`p-4 rounded-2xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
             }`}>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-bold text-emerald-400">Model Render: {rightName}</span>
@@ -7161,17 +7216,17 @@ function CompareStudio({
         </div>
       ) : (
         /* BEFORE / AFTER SPLIT CURTAIN SLIDER VIEW (Synchronized Overlay) */
-        <div className={`p-5 rounded-3xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
+        <div className={`p-5 rounded-2xl border transition shadow-sm space-y-3 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'
           }`}>
           <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-purple-400">&larr; Drag Left for Reference Garment</span>
+            <span className="text-[#E7CFA4]">&larr; Drag Left for Reference Garment</span>
             <span className="text-white/60 font-mono">Curtain: {Math.round(curtainPos)}% &middot; Zoom: {Math.round(activeLeftZoom * 100)}%</span>
             <span className="text-emerald-400">Drag Right for AI Render &rarr;</span>
           </div>
 
           <div
             ref={curtainContainerRef}
-            className="relative w-full max-w-lg mx-auto aspect-[1807/3000] rounded-3xl overflow-hidden border border-white/20 bg-black/80 flex items-center justify-center select-none cursor-grab active:cursor-grabbing shadow-2xl"
+            className="relative w-full max-w-lg mx-auto aspect-[1807/3000] rounded-2xl overflow-hidden border border-white/20 bg-black/80 flex items-center justify-center select-none cursor-grab active:cursor-grabbing shadow-2xl"
             onMouseDown={(e) => handleMouseDown(e, 'curtain')}
             onTouchStart={(e) => handleTouchStart(e, 'curtain')}
             onWheel={(e) => handleWheel(e)}
@@ -7245,7 +7300,7 @@ function CompareStudio({
             </div>
 
             {/* Floating Labels */}
-            <div className="absolute top-3 left-3 rounded-full bg-black/80 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-purple-300 pointer-events-none">
+            <div className="absolute top-3 left-3 rounded-full bg-black/80 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-[#E7CFA4] pointer-events-none">
               Reference: {leftName}
             </div>
             <div className="absolute top-3 right-3 rounded-full bg-black/80 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-emerald-300 pointer-events-none">
@@ -7267,6 +7322,7 @@ function CompareStudio({
 export default function Design() {
   const [user, setUser] = useState<User | null>(() => {
     try {
+      if (!getToken()) return null;
       const cached = localStorage.getItem('cached_current_user');
       if (cached) return JSON.parse(cached);
     } catch { }
@@ -7322,46 +7378,46 @@ export default function Design() {
     return [];
   });
   const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'summer' | 'winter' | string>('all');
+  const [modelSeasons, setModelSeasons] = useState<string[]>(['Summer', 'Winter']);
 
   const filteredCategories = useMemo(() => {
     if (modelCategoryFilter === 'all') {
       return categories;
     }
     const target = modelCategoryFilter.toLowerCase();
-    if (target === 'summer') {
-      return categories.filter((c) => {
-        const name = c.category.toLowerCase();
-        return name.includes('summer') || name === 'only shirt' || name === 'tshirt' || name === 'female';
-      });
-    }
-    if (target === 'winter') {
-      return categories.filter((c) => {
-        const name = c.category.toLowerCase();
-        return name.includes('winter') || name === 'tracksuite' || name === 'jacket' || name === 'hoodie';
-      });
-    }
-    return categories.filter((c) => c.category.toLowerCase() === target);
+    return categories
+      .map((c) => {
+        const matchedItems = c.items.filter((item: any) => {
+          const itemSeason = String(item?.season || '').trim().toLowerCase();
+          if (itemSeason) return itemSeason === target;
+          const catName = c.category.toLowerCase();
+          if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
+          if (target === 'winter') return catName.includes('winter') || catName === 'tracksuite' || catName === 'jacket' || catName === 'hoodie';
+          return catName === target;
+        });
+        return { ...c, items: matchedItems };
+      })
+      .filter((c) => c.items.length > 0);
   }, [categories, modelCategoryFilter]);
 
   const modelCategoryTabs = useMemo(() => {
-    const defaultTabs: Array<{ id: string; label: string }> = [
-      { id: 'all', label: 'All (Summer + Winter)' },
-      { id: 'summer', label: '☀️ Summer' },
-      { id: 'winter', label: '❄️ Winter' },
-    ];
-    const otherCats = categories
-      .map((c) => c.category)
-      .filter((cat) => {
-        const lc = cat.toLowerCase();
-        return !lc.includes('summer') && !lc.includes('winter') && lc !== 'only shirt' && lc !== 'tshirt' && lc !== 'tracksuite';
-      });
-    for (const c of otherCats) {
-      if (!defaultTabs.some((t) => t.id.toLowerCase() === c.toLowerCase())) {
-        defaultTabs.push({ id: c.toLowerCase(), label: c });
+    const tabs: Array<{ id: string; label: string }> = [{ id: 'all', label: 'All' }];
+    const seen = new Set<string>(['all']);
+    const pushSeason = (s: string) => {
+      const clean = String(s || '').trim();
+      const id = clean.toLowerCase();
+      if (!clean || seen.has(id)) return;
+      seen.add(id);
+      tabs.push({ id, label: clean });
+    };
+    modelSeasons.forEach(pushSeason);
+    for (const c of categories) {
+      for (const item of c.items as any[]) {
+        if (item?.season) pushSeason(item.season);
       }
     }
-    return defaultTabs;
-  }, [categories]);
+    return tabs;
+  }, [categories, modelSeasons]);
   const [uploads, setUploads] = useState<{ id: string; name: string; url: string; kind?: string; at?: number }[]>([]);
   const [uploadSets, setUploadSets] = useState<UploadSet[]>(() => {
     try {
@@ -7523,15 +7579,15 @@ export default function Design() {
 
   // Back logo (default 56px across shoulders, x=50%, y=26%)
   const [backLogoScale, setBackLogoScale] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_back_logo_scale'); if (v) { const n = Number(v); if (n >= 6) return n; } } catch {}
+    try { const v = localStorage.getItem('shivnaresh_back_logo_scale'); if (v) { const n = Number(v); if (n >= 6) return n; } } catch { }
     return 56;
   });
   const [backLogoX, setBackLogoX] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_back_logo_x'); if (v) return Number(v); } catch {}
+    try { const v = localStorage.getItem('shivnaresh_back_logo_x'); if (v) return Number(v); } catch { }
     return 50.0;
   });
   const [backLogoY, setBackLogoY] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_back_logo_y'); if (v) return Number(v); } catch {}
+    try { const v = localStorage.getItem('shivnaresh_back_logo_y'); if (v) return Number(v); } catch { }
     return 26.0;
   });
   const [backLogoAngle, setBackLogoAngle] = useState<number>(0);
@@ -7540,15 +7596,15 @@ export default function Design() {
 
   // Extra logo (default 34px sleeve/collar, x=20%, y=26%)
   const [extraLogoScale, setExtraLogoScale] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_extra_logo_scale'); if (v) { const n = Number(v); if (n >= 6) return n; } } catch {}
+    try { const v = localStorage.getItem('shivnaresh_extra_logo_scale'); if (v) { const n = Number(v); if (n >= 6) return n; } } catch { }
     return 34;
   });
   const [extraLogoX, setExtraLogoX] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_extra_logo_x'); if (v) return Number(v); } catch {}
+    try { const v = localStorage.getItem('shivnaresh_extra_logo_x'); if (v) return Number(v); } catch { }
     return 20.0;
   });
   const [extraLogoY, setExtraLogoY] = useState<number>(() => {
-    try { const v = localStorage.getItem('shivnaresh_extra_logo_y'); if (v) return Number(v); } catch {}
+    try { const v = localStorage.getItem('shivnaresh_extra_logo_y'); if (v) return Number(v); } catch { }
     return 26.0;
   });
   const [extraLogoAngle, setExtraLogoAngle] = useState<number>(0);
@@ -8393,6 +8449,7 @@ export default function Design() {
 
   const handleModelSelect = toggleModelSelection;
   const [prompt, setPrompt] = useState('');
+  const [aiEnhancing, setAiEnhancing] = useState(false);
   const [garmentColor, setGarmentColor] = useState('');
   const [isAutoLogoColor, setIsAutoLogoColor] = useState(true);
 
@@ -8658,9 +8715,9 @@ export default function Design() {
           // Cross-origin fallback
         }
       };
-      img.onerror = () => {};
+      img.onerror = () => { };
       img.src = proxied;
-    } catch {}
+    } catch { }
   }, [result, userGenerations, activeLogoTarget, hdLogoX, hdLogoY, pantLogoX, pantLogoY]);
 
   /* Batch Engine State (5-Pose Multi-Angle or Multi-Model / Multi-Garment) */
@@ -8804,7 +8861,7 @@ export default function Design() {
 
       payload.prompt = `${prompt.trim()} ${targetPose.promptSuffix || ''}`.trim();
 
-      await api.unlockUser().catch(() => {});
+      await api.unlockUser().catch(() => { });
       const res = await api.generate(payload);
       if (typeof res.credits === 'number') {
         setUser((prev) => (prev ? { ...prev, credits: res.credits! } : null));
@@ -8975,9 +9032,9 @@ export default function Design() {
 
   const allStudioTabs = useMemo(() => [
     { id: 'studio', label: 'Studio Canvas' },
-    { id: 'color-swap', label: '🎨 Color Swap' },
+    { id: 'color-swap', label: 'Color Swap' },
     { id: 'my-sets', label: 'My Sets' + (uploadSets.length ? ` (${uploadSets.length})` : '') },
-    { id: 'description', label: '📝 AI Description' },
+    { id: 'description', label: 'AI Description' },
     { id: 'custom-requests', label: 'Send Request' },
     { id: 'deliveries', label: 'Receive Deliveries' + (userDeliveriesCount ? ` (${userDeliveriesCount})` : ''), unread: deliveriesUnreadCount },
     { id: 'video', label: 'Video Studio' },
@@ -9005,7 +9062,7 @@ export default function Design() {
       if (Array.isArray(res?.allowedTabs) && res.allowedTabs.length > 0) {
         setGlobalAllowedTabs(res.allowedTabs);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const playedNotifSoundsRef = useRef<Set<string>>((() => {
@@ -9039,7 +9096,7 @@ export default function Design() {
         osc.stop(now + idx * 0.11 + 0.34);
       });
       setTimeout(() => {
-        void ctx.close().catch(() => {});
+        void ctx.close().catch(() => { });
       }, 900);
     } catch {
       /* AudioContext may be blocked before user gesture */
@@ -9059,11 +9116,11 @@ export default function Design() {
           try {
             const arr = Array.from(playedNotifSoundsRef.current).slice(-200);
             localStorage.setItem('sn_played_notif_sounds', JSON.stringify(arr));
-          } catch {}
+          } catch { }
           playNotificationChime();
         }
         setUserNotifications(res.notifications);
-      }).catch(() => {});
+      }).catch(() => { });
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') fetchNotifs();
@@ -9117,6 +9174,9 @@ export default function Design() {
             if (found) setModel({ url: found.url, name: found.name });
           }
         }
+        if ((m as any)?.seasons && Array.isArray((m as any).seasons) && (m as any).seasons.length > 0) {
+          setModelSeasons((m as any).seasons);
+        }
         if (m?.categories && m.categories.length > 0) {
           setCategories(m.categories);
           try {
@@ -9138,8 +9198,9 @@ export default function Design() {
           break;
         } catch (e: any) {
           if (e instanceof ApiError && e.status === 401) {
-            window.location.replace('/login?next=%2Fdesign');
-            return;
+            backendReached = true;
+            me = null;
+            break;
           }
           await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1200));
         }
@@ -9152,7 +9213,10 @@ export default function Design() {
         return;
       }
       if (!me) {
-        window.location.replace('/login?next=%2Fdesign');
+        setError('');
+        setUser(null);
+        try { localStorage.removeItem('cached_current_user'); } catch { }
+        setQuality('1k');
         return;
       }
 
@@ -9335,7 +9399,7 @@ export default function Design() {
               let lastErr: unknown = null;
               for (let attempt = 0; attempt < 3; attempt++) {
                 try {
-                  await api.unlockUser().catch(() => {});
+                  await api.unlockUser().catch(() => { });
                   const genRes = await api.generate(nextPayload);
                   if (genRes && genRes.id) {
                     nextRes = genRes;
@@ -9415,16 +9479,16 @@ export default function Design() {
               prev.length > 0
                 ? prev.map((p, idx) => (idx === currentPoseIdx ? { ...p, status: 'completed', url: imgUrl, jobId: next.id } : p))
                 : [{
-                    id: 'pose-1',
-                    name: activeSingleModel?.name || 'Model Pose 1',
-                    angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
-                    icon: '👕',
-                    promptSuffix: '',
-                    model: activeSingleModel,
-                    status: 'completed',
-                    url: imgUrl,
-                    jobId: next.id,
-                  }]
+                  id: 'pose-1',
+                  name: activeSingleModel?.name || 'Model Pose 1',
+                  angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
+                  icon: '',
+                  promptSuffix: '',
+                  model: activeSingleModel,
+                  status: 'completed',
+                  url: imgUrl,
+                  jobId: next.id,
+                }]
             );
             setProgress(100);
             setProgressLabel('Complete!');
@@ -9716,7 +9780,7 @@ export default function Design() {
 
         if (style === 'modern') {
           const pathsXml = MODERN_SLASH_PATHS.map((d) => `<path d="${d}" />`).join('\n');
-          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" width="1280" height="640">
+          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg"viewBox="0 0 320 160"width="1280"height="640">
             <g fill="${cleanColor}">
               ${pathsXml}
             </g>
@@ -9761,15 +9825,15 @@ export default function Design() {
           const yMid = 185 - Math.max(0, hdLogoCurvature);
           const yEnd = hdLogoCurveDirection === 'left' ? 180 : hdLogoCurveDirection === 'right' ? 188 : 185;
           const emblemRot = hdLogoCurveDirection === 'left' ? -2.5 : hdLogoCurveDirection === 'right' ? +1.5 : -0.8;
-          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" width="1440" height="840">
+          svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg"viewBox="0 0 360 210"width="1440"height="840">
             <defs>
-              <path id="sn-curve-arc" d="M 28,${yStart} Q 180,${yMid} 332,${yEnd}" fill="none" />
+              <path id="sn-curve-arc"d="M 28,${yStart} Q 180,${yMid} 332,${yEnd}"fill="none" />
             </defs>
             <g transform="translate(14, 15) rotate(${emblemRot}, 180, 60)">
-              <path fill="${cleanColor}" d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
+              <path fill="${cleanColor}"d="M 70 2 L 66 3 L 60 6 L 55 10 L 50 15 L 47 19 L 45 22 L 42 28 L 41 31 L 41 38 L 43 41 L 46 43 L 49 43 L 51 42 L 52 39 L 54 37 L 58 37 L 60 39 L 60 42 L 59 44 L 56 47 L 56 50 L 59 53 L 61 53 L 63 52 L 65 51 L 67 49 L 73 46 L 76 45 L 79 46 L 81 47 L 83 49 L 83 50 L 86 53 L 87 55 L 87 64 L 86 67 L 85 70 L 82 75 L 74 83 L 71 85 L 67 87 L 61 90 L 54 93 L 49 95 L 33 100 L 19 103 L 12 105 L 9 106 L 6 107 L 4 108 L 4 113 L 35 113 L 39 112 L 46 110 L 56 107 L 62 105 L 71 102 L 79 99 L 97 92 L 106 87 L 111 86 L 122 80 L 142 71 L 151 67 L 158 64 L 170 59 L 175 57 L 180 55 L 196 49 L 200 48 L 211 48 L 214 49 L 220 52 L 223 54 L 230 60 L 238 65 L 243 68 L 250 72 L 256 75 L 266 80 L 269 81 L 272 82 L 277 82 L 281 83 L 285 84 L 290 86 L 298 90 L 318 102 L 320 103 L 322 104 L 329 104 L 329 99 L 327 95 L 322 91 L 314 87 L 307 82 L 300 76 L 293 71 L 290 70 L 283 64 L 276 60 L 274 60 L 271 58 L 267 55 L 262 51 L 261 50 L 257 46 L 253 41 L 251 38 L 249 35 L 248 33 L 246 28 L 245 25 L 246 19 L 287 19 L 297 18 L 298 17 L 305 17 L 307 14 L 308 12 L 308 9 L 306 9 L 302 11 L 294 12 L 257 12 L 246 10 L 241 8 L 225 5 L 217 4 L 201 4 L 192 5 L 179 7 L 166 10 L 158 11 L 140 11 L 130 10 L 122 9 L 102 6 L 89 3 L 79 2 Z" />
             </g>
-            <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="900" letter-spacing="4" fill="${cleanColor}">
-              <textPath href="#sn-curve-arc" startOffset="50%" text-anchor="middle">SHIV-NARESH</textPath>
+            <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"font-size="35"font-weight="900"letter-spacing="4"fill="${cleanColor}">
+              <textPath href="#sn-curve-arc"startOffset="50%"text-anchor="middle">SHIV-NARESH</textPath>
             </text>
           </svg>`;
         }
@@ -9874,7 +9938,7 @@ export default function Design() {
       try {
         const webp = canvas.toDataURL('image/webp', 0.85);
         if (webp && webp.startsWith('data:image/webp') && webp.length > 100) return webp;
-      } catch {}
+      } catch { }
       return canvas.toDataURL('image/jpeg', 0.85);
     } catch (exportErr) {
       console.warn('[stampHdLogoOntoImage] Canvas export failed, returning base url:', exportErr);
@@ -9927,7 +9991,7 @@ export default function Design() {
       }
 
       await loadUserGenerations();
-      alert(`✅ HD Vector Branding successfully applied to ${completed} image${completed > 1 ? 's' : ''}! They are now available in My Sets.`);
+      alert(`HD Vector Branding successfully applied to ${completed} image${completed > 1 ? 's' : ''}! They are now available in My Sets.`);
     } catch (err: any) {
       alert('Batch branding error: ' + (err?.message || err));
     } finally {
@@ -10434,10 +10498,10 @@ export default function Design() {
       eraseTool === 'area'
         ? (eraseBoxes.length > 0 ? eraseBoxes : (eraseBox ? [{ id: 'single', ...eraseBox }] : []))
         : (eraseBox
-            ? [{ id: 'single', ...eraseBox }]
-            : (computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)
-                ? [{ id: 'rub', ...computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)! }]
-                : []));
+          ? [{ id: 'single', ...eraseBox }]
+          : (computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)
+            ? [{ id: 'rub', ...computeRubBoundingBox(rubStrokes, brushRadius, curRect?.width || 380, curRect?.height || 500)! }]
+            : []));
 
     if ((boxesToUse.length === 0 && rubStrokes.length === 0) || !result) return;
     try {
@@ -10491,7 +10555,7 @@ export default function Design() {
         setActiveRenderOption('b');
         setIsOptionBDirty(true);
       } else if (!isSeamRepair) {
-        // User clicked "Erase Logo" -> Turn off vector overlay on that spot so it doesn't block the erased area
+        // User clicked "Erase Logo"-> Turn off vector overlay on that spot so it doesn't block the erased area
         if (centerY > 50) {
           setShowPantLogo(false);
         } else {
@@ -10553,7 +10617,7 @@ export default function Design() {
   const currentEditGenIdRef = useRef<string>('');
 
   const triggerAutoSaveToMySets = useCallback((_overrideImg?: string, _customLabel?: string) => {
-    // User chooses when to save edited / HD logo images to My Sets via "Save to My Sets" button
+    // User chooses when to save edited / HD logo images to My Sets via "Save to My Sets"button
     setIsOptionBDirty(true);
   }, []);
 
@@ -10637,7 +10701,7 @@ export default function Design() {
           if (found) {
             savedGen = found;
           }
-        } catch {}
+        } catch { }
 
         if (!savedGen) {
           // Retry once with a clean request
@@ -10650,7 +10714,7 @@ export default function Design() {
               if (found2) {
                 savedGen = found2;
               }
-            } catch {}
+            } catch { }
             if (!savedGen) throw retryErr;
           }
         }
@@ -10662,7 +10726,7 @@ export default function Design() {
       void loadUserGenerations();
       setAutoSaveStatus('Saved to My Sets');
       setTimeout(() => setAutoSaveStatus(''), 3000);
-      alert('✅ Saved! The edited image is now permanently saved to My Sets with the EDITED badge.');
+      alert('Saved! The edited image is now permanently saved to My Sets with the EDITED badge.');
     } catch (e: any) {
       setAutoSaveStatus('');
       alert('Could not save to My Sets: ' + (e?.message || e));
@@ -10677,6 +10741,10 @@ export default function Design() {
      Unified Execution Function (runs after user clicks Yes in confirmation)
      ------------------------------------------------ */
   async function runActualGeneration() {
+    if (!user) {
+      window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
     if (user?.creditsLocked) {
       setError('Your account generation credits are locked by an administrator.');
       return;
@@ -10699,7 +10767,7 @@ export default function Design() {
 
     try {
       // Proactively clear any lingering lock from a previously completed or interrupted render
-      await api.unlockUser().catch(() => {});
+      await api.unlockUser().catch(() => { });
 
       let effectivePrompt = mode === 'swap' ? swapPrompt.trim() : prompt.trim();
       if (garmentColor.trim() && mode !== 'swap') {
@@ -10868,7 +10936,8 @@ export default function Design() {
             bottomGarment?.url ? {
               mode: 'outfit',
               topCloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
-              bottomCloth: bottomGarment.url,
+              bottomCloth: (firstIsBack && bottomBackGarment?.url) ? bottomBackGarment.url : bottomGarment.url,
+              category: 'outfit',
             } : {
               mode: 'tryon',
               cloth: (firstIsBack && topBackGarment?.url) ? topBackGarment.url : (topFrontGarment?.url || cloth?.url),
@@ -10887,498 +10956,496 @@ export default function Design() {
           ...(firstItem.sourceModel?.url ? { sourceModel: firstItem.sourceModel.url, source: firstItem.sourceModel.url } : {}),
           ...(firstItem.targetModel?.url ? { targetModel: firstItem.targetModel.url, model: firstItem.targetModel.url } : {}),
         };
-        firstPayload.prompt = `${effectivePrompt} ${firstItem.promptSuffix || ''}`.trim();
+      firstPayload.prompt = `${effectivePrompt} ${firstItem.promptSuffix || ''}`.trim();
 
-        const res1 = await api.generate(firstPayload);
-        if (res1.credits !== undefined && user) {
-          setUser({ ...user, credits: res1.credits });
-        }
-        setJob({ id: res1.id, status: 'starting' });
-      } else {
-        const singleModel = model || effectiveModels[0];
-        const singleInitialPose: PoseItem = {
-          id: 'pose-1',
-          name: singleModel?.name || 'Model Pose 1',
-          angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
-          icon: '👕',
-          promptSuffix: '',
-          model: singleModel,
-          status: 'generating',
-        };
-        setFivePoseItems([singleInitialPose]);
-        setSelectedPoseIndex(0);
-        activePoseIndexRef.current = -1;
-        batchPayloadRef.current = null;
-        setProgress(5);
-        setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
-
-        const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
-        const singlePayload: Record<string, unknown> = {
-          ...payload,
-          ...(singleModel?.url ? { model: singleModel.url } : {}),
-          ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
-        };
-        const singleIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
-          `${singleModel?.name || ''} ${singleModel?.url || ''}`
-        );
-        singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
-        singlePayload.prompt = effectivePrompt;
-
-        if (mode === 'swap') {
-          const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
-          if (activeDraft.source?.url) {
-            singlePayload.sourceModel = activeDraft.source.url;
-            singlePayload.source = activeDraft.source.url;
-          }
-          if (activeDraft.target?.url) {
-            singlePayload.targetModel = activeDraft.target.url;
-            singlePayload.model = activeDraft.target.url;
-          }
-        }
-
-        const res = await api.generate(singlePayload);
-        if (res.credits !== undefined && user) {
-          setUser({ ...user, credits: res.credits });
-        }
-        setJob({ id: res.id, status: 'starting' });
+      const res1 = await api.generate(firstPayload);
+      if (res1.credits !== undefined && user) {
+        setUser({ ...user, credits: res1.credits });
       }
-    } catch (e) {
-      let msg = e instanceof Error ? e.message : 'Generation failed';
-      if (msg.toLowerCase().includes('rendering is off') || msg.toLowerCase().includes('no render key')) {
-        msg = 'The render service key was rejected. Please contact support or try again later.';
-      } else if (msg.toLowerCase().includes('failed to fetch')) {
-        msg = 'Connection to the studio server was momentarily interrupted. Please click Generate again.';
-      } else if (msg.toLowerCase().includes('in progress') || msg.toLowerCase().includes('concurrency')) {
-        void api.unlockUser().catch(() => {});
-        msg = 'Studio was momentarily busy. Ready now — please click Generate again.';
-      }
-      setError(msg);
-      void api.reportClientError({ title: 'Studio Generation Error', message: msg, details: e });
-      setBusy(false);
-      setProgress(0);
-      setProgressLabel('');
-      generatingRef.current = false;
+      setJob({ id: res1.id, status: 'starting' });
+    } else {
+      const singleModel = model || effectiveModels[0];
+      const singleInitialPose: PoseItem = {
+        id: 'pose-1',
+        name: singleModel?.name || 'Model Pose 1',
+        angle: tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only',
+        icon: '👕',
+        promptSuffix: '',
+        model: singleModel,
+        status: 'generating',
+      };
+      setFivePoseItems([singleInitialPose]);
+      setSelectedPoseIndex(0);
       activePoseIndexRef.current = -1;
       batchPayloadRef.current = null;
-      setIsEditingRender(false);
+      setProgress(5);
+      setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
+
+      const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
+      const singlePayload: Record<string, unknown> = {
+        ...payload,
+        ...(singleModel?.url ? { model: singleModel.url } : {}),
+        ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
+      };
+      const singleIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
+        `${singleModel?.name || ''} ${singleModel?.url || ''}`
+      );
+      singlePayload.poseAngle = singleIsBack ? 'back' : 'front';
+      singlePayload.prompt = effectivePrompt;
+
+      if (mode === 'swap') {
+        const activeDraft = validSwapDrafts[0] || swapDrafts[activeSwapDraftIndex] || { source: swapSource, target: swapTarget };
+        if (activeDraft.source?.url) {
+          singlePayload.sourceModel = activeDraft.source.url;
+          singlePayload.source = activeDraft.source.url;
+        }
+        if (activeDraft.target?.url) {
+          singlePayload.targetModel = activeDraft.target.url;
+          singlePayload.model = activeDraft.target.url;
+        }
+      }
+
+      const res = await api.generate(singlePayload);
+      if (res.credits !== undefined && user) {
+        setUser({ ...user, credits: res.credits });
+      }
+      setJob({ id: res.id, status: 'starting' });
     }
-  }
-
-  function handleUseSet(set: UploadSet) {
-    if (set.clothUrl) setCloth({ url: set.clothUrl, name: set.clothName || 'Set Garment' });
-    if (set.modelUrl) setModel({ url: set.modelUrl, name: set.modelName || 'Set Model' });
-    if (set.prompt) setPrompt(set.prompt);
-    setPageView('studio');
-  }
-
-  const ready = Boolean(settings?.ready);
-  const isSwapMode = mode === 'swap';
-  const swapMissing: string[] = [];
-  if (isSwapMode) {
-    const curDraft = swapDrafts[activeSwapDraftIndex] || swapDrafts[0];
-    const hasAnyComplete = validSwapDrafts.length > 0;
-    if (!hasAnyComplete) {
-      if (!curDraft?.source && !swapSource) swapMissing.push('source model (Kis Model ko change karna hai)');
-      if (!curDraft?.target && !swapTarget) swapMissing.push('target model (Kis Model ke sath change karna hai)');
+  } catch (e) {
+    let msg = e instanceof Error ? e.message : 'Generation failed';
+    if (msg.toLowerCase().includes('rendering is off') || msg.toLowerCase().includes('no render key')) {
+      msg = 'The render service key was rejected. Please contact support or try again later.';
+    } else if (msg.toLowerCase().includes('failed to fetch')) {
+      msg = 'Connection to the studio server was momentarily interrupted. Please click Generate again.';
+    } else if (msg.toLowerCase().includes('in progress') || msg.toLowerCase().includes('concurrency')) {
+      void api.unlockUser().catch(() => { });
+      msg = 'Studio was momentarily busy. Ready now — please click Generate again.';
     }
+    setError(msg);
+    void api.reportClientError({ title: 'Studio Generation Error', message: msg, details: e });
+    setBusy(false);
+    setProgress(0);
+    setProgressLabel('');
+    generatingRef.current = false;
+    activePoseIndexRef.current = -1;
+    batchPayloadRef.current = null;
+    setIsEditingRender(false);
   }
-  const tryonMissing: string[] = [];
-  if (mode === 'tryon') {
-    const hasGarment = hasClassifiedGarments || Boolean(cloth?.url);
-    const hasModel = effectiveModels.length > 0 || Boolean(model?.url);
-    const needsBottom = tryOnTarget === 'lower' && !bottomGarment && !cloth;
-    if (!tryOnTarget) tryonMissing.push('Try-On Target (Select Upper, Lower, or Both)');
-    if (!activeRenderOption) tryonMissing.push('Branding Option (Select Option A or Option B)');
-    if (!hasGarment) tryonMissing.push('garment');
-    if (!hasModel) tryonMissing.push('model');
-    if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
+}
+
+function handleUseSet(set: UploadSet) {
+  if (set.clothUrl) setCloth({ url: set.clothUrl, name: set.clothName || 'Set Garment' });
+  if (set.modelUrl) setModel({ url: set.modelUrl, name: set.modelName || 'Set Model' });
+  if (set.prompt) setPrompt(set.prompt);
+  setPageView('studio');
+}
+
+const ready = Boolean(settings?.ready);
+const isSwapMode = mode === 'swap';
+const swapMissing: string[] = [];
+if (isSwapMode) {
+  const curDraft = swapDrafts[activeSwapDraftIndex] || swapDrafts[0];
+  const hasAnyComplete = validSwapDrafts.length > 0;
+  if (!hasAnyComplete) {
+    if (!curDraft?.source && !swapSource) swapMissing.push('source model (Kis Model ko change karna hai)');
+    if (!curDraft?.target && !swapTarget) swapMissing.push('target model (Kis Model ke sath change karna hai)');
   }
-  const missing = isSwapMode ? swapMissing : tryonMissing;
-  const isUltraUser = Boolean(user?.tier === 'ultra' || user?.features?.hd2k);
-  const isLocked = Boolean(user?.creditsLocked);
-  const canRun = ready && !isGlobalBusy && missing.length === 0 && !uploading && !isLocked;
+}
+const tryonMissing: string[] = [];
+if (mode === 'tryon') {
+  const hasGarment = hasClassifiedGarments || Boolean(cloth?.url);
+  const hasModel = effectiveModels.length > 0 || Boolean(model?.url);
+  const needsBottom = tryOnTarget === 'lower' && !bottomGarment && !cloth;
+  if (!tryOnTarget) tryonMissing.push('Try-On Target (Select Upper, Lower, or Both)');
+  if (!activeRenderOption) tryonMissing.push('Branding Option (Select Option A or Option B)');
+  if (!hasGarment) tryonMissing.push('garment');
+  if (!hasModel) tryonMissing.push('model');
+  if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
+}
+const missing = isSwapMode ? swapMissing : tryonMissing;
+const isUltraUser = Boolean(user?.tier === 'ultra' || user?.features?.hd2k);
+const isLocked = Boolean(user?.creditsLocked);
+const canRun = ready && !isGlobalBusy && missing.length === 0 && !uploading && !isLocked;
 
-  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-  return (
-    <div className={`min-h-screen selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#08080a] text-white'
-      }`}>
-      {/* 2K Resolution Tier Lock Modal */}
-      {showTierLockModal && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-[#121217] p-6 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-                <Lock className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-white">2K Ultra HD locked</h3>
-                <p className="text-xs text-amber-300/80">Starter accounts are limited to 1K Standard resolution</p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-xl border border-white/10 bg-black/50 p-4 text-xs leading-relaxed text-white/70 space-y-2">
-              <p>
-                New and Free Starter accounts can generate in <strong className="text-white">1K Standard Quality</strong>.
-              </p>
-              <p>
-                <strong className="text-amber-300">2K Ultra HD & 4K Studio Renders</strong> are available on On-Demand, Pro, and Ultra membership tiers with dedicated neural GPU allocations.
-              </p>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowTierLockModal(false)}
-                className="flex-1 rounded-full border border-white/20 py-2 text-xs font-semibold text-white/60 hover:text-white"
-              >
-                Keep 1K resolution
-              </button>
-              <a
-                href="/pricing"
-                className="flex-1 text-center rounded-full bg-amber-500 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-amber-400 transition-colors"
-              >
-                View plans & upgrade &rarr;
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2K Ultra HD Confirmation Modal */}
-      {show2kConfirmModal && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-150">
-          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-colors ${
-            isLight ? 'border-gray-200 bg-white text-gray-900' : 'border-purple-500/30 bg-[#121217] text-white'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                  Change to 2K Ultra HD?
-                </h3>
-                <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-purple-300/80'}`}>
-                  Ultra Plan High-Resolution Render Mode
-                </p>
-              </div>
-            </div>
-
-            <div className={`mt-4 rounded-xl border p-4 text-xs leading-relaxed space-y-2.5 ${
-              isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/50 text-white/70'
-            }`}>
-              <p>
-                Are you sure you want to change render quality from <strong className={isLight ? 'text-gray-900' : 'text-white'}>1K Standard</strong> to <strong className="text-purple-400">2K Ultra HD</strong>?
-              </p>
-              <div className={`rounded-lg p-2.5 flex items-start gap-2 text-xs border ${
-                isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-              }`}>
-                <span className="font-bold">⚡ Notice:</span>
-                <span>2K Ultra HD consumes <strong className="underline">3 credits</strong> per generation photoshoot instead of 1 credit.</span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShow2kConfirmModal(false)}
-                className={`flex-1 rounded-full border py-2.5 text-xs font-semibold transition-colors ${
-                  isLight
-                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    : 'border-white/20 bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                Cancel (Keep 1K)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuality('2k');
-                  setShow2kConfirmModal(false);
-                }}
-                className="flex-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 transition-all"
-              >
-                Yes, Change to 2K
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Garment Photography Guidelines Tour Modal */}
-      <GarmentPhotoTourModal
-        isOpen={showPhotoTour}
-        onClose={handleTourDismiss}
-        onStartUpload={handleTourProceedToUpload}
-        step={tourStep}
-        setStep={setTourStep}
-        alwaysShow={alwaysShowTour}
-        setAlwaysShow={setAlwaysShowTour}
-        isLight={isLight}
-      />
-
-      {/* Zoom & Macro Crop Download Modal (Exact 1807×3000 Output) */}
-      <ZoomCropDownloadModal
-        isOpen={showZoomCropModal}
-        onClose={() => {
-          setShowZoomCropModal(false);
-          setZoomCropOnUse(null);
-        }}
-        imageUrl={zoomCropImage}
-        imageTitle={zoomCropTitle}
-        isLight={isLight}
-        onUseCrop={zoomCropOnUse || undefined}
-        onSaveCrop={async (croppedDataUrl, targetFolder) => {
-          try {
-            const saved = await api.saveUserGeneration({
-              type: 'image',
-              url: croppedDataUrl,
-              isEdited: true,
-              folder: targetFolder,
-              title: `Cropped Studio Image (${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'})`,
-              prompt: `Cropped & Zoomed Macro Asset · ${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'}`,
-              resolution: '2k',
-            });
-            if (saved) {
-              setUserGenerations((prev) => [saved, ...prev.filter((g) => g.id !== saved.id)]);
-            }
-            void loadUserGenerations();
-          } catch (err: any) {
-            console.error('[saveCrop] Failed:', err);
-            alert(`Failed to save cropped image: ${err?.message || err}`);
-          }
-        }}
-      />
-
-      {/* "Are You Sure?" Generation Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-semibold text-white">
-                {isEditingRender
-                  ? 'Confirm image edit'
-                  : mode === 'swap'
-                    ? `Confirm model swap (${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} drafts` : '1 draft'})`
-                    : multiBatchCount > 1
-                      ? `Confirm ${multiBatchCount} model renders`
-                      : 'Confirm virtual try-on'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  setIsEditingRender(false);
-                }}
-                className="text-white/40 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <p className="text-xs text-white/80 leading-relaxed">
-                {isEditingRender
-                  ? 'Are you sure you want to apply this AI edit to your generated image?'
-                  : multiBatchCount > 1
-                    ? `Are you sure you want to generate ${multiBatchCount} images for all selected models (${totalRequiredCredits} credits)?`
-                    : mode === 'swap'
-                      ? `Are you sure you want to proceed with ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Model Swaps (${totalRequiredCredits} credits)` : 'this Model Swap'}?`
-                      : 'Are you sure you want to proceed with this render?'}
-              </p>
-
-              <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
-                {isEditingRender ? (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>Task:</span>
-                      <span className="font-semibold text-white">Image Edit</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Base Reference:</span>
-                      <span className="font-semibold text-emerald-400">Current Studio Render</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Selected Quality:</span>
-                      <span className="font-semibold text-white uppercase">{quality} ({creditCost} Credit{creditCost > 1 ? 's' : ''})</span>
-                    </div>
-                  </>
-                ) : mode === 'swap' && validSwapDrafts.length > 1 ? (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>Batch:</span>
-                      <span className="font-semibold text-white">Multi-Swap Batch Generation</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Total Swaps:</span>
-                      <span className="font-semibold text-amber-400">{validSwapDrafts.length} Configured Drafts ({totalRequiredCredits} Credits Total)</span>
-                    </div>
-                  </>
-                ) : multiBatchCount > 1 ? (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>Batch:</span>
-                      <span className="font-semibold text-white">Multi-Model Studio Generation</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Total Models:</span>
-                      <span className="font-semibold text-amber-400">{multiBatchCount} Models ({totalRequiredCredits} Credits Total)</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>Mode:</span>
-                      <span className="font-semibold text-white">{mode === 'swap' ? 'Model Swap' : activeMode.label}</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>Selected Quality:</span>
-                      <span className="font-semibold text-white uppercase">{quality === '1k' ? '1K Standard (1 Credit)' : '2K Ultra HD (3 Credits)'}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between text-white/60">
-                  <span>Engine Pipeline:</span>
-                  <span className="font-semibold text-emerald-400">SHIV-NARESH Neural Atelier</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  setIsEditingRender(false);
-                }}
-                className="flex-1 rounded-full border border-white/20 py-2.5 text-xs font-semibold text-white/60 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void runActualGeneration()}
-                className="flex-1 rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35]"
-              >
-                Yes, {isEditingRender ? 'Generate Edit' : 'Generate'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* User Profile Modal */}
-      {showProfileModal && user && (
-        <UserProfileModal
-          user={user}
-          onClose={() => setShowProfileModal(false)}
-          onUserUpdated={(u) => setUser(u)}
-          isLight={isLight}
-        />
-      )}
-
-      {/* Main Studio Header */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
-        }`}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
+return (
+  <div className={`min-h-screen overflow-x-hidden selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#756357] text-[#F5F0E7]' : 'bg-[#08080a] text-white'
+    }`}>
+    {/* 2K Resolution Tier Lock Modal */}
+    {showTierLockModal && (
+      <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+        <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-[#121217] p-6 shadow-2xl">
           <div className="flex items-center gap-3">
-            <a href="/" className={`flex items-center gap-2 text-xs font-semibold tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
-              <img src="/brand-mark-white.png" alt="Shiv-Naresh" className={`h-4 w-auto ${isLight ? 'invert' : ''}`} />
-              SHIV-NARESH
-            </a>
-            <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
-              }`}>
-              STUDIO
-            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">2K Ultra HD locked</h3>
+              <p className="text-xs text-amber-300/80">Starter accounts are limited to 1K Standard resolution</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4 text-xs">
-            {/* Theme Toggle */}
-            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/50 p-4 text-xs leading-relaxed text-white/70 space-y-2">
+            <p>
+              New and Free Starter accounts can generate in <strong className="text-white">1K Standard Quality</strong>.
+            </p>
+            <p>
+              <strong className="text-amber-300">2K Ultra HD & 4K Studio Renders</strong> are available on On-Demand, Pro, and Ultra membership tiers with dedicated neural GPU allocations.
+            </p>
+          </div>
 
-            {/* Photoshoot & Video Quota Counter Pill */}
-            {user && (() => {
-              const totalQuota = user.photoshoots || user.maxModels || 20;
-              const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
-              const leftCount = Math.max(0, totalQuota - doneCount);
-              const totalVideos = typeof user.maxVideos === 'number' ? user.maxVideos : 15;
-              const doneVideos = typeof user.videosGenerated === 'number' ? user.videosGenerated : 0;
-              const leftVideos = Math.max(0, totalVideos - doneVideos);
-              return (
-                <span
-                  className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/5 text-slate-200'
-                    }`}
-                  title={`Photoshoots: ${doneCount}/${totalQuota} used (${leftCount} left) · Videos: ${doneVideos}/${totalVideos} used (${leftVideos} left)`}
-                >
-                  <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
-                  <span>
-                    📸 {doneCount}/{totalQuota} ({leftCount} Left)
-                  </span>
-                  <span className="opacity-30">|</span>
-                  <span>
-                    🎬 {doneVideos}/{totalVideos} ({leftVideos} Left)
-                  </span>
-                </span>
-              );
-            })()}
-
-            {/* Top Right Credit Status Pill — Visible Across ALL Tabs */}
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowTierLockModal(false)}
+              className="flex-1 rounded-full border border-white/20 py-2 text-xs font-semibold text-white/60 hover:text-white"
+            >
+              Keep 1K resolution
+            </button>
             <a
               href="/pricing"
-              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
-              title={user?.tier === 'ultra' ? 'Ultra Active Plan' : 'Click to view pricing & upgrade credits'}
+              className="flex-1 text-center rounded-full bg-amber-500 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-amber-400 transition-colors"
             >
-              <span>{user ? `${user.credits} credits` : '...'}</span>
-              {user?.tier && (
-                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
-                  ? 'bg-purple-500/30 text-purple-400'
-                  : user.tier === 'pro'
-                    ? 'bg-blue-500/30 text-blue-400'
-                    : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
-                  }`}>
-                  {user.tier}
-                </span>
-              )}
-              {user?.tier !== 'ultra' && (
-                <span className="text-[10px] font-semibold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
-                  + Upgrade
-                </span>
-              )}
+              View plans & upgrade &rarr;
             </a>
+          </div>
+        </div>
+      </div>
+    )}
 
-            {/* User Profile Button */}
-            {user && (
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${isLight
-                  ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
-                  : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
+    {/* 2K Ultra HD Confirmation Modal */}
+    {show2kConfirmModal && (
+      <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-150">
+        <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-colors ${isLight ? 'border-gray-200 bg-white text-gray-900' : 'border-purple-500/30 bg-[#121217] text-white'
+          }`}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className={`text-base font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                Change to 2K Ultra HD?
+              </h3>
+              <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-purple-300/80'}`}>
+                Ultra Plan High-Resolution Render Mode
+              </p>
+            </div>
+          </div>
+
+          <div className={`mt-4 rounded-xl border p-4 text-xs leading-relaxed space-y-2.5 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700' : 'border-white/10 bg-black/50 text-white/70'
+            }`}>
+            <p>
+              Are you sure you want to change render quality from <strong className={isLight ? 'text-gray-900' : 'text-white'}>1K Standard</strong> to <strong className="text-purple-400">2K Ultra HD</strong>?
+            </p>
+            <div className={`rounded-lg p-2.5 flex items-start gap-2 text-xs border ${isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              }`}>
+              <span className="font-bold">⚡ Notice:</span>
+              <span>2K Ultra HD consumes <strong className="underline">3 credits</strong> per generation photoshoot instead of 1 credit.</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShow2kConfirmModal(false)}
+              className={`flex-1 rounded-full border py-2.5 text-xs font-semibold transition-colors ${isLight
+                  ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  : 'border-white/20 bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+            >
+              Cancel (Keep 1K)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuality('2k');
+                setShow2kConfirmModal(false);
+              }}
+              className="flex-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 transition-all"
+            >
+              Yes, Change to 2K
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Garment Photography Guidelines Tour Modal */}
+    <GarmentPhotoTourModal
+      isOpen={showPhotoTour}
+      onClose={handleTourDismiss}
+      onStartUpload={handleTourProceedToUpload}
+      step={tourStep}
+      setStep={setTourStep}
+      alwaysShow={alwaysShowTour}
+      setAlwaysShow={setAlwaysShowTour}
+      isLight={isLight}
+    />
+
+    {/* Zoom & Macro Crop Download Modal (Exact 1807×3000 Output) */}
+    <ZoomCropDownloadModal
+      isOpen={showZoomCropModal}
+      onClose={() => {
+        setShowZoomCropModal(false);
+        setZoomCropOnUse(null);
+      }}
+      imageUrl={zoomCropImage}
+      imageTitle={zoomCropTitle}
+      isLight={isLight}
+      onUseCrop={zoomCropOnUse || undefined}
+      onSaveCrop={async (croppedDataUrl, targetFolder) => {
+        try {
+          const saved = await api.saveUserGeneration({
+            type: 'image',
+            url: croppedDataUrl,
+            isEdited: true,
+            folder: targetFolder,
+            title: `Cropped Studio Image (${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'})`,
+            prompt: `Cropped & Zoomed Macro Asset · ${targetFolder === 'ready' ? 'Ready to Use' : 'Edited'}`,
+            resolution: '2k',
+          });
+          if (saved) {
+            setUserGenerations((prev) => [saved, ...prev.filter((g) => g.id !== saved.id)]);
+          }
+          void loadUserGenerations();
+        } catch (err: any) {
+          console.error('[saveCrop] Failed:', err);
+          alert(`Failed to save cropped image: ${err?.message || err}`);
+        }
+      }}
+    />
+
+    {/* "Are You Sure?" Generation Confirmation Modal */}
+    {showConfirmModal && (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+        <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#121217] p-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 className="text-sm font-semibold text-white">
+              {isEditingRender
+                ? 'Confirm image edit'
+                : mode === 'swap'
+                  ? `Confirm model swap (${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} drafts` : '1 draft'})`
+                  : multiBatchCount > 1
+                    ? `Confirm ${multiBatchCount} model renders`
+                    : 'Confirm virtual try-on'}
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConfirmModal(false);
+                setIsEditingRender(false);
+              }}
+              className="text-white/40 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-white/80 leading-relaxed">
+              {isEditingRender
+                ? 'Are you sure you want to apply this AI edit to your generated image?'
+                : multiBatchCount > 1
+                  ? `Are you sure you want to generate ${multiBatchCount} images for all selected models (${totalRequiredCredits} credits)?`
+                  : mode === 'swap'
+                    ? `Are you sure you want to proceed with ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Model Swaps (${totalRequiredCredits} credits)` : 'this Model Swap'}?`
+                    : 'Are you sure you want to proceed with this render?'}
+            </p>
+
+            <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-2 text-xs">
+              {isEditingRender ? (
+                <>
+                  <div className="flex justify-between text-white/60">
+                    <span>Task:</span>
+                    <span className="font-semibold text-white">Image Edit</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Base Reference:</span>
+                    <span className="font-semibold text-emerald-400">Current Studio Render</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Selected Quality:</span>
+                    <span className="font-semibold text-white uppercase">{quality} ({creditCost} Credit{creditCost > 1 ? 's' : ''})</span>
+                  </div>
+                </>
+              ) : mode === 'swap' && validSwapDrafts.length > 1 ? (
+                <>
+                  <div className="flex justify-between text-white/60">
+                    <span>Batch:</span>
+                    <span className="font-semibold text-white">Multi-Swap Batch Generation</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Total Swaps:</span>
+                    <span className="font-semibold text-amber-400">{validSwapDrafts.length} Configured Drafts ({totalRequiredCredits} Credits Total)</span>
+                  </div>
+                </>
+              ) : multiBatchCount > 1 ? (
+                <>
+                  <div className="flex justify-between text-white/60">
+                    <span>Batch:</span>
+                    <span className="font-semibold text-white">Multi-Model Studio Generation</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Total Models:</span>
+                    <span className="font-semibold text-amber-400">{multiBatchCount} Models ({totalRequiredCredits} Credits Total)</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-white/60">
+                    <span>Mode:</span>
+                    <span className="font-semibold text-white">{mode === 'swap' ? 'Model Swap' : activeMode.label}</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Selected Quality:</span>
+                    <span className="font-semibold text-white uppercase">{quality === '1k' ? '1K Standard (1 Credit)' : '2K Ultra HD (3 Credits)'}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-white/60">
+                <span>Engine Pipeline:</span>
+                <span className="font-semibold text-emerald-400">SHIV-NARESH Neural Atelier</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowConfirmModal(false);
+                setIsEditingRender(false);
+              }}
+              className="flex-1 rounded-full border border-white/20 py-2.5 text-xs font-semibold text-white/60 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void runActualGeneration()}
+              className="flex-1 rounded-full bg-[#e5373f] py-2.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#d42d35]"
+            >
+              Yes, {isEditingRender ? 'Generate Edit' : 'Generate'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* User Profile Modal */}
+    {showProfileModal && user && (
+      <UserProfileModal
+        user={user}
+        onClose={() => setShowProfileModal(false)}
+        onUserUpdated={(u) => setUser(u)}
+        isLight={isLight}
+      />
+    )}
+
+    {/* Main Studio Header */}
+    <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/95' : 'border-white/10 bg-[#08080a]/90'
+      }`}>
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
+        <div className="flex items-center gap-3">
+          <a href="/" className={`flex items-center gap-2 text-xs font-semibold tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
+            <img src="/brand-mark-white.png" alt="Shiv-Naresh" className={`h-4 w-auto ${isLight ? 'invert' : ''}`} />
+            SHIV-NARESH
+          </a>
+          <span className={`hidden sm:inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/50'
+            }`}>
+            STUDIO
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 sm:gap-4 text-xs">
+          {/* Theme Toggle */}
+          <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+
+          {/* Photoshoot & Video Quota Counter Pill */}
+          {user && (() => {
+            const totalQuota = user.photoshoots || user.maxModels || 20;
+            const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
+            const leftCount = Math.max(0, totalQuota - doneCount);
+            const totalVideos = typeof user.maxVideos === 'number' ? user.maxVideos : 15;
+            const doneVideos = typeof user.videosGenerated === 'number' ? user.videosGenerated : 0;
+            const leftVideos = Math.max(0, totalVideos - doneVideos);
+            return (
+              <span
+                className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/5 text-slate-200'
                   }`}
-                title="View & Edit Profile"
+                title={`Photoshoots: ${doneCount}/${totalQuota} used (${leftCount} left) · Videos: ${doneVideos}/${totalVideos} used (${leftVideos} left)`}
               >
-                {user.avatar ? (
-                  <img src={user.avatar} alt="Profile" className="h-5 w-5 rounded-full object-cover ring-1 ring-[#e5373f]" />
-                ) : (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e5373f] text-[10px] font-bold text-white">
-                    {user.name ? user.name[0].toUpperCase() : <UserIcon className="h-3 w-3 text-white" />}
-                  </span>
-                )}
-                <span className="hidden md:inline-block max-w-[100px] truncate">{user.name || 'Profile'}</span>
-              </button>
+                <Camera className="w-3.5 h-3.5 text-[#e5373f]" />
+                <span>
+                  📸 {doneCount}/{totalQuota} ({leftCount} Left)
+                </span>
+                <span className="opacity-30">|</span>
+                <span>
+                  🎬 {doneVideos}/{totalVideos} ({leftVideos} Left)
+                </span>
+              </span>
+            );
+          })()}
+
+          {/* Top Right Credit Status Pill — Visible Across ALL Tabs */}
+          <a
+            href="/pricing"
+            className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-500 hover:border-amber-400 hover:bg-amber-500/20 transition-all shadow-sm"
+            title={user?.tier === 'ultra' ? 'Ultra Active Plan' : 'Click to view pricing & upgrade credits'}
+          >
+            <span>{user ? `${user.credits} credits` : '...'}</span>
+            {user?.tier && (
+              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${user.tier === 'ultra' || user.tier === 'enterprise'
+                ? 'bg-purple-500/30 text-purple-400'
+                : user.tier === 'pro'
+                  ? 'bg-blue-500/30 text-blue-400'
+                  : isLight ? 'bg-gray-200 text-gray-700' : 'bg-white/10 text-white/60'
+                }`}>
+                {user.tier}
+              </span>
             )}
+            {user?.tier !== 'ultra' && (
+              <span className="text-[10px] font-semibold uppercase text-[#facc15] bg-black/40 px-1.5 py-0.5 rounded-full ml-1">
+                + Upgrade
+              </span>
+            )}
+          </a>
 
-            <div className={`h-4 w-px hidden sm:block ${isLight ? 'bg-gray-200' : 'bg-white/10'}`} />
+          {/* User Profile Button */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setShowProfileModal(true)}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${isLight
+                ? 'border-gray-300 bg-gray-50 text-gray-800 hover:bg-gray-100 hover:border-gray-400 shadow-sm'
+                : 'border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/30'
+                }`}
+              title="View & Edit Profile"
+            >
+              {user.avatar ? (
+                <img src={user.avatar} alt="Profile" className="h-5 w-5 rounded-full object-cover ring-1 ring-[#e5373f]" />
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e5373f] text-[10px] font-bold text-white">
+                  {user.name ? user.name[0].toUpperCase() : <UserIcon className="h-3 w-3 text-white" />}
+                </span>
+              )}
+              <span className="hidden md:inline-block max-w-[100px] truncate">{user.name || 'Profile'}</span>
+            </button>
+          )}
 
-            <a href="/pricing" className={`hidden sm:inline-block transition-colors ${isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/50 hover:text-white'}`}>
-              Pricing
-            </a>
+          <div className={`h-4 w-px hidden sm:block ${isLight ? 'bg-gray-200' : 'bg-white/10'}`} />
 
+          <a href="/pricing" className={`hidden sm:inline-block transition-colors ${isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/50 hover:text-white'}`}>
+            Pricing
+          </a>
+
+          {user ? (
             <button
               type="button"
               onClick={() => {
                 setToken('');
+                try { localStorage.removeItem('cached_current_user'); } catch { }
                 window.location.replace('/login');
               }}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
@@ -11394,120 +11461,96 @@ export default function Design() {
               </svg>
               <span>Sign out</span>
             </button>
-          </div>
+          ) : (
+            <a
+              href="/login?next=%2Fdesign"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#C9A468] px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#1A1408] shadow-sm transition hover:brightness-105"
+            >
+              Sign in
+            </a>
+          )}
         </div>
+      </div>
 
-        {/* Studio Sub-Navigation Tabs */}
-        <div className={`border-t transition-colors ${isLight ? 'border-gray-200 bg-gray-50/80' : 'border-white/[0.06] bg-black/30'}`}>
-          <div className="mx-auto flex max-w-6xl px-5 sm:px-8 gap-1 overflow-x-auto no-scrollbar">
-            {visibleStudioTabs.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => {
-                  setPageView(v.id as typeof pageView);
-                  if (v.id === 'custom-requests') {
-                    void loadCustomRequests();
-                    void loadDeliveriesUnread();
-                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
-                  } else if (v.id === 'deliveries') {
-                    void loadCustomRequests();
-                    void loadDeliveriesUnread();
-                    void api.markUserDeliveriesRead().catch(() => { });
-                    setDeliveriesUnreadCount(0);
-                    api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
-                  }
-                }}
-                className={`border-b-2 px-4 py-3 text-xs font-medium tracking-normal transition-colors whitespace-nowrap flex items-center gap-1.5 ${pageView === v.id
-                  ? 'border-[#e5373f] ' + (isLight ? 'text-gray-900' : 'text-white')
-                  : 'border-transparent ' + (isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/40 hover:text-white/80')
-                  }`}
-              >
-                <span>{v.label}</span>
-                {Boolean(v.unread && v.unread > 0) && (
-                  <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white animate-pulse">
-                    {v.unread} New
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+      {/* Studio Sub-Navigation Tabs */}
+      <div className={`border-t border-b transition-colors ${isLight ? 'border-[#C9A468]/30 bg-[#263B32]' : 'border-white/[0.08] bg-black/40'}`}>
+        <div className="mx-auto flex max-w-6xl px-5 sm:px-8 py-2 gap-1.5 overflow-x-auto no-scrollbar">
+          {visibleStudioTabs.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => {
+                setPageView(v.id as typeof pageView);
+                if (v.id === 'custom-requests') {
+                  void loadCustomRequests();
+                  void loadDeliveriesUnread();
+                  api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
+                } else if (v.id === 'deliveries') {
+                  void loadCustomRequests();
+                  void loadDeliveriesUnread();
+                  void api.markUserDeliveriesRead().catch(() => { });
+                  setDeliveriesUnreadCount(0);
+                  api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
+                }
+              }}
+              className={`rounded-lg border px-3.5 py-2 text-xs font-medium tracking-normal transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${pageView === v.id
+                ? isLight
+                  ? 'border-[#C9A468] bg-[#1E3028] text-[#F5F0E7] shadow-sm'
+                  : 'border-[#C9A468] bg-white/10 text-white shadow-sm'
+                : isLight
+                  ? 'border-[#C9A468]/20 bg-transparent text-[#D5CFC4] hover:border-[#C9A468]/50 hover:bg-[#1E3028]/60 hover:text-[#F5F0E7]'
+                  : 'border-white/10 bg-transparent text-white/60 hover:border-white/25 hover:bg-white/5 hover:text-white'
+                }`}
+            >
+              <span>{v.label}</span>
+              {Boolean(v.unread && v.unread > 0) && (
+                <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[9px] font-bold text-white animate-pulse">
+                  {v.unread} New
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-      </header>
+      </div>
+    </header>
 
-      {/* Warning banner if credits locked by admin */}
-      {user?.creditsLocked && (
-        <div className="border-b border-rose-500/40 bg-rose-500/15 py-3">
-          <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 text-xs text-rose-300 sm:px-8 font-medium">
-            <Lock className="h-4 w-4" />
-            <span>
-              <strong>Account Credits Locked by Admin:</strong> Your ability to generate new renders or submit custom orders has been restricted. Please contact support.
-            </span>
-          </div>
+    {/* Warning banner if credits locked by admin */}
+    {user?.creditsLocked && (
+      <div className="border-b border-rose-500/40 bg-rose-500/15 py-3">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-5 text-xs text-rose-300 sm:px-8 font-medium">
+          <Lock className="h-4 w-4" />
+          <span>
+            <strong>Account Credits Locked by Admin:</strong> Your ability to generate new renders or submit custom orders has been restricted. Please contact support.
+          </span>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Warning banner if API key missing */}
-      {settings && !settings.ready && (
-        <div className="border-b border-[#ff6b6b]/30 bg-[#ff6b6b]/10">
-          <div className="mx-auto max-w-6xl px-5 py-2.5 text-xs text-[#ff9aa0] sm:px-8">
-            Rendering engine is initializing. If generation is not ready, please contact support.
-          </div>
+    {/* Warning banner if API key missing */}
+    {settings && !settings.ready && (
+      <div className="border-b border-[#ff6b6b]/30 bg-[#ff6b6b]/10">
+        <div className="mx-auto max-w-6xl px-5 py-2.5 text-xs text-[#ff9aa0] sm:px-8">
+          Rendering engine is initializing. If generation is not ready, please contact support.
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Quota Update Centered Popup Notification */}
-      {userNotifications.length > 0 && (
-        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-emerald-500/40 bg-[#101216] p-6 text-white shadow-2xl space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
-                  <Bell className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-emerald-400">
-                    {userNotifications[0].title}
-                  </h3>
-                  <p className="text-[11px] text-white/50">Studio Quota Notification</p>
-                </div>
+    {/* Quota Update Centered Popup Notification */}
+    {userNotifications.length > 0 && (
+      <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-3xl border border-emerald-500/40 bg-[#101216] p-6 text-white shadow-2xl space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+                <Bell className="h-5 w-5" />
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const ids = userNotifications.map((x) => x.id);
-                  setUserNotifications([]);
-                  void api.markNotificationsSeen(ids);
-                }}
-                className="text-white/50 hover:text-white text-xl leading-none cursor-pointer px-1"
-                title="Close"
-              >
-                ×
-              </button>
+              <div>
+                <h3 className="text-base font-extrabold text-emerald-400">
+                  {userNotifications[0].title}
+                </h3>
+                <p className="text-[11px] text-white/50">Studio Quota Notification</p>
+              </div>
             </div>
-
-            <div className="space-y-2.5 max-h-60 overflow-y-auto">
-              {userNotifications.map((n) => (
-                <div key={n.id} className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-2">
-                  <p className="text-xs leading-relaxed text-white/90">{n.message}</p>
-                  {(typeof n.photoshootsLeft === 'number' || typeof n.videosLeft === 'number') && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {typeof n.photoshootsLeft === 'number' && (
-                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[11px] font-bold text-emerald-300">
-                          📸 {n.photoshootsLeft} Photoshoots Left
-                        </span>
-                      )}
-                      {typeof n.videosLeft === 'number' && (
-                        <span className="rounded-full bg-sky-500/20 border border-sky-500/40 px-3 py-1 text-[11px] font-bold text-sky-300">
-                          🎬 {n.videosLeft} Videos Left
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
             <button
               type="button"
               onClick={() => {
@@ -11515,1704 +11558,2792 @@ export default function Design() {
                 setUserNotifications([]);
                 void api.markNotificationsSeen(ids);
               }}
-              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-bold text-white transition cursor-pointer shadow-lg"
+              className="text-white/50 hover:text-white text-xl leading-none cursor-pointer px-1"
+              title="Close"
             >
-              Got It
+              ×
             </button>
           </div>
-        </div>
-      )}
 
-      {/* Photoshoot Quota Offer Notification */}
-      {user?.photoshootOffer && user.photoshootOffer.status === 'pending' && (
-        <div className="border-b border-amber-500/40 bg-amber-500/15 py-3.5">
-          <div className="mx-auto max-w-6xl px-5 sm:px-8 space-y-2">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2.5">
-                <Camera className="w-5 h-5 text-amber-400 shrink-0" />
-                <div>
-                  <p className="font-bold text-amber-400 text-sm">
-                    Photoshoot Quota Offer from Studio Director
-                  </p>
-                  <p className="opacity-90 text-[11px] mt-0.5">
-                    The studio administrator has proposed updating your photoshoot quota from <strong>{user.photoshootOffer.oldQuota}</strong> to <strong>{user.photoshootOffer.newQuota} photoshoots</strong>.
-                    {user.photoshootOffer.note && <span className="block mt-0.5 italic opacity-80">Note: "{user.photoshootOffer.note}"</span>}
-                  </p>
-                </div>
+          <div className="space-y-2.5 max-h-60 overflow-y-auto">
+            {userNotifications.map((n) => (
+              <div key={n.id} className="rounded-2xl border border-white/10 bg-white/5 p-3.5 space-y-2">
+                <p className="text-xs leading-relaxed text-white/90">{n.message}</p>
+                {(typeof n.photoshootsLeft === 'number' || typeof n.videosLeft === 'number') && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {typeof n.photoshootsLeft === 'number' && (
+                      <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[11px] font-bold text-emerald-300">
+                        📸 {n.photoshootsLeft} Photoshoots Left
+                      </span>
+                    )}
+                    {typeof n.videosLeft === 'number' && (
+                      <span className="rounded-full bg-sky-500/20 border border-sky-500/40 px-3 py-1 text-[11px] font-bold text-sky-300">
+                        🎬 {n.videosLeft} Videos Left
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+            ))}
+          </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={photoshootResponding}
-                  onClick={() => handlePhotoshootResponse('agree')}
-                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer text-xs"
-                >
-                  Agree &amp; Apply
-                </button>
-                <button
-                  type="button"
-                  disabled={photoshootResponding}
-                  onClick={() => setShowPhotoshootQueryBox(!showPhotoshootQueryBox)}
-                  className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold transition cursor-pointer text-xs"
-                >
-                  {showPhotoshootQueryBox ? 'Cancel' : 'Ask Query'}
-                </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ids = userNotifications.map((x) => x.id);
+              setUserNotifications([]);
+              void api.markNotificationsSeen(ids);
+            }}
+            className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-bold text-white transition cursor-pointer shadow-lg"
+          >
+            Got It
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Photoshoot Quota Offer Notification */}
+    {user?.photoshootOffer && user.photoshootOffer.status === 'pending' && (
+      <div className="border-b border-amber-500/40 bg-amber-500/15 py-3.5">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8 space-y-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <Camera className="w-5 h-5 text-amber-400 shrink-0" />
+              <div>
+                <p className="font-bold text-amber-400 text-sm">
+                  Photoshoot Quota Offer from Studio Director
+                </p>
+                <p className="opacity-90 text-[11px] mt-0.5">
+                  The studio administrator has proposed updating your photoshoot quota from <strong>{user.photoshootOffer.oldQuota}</strong> to <strong>{user.photoshootOffer.newQuota} photoshoots</strong>.
+                  {user.photoshootOffer.note && <span className="block mt-0.5 italic opacity-80">Note: "{user.photoshootOffer.note}"</span>}
+                </p>
               </div>
             </div>
 
-            {showPhotoshootQueryBox && (
-              <div className="rounded-2xl border border-white/10 bg-black/60 p-3.5 space-y-2 mt-2">
-                <label className="text-xs font-semibold text-slate-300">
-                  Have a question or request regarding this photoshoot quota increment?
-                </label>
-                <textarea
-                  value={photoshootQueryText}
-                  onChange={(e) => setPhotoshootQueryText(e.target.value)}
-                  placeholder="Type your question or proposal for the admin..."
-                  rows={2}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-xs text-white placeholder:text-white/40 focus:outline-none"
-                />
-                <div className="flex justify-end">
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={photoshootResponding}
+                onClick={() => handlePhotoshootResponse('agree')}
+                className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer text-xs"
+              >
+                Agree &amp; Apply
+              </button>
+              <button
+                type="button"
+                disabled={photoshootResponding}
+                onClick={() => setShowPhotoshootQueryBox(!showPhotoshootQueryBox)}
+                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold transition cursor-pointer text-xs"
+              >
+                {showPhotoshootQueryBox ? 'Cancel' : 'Ask Query'}
+              </button>
+            </div>
+          </div>
+
+          {showPhotoshootQueryBox && (
+            <div className="rounded-2xl border border-white/10 bg-black/60 p-3.5 space-y-2 mt-2">
+              <label className="text-xs font-semibold text-slate-300">
+                Have a question or request regarding this photoshoot quota increment?
+              </label>
+              <textarea
+                value={photoshootQueryText}
+                onChange={(e) => setPhotoshootQueryText(e.target.value)}
+                placeholder="Type your question or proposal for the admin..."
+                rows={2}
+                className="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-xs text-white placeholder:text-white/40 focus:outline-none"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={photoshootResponding}
+                  onClick={() => handlePhotoshootResponse('query')}
+                  className="px-4 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold transition cursor-pointer"
+                >
+                  Submit Query to Admin
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* ============= COLOR SWAP & PALETTE STUDIO ============= */}
+    {pageView === 'color-swap' && (
+      <ColorSwapStudio
+        userGenerations={userGenerations}
+        isLight={isLight}
+        onSaveToMySets={async (dataUrl, folder, title) => {
+          try {
+            await api.saveUserGeneration({
+              url: dataUrl,
+              highResUrl: dataUrl,
+              folder,
+              isEdited: true,
+              title: title || `Color Variant (${folder})`,
+            });
+            loadUserGenerations();
+          } catch (err: any) {
+            setError('Failed to save color variant: ' + (err?.message || err));
+          }
+        }}
+        onRefreshGenerations={loadUserGenerations}
+        setError={(msg) => setError(msg || '')}
+      />
+    )}
+
+    {/* ============= MY SETS VIEW ============= */}
+    {pageView === 'my-sets' && (
+      <MySetsPanel
+        uploadSets={uploadSets}
+        loadingSets={loadingSets}
+        generations={userGenerations}
+        loadingGenerations={loadingGenerations}
+        setError={setError}
+        onUseSet={handleUseSet}
+        onDeleteSet={(id) => setUploadSets((prev) => prev.filter((s) => s.id !== id))}
+        onReorderSets={(ordered) => setUploadSets(ordered)}
+        refreshSets={loadUploadSets}
+        refreshGenerations={loadUserGenerations}
+        onAddGenerations={(newItems) => {
+          setUserGenerations((prev) => {
+            const newIds = new Set(newItems.map((n) => n.id));
+            return [...newItems, ...prev.filter((p) => !newIds.has(p.id))];
+          });
+        }}
+        onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
+        onMoveFolder={async (id, folder) => {
+          const now = Date.now();
+          setUserGenerations((prev) =>
+            prev.map((g) => (g.id === id ? { ...g, folder, folderMovedAt: now, updatedAt: now } : g))
+          );
+          try {
+            await api.updateUserGeneration(id, { folder, folderMovedAt: now, updatedAt: now } as any);
+          } catch (err: any) {
+            console.warn('[moveGenFolder] Failed:', err?.message);
+          }
+        }}
+        onBatchMoveFolder={async (ids, folder) => {
+          const baseNow = Date.now();
+          const idTimes = new Map<string, number>();
+          ids.forEach((id, idx) => {
+            idTimes.set(id, baseNow + (ids.length - idx) * 10);
+          });
+          setUserGenerations((prev) =>
+            prev.map((g) => (idTimes.has(g.id) ? { ...g, folder, folderMovedAt: idTimes.get(g.id), updatedAt: baseNow } : g))
+          );
+          try {
+            await api.batchUpdateGenerationsFolder(ids, folder);
+          } catch (err: any) {
+            console.warn('[batchMoveFolder] API fallback:', err?.message);
+            await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { folder, folderMovedAt: idTimes.get(id) || baseNow, updatedAt: baseNow } as any)));
+          }
+        }}
+        onZoomCrop={(url, title) => {
+          setZoomCropImage(url);
+          setZoomCropTitle(title);
+          setShowZoomCropModal(true);
+        }}
+        onAddLogo={(gen) => {
+          const targetUrl = getBestGenUrl(gen);
+          if (!targetUrl) return;
+          setResult(targetUrl);
+          setCleanResultBackup(targetUrl);
+          setActiveRenderOption('b');
+          setShowHdLogoOverlay(true);
+          setShowPantLogo(true);
+          setIsEraseMode(false);
+          setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+          setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
+          autoDetectContrastColor(targetUrl);
+          currentEditGenIdRef.current = gen.id;
+          setIsOptionBDirty(true);
+          setPageView('studio');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onEditLogo={(gen) => {
+          const targetUrl = getBestGenUrl(gen);
+          if (!targetUrl) return;
+          setResult(targetUrl);
+          setCleanResultBackup(targetUrl);
+          setMode('removelogo');
+          setIsEraseMode(true);
+          setEraseBox(null);
+          setEraseBoxes([]);
+          setRubStrokes([]);
+          setActiveRenderOption('a');
+          setShowHdLogoOverlay(false);
+          setShowPantLogo(false);
+          setIsOptionBDirty(false);
+          currentEditGenIdRef.current = gen.id;
+          setPageView('studio');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onBatchAddLogo={handleBatchAddLogo}
+        onRenameGeneration={handleRenameGeneration}
+        onBatchRenameGenerations={handleBatchRenameGenerations}
+        onSendToDescription={handleSendToDescription}
+        isBatchBranding={isBatchBranding}
+        batchBrandProgress={batchBrandProgress}
+        isLight={isLight}
+      />
+    )}
+
+    {/* ============= CUSTOM REQUESTS & DELIVERIES VIEW ============= */}
+    {(pageView === 'custom-requests' || pageView === 'deliveries') && (
+      <CustomRequestsPanel
+        requests={customRequests}
+        loading={loadingRequests}
+        initialTab={pageView === 'deliveries' ? 'receive' : 'send'}
+        onRefresh={() => {
+          void loadCustomRequests();
+          void loadDeliveriesUnread();
+          api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
+        }}
+        creditsLocked={isLocked}
+        customRequestsLocked={
+          !(user?.tier === 'ultra' || user?.features?.customRequests === true)
+        }
+        isLight={isLight}
+        onUnreadCleared={() => setDeliveriesUnreadCount(0)}
+        onUseAsset={(url, role) => {
+          if (role === 'model') {
+            setModel({ url, name: 'Received Model Asset' });
+          } else {
+            setCloth({ url, name: 'Received Garment Asset' });
+          }
+          setPageView('studio');
+        }}
+      />
+    )}
+
+    {/* ============= AI DESCRIPTION STUDIO VIEW ============= */}
+    {pageView === 'description' && (
+      <DescriptionStudio
+        user={user}
+        isLight={isLight}
+        userGenerations={userGenerations}
+        preselectedImages={descriptionPreselectedImages}
+        onClearPreselected={() => setDescriptionPreselectedImages([])}
+      />
+    )}
+
+    {/* ============= VIDEO VIEW ============= */}
+    {pageView === 'video' && (
+      <VideoStudioPanel
+        user={user}
+        setUser={setUser}
+        isLight={isLight}
+        isGlobalBusy={isGlobalBusy}
+        setIsGlobalBusy={setVideoBusy}
+        onGenerationSaved={(gen) => setUserGenerations((prev) => [gen, ...prev.filter((g) => g.id !== gen.id)])}
+      />
+    )}
+
+    {/* ============= SPLIT COMPARE VIEW ============= */}
+    {pageView === 'compare' && (
+      <CompareStudio
+        cloth={cloth}
+        selectedClothes={selectedClothes}
+        classifiedGarments={classifiedGarments}
+        previousGarments={previousGarmentsList}
+        userGenerations={userGenerations}
+        fivePoseItems={fivePoseItems}
+        isLight={isLight}
+        onClose={() => setPageView('studio')}
+        onSetCloth={setCloth}
+      />
+    )}
+
+    {/* ============= WATERMARK REMOVER VIEW ============= */}
+    {pageView === 'watermark' && (
+      <div className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
+        <WatermarkRemoverContent user={user} isLight={isLight} />
+      </div>
+    )}
+
+    {/* ============= STUDIO VIEW ============= */}
+    {pageView === 'studio' && (
+      <div className="mx-auto grid grid-cols-1 max-w-6xl gap-6 sm:gap-8 px-3.5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+        {/* Main Controls Form */}
+        <section className="space-y-6 min-w-0">
+          <div>
+            <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Virtual Try-On Studio</h1>
+            <p className={`mt-1 text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
+              Fit your garments onto studio models or swap outfits seamlessly.
+            </p>
+          </div>
+
+          {/* Mode Selector */}
+          <div className="flex flex-wrap gap-2">
+            {MODES.map((m) => {
+              const active = mode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMode(m.id)}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${active
+                    ? isLight
+                      ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
+                      : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
+                    : isLight
+                      ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                      : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
+                    }`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Resolution / Quality & 5-Pose Mode Pickers */}
+          <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
+            }`}>
+            <div>
+              <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
+                Render Quality
+              </span>
+              <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
+                <button
+                  type="button"
+                  onClick={() => setQuality('1k')}
+                  className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${quality === '1k'
+                    ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                    : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                    }`}
+                >
+                  1K Standard
+                </button>
+                {isUltraUser ? (
                   <button
                     type="button"
-                    disabled={photoshootResponding}
-                    onClick={() => handlePhotoshootResponse('query')}
-                    className="px-4 py-1.5 rounded-xl bg-[#e5373f] hover:bg-[#d42d35] text-white text-xs font-bold transition cursor-pointer"
+                    onClick={() => {
+                      if (quality === '1k') {
+                        setShow2kConfirmModal(true);
+                      }
+                    }}
+                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
+                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
+                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
+                      }`}
+                    title="Switch to 2K Ultra HD (3 Credits per generation)"
                   >
-                    Submit Query to Admin
+                    <span>2K Ultra HD</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                      }`}>
+                      Ultra
+                    </span>
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowTierLockModal(true)}
+                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 opacity-60 hover:opacity-100 ${isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/50 hover:text-white'
+                      }`}
+                    title="2K Ultra HD locked (Requires Ultra Tier)"
+                  >
+                    <Lock className="h-3 w-3 text-amber-400" />
+                    <span>2K Ultra HD</span>
+                    <span className="rounded-full px-1.5 py-0.2 text-[9px] font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                      Locked
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Official Shiv-Naresh HD Vector Branding Engine Setup Card */}
+          <div id="branding-engine-selector" className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
+                  <span>✨ Shiv-Naresh HD Vector Branding Engine</span>
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${activeRenderOption
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-black animate-pulse'
+                  }`}>
+                  {activeRenderOption === 'a' ? 'Option A Active' : activeRenderOption === 'b' ? 'Option B Active' : '⚠️ Mandatory: Select Option A or B'}
+                </span>
+              </div>
+            </div>
+
+            {/* 2 Big Mode Selector Cards: Option A vs Option B */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRenderOption('a');
+                  setShowHdLogoOverlay(false);
+                  setShowPantLogo(false);
+                  setShowBackLogo(false);
+                  setShowExtraLogo(false);
+                }}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${activeRenderOption === 'a'
+                    ? isLight
+                      ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
+                      : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
+                    : isLight
+                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
+                  }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <span>👕 Option A: Garment Original Logo</span>
+                  </span>
+                  {activeRenderOption === 'a' && (
+                    <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
+                  )}
+                </div>
+                <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                  Use authentic logo from reference photos. Zero duplicates, natural fabric drape.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRenderOption('b');
+                  setShowHdLogoOverlay(true);
+                  setShowPantLogo(true);
+                  setIsEraseMode(false);
+                }}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${activeRenderOption === 'b'
+                    ? isLight
+                      ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
+                      : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
+                    : isLight
+                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
+                  }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <span>✨ Option B: Vector Replace (Any Logo / Any Slot)</span>
+                  </span>
+                  {activeRenderOption === 'b' && (
+                    <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
+                  )}
+                </div>
+                <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                  100% crisp HD vector branding. Select any of 3 logos for chest, lower, back, or extra.
+                </p>
+              </button>
+            </div>
+
+            {(isAnyLogoActive || activeRenderOption === 'b') && (
+              <div className="space-y-3.5 pt-1">
+                {/* Target Placement Combo Presets */}
+                <div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1.5 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                    Placement Presets (Chest, Lower, Back, Extra):
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(true);
+                        setShowBackLogo(false);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('chest');
+                        updateChestX(43.5); updateChestY(20.5); updateChestScale(24);
+                        updatePantX(63); updatePantY(61); updatePantScale(20);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      🥋 Both (Chest + Lower)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(false);
+                        setShowBackLogo(false);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('chest');
+                        updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${showHdLogoOverlay && !showPantLogo && !showBackLogo && !showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      👕 Only Chest
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(false);
+                        setShowPantLogo(true);
+                        setShowBackLogo(false);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('pant');
+                        updatePantX(63); updatePantY(61); updatePantScale(18);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${!showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      👖 Only Lower (Pant)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(false);
+                        setShowPantLogo(false);
+                        setShowBackLogo(true);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('back');
+                        updateBackX(50); updateBackY(26); updateBackScale(56);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${!showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      🎒 Only Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(false);
+                        setShowBackLogo(true);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('chest');
+                        updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                        updateBackX(50); updateBackY(26); updateBackScale(56);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      👕+🎒 Chest & Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(true);
+                        setShowBackLogo(true);
+                        setShowExtraLogo(false);
+                        setActiveLogoTarget('chest');
+                        updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
+                        updatePantX(63); updatePantY(61); updatePantScale(18);
+                        updateBackX(50); updateBackY(26); updateBackScale(56);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${showHdLogoOverlay && showPantLogo && showBackLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      🥋+🎒 Full Kit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTarget('extra');
+                        setActiveLogoTarget('extra');
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${showExtraLogo
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      ➕ Extra Logo {showExtraLogo ? '✓' : ''}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(false);
+                        setShowPantLogo(false);
+                        setShowBackLogo(false);
+                        setShowExtraLogo(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${!isAnyLogoActive
+                          ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-white/20 text-white font-bold'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      Off
+                    </button>
+                  </div>
+                </div>
+
+                {/* Slot Selector Tabs: Chest | Lower | Back | Extra */}
+                <div className="space-y-1.5">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider block ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                    Selected Logo Slot & Fine-Tuning:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('chest');
+                        setShowHdLogoOverlay(true);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${activeLogoTarget === 'chest'
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span>👕 Chest</span>
+                        <span className={`text-[9px] font-bold ${showHdLogoOverlay ? 'text-emerald-400' : 'opacity-40'}`}>
+                          {showHdLogoOverlay ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{chestLogoStyle}</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('pant');
+                        setShowPantLogo(true);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${activeLogoTarget === 'pant'
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span>👖 Lower</span>
+                        <span className={`text-[9px] font-bold ${showPantLogo ? 'text-emerald-400' : 'opacity-40'}`}>
+                          {showPantLogo ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{pantLogoStyle}</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('back');
+                        setShowBackLogo(true);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${activeLogoTarget === 'back'
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span>🎒 Back</span>
+                        <span className={`text-[9px] font-bold ${showBackLogo ? 'text-emerald-400' : 'opacity-40'}`}>
+                          {showBackLogo ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{backLogoStyle}</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('extra');
+                        setShowExtraLogo(true);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${activeLogoTarget === 'extra'
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
+                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span>➕ Extra</span>
+                        <span className={`text-[9px] font-bold ${showExtraLogo ? 'text-emerald-400' : 'opacity-40'}`}>
+                          {showExtraLogo ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{extraLogoStyle}</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 1. Logo Style / Variant for the Active Slot */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                      Logo Style for {activeLogoTarget.toUpperCase()}:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleTarget(activeLogoTarget)}
+                      className="text-[9px] font-semibold text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {isTargetEnabled(activeLogoTarget) ? 'Turn this slot OFF' : 'Turn this slot ON'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('classic')}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${getActiveTargetStyle() === 'classic'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                      title="Classic Cheetah + Curved SHIV-NARESH Text"
+                    >
+                      <span>🐅 Classic</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('modern')}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${getActiveTargetStyle() === 'modern'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                      title="Modern Speed-Slash Icon (Negative Space Claw Cuts)"
+                    >
+                      <span>⚡ Speed-Slash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('embroidered')}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${getActiveTargetStyle() === 'embroidered'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                        }`}
+                      title="Authentic Needle & Thread Embroidered Cheetah + Block Lettering (3D Stitch Weave)"
+                    >
+                      <span>🧵 Embroidered</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Color Selection for Active Slot */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                        Color for {activeLogoTarget.toUpperCase()} (16.7M Colors)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => autoDetectContrastColor()}
+                        className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer"
+                        title="Automatically detect high-contrast color from garment fabric"
+                      >
+                        <span>🤖 Auto Match Fabric</span>
+                      </button>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">{getActiveTargetColor()}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {BRAND_COLOR_PRESETS.map((p) => (
+                        <button
+                          key={p.hex}
+                          type="button"
+                          onClick={() => setActiveTargetColor(p.hex)}
+                          title={`${p.name} (${p.hex})`}
+                          className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${getActiveTargetColor().toLowerCase() === p.hex.toLowerCase()
+                              ? 'ring-2 ring-emerald-500 scale-110 border-white'
+                              : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
+                            }`}
+                          style={{ backgroundColor: p.hex }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Native Color Wheel + Hex input */}
+                    <div className={`flex items-center gap-1.5 border rounded-full px-2.5 py-0.5 ${isLight ? 'border-gray-300 bg-gray-50' : 'border-emerald-500/30 bg-black/40'}`}>
+                      <input
+                        type="color"
+                        value={getActiveTargetColor().startsWith('#') && getActiveTargetColor().length === 7 ? getActiveTargetColor() : '#ffffff'}
+                        onChange={(e) => setActiveTargetColor(e.target.value)}
+                        className="w-4 h-4 rounded-full cursor-pointer border-0 bg-transparent p-0"
+                        title="Click for full 16.7M Color Wheel + Browser Eyedropper"
+                      />
+                      <input
+                        type="text"
+                        value={getActiveTargetColor()}
+                        onChange={(e) => setActiveTargetColor(e.target.value)}
+                        placeholder="#ffffff"
+                        className={`w-16 bg-transparent text-[10px] font-mono outline-none ${isLight ? 'text-gray-800' : 'text-white'}`}
+                        maxLength={7}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Positioning & Calibration for Active Slot */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
+                      {activeLogoTarget.toUpperCase()} Position Presets:
+                    </span>
+                  </div>
+
+                  {/* Presets by Slot */}
+                  {activeLogoTarget === 'chest' && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
+                      <button type="button" onClick={() => { updateChestX(43.5); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Chest</button>
+                      <button type="button" onClick={() => { updateChestX(50.0); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🎯 Center Chest</button>
+                      <button type="button" onClick={() => { updateChestX(58.5); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Chest</button>
+                      <button type="button" onClick={() => updateChestY(17.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ Collar High</button>
+                    </div>
+                  )}
+
+                  {activeLogoTarget === 'pant' && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
+                      <button type="button" onClick={() => { updatePantX(63.0); updatePantY(61.0); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Thigh</button>
+                      <button type="button" onClick={() => { updatePantX(37.0); updatePantY(61.0); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Thigh</button>
+                      <button type="button" onClick={() => updatePantY(55.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ High Thigh</button>
+                      <button type="button" onClick={() => updatePantY(68.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬇️ Lower Thigh</button>
+                    </div>
+                  )}
+
+                  {activeLogoTarget === 'back' && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
+                      <button type="button" onClick={() => { updateBackX(50.0); updateBackY(18.0); updateBackScale(60); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ Across Shoulders</button>
+                      <button type="button" onClick={() => { updateBackX(50.0); updateBackY(26.0); updateBackScale(52); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🎯 Center Back</button>
+                      <button type="button" onClick={() => { updateBackX(50.0); updateBackY(38.0); updateBackScale(42); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬇️ Lower Back</button>
+                    </div>
+                  )}
+
+                  {activeLogoTarget === 'extra' && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
+                      <button type="button" onClick={() => { updateExtraX(18.0); updateExtraY(28.0); updateExtraScale(32); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Sleeve</button>
+                      <button type="button" onClick={() => { updateExtraX(82.0); updateExtraY(28.0); updateExtraScale(32); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Sleeve</button>
+                      <button type="button" onClick={() => { updateExtraX(50.0); updateExtraY(14.0); updateExtraScale(24); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🏷️ Collar / Neck</button>
+                      <button type="button" onClick={() => { updateExtraX(35.0); updateExtraY(52.0); updateExtraScale(28); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👖 Pocket / Hip</button>
+                    </div>
+                  )}
+
+                  {/* Precision 1% Nudge Buttons + Size Controls */}
+                  <div className={`p-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                    }`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                        Nudge 1%:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveY(Math.max(2, Math.round((getActiveY() - 1) * 10) / 10))}
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Move Up 1%"
+                      >
+                        ⬆️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveY(Math.min(98, Math.round((getActiveY() + 1) * 10) / 10))}
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Move Down 1%"
+                      >
+                        ⬇️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveX(Math.max(2, Math.round((getActiveX() - 1) * 10) / 10))}
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Move Left 1%"
+                      >
+                        ⬅️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveX(Math.min(98, Math.round((getActiveX() + 1) * 10) / 10))}
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Move Right 1%"
+                      >
+                        ➡️
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                        Size:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveScale(Math.max(6, getActiveScale() - 2))}
+                        className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Decrease size (-2px)"
+                      >
+                        ➖
+                      </button>
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 min-w-8 text-center">
+                        {`${getActiveScale()}px`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveScale(Math.min(70, getActiveScale() + 2))}
+                        className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        title="Increase size (+2px)"
+                      >
+                        ➕
+                      </button>
+                    </div>
+
+                    <div className="text-[9px] font-mono opacity-60">
+                      X: {getActiveX()}% · Y: {getActiveY()}%
+                    </div>
+                  </div>
+
+                  {/* 3.1 360° Rotation & 3D Edge-On Turn Controls (Rotates on same position) */}
+                  <div className={`p-2.5 rounded-xl border space-y-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                    }`}>
+                    {/* 2D 360° Surface Rotation */}
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] mb-1">
+                        <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                          🔄 360° Surface Rotation:
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-emerald-400 font-bold">
+                            {Math.round(getActiveAngle())}°
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateActiveAngle((getActiveAngle() - 1 + 360) % 360)}
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                            }`}
+                          title="Rotate Left 1°"
+                        >
+                          ↺
+                        </button>
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="1"
+                          value={(Math.round(getActiveAngle()) % 360 + 360) % 360}
+                          onChange={(e) => updateActiveAngle(Number(e.target.value))}
+                          className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateActiveAngle((getActiveAngle() + 1) % 360)}
+                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                            }`}
+                          title="Rotate Right 1°"
+                        >
+                          ↻
+                        </button>
+                      </div>
+                      {/* 360 Quick Presets */}
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap text-[9px]">
+                        <button type="button" onClick={() => updateActiveAngle(0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">0° (Straight)</button>
+                        <button type="button" onClick={() => updateActiveAngle(90)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">90° (Vertical)</button>
+                        <button type="button" onClick={() => updateActiveAngle(180)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">180° (Inverted / Ulta)</button>
+                        <button type="button" onClick={() => updateActiveAngle(270)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">270° (Vertical 2)</button>
+                        <button type="button" onClick={() => updateActiveAngle(360)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">360° (Full Circle)</button>
+                      </div>
+                    </div>
+
+                    {/* 3D Torso Angle / Horizontal Perspective */}
+                    <div className="pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between text-[10px] mb-1">
+                        <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                          📐 3D Horizontal Turn / Edge Perspective:
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold">
+                          {getActivePerspective() === 0 ? 'Straight Line (0%)' : `${getActivePerspective() > 0 ? '+' : ''}${Math.round(getActivePerspective() * 100)}%`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="-1.0"
+                          max="1.0"
+                          step="0.02"
+                          value={getActivePerspective()}
+                          onChange={(e) => updateActivePerspective(Number(e.target.value))}
+                          className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
+                        <button type="button" onClick={() => updateActivePerspective(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Front Facing (+100%)</button>
+                        <button type="button" onClick={() => updateActivePerspective(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
+                        <button type="button" onClick={() => updateActivePerspective(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Flipped Horizontally (-100%)</button>
+                      </div>
+                    </div>
+
+                    {/* 3D Vertical Tilt / Angle */}
+                    <div className="pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between text-[10px] mb-1">
+                        <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                          ↕️ 3D Vertical Tilt / Torso Angle:
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold">
+                          {getActiveTiltY() === 0 ? 'Straight Line (0%)' : `${getActiveTiltY() > 0 ? '+' : ''}${Math.round(getActiveTiltY() * 100)}%`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="-1.0"
+                          max="1.0"
+                          step="0.02"
+                          value={getActiveTiltY()}
+                          onChange={(e) => updateActiveTiltY(Number(e.target.value))}
+                          className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
+                        <button type="button" onClick={() => updateActiveTiltY(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Upright (+100%)</button>
+                        <button type="button" onClick={() => updateActiveTiltY(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
+                        <button type="button" onClick={() => updateActiveTiltY(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Inverted Vertically (-100%)</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className={`text-[9px] italic ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                    💡 Tip: Click and drag any active logo directly on the preview image above to position it.
+                  </p>
+                </div>
+
+                {/* 4. Live Vector Swatch Preview */}
+                <div className={`flex items-center justify-between rounded-xl p-2.5 border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                      <ShivNareshSvgLogo color={getActiveTargetColor()} logoStyle={getActiveTargetStyle()} className="max-h-full max-w-full" />
+                    </div>
+                    <div className="text-[10px]">
+                      <p className="font-bold text-white/90">
+                        {activeLogoTarget.toUpperCase()} Slot: {getActiveTargetStyle().toUpperCase()} ({getActiveTargetColor()})
+                      </p>
+                      <p className="text-white/50">
+                        Active: {[showHdLogoOverlay && 'Chest', showPantLogo && 'Lower', showBackLogo && 'Back', showExtraLogo && 'Extra'].filter(Boolean).join(' + ') || 'None'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className="opacity-60 font-mono">
+                      {`${getActiveScale()}px`}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* ============= COLOR SWAP & PALETTE STUDIO ============= */}
-      {pageView === 'color-swap' && (
-        <ColorSwapStudio
-          userGenerations={userGenerations}
-          isLight={isLight}
-          onSaveToMySets={async (dataUrl, folder, title) => {
-            try {
-              await api.saveUserGeneration({
-                url: dataUrl,
-                highResUrl: dataUrl,
-                folder,
-                isEdited: true,
-                title: title || `Color Variant (${folder})`,
-              });
-              loadUserGenerations();
-            } catch (err: any) {
-              setError('Failed to save color variant: ' + (err?.message || err));
-            }
-          }}
-          onRefreshGenerations={loadUserGenerations}
-          setError={(msg) => setError(msg || '')}
-        />
-      )}
-
-      {/* ============= MY SETS VIEW ============= */}
-      {pageView === 'my-sets' && (
-        <MySetsPanel
-          uploadSets={uploadSets}
-          loadingSets={loadingSets}
-          generations={userGenerations}
-          loadingGenerations={loadingGenerations}
-          setError={setError}
-          onUseSet={handleUseSet}
-          onDeleteSet={(id) => setUploadSets((prev) => prev.filter((s) => s.id !== id))}
-          onReorderSets={(ordered) => setUploadSets(ordered)}
-          refreshSets={loadUploadSets}
-          refreshGenerations={loadUserGenerations}
-          onAddGenerations={(newItems) => {
-            setUserGenerations((prev) => {
-              const newIds = new Set(newItems.map((n) => n.id));
-              return [...newItems, ...prev.filter((p) => !newIds.has(p.id))];
-            });
-          }}
-          onDeleteGeneration={(id) => setUserGenerations((prev) => prev.filter((g) => g.id !== id))}
-          onMoveFolder={async (id, folder) => {
-            const now = Date.now();
-            setUserGenerations((prev) =>
-              prev.map((g) => (g.id === id ? { ...g, folder, folderMovedAt: now, updatedAt: now } : g))
-            );
-            try {
-              await api.updateUserGeneration(id, { folder, folderMovedAt: now, updatedAt: now } as any);
-            } catch (err: any) {
-              console.warn('[moveGenFolder] Failed:', err?.message);
-            }
-          }}
-          onBatchMoveFolder={async (ids, folder) => {
-            const baseNow = Date.now();
-            const idTimes = new Map<string, number>();
-            ids.forEach((id, idx) => {
-              idTimes.set(id, baseNow + (ids.length - idx) * 10);
-            });
-            setUserGenerations((prev) =>
-              prev.map((g) => (idTimes.has(g.id) ? { ...g, folder, folderMovedAt: idTimes.get(g.id), updatedAt: baseNow } : g))
-            );
-            try {
-              await api.batchUpdateGenerationsFolder(ids, folder);
-            } catch (err: any) {
-              console.warn('[batchMoveFolder] API fallback:', err?.message);
-              await Promise.allSettled(ids.map((id) => api.updateUserGeneration(id, { folder, folderMovedAt: idTimes.get(id) || baseNow, updatedAt: baseNow } as any)));
-            }
-          }}
-          onZoomCrop={(url, title) => {
-            setZoomCropImage(url);
-            setZoomCropTitle(title);
-            setShowZoomCropModal(true);
-          }}
-          onAddLogo={(gen) => {
-            const targetUrl = getBestGenUrl(gen);
-            if (!targetUrl) return;
-            setResult(targetUrl);
-            setCleanResultBackup(targetUrl);
-            setActiveRenderOption('b');
-            setShowHdLogoOverlay(true);
-            setShowPantLogo(true);
-            setIsEraseMode(false);
-            setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
-            setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
-            autoDetectContrastColor(targetUrl);
-            currentEditGenIdRef.current = gen.id;
-            setIsOptionBDirty(true);
-            setPageView('studio');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onEditLogo={(gen) => {
-            const targetUrl = getBestGenUrl(gen);
-            if (!targetUrl) return;
-            setResult(targetUrl);
-            setCleanResultBackup(targetUrl);
-            setMode('removelogo');
-            setIsEraseMode(true);
-            setEraseBox(null);
-            setEraseBoxes([]);
-            setRubStrokes([]);
-            setActiveRenderOption('a');
-            setShowHdLogoOverlay(false);
-            setShowPantLogo(false);
-            setIsOptionBDirty(false);
-            currentEditGenIdRef.current = gen.id;
-            setPageView('studio');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onBatchAddLogo={handleBatchAddLogo}
-          onRenameGeneration={handleRenameGeneration}
-          onBatchRenameGenerations={handleBatchRenameGenerations}
-          onSendToDescription={handleSendToDescription}
-          isBatchBranding={isBatchBranding}
-          batchBrandProgress={batchBrandProgress}
-          isLight={isLight}
-        />
-      )}
-
-      {/* ============= CUSTOM REQUESTS & DELIVERIES VIEW ============= */}
-      {(pageView === 'custom-requests' || pageView === 'deliveries') && (
-        <CustomRequestsPanel
-          requests={customRequests}
-          loading={loadingRequests}
-          initialTab={pageView === 'deliveries' ? 'receive' : 'send'}
-          onRefresh={() => {
-            void loadCustomRequests();
-            void loadDeliveriesUnread();
-            api.me().then((res) => { if (res.user) setUser(res.user); }).catch(() => { });
-          }}
-          creditsLocked={isLocked}
-          customRequestsLocked={
-            !(user?.tier === 'ultra' || user?.features?.customRequests === true)
-          }
-          isLight={isLight}
-          onUnreadCleared={() => setDeliveriesUnreadCount(0)}
-          onUseAsset={(url, role) => {
-            if (role === 'model') {
-              setModel({ url, name: 'Received Model Asset' });
-            } else {
-              setCloth({ url, name: 'Received Garment Asset' });
-            }
-            setPageView('studio');
-          }}
-        />
-      )}
-
-      {/* ============= AI DESCRIPTION STUDIO VIEW ============= */}
-      {pageView === 'description' && (
-        <DescriptionStudio
-          user={user}
-          isLight={isLight}
-          userGenerations={userGenerations}
-          preselectedImages={descriptionPreselectedImages}
-          onClearPreselected={() => setDescriptionPreselectedImages([])}
-        />
-      )}
-
-      {/* ============= VIDEO VIEW ============= */}
-      {pageView === 'video' && (
-        <VideoStudioPanel
-          user={user}
-          setUser={setUser}
-          isLight={isLight}
-          isGlobalBusy={isGlobalBusy}
-          setIsGlobalBusy={setVideoBusy}
-          onGenerationSaved={(gen) => setUserGenerations((prev) => [gen, ...prev.filter((g) => g.id !== gen.id)])}
-        />
-      )}
-
-      {/* ============= SPLIT COMPARE VIEW ============= */}
-      {pageView === 'compare' && (
-        <CompareStudio
-          cloth={cloth}
-          selectedClothes={selectedClothes}
-          classifiedGarments={classifiedGarments}
-          previousGarments={previousGarmentsList}
-          userGenerations={userGenerations}
-          fivePoseItems={fivePoseItems}
-          isLight={isLight}
-          onClose={() => setPageView('studio')}
-          onSetCloth={setCloth}
-        />
-      )}
-
-      {/* ============= WATERMARK REMOVER VIEW ============= */}
-      {pageView === 'watermark' && (
-        <div className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
-          <WatermarkRemoverContent user={user} isLight={isLight} />
-        </div>
-      )}
-
-      {/* ============= STUDIO VIEW ============= */}
-      {pageView === 'studio' && (
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_400px]">
-          {/* Main Controls Form */}
-          <section className="space-y-6">
-            <div>
-              <h1 className={`text-2xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Virtual Try-On Studio</h1>
-              <p className={`mt-1 text-xs ${isLight ? 'text-slate-800' : 'text-white/50'}`}>
-                Fit your garments onto studio models or swap outfits seamlessly.
-              </p>
-            </div>
-
-            {/* Mode Selector */}
-            <div className="flex flex-wrap gap-2">
-              {MODES.map((m) => {
-                const active = mode === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setMode(m.id)}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-all ${active
-                      ? isLight
-                        ? 'bg-[#78a48b] text-slate-900 font-bold shadow-md ring-1 ring-[#6b997e]'
-                        : 'bg-white text-gray-900 shadow-md ring-1 ring-white'
-                      : isLight
-                        ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-                        : 'border border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30 hover:text-white'
-                      }`}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Resolution / Quality & 5-Pose Mode Pickers */}
-            <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'
-              }`}>
-              <div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-900' : 'text-white/40'}`}>
-                  Render Quality
-                </span>
-                <div className={`inline-flex rounded-full border p-1 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/15 bg-black/40'}`}>
-                  <button
-                    type="button"
-                    onClick={() => setQuality('1k')}
-                    className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${quality === '1k'
-                      ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                      : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                      }`}
-                  >
-                    1K Standard
-                  </button>
-                  {isUltraUser ? (
+          {/* MAIN CONTROLS: REMOVE/REPLACE LOGO, MODEL SWAP, OR TRY-ON */}
+          {mode === 'removelogo' ? (
+            <div className="space-y-4">
+              {/* 1. Image Selection / Upload */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    1 · Choose Image to Clean or Brand
+                  </span>
+                  {result && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (quality === '1k') {
-                          setShow2kConfirmModal(true);
-                        }
+                        setResult(null);
+                        setCleanResultBackup(null);
+                        setEraseBox(null);
+                        setEraseBoxes([]);
                       }}
-                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 ${quality === '2k'
-                        ? isLight ? 'bg-white text-slate-900 font-bold shadow-sm' : 'bg-white text-gray-900'
-                        : isLight ? 'text-slate-800 hover:text-slate-950 font-medium' : 'text-white/60 hover:text-white'
-                        }`}
-                      title="Switch to 2K Ultra HD (3 Credits per generation)"
+                      className={`text-[11px] font-semibold cursor-pointer ${isLight ? 'text-rose-600 hover:text-rose-800' : 'text-rose-400 hover:text-rose-300'}`}
                     >
-                      <span>2K Ultra HD</span>
-                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold border ${isLight ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                        }`}>
-                        Ultra
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowTierLockModal(true)}
-                      className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5 opacity-60 hover:opacity-100 ${
-                        isLight ? 'text-slate-600 hover:text-slate-900' : 'text-white/50 hover:text-white'
-                      }`}
-                      title="2K Ultra HD locked (Requires Ultra Tier)"
-                    >
-                      <Lock className="h-3 w-3 text-amber-400" />
-                      <span>2K Ultra HD</span>
-                      <span className="rounded-full px-1.5 py-0.2 text-[9px] font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                        Locked
-                      </span>
+                      Clear Image
                     </button>
                   )}
                 </div>
+
+                <input
+                  ref={eraseUploadInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleFileUploadForEraser(f);
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => eraseUploadInputRef.current?.click()}
+                  className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition cursor-pointer ${isLight
+                      ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                      : 'border-white/15 bg-white/[0.01] hover:border-white/35 hover:bg-white/[0.03]'
+                    }`}
+                >
+                  <div className="grid h-16 w-14 place-items-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                    <Eraser className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      Upload Garment or Model Render
+                    </p>
+                    <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                      PNG, JPG, WebP from your device &middot; Cleanly inpaint logos with zero quality loss
+                    </p>
+                  </div>
+                </button>
+
+                {/* Past Renders Picker from My Sets */}
+                {userGenerations.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                        Or pick directly from My Sets ({userGenerations.length} available):
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {userGenerations.length > 18 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllMySetsInEraser(!showAllMySetsInEraser)}
+                            className="text-[10px] font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                          >
+                            {showAllMySetsInEraser ? 'Show Recent' : `Show All (${userGenerations.length})`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPageView('my-sets')}
+                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-0.5 cursor-pointer"
+                          title="Go to full My Sets production gallery"
+                        >
+                          <span>Open My Sets</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {userGenerations.length > 6 && (
+                      <div className="mb-2.5">
+                        <input
+                          type="text"
+                          value={eraseSearchQuery}
+                          onChange={(e) => setEraseSearchQuery(e.target.value)}
+                          placeholder="🔍 Filter My Sets by prompt or date…"
+                          className={`w-full rounded-lg border px-2.5 py-1 text-xs focus:outline-none transition ${isLight
+                              ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-amber-500'
+                              : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50'
+                            }`}
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-56 overflow-y-auto pr-1">
+                      {(showAllMySetsInEraser ? userGenerations : userGenerations.slice(0, 18))
+                        .filter((gen) => {
+                          if (!eraseSearchQuery.trim()) return true;
+                          const q = eraseSearchQuery.toLowerCase();
+                          return (gen.prompt && gen.prompt.toLowerCase().includes(q)) || (gen.id && gen.id.includes(q));
+                        })
+                        .map((gen) => {
+                          const targetUrl = gen.outputUrl || gen.url || gen.highResUrl;
+                          if (!targetUrl) return null;
+                          const isSelected = result === targetUrl;
+                          return (
+                            <button
+                              key={gen.id}
+                              type="button"
+                              onClick={() => handleLoadImageForEraser(targetUrl)}
+                              className={`group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all cursor-pointer ${isSelected
+                                  ? 'border-amber-400 ring-2 ring-amber-400 shadow-md'
+                                  : isLight ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/40'
+                                }`}
+                              title={gen.prompt || 'Load into Logo Eraser'}
+                            >
+                              <img
+                                src={resolveImageUrl(targetUrl)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                                  <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded shadow">Active</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Eraser Instructions & Quick Actions */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                  2 · How to Select & Erase Logos on Canvas
+                </span>
+                <div className={`text-xs space-y-1.5 leading-relaxed ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
+                  <p className="flex items-start gap-2">
+                    <span className="text-amber-400 font-bold">①</span>
+                    <span>Choose <strong>Brush (Rub)</strong> or <strong>Area (Canva)</strong> mode from the bottom toolbar.</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="text-amber-400 font-bold">②</span>
+                    <span>Rub directly or drag a bounding box tightly over the unwanted logo or text.</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="text-amber-400 font-bold">③</span>
+                    <span>Click <strong>"Erase Logo"</strong> to blend seamlessly with surrounding fabric weave.</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">④</span>
+                    <span>Or click <strong>"Erase & Snap HD Vector"</strong> to place crisp vector branding at auto-detected scale.</span>
+                  </p>
+                </div>
+
+                {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
+                  <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={isErasing}
+                      onClick={() => handleExecuteErase(false)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Eraser className="w-3.5 h-3.5" />
+                      <span>{isErasing ? 'Erasing…' : eraseBoxes.length > 1 ? `Erase All (${eraseBoxes.length} Areas)` : eraseTool === 'brush' ? 'Erase Rubbed Logo' : 'Erase Logo Area'}</span>
+                    </button>
+                    {(() => {
+                      const curRect = getImageElementRect();
+                      const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
+                      const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
+                      return (
+                        <button
+                          type="button"
+                          disabled={isErasing}
+                          onClick={() => handleExecuteErase(true)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          title={`Erase and snap HD vector brand with auto-detected scale (${autoScalePx}px)`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                        </button>
+                      );
+                    })()}
+                    <button
+                      type="button"
+                      onClick={handleClearStrokes}
+                      className="px-2.5 py-1.5 rounded-lg border border-white/20 text-white/70 hover:text-white text-xs transition cursor-pointer"
+                    >
+                      Clear Rub
+                    </button>
+                  </div>
+                )}
+
+                {eraseUndoStack.length > 0 && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUndoErase}
+                      className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-semibold cursor-pointer"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      <span>Undo Last Erase ({eraseUndoStack.length} in history)</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleSaveToMySets()}
+                      className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                      title="Permanently save current erased image to My Sets"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
+                    </button>
+                    {autoSaveStatus && (
+                      <p className="text-[11px] font-semibold text-emerald-400 text-center py-1 bg-emerald-950/40 rounded-lg border border-emerald-500/30">
+                        ✓ {autoSaveStatus}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. HD Vector Brand Overlay Settings */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    3 · HD Vector Logo Branding
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextVal = !showHdLogoOverlay;
+                      setShowHdLogoOverlay(nextVal);
+                      if (nextVal) {
+                        setActiveRenderOption('b');
+                        setIsEraseMode(false);
+                        setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+                      }
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer ${showHdLogoOverlay
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-white/10 text-white/40 border-white/10'
+                      }`}
+                  >
+                    {showHdLogoOverlay ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+
+                {showHdLogoOverlay && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveLogoTarget('chest')}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${activeLogoTarget === 'chest'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                            : 'border-white/10 text-white/60 hover:text-white'
+                          }`}
+                      >
+                        Chest Logo ({hdLogoScale}px)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveLogoTarget('pant');
+                          setShowPantLogo(true);
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${activeLogoTarget === 'pant'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                            : 'border-white/10 text-white/60 hover:text-white'
+                          }`}
+                      >
+                        Pant Logo ({pantLogoScale}px)
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center text-[11px] opacity-70 mb-1">
+                        <span>Logo Size</span>
+                        <div className="flex items-center gap-2">
+                          {lastErasedSpecRef.current && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (lastErasedSpecRef.current) {
+                                  if (activeLogoTarget === 'chest') updateChestScale(lastErasedSpecRef.current.scale);
+                                  else updatePantScale(lastErasedSpecRef.current.scale);
+                                }
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500 hover:text-black transition cursor-pointer"
+                              title="Auto-deduce exact size from erased logo box"
+                            >
+                              🎯 Auto-Fit ({lastErasedSpecRef.current.scale}px)
+                            </button>
+                          )}
+                          <span className="font-mono font-bold text-white">{activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}px</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="6"
+                        max="70"
+                        value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (activeLogoTarget === 'chest') updateChestScale(val);
+                          else updatePantScale(val);
+                        }}
+                        className="w-full accent-emerald-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] opacity-70 block mb-1.5">Logo Color</span>
+                      <div className="flex items-center gap-2">
+                        {['#ffffff', '#111111', '#ffd700', '#0047ab', '#e5373f'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setHdLogoColor(c)}
+                            style={{ backgroundColor: c }}
+                            className={`w-6 h-6 rounded-full border-2 transition cursor-pointer ${hdLogoColor.toLowerCase() === c.toLowerCase()
+                                ? 'border-emerald-400 scale-110 shadow-md'
+                                : 'border-white/20 hover:scale-105'
+                              }`}
+                            title={c}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          value={hdLogoColor}
+                          onChange={(e) => setHdLogoColor(e.target.value)}
+                          className="w-6 h-6 rounded-full border-0 p-0 cursor-pointer bg-transparent"
+                          title="Custom Color"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+          ) : mode === 'swap' ? (
+            <>
+              {/* Multi-Swap Drafts Bar (up to 5 simultaneous swaps) */}
+              <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      Model Swap Drafts (Up to 5 Simultaneous Swaps)
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${validSwapDrafts.length > 0
+                      ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
+                      }`}>
+                      {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  {swapDrafts.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={addSwapDraft}
+                      className="rounded-full border border-dashed border-[#e5373f] bg-[#e5373f]/10 px-3 py-1 text-[11px] font-bold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition"
+                    >
+                      + Add Draft ({swapDrafts.length + 1}/5)
+                    </button>
+                  )}
+                </div>
 
-            {/* Official Shiv-Naresh HD Vector Branding Engine Setup Card */}
-            <div id="branding-engine-selector" className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-emerald-500/20 bg-emerald-950/10'}`}>
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
-                    <span>✨ Shiv-Naresh HD Vector Branding Engine</span>
+                {/* Draft Selection Tabs */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {swapDrafts.map((draft, idx) => {
+                    const isActive = activeSwapDraftIndex === idx;
+                    const isComplete = Boolean(draft.source?.url && draft.target?.url);
+                    return (
+                      <div
+                        key={draft.id}
+                        className={`inline-flex items-center rounded-xl border p-1 transition-all ${isActive
+                          ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
+                          : isComplete
+                            ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
+                            : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
+                          }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => switchSwapDraft(idx)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold"
+                        >
+                          <span className={isActive ? 'text-[#e5373f] font-bold' : isLight ? 'text-gray-800' : 'text-white'}>
+                            Draft {idx + 1}
+                          </span>
+                          {isComplete && <span className="text-[10px] text-emerald-500 font-bold">✓</span>}
+                        </button>
+                        {swapDrafts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSwapDraft(idx);
+                            }}
+                            className="p-1 rounded-full text-red-400 hover:text-red-500 hover:bg-red-500/20"
+                            title="Delete this draft"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className={`mt-2.5 text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                  Configure up to 5 model swaps. When you press Generate, all ready drafts render together (1 credit each for 1K).
+                </p>
+              </div>
+
+              {/* SLOT 1: Kis Model ko change karna hai (Source Model / Original Outfit) */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      1 &middot; Kis Model ko change karna hai (Draft {activeSwapDraftIndex + 1})
+                    </h2>
+                    <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                      Upload the photo/model whose body or outfit you want to keep while replacing the model/face
+                    </p>
+                  </div>
+                  {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) && (
+                    <button
+                      type="button"
+                      onClick={() => selectSwapSource(null)}
+                      className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-rose-400 hover:text-rose-300'}`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={swapSourceInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const { dataUrl } = await compressImageForUpload(file);
+                    selectSwapSource({ url: dataUrl, name: file.name });
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => swapSourceInput.current?.click()}
+                  className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${isLight
+                    ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                    : 'border-white/15 hover:border-white/35'
+                    }`}
+                >
+                  {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
+                    <img
+                      src={(swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.url}
+                      alt="Source Model"
+                      className="h-20 w-16 rounded-lg object-cover border-2 border-[#e5373f]"
+                    />
+                  ) : (
+                    <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
+                  )}
+                  <span className="text-sm">
+                    <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {(swapDrafts[activeSwapDraftIndex]?.source || swapSource)
+                        ? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.name
+                        : `Choose Source Model for Draft ${activeSwapDraftIndex + 1}`}
+                    </span>
+                    <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                      PNG, JPEG or WEBP &middot; Click to browse or replace photo
+                    </span>
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
-                    activeRenderOption
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                      : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-black animate-pulse'
-                  }`}>
-                    {activeRenderOption === 'a' ? 'Option A Active' : activeRenderOption === 'b' ? 'Option B Active' : '⚠️ Mandatory: Select Option A or B'}
-                  </span>
+                </button>
+              </div>
+
+              {/* SLOT 2: Kis Model ke sath change karna hai (Target Model / Persona) */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      2 &middot; Kis Model ke sath change karna hai (Draft {activeSwapDraftIndex + 1})
+                    </h2>
+                    <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                      Choose from library or upload the new model / face persona to swap in
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
+                    <button
+                      type="button"
+                      onClick={() => setSwapTab('library')}
+                      className={swapTab === 'library' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                    >
+                      Library
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSwapTab('uploads')}
+                      className={swapTab === 'uploads' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                    >
+                      Uploads
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => swapTargetInput.current?.click()}
+                      className="text-[#e5373f] hover:underline font-semibold"
+                    >
+                      + Upload Target
+                    </button>
+                  </div>
+                </div>
+                <input
+                  ref={swapTargetInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const { dataUrl } = await compressImageForUpload(file);
+                    selectSwapTarget({ url: dataUrl, name: file.name });
+                  }}
+                />
+
+                {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget) && (
+                  <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.url}
+                        alt="Target Model"
+                        className="h-14 w-11 rounded-md object-cover border-2 border-[#e5373f]"
+                      />
+                      <div className="text-xs">
+                        <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                          Target Model Persona (Draft {activeSwapDraftIndex + 1})
+                        </p>
+                        <p className={isLight ? 'text-gray-500' : 'text-white/40'}>
+                          {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.name}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => selectSwapTarget(null)}
+                      className={`text-xs px-2.5 py-1 rounded-lg ${isLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-400 hover:bg-rose-950/40'}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-4 max-h-[360px] overflow-y-auto pr-1">
+                  {swapTab === 'library' && (
+                    <>
+                      <SeasonDockFilter
+                        tabs={modelCategoryTabs}
+                        selectedId={modelCategoryFilter}
+                        onSelect={setModelCategoryFilter}
+                        isLight={isLight}
+                        variant="swap"
+                      />
+
+                      {filteredCategories.length === 0 ? (
+                        <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                          }`}>
+                          No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
+                        </div>
+                      ) : (
+                        filteredCategories.map((group) => (
+                          <div key={group.category} className="mb-4">
+                            <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
+                            <div className="grid grid-cols-6 gap-2">
+                              {group.items.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
+                                  className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                                    ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
+                                    : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                    }`}
+                                >
+                                  <img
+                                    src={item.url}
+                                    alt={item.name}
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      const el = e.currentTarget;
+                                      if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
+                                        el.src = `/models/${encodeURIComponent(item.id)}`;
+                                      } else {
+                                        const parent = el.closest('button, div');
+                                        if (parent) (parent as HTMLElement).style.display = 'none';
+                                      }
+                                    }}
+                                    className="aspect-[3/4] w-full object-cover"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
+
+                  {swapTab === 'uploads' &&
+                    ((previousModelsList.length > 0 || uploads.length > 0) ? (
+                      <div className="grid grid-cols-6 gap-2">
+                        {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => (
+                          <button
+                            key={item.url || idx}
+                            type="button"
+                            onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
+                            className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
+                              ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                              : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                              }`}
+                          >
+                            <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>
+                    ))}
                 </div>
               </div>
 
-              {/* 2 Big Mode Selector Cards: Option A vs Option B */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveRenderOption('a');
-                    setShowHdLogoOverlay(false);
-                    setShowPantLogo(false);
-                    setShowBackLogo(false);
-                    setShowExtraLogo(false);
+              {/* SLOT 3: Instructions */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                    3 &middot; Swap Instructions (Optional)
+                  </h2>
+                </div>
+                <textarea
+                  value={swapPrompt}
+                  onChange={(e) => {
+                    setSwapPrompt(e.target.value);
+                    setSwapDrafts((prev) =>
+                      prev.map((d, i) => (i === activeSwapDraftIndex ? { ...d, prompt: e.target.value } : d))
+                    );
                   }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    activeRenderOption === 'a'
-                      ? isLight
-                        ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
-                        : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
-                      : isLight
-                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span>👕 Option A: Garment Original Logo</span>
-                    </span>
-                    {activeRenderOption === 'a' && (
-                      <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
-                    )}
-                  </div>
-                  <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-                    Use authentic logo from reference photos. Zero duplicates, natural fabric drape.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveRenderOption('b');
-                    setShowHdLogoOverlay(true);
-                    setShowPantLogo(true);
-                    setIsEraseMode(false);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    activeRenderOption === 'b'
-                      ? isLight
-                        ? 'border-gray-900 bg-gray-50 ring-1 ring-gray-900 shadow-xs'
-                        : 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500/60 shadow-xs'
-                      : isLight
-                      ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                      : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-white/70'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span>✨ Option B: Vector Replace (Any Logo / Any Slot)</span>
-                    </span>
-                    {activeRenderOption === 'b' && (
-                      <span className="text-[9px] font-bold text-emerald-400">✓ Active</span>
-                    )}
-                  </div>
-                  <p className={`text-[10px] leading-tight ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-                    100% crisp HD vector branding. Select any of 3 logos for chest, lower, back, or extra.
-                  </p>
-                </button>
+                  rows={3}
+                  placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
+                  className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
+                    ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                    : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
+                    }`}
+                />
               </div>
+            </>
+          ) : (
+            <>
+              {/* Smart Garment Upload Block */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    void handleMultipleFiles(e.dataTransfer.files, 'cloth');
+                  }
+                }}
+                className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                    1 · Garments
+                  </h2>
+                  {(classifiedGarments.length > 0 || cloth) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCloth(null);
+                        setSelectedClothes([]);
+                        setClassifiedGarments([]);
+                      }}
+                      className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
 
-              {(isAnyLogoActive || activeRenderOption === 'b') && (
-                <div className="space-y-3.5 pt-1">
-                  {/* Target Placement Combo Presets */}
-                  <div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider block mb-1.5 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                      Placement Presets (Chest, Lower, Back, Extra):
+                {/* Try-On Target Selector */}
+                <div id="tryon-target-selector" className="mt-4 mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                      Try-On Outfit Target
+                    </p>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${tryOnTarget === 'both'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                        : tryOnTarget === 'lower'
+                          ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+                          : tryOnTarget === 'upper'
+                            ? 'border-purple-500/30 bg-purple-500/10 text-purple-400'
+                            : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-bold animate-pulse'
+                      }`}>
+                      {tryOnTarget === 'both' ? '🥋 Full Outfit Selected' : tryOnTarget === 'lower' ? '👖 Lower (Pants) Selected' : tryOnTarget === 'upper' ? '👕 Upper Only Selected' : '⚠️ Mandatory: Select Outfit Target'}
                     </span>
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  </div>
+                  <div className={`inline-flex rounded-xl border p-1 w-full ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/40'}`}>
+                    {([
+                      { id: 'both', label: '🥋 Full Outfit', hint: 'Top + Bottom (Jacket + Pants together)' },
+                      { id: 'upper', label: '👕 Upper Only', hint: 'Jacket, shirt, hoodie' },
+                      { id: 'lower', label: '👖 Lower Only', hint: 'Pants, shorts' },
+                    ] as { id: TryOnTarget; label: string; hint: string }[]).map((opt) => (
                       <button
+                        key={opt.id}
                         type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(true);
-                          setShowBackLogo(false);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('chest');
-                          updateChestX(43.5); updateChestY(20.5); updateChestScale(24);
-                          updatePantX(63); updatePantY(61); updatePantScale(20);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
+                        onClick={() => handleSetTryOnTarget(opt.id)}
+                        title={opt.hint}
+                        className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center cursor-pointer ${tryOnTarget === opt.id
+                          ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
+                          : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
+                          }`}
                       >
-                        🥋 Both (Chest + Lower)
+                        {opt.label}
                       </button>
+                    ))}
+                  </div>
+                  {tryOnTarget === 'upper' && bottomGarment && (
+                    <div className="mt-2 rounded-lg p-2 bg-amber-500/15 border border-amber-500/30 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-amber-300 font-medium">
+                        <span>⚠️</span>
+                        <span>Pants uploaded, but Target is "Upper Only".</span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(false);
-                          setShowBackLogo(false);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('chest');
-                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          showHdLogoOverlay && !showPantLogo && !showBackLogo && !showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
+                        onClick={() => handleSetTryOnTarget('both')}
+                        className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black hover:bg-amber-400 shrink-0 cursor-pointer"
                       >
-                        👕 Only Chest
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(false);
-                          setShowPantLogo(true);
-                          setShowBackLogo(false);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('pant');
-                          updatePantX(63); updatePantY(61); updatePantScale(18);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          !showHdLogoOverlay && showPantLogo && !showBackLogo && !showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        👖 Only Lower (Pant)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(false);
-                          setShowPantLogo(false);
-                          setShowBackLogo(true);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('back');
-                          updateBackX(50); updateBackY(26); updateBackScale(56);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          !showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        🎒 Only Back
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(false);
-                          setShowBackLogo(true);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('chest');
-                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
-                          updateBackX(50); updateBackY(26); updateBackScale(56);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          showHdLogoOverlay && !showPantLogo && showBackLogo && !showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        👕+🎒 Chest & Back
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(true);
-                          setShowBackLogo(true);
-                          setShowExtraLogo(false);
-                          setActiveLogoTarget('chest');
-                          updateChestX(43.5); updateChestY(20.5); updateChestScale(22);
-                          updatePantX(63); updatePantY(61); updatePantScale(18);
-                          updateBackX(50); updateBackY(26); updateBackScale(56);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          showHdLogoOverlay && showPantLogo && showBackLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        🥋+🎒 Full Kit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          toggleTarget('extra');
-                          setActiveLogoTarget('extra');
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          showExtraLogo
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        ➕ Extra Logo {showExtraLogo ? '✓' : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(false);
-                          setShowPantLogo(false);
-                          setShowBackLogo(false);
-                          setShowExtraLogo(false);
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-                          !isAnyLogoActive
-                            ? isLight ? 'bg-gray-900 text-white font-bold' : 'bg-white/20 text-white font-bold'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        Off
+                        Switch to Full Outfit
                       </button>
                     </div>
-                  </div>
+                  )}
+                  {tryOnTarget === 'both' && (
+                    <p className={`mt-1.5 text-[10px] leading-relaxed ${isLight ? 'text-blue-700' : 'text-blue-300'}`}>
+                      ✨ Full outfit: upload top + bottom garments. 1 credit per final image (backend chains 2 API calls automatically).
+                    </p>
+                  )}
+                </div>
 
-                  {/* Slot Selector Tabs: Chest | Lower | Back | Extra */}
-                  <div className="space-y-1.5">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider block ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
-                      Selected Logo Slot & Fine-Tuning:
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('chest');
-                          setShowHdLogoOverlay(true);
-                        }}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                          activeLogoTarget === 'chest'
-                            ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
-                            : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span>👕 Chest</span>
-                          <span className={`text-[9px] font-bold ${showHdLogoOverlay ? 'text-emerald-400' : 'opacity-40'}`}>
-                            {showHdLogoOverlay ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-                        <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{chestLogoStyle}</p>
-                      </button>
+                <input
+                  ref={clothInput}
+                  type="file"
+                  multiple
+                  accept="image/*,.png,.jpg,.jpeg,.webp"
+                  className="hidden"
+                  onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                  onChange={(e) => void handleMultipleFiles(e.target.files, 'cloth')}
+                />
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('pant');
-                          setShowPantLogo(true);
-                        }}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                          activeLogoTarget === 'pant'
-                            ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
-                            : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span>👖 Lower</span>
-                          <span className={`text-[9px] font-bold ${showPantLogo ? 'text-emerald-400' : 'opacity-40'}`}>
-                            {showPantLogo ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-                        <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{pantLogoStyle}</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('back');
-                          setShowBackLogo(true);
-                        }}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                          activeLogoTarget === 'back'
-                            ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
-                            : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span>🎒 Back</span>
-                          <span className={`text-[9px] font-bold ${showBackLogo ? 'text-emerald-400' : 'opacity-40'}`}>
-                            {showBackLogo ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-                        <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{backLogoStyle}</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('extra');
-                          setShowExtraLogo(true);
-                        }}
-                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                          activeLogoTarget === 'extra'
-                            ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500 font-bold'
-                            : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span>➕ Extra</span>
-                          <span className={`text-[9px] font-bold ${showExtraLogo ? 'text-emerald-400' : 'opacity-40'}`}>
-                            {showExtraLogo ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-                        <p className="text-[9px] opacity-60 font-mono mt-0.5 capitalize">{extraLogoStyle}</p>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 1. Logo Style / Variant for the Active Slot */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
-                        Logo Style for {activeLogoTarget.toUpperCase()}:
+                {/* Classified Garments Grid */}
+                {(classifiedGarments.length > 0 || cloth) ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                        {Math.max(classifiedGarments.length, cloth ? 1 : 0)} Garment{Math.max(classifiedGarments.length, cloth ? 1 : 0) > 1 ? 's' : ''} Uploaded · Auto-Classified
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleTarget(activeLogoTarget)}
-                        className="text-[9px] font-semibold text-emerald-400 hover:underline cursor-pointer"
-                      >
-                        {isTargetEnabled(activeLogoTarget) ? 'Turn this slot OFF' : 'Turn this slot ON'}
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('classic')}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                          getActiveTargetStyle() === 'classic'
-                            ? 'bg-emerald-500 text-white shadow-xs'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                        title="Classic Cheetah + Curved SHIV-NARESH Text"
-                      >
-                        <span>🐅 Classic</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('modern')}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                          getActiveTargetStyle() === 'modern'
-                            ? 'bg-emerald-500 text-white shadow-xs'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                        title="Modern Speed-Slash Icon (Negative Space Claw Cuts)"
-                      >
-                        <span>⚡ Speed-Slash</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('embroidered')}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                          getActiveTargetStyle() === 'embroidered'
-                            ? 'bg-emerald-500 text-white shadow-xs'
-                            : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                        title="Authentic Needle & Thread Embroidered Cheetah + Block Lettering (3D Stitch Weave)"
-                      >
-                        <span>🧵 Embroidered</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Color Selection for Active Slot */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
-                          Color for {activeLogoTarget.toUpperCase()} (16.7M Colors)
-                        </span>
                         <button
                           type="button"
-                          onClick={() => autoDetectContrastColor()}
-                          className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer"
-                          title="Automatically detect high-contrast color from garment fabric"
+                          onClick={() => {
+                            setShowPhotoTour(true);
+                            setTourStep(0);
+                          }}
+                          className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
+                          title="Review garment photography guidelines"
                         >
-                          <span>🤖 Auto Match Fabric</span>
-                        </button>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400 font-bold">{getActiveTargetColor()}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {BRAND_COLOR_PRESETS.map((p) => (
-                          <button
-                            key={p.hex}
-                            type="button"
-                            onClick={() => setActiveTargetColor(p.hex)}
-                            title={`${p.name} (${p.hex})`}
-                            className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
-                              getActiveTargetColor().toLowerCase() === p.hex.toLowerCase()
-                                ? 'ring-2 ring-emerald-500 scale-110 border-white'
-                                : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
-                            }`}
-                            style={{ backgroundColor: p.hex }}
-                          />
-                        ))}
-                      </div>
-
-                      {/* Native Color Wheel + Hex input */}
-                      <div className={`flex items-center gap-1.5 border rounded-full px-2.5 py-0.5 ${isLight ? 'border-gray-300 bg-gray-50' : 'border-emerald-500/30 bg-black/40'}`}>
-                        <input
-                          type="color"
-                          value={getActiveTargetColor().startsWith('#') && getActiveTargetColor().length === 7 ? getActiveTargetColor() : '#ffffff'}
-                          onChange={(e) => setActiveTargetColor(e.target.value)}
-                          className="w-4 h-4 rounded-full cursor-pointer border-0 bg-transparent p-0"
-                          title="Click for full 16.7M Color Wheel + Browser Eyedropper"
-                        />
-                        <input
-                          type="text"
-                          value={getActiveTargetColor()}
-                          onChange={(e) => setActiveTargetColor(e.target.value)}
-                          placeholder="#ffffff"
-                          className={`w-16 bg-transparent text-[10px] font-mono outline-none ${isLight ? 'text-gray-800' : 'text-white'}`}
-                          maxLength={7}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. Positioning & Calibration for Active Slot */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/60'}`}>
-                        {activeLogoTarget.toUpperCase()} Position Presets:
-                      </span>
-                    </div>
-
-                    {/* Presets by Slot */}
-                    {activeLogoTarget === 'chest' && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                        <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
-                        <button type="button" onClick={() => { updateChestX(43.5); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Chest</button>
-                        <button type="button" onClick={() => { updateChestX(50.0); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🎯 Center Chest</button>
-                        <button type="button" onClick={() => { updateChestX(58.5); updateChestY(20.5); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Chest</button>
-                        <button type="button" onClick={() => updateChestY(17.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ Collar High</button>
-                      </div>
-                    )}
-
-                    {activeLogoTarget === 'pant' && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                        <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
-                        <button type="button" onClick={() => { updatePantX(63.0); updatePantY(61.0); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Thigh</button>
-                        <button type="button" onClick={() => { updatePantX(37.0); updatePantY(61.0); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Thigh</button>
-                        <button type="button" onClick={() => updatePantY(55.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ High Thigh</button>
-                        <button type="button" onClick={() => updatePantY(68.0)} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬇️ Lower Thigh</button>
-                      </div>
-                    )}
-
-                    {activeLogoTarget === 'back' && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                        <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
-                        <button type="button" onClick={() => { updateBackX(50.0); updateBackY(18.0); updateBackScale(60); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬆️ Across Shoulders</button>
-                        <button type="button" onClick={() => { updateBackX(50.0); updateBackY(26.0); updateBackScale(52); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🎯 Center Back</button>
-                        <button type="button" onClick={() => { updateBackX(50.0); updateBackY(38.0); updateBackScale(42); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">⬇️ Lower Back</button>
-                      </div>
-                    )}
-
-                    {activeLogoTarget === 'extra' && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                        <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>Spot:</span>
-                        <button type="button" onClick={() => { updateExtraX(18.0); updateExtraY(28.0); updateExtraScale(32); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👈 Left Sleeve</button>
-                        <button type="button" onClick={() => { updateExtraX(82.0); updateExtraY(28.0); updateExtraScale(32); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👉 Right Sleeve</button>
-                        <button type="button" onClick={() => { updateExtraX(50.0); updateExtraY(14.0); updateExtraScale(24); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🏷️ Collar / Neck</button>
-                        <button type="button" onClick={() => { updateExtraX(35.0); updateExtraY(52.0); updateExtraScale(28); }} className="px-2 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">👖 Pocket / Hip</button>
-                      </div>
-                    )}
-
-                    {/* Precision 1% Nudge Buttons + Size Controls */}
-                    <div className={`p-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 ${
-                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
-                    }`}>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                          Nudge 1%:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveY(Math.max(2, Math.round((getActiveY() - 1) * 10) / 10))}
-                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Move Up 1%"
-                        >
-                          ⬆️
+                          📸 Photo Guidelines Tour
                         </button>
                         <button
                           type="button"
-                          onClick={() => updateActiveY(Math.min(98, Math.round((getActiveY() + 1) * 10) / 10))}
-                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Move Down 1%"
+                          onClick={handleInitiateClothUpload}
+                          disabled={uploading}
+                          className="text-[11px] font-bold text-[#e5373f] hover:underline cursor-pointer"
                         >
-                          ⬇️
+                          + Add More
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveX(Math.max(2, Math.round((getActiveX() - 1) * 10) / 10))}
-                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Move Left 1%"
-                        >
-                          ⬅️
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveX(Math.min(98, Math.round((getActiveX() + 1) * 10) / 10))}
-                          className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Move Right 1%"
-                        >
-                          ➡️
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                          Size:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveScale(Math.max(6, getActiveScale() - 2))}
-                          className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Decrease size (-2px)"
-                        >
-                          ➖
-                        </button>
-                        <span className="text-[10px] font-mono font-bold text-emerald-400 min-w-8 text-center">
-                          {`${getActiveScale()}px`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateActiveScale(Math.min(70, getActiveScale() + 2))}
-                          className={`px-2 h-6 rounded-md border text-[10px] font-bold cursor-pointer ${
-                            isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          title="Increase size (+2px)"
-                        >
-                          ➕
-                        </button>
-                      </div>
-
-                      <div className="text-[9px] font-mono opacity-60">
-                        X: {getActiveX()}% · Y: {getActiveY()}%
                       </div>
                     </div>
 
-                    {/* 3.1 360° Rotation & 3D Edge-On Turn Controls (Rotates on same position) */}
-                    <div className={`p-2.5 rounded-xl border space-y-2.5 ${
-                      isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
-                    }`}>
-                      {/* 2D 360° Surface Rotation */}
-                      <div>
-                        <div className="flex items-center justify-between text-[10px] mb-1">
-                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
-                            🔄 360° Surface Rotation:
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {(classifiedGarments.length > 0 ? classifiedGarments : (cloth ? [{ url: cloth.url, preview: cloth.preview || cloth.url, name: cloth.name, role: 'top-front' as GarmentRole }] : [])).map((garment) => {
+                        return (
+                          <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
+                            }`}>
+                            <div className="aspect-[3/4] relative bg-black/40 rounded-t-xl overflow-hidden">
+                              <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-contain p-1" />
+                              <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openZoomCropForGarment(garment);
+                                  }}
+                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                  title="Zoom & Crop without blur (use this frame for generation)"
+                                >
+                                  <ZoomIn className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const rot = await rotateImage(garment.preview ?? garment.url, 90);
+                                    setClassifiedGarments((prev) =>
+                                      prev.map((g) => (g.url === garment.url ? { ...g, url: rot.dataUrl, preview: rot.dataUrl } : g))
+                                    );
+                                    setSelectedClothes((prev) =>
+                                      prev.map((c) => (c.url === garment.url ? { ...c, url: rot.dataUrl, preview: rot.dataUrl } : c))
+                                    );
+                                    setCloth((prev) => (prev && prev.url === garment.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
+                                  }}
+                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                  title="Rotate 90° clockwise"
+                                >
+                                  <RotateCw className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeClassifiedGarment(garment.url)}
+                                  className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                                  title="Remove"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                            </div>
+                            {/* Role badge + dropdown */}
+                            <div className="p-1.5">
+                              <p className="text-[9px] text-center truncate text-white/70 mb-1">{garment.name}</p>
+                              <select
+                                value={garment.role}
+                                onChange={(e) => updateGarmentRole(garment.url, e.target.value as GarmentRole)}
+                                className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
+                                  }`}
+                                title="Specify garment view angle"
+                              >
+                                <option value="top-front">👕 Top Front</option>
+                                <option value="top-back">🔄 Top Back</option>
+                                <option value="bottom">👖 Bottom</option>
+                                <option value="collar">👔 Collar / Neck</option>
+                                <option value="logo">🔍 Logo / Brand Close-Up</option>
+                                <option value="detail">✨ Fabric / Tag / Detail</option>
+                                <option value="left-sleeve">👈 Left Sleeve</option>
+                                <option value="right-sleeve">👉 Right Sleeve</option>
+                                <option value="left-bottom">🩳 Left Bottom</option>
+                                <option value="right-bottom">🩳 Right Bottom</option>
+                                <option value="custom">✏️ Custom View…</option>
+                              </select>
+                              {garment.role === 'custom' && (
+                                <input
+                                  type="text"
+                                  value={garment.customLabel || ''}
+                                  onChange={(e) => updateGarmentCustomLabel(garment.url, e.target.value)}
+                                  placeholder="e.g. Collar, Pocket"
+                                  className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
+                                    }`}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={handleInitiateClothUpload}
+                        disabled={uploading}
+                        className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          }`}
+                      >
+                        <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                        <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add More</span>
+                        <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/30'}`}>Any order/angle</span>
+                      </button>
+                    </div>
+
+                    {/* Full Outfit Visual Pairing & Quick Swap */}
+                    {tryOnTarget === 'both' && (
+                      <div className={`rounded-2xl border p-3.5 space-y-3 ${isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
+                        }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                            ✨ Full Outfit Pair (1 Credit per Finished Model)
                           </span>
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-emerald-400 font-bold">
-                              {Math.round(getActiveAngle())}°
+                          {classifiedGarments.length >= 2 && (
+                            <button
+                              type="button"
+                              onClick={() => swapTopAndBottomGarments()}
+                              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
+                              title="Swap which image is Top vs Bottom"
+                            >
+                              ⇄ Swap Top & Bottom
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Top Garment Card */}
+                          <div className={`rounded-xl border p-2 flex items-center gap-2.5 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
+                            {topFrontGarment ? (
+                              <>
+                                <img src={topFrontGarment.preview ?? topFrontGarment.url} alt="" className="h-12 w-10 rounded-lg object-cover shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block text-[9px] font-bold uppercase text-emerald-600">👕 Top Garment</span>
+                                  <p className="text-[10px] font-semibold truncate">{topFrontGarment.name}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-[10px] text-amber-500 font-medium p-1">⚠ Upload Top (Jacket/Shirt)</div>
+                            )}
+                          </div>
+
+                          {/* Bottom Garment Card */}
+                          <div className={`rounded-xl border p-2 flex items-center gap-2.5 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
+                            {bottomGarment ? (
+                              <>
+                                <img src={bottomGarment.preview ?? bottomGarment.url} alt="" className="h-12 w-10 rounded-lg object-cover shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block text-[9px] font-bold uppercase text-blue-600">👖 Bottom Garment</span>
+                                  <p className="text-[10px] font-semibold truncate">{bottomGarment.name}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-[10px] text-amber-500 font-medium p-1">⚠ Upload Bottom (Pants)</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className={`text-[10px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
+                          Both garments will be combined onto every selected model automatically.
+                          <br />
+                          💡 <em>Tip for pants: Lay pants out full-length (showing both legs down to ankles) for full trousers rather than shorts.</em>
+                        </p>
+                      </div>
+                    )}
+                    {tryOnTarget === 'upper' && topBackGarment && topBackGarment.url !== topFrontGarment?.url && (
+                      <p className={`text-[10px] ${isLight ? 'text-indigo-700' : 'text-indigo-300'}`}>
+                        🔄 Back photo detected — will auto-use for back-angle poses in 5-Pose Sequence mode.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      void handleMultipleFiles(e.dataTransfer.files, 'cloth');
+                    }}
+                  >
+                    <div className="flex items-center justify-between mt-3 mb-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                        Garment Photos
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPhotoTour(true);
+                          setTourStep(0);
+                        }}
+                        className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
+                        title="Review garment photography guidelines"
+                      >
+                        📸 Photo Guidelines Tour
+                      </button>
+                    </div>
+
+                    {/* Photoshoot Quota & Upload Allowance Info Card */}
+                    {user && (() => {
+                      const totalQuota = user.photoshoots || user.maxModels || 20;
+                      const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
+                      const leftCount = Math.max(0, totalQuota - doneCount);
+                      return (
+                        <div className={`mb-3 rounded-2xl border p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                          }`}>
+                          <div className="flex items-center gap-2.5">
+                            <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+                              <Camera className="w-4 h-4" />
+                            </span>
+                            <div>
+                              <p className="font-bold text-xs leading-tight flex items-center gap-2">
+                                <span>📸 Photoshoot Quota: {leftCount} Left</span>
+                                <span className="text-[10px] font-mono opacity-75">({doneCount} / {totalQuota} Finished)</span>
+                              </p>
+                              <p className="text-[11px] opacity-80 mt-0.5">
+                                <strong>Unlimited Reference Uploads:</strong> You can upload any number of garment photos. Quota is only used when studio renders are generated.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 shrink-0">
+                            {user.tier ? `${user.tier.toUpperCase()} QUOTA` : 'ACTIVE'}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      type="button"
+                      onClick={handleInitiateClothUpload}
+                      disabled={uploading}
+                      className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
+                        }`}
+                    >
+                      {uploading && uploadProgress?.kind === 'cloth' ? (
+                        <div className="flex items-center gap-3 w-full py-1">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent" />
+                          <div>
+                            <span className={`block font-semibold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              Uploading {uploadProgress.current} of {uploadProgress.total} garments...
+                            </span>
+                            <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
+                              Auto-classifying each garment
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateActiveAngle((getActiveAngle() - 1 + 360) % 360)}
-                            className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                              isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                            }`}
-                            title="Rotate Left 1°"
-                          >
-                            ↺
-                          </button>
-                          <input
-                            type="range"
-                            min="0"
-                            max="360"
-                            step="1"
-                            value={(Math.round(getActiveAngle()) % 360 + 360) % 360}
-                            onChange={(e) => updateActiveAngle(Number(e.target.value))}
-                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateActiveAngle((getActiveAngle() + 1) % 360)}
-                            className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs cursor-pointer ${
-                              isLight ? 'bg-white border-gray-300 text-gray-800 hover:bg-gray-100' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                            }`}
-                            title="Rotate Right 1°"
-                          >
-                            ↻
-                          </button>
-                        </div>
-                        {/* 360 Quick Presets */}
-                        <div className="flex items-center gap-1 mt-1.5 flex-wrap text-[9px]">
-                          <button type="button" onClick={() => updateActiveAngle(0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">0° (Straight)</button>
-                          <button type="button" onClick={() => updateActiveAngle(90)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">90° (Vertical)</button>
-                          <button type="button" onClick={() => updateActiveAngle(180)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">180° (Inverted / Ulta)</button>
-                          <button type="button" onClick={() => updateActiveAngle(270)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">270° (Vertical 2)</button>
-                          <button type="button" onClick={() => updateActiveAngle(360)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">360° (Full Circle)</button>
-                        </div>
-                      </div>
-
-                      {/* 3D Torso Angle / Horizontal Perspective */}
-                      <div className="pt-2 border-t border-white/10">
-                        <div className="flex items-center justify-between text-[10px] mb-1">
-                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
-                            📐 3D Horizontal Turn / Edge Perspective:
+                      ) : (
+                        <>
+                          <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
+                          <span className="text-sm">
+                            <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              Upload garment photos (any number, any order)
+                            </span>
+                            <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                              Front, back, top, bottom — upload all photos, system auto-classifies · PNG, JPEG, WEBP
+                            </span>
                           </span>
-                          <span className="font-mono text-emerald-400 font-bold">
-                            {getActivePerspective() === 0 ? 'Straight Line (0%)' : `${getActivePerspective() > 0 ? '+' : ''}${Math.round(getActivePerspective() * 100)}%`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min="-1.0"
-                            max="1.0"
-                            step="0.02"
-                            value={getActivePerspective()}
-                            onChange={(e) => updateActivePerspective(Number(e.target.value))}
-                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
-                          <button type="button" onClick={() => updateActivePerspective(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Front Facing (+100%)</button>
-                          <button type="button" onClick={() => updateActivePerspective(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
-                          <button type="button" onClick={() => updateActivePerspective(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Flipped Horizontally (-100%)</button>
-                        </div>
-                      </div>
-
-                      {/* 3D Vertical Tilt / Angle */}
-                      <div className="pt-2 border-t border-white/10">
-                        <div className="flex items-center justify-between text-[10px] mb-1">
-                          <span className={`font-bold uppercase tracking-wider ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
-                            ↕️ 3D Vertical Tilt / Torso Angle:
-                          </span>
-                          <span className="font-mono text-emerald-400 font-bold">
-                            {getActiveTiltY() === 0 ? 'Straight Line (0%)' : `${getActiveTiltY() > 0 ? '+' : ''}${Math.round(getActiveTiltY() * 100)}%`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min="-1.0"
-                            max="1.0"
-                            step="0.02"
-                            value={getActiveTiltY()}
-                            onChange={(e) => updateActiveTiltY(Number(e.target.value))}
-                            className="flex-1 accent-emerald-500 h-1.5 rounded-lg cursor-pointer"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1 mt-1 flex-wrap text-[9px]">
-                          <button type="button" onClick={() => updateActiveTiltY(1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🧍 Upright (+100%)</button>
-                          <button type="button" onClick={() => updateActiveTiltY(0.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">📏 Edge-On Straight Line (0%)</button>
-                          <button type="button" onClick={() => updateActiveTiltY(-1.0)} className="px-1.5 py-0.5 rounded border border-white/20 hover:bg-white/10 cursor-pointer">🔄 Inverted Vertically (-100%)</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className={`text-[9px] italic ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                      💡 Tip: Click and drag any active logo directly on the preview image above to position it.
-                    </p>
+                        </>
+                      )}
+                    </button>
                   </div>
+                )}
 
-                  {/* 4. Live Vector Swatch Preview */}
-                  <div className={`flex items-center justify-between rounded-xl p-2.5 border ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                        <ShivNareshSvgLogo color={getActiveTargetColor()} logoStyle={getActiveTargetStyle()} className="max-h-full max-w-full" />
-                      </div>
-                      <div className="text-[10px]">
-                        <p className="font-bold text-white/90">
-                          {activeLogoTarget.toUpperCase()} Slot: {getActiveTargetStyle().toUpperCase()} ({getActiveTargetColor()})
-                        </p>
-                        <p className="text-white/50">
-                          Active: {[showHdLogoOverlay && 'Chest', showPantLogo && 'Lower', showBackLogo && 'Back', showExtraLogo && 'Extra'].filter(Boolean).join(' + ') || 'None'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px]">
-                      <span className="opacity-60 font-mono">
-                        {`${getActiveScale()}px`}
+                {/* Saved Outfit Sets Archive */}
+                {uploadSets.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
+                        <span>📁 Saved Sets Archive ({uploadSets.length})</span>
                       </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* MAIN CONTROLS: REMOVE/REPLACE LOGO, MODEL SWAP, OR TRY-ON */}
-            {mode === 'removelogo' ? (
-              <div className="space-y-4">
-                {/* 1. Image Selection / Upload */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      1 · Choose Image to Clean or Brand
-                    </span>
-                    {result && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setResult(null);
-                          setCleanResultBackup(null);
-                          setEraseBox(null);
-                          setEraseBoxes([]);
-                        }}
-                        className={`text-[11px] font-semibold cursor-pointer ${isLight ? 'text-rose-600 hover:text-rose-800' : 'text-rose-400 hover:text-rose-300'}`}
+                        onClick={() => setPageView('my-sets')}
+                        className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
                       >
-                        Clear Image
+                        <span>Manage Sets</span>
+                        <span>&rarr;</span>
                       </button>
-                    )}
+                    </div>
+                    <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+                      {uploadSets.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleUseSet(s)}
+                          className={`card-lift-glow shrink-0 w-32 rounded-xl border p-2 text-left cursor-pointer group ${isLight
+                            ? 'border-gray-200 bg-white hover:border-[#e5373f] hover:shadow-sm'
+                            : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                            }`}
+                          title={`Load Set #${s.setNumber}: ${s.clothName || 'Garment'} + ${s.modelName || 'Model'}`}
+                        >
+                          <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1">
+                            <span>Set #{s.setNumber}</span>
+                            <span className="text-[8px] opacity-60 font-normal">1-Click</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 rounded-lg overflow-hidden bg-black/40">
+                            {s.clothUrl ? (
+                              <img src={s.clothUrl} alt="" className="aspect-[3/4] w-full object-cover" />
+                            ) : (
+                              <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👕</div>
+                            )}
+                            {s.modelUrl ? (
+                              <img src={s.modelUrl} alt="" className="aspect-[3/4] w-full object-cover" />
+                            ) : (
+                              <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👤</div>
+                            )}
+                          </div>
+                          <p className="text-[9px] truncate opacity-70 mt-1 font-medium">{s.clothName || 'Garment'}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                )}
 
-                  <input
-                    ref={eraseUploadInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void handleFileUploadForEraser(f);
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => eraseUploadInputRef.current?.click()}
-                    className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition cursor-pointer ${
-                      isLight
-                        ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                        : 'border-white/15 bg-white/[0.01] hover:border-white/35 hover:bg-white/[0.03]'
-                    }`}
-                  >
-                    <div className="grid h-16 w-14 place-items-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
-                      <Eraser className="w-6 h-6" />
+                {/* Quick Pick from Previous Clothes */}
+                {previousGarmentsList.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
+                        ⚡ Previous Garments Library ({previousGarmentsList.length})
+                      </span>
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              localStorage.removeItem('sn_broken_urls');
+                              setBrokenImageUrls(new Set());
+                              await api.cleanUserCache().catch(() => { });
+                              void loadUploads();
+                              alert('Dead image cache refreshed.');
+                            } catch {
+                              alert('Cache refreshed.');
+                            }
+                          }}
+                          className={`text-[10px] flex items-center gap-1 transition cursor-pointer ${isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/50 hover:text-white'
+                            }`}
+                          title="Purge dead/broken cached images"
+                        >
+                          <RefreshCw className="w-2.5 h-2.5" />
+                          <span>Clean Cache</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllGarmentsModal(true)}
+                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Browse Full Library ({previousGarmentsList.length})</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        Upload Garment or Model Render
-                      </p>
-                      <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                        PNG, JPG, WebP from your device &middot; Cleanly inpaint logos with zero quality loss
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Past Renders Picker from My Sets */}
-                  {userGenerations.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                          Or pick directly from My Sets ({userGenerations.length} available):
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {userGenerations.length > 18 && (
+                    <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+                      {previousGarmentsList.map((item, idx) => {
+                        const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
+                        return (
+                          <div key={item.url || idx} className="relative shrink-0 group">
                             <button
                               type="button"
-                              onClick={() => setShowAllMySetsInEraser(!showAllMySetsInEraser)}
-                              className="text-[10px] font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                              onClick={() => {
+                                const pick = { url: item.url, preview: item.url, name: item.name };
+                                addClassifiedGarment(pick);
+                                setCloth(pick);
+                              }}
+                              className={`card-lift-glow w-20 h-28 sm:w-24 sm:h-32 rounded-2xl border overflow-hidden relative text-left cursor-pointer ${isSelected
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-105'
+                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                }`}
+                              title={`Select ${item.name}`}
                             >
-                              {showAllMySetsInEraser ? 'Show Recent' : `Show All (${userGenerations.length})`}
+                              <img
+                                src={item.url}
+                                alt={item.name}
+                                onError={() => markGlobalBrokenUrl(item.url)}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              />
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
+                                <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
+                              </div>
+                              <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
+                                }`}>
+                                {isSelected ? '✓' : '+'}
+                              </span>
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setPageView('my-sets')}
-                            className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-0.5 cursor-pointer"
-                            title="Go to full My Sets production gallery"
-                          >
-                            <span>Open My Sets</span>
-                            <span>&rarr;</span>
-                          </button>
+                            {item.id && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeleteUpload(item.id, item.url);
+                                }}
+                                className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
+                                title="Delete uploaded garment"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Full Garments Library Modal */}
+                {showAllGarmentsModal && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+                    onClick={() => setShowAllGarmentsModal(false)}
+                  >
+                    <div
+                      className={`w-full max-w-4xl max-h-[85vh] rounded-3xl border p-6 flex flex-col shadow-2xl ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121316] border-white/10 text-white'
+                        }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                        <div className="flex items-center gap-2.5">
+                          <span className="p-2 rounded-xl bg-[#e5373f]/15 text-[#e5373f]">
+                            <Layers className="w-5 h-5" />
+                          </span>
+                          <div>
+                            <h3 className="text-base font-bold">Garments Library ({previousGarmentsList.length} Items)</h3>
+                            <p className="text-xs opacity-60">Browse and select any studio garment for your photoshoot render</p>
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllGarmentsModal(false)}
+                          className="p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
                       </div>
 
-                      {userGenerations.length > 6 && (
-                        <div className="mb-2.5">
-                          <input
-                            type="text"
-                            value={eraseSearchQuery}
-                            onChange={(e) => setEraseSearchQuery(e.target.value)}
-                            placeholder="🔍 Filter My Sets by prompt or date…"
-                            className={`w-full rounded-lg border px-2.5 py-1 text-xs focus:outline-none transition ${
-                              isLight
-                                ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-amber-500'
-                                : 'bg-black/40 border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50'
+                      <div className="py-3">
+                        <input
+                          type="text"
+                          value={garmentSearchQuery}
+                          onChange={(e) => setGarmentSearchQuery(e.target.value)}
+                          placeholder="Search garment by name or keyword..."
+                          className={`w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none ${isLight ? 'bg-gray-100 border-gray-300 text-gray-900 focus:bg-white' : 'bg-black/40 border-white/10 text-white focus:border-white/30'
                             }`}
-                          />
-                        </div>
-                      )}
+                        />
+                      </div>
 
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-56 overflow-y-auto pr-1">
-                        {(showAllMySetsInEraser ? userGenerations : userGenerations.slice(0, 18))
-                          .filter((gen) => {
-                            if (!eraseSearchQuery.trim()) return true;
-                            const q = eraseSearchQuery.toLowerCase();
-                            return (gen.prompt && gen.prompt.toLowerCase().includes(q)) || (gen.id && gen.id.includes(q));
-                          })
-                          .map((gen) => {
-                            const targetUrl = gen.outputUrl || gen.url || gen.highResUrl;
-                            if (!targetUrl) return null;
-                            const isSelected = result === targetUrl;
+                      <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 py-2">
+                        {previousGarmentsList
+                          .filter((g) => !garmentSearchQuery.trim() || g.name.toLowerCase().includes(garmentSearchQuery.toLowerCase()))
+                          .map((item, idx) => {
+                            const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
                             return (
                               <button
-                                key={gen.id}
+                                key={item.url || idx}
                                 type="button"
-                                onClick={() => handleLoadImageForEraser(targetUrl)}
-                                className={`group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all cursor-pointer ${
-                                  isSelected
-                                    ? 'border-amber-400 ring-2 ring-amber-400 shadow-md'
-                                    : isLight ? 'border-gray-200 hover:border-gray-400' : 'border-white/10 hover:border-white/40'
-                                }`}
-                                title={gen.prompt || 'Load into Logo Eraser'}
+                                onClick={() => {
+                                  const pick = { url: item.url, preview: item.url, name: item.name };
+                                  addClassifiedGarment(pick);
+                                  setCloth(pick);
+                                  setShowAllGarmentsModal(false);
+                                }}
+                                className={`relative aspect-[3/4] rounded-2xl border overflow-hidden group transition text-left cursor-pointer ${isSelected
+                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-[1.02]'
+                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                  }`}
                               >
                                 <img
-                                  src={resolveImageUrl(targetUrl)}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLElement).style.display = 'none';
-                                  }}
+                                  src={item.url}
+                                  alt={item.name}
+                                  onError={() => markGlobalBrokenUrl(item.url)}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                 />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2 pt-4">
+                                  <p className="text-[11px] font-bold text-white truncate text-center">{item.name}</p>
+                                </div>
                                 {isSelected && (
-                                  <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
-                                    <span className="text-[10px] font-bold bg-amber-500 text-black px-1.5 py-0.5 rounded shadow">Active</span>
-                                  </div>
+                                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow">
+                                    ✓
+                                  </span>
                                 )}
                               </button>
                             );
                           })}
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* 2. Eraser Instructions & Quick Actions */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    2 · How to Select & Erase Logos on Canvas
-                  </span>
-                  <div className={`text-xs space-y-1.5 leading-relaxed ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
-                    <p className="flex items-start gap-2">
-                      <span className="text-amber-400 font-bold">①</span>
-                      <span>Choose <strong>Brush (Rub)</strong> or <strong>Area (Canva)</strong> mode from the bottom toolbar.</span>
-                    </p>
-                    <p className="flex items-start gap-2">
-                      <span className="text-amber-400 font-bold">②</span>
-                      <span>Rub directly or drag a bounding box tightly over the unwanted logo or text.</span>
-                    </p>
-                    <p className="flex items-start gap-2">
-                      <span className="text-amber-400 font-bold">③</span>
-                      <span>Click <strong>"Erase Logo"</strong> to blend seamlessly with surrounding fabric weave.</span>
-                    </p>
-                    <p className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold">④</span>
-                      <span>Or click <strong>"Erase & Snap HD Vector"</strong> to place crisp vector branding at auto-detected scale.</span>
-                    </p>
                   </div>
+                )}
+              </div>
 
-                  {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
-                    <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={isErasing}
-                        onClick={() => handleExecuteErase(false)}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <Eraser className="w-3.5 h-3.5" />
-                        <span>{isErasing ? 'Erasing…' : eraseBoxes.length > 1 ? `Erase All (${eraseBoxes.length} Areas)` : eraseTool === 'brush' ? 'Erase Rubbed Logo' : 'Erase Logo Area'}</span>
-                      </button>
-                      {(() => {
-                        const curRect = getImageElementRect();
-                        const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
-                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
-                        return (
-                          <button
-                            type="button"
-                            disabled={isErasing}
-                            onClick={() => handleExecuteErase(true)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                            title={`Erase and snap HD vector brand with auto-detected scale (${autoScalePx}px)`}
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                            <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
-                          </button>
-                        );
-                      })()}
-                      <button
-                        type="button"
-                        onClick={handleClearStrokes}
-                        className="px-2.5 py-1.5 rounded-lg border border-white/20 text-white/70 hover:text-white text-xs transition cursor-pointer"
-                      >
-                        Clear Rub
-                      </button>
-                    </div>
-                  )}
-
-                  {eraseUndoStack.length > 0 && (
-                    <div className="mt-3 flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={handleUndoErase}
-                        className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-semibold cursor-pointer"
-                      >
-                        <Undo2 className="w-3.5 h-3.5" />
-                        <span>Undo Last Erase ({eraseUndoStack.length} in history)</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleSaveToMySets()}
-                        className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-                        title="Permanently save current erased image to My Sets"
-                      >
-                        <Bookmark className="w-3.5 h-3.5" />
-                        <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
-                      </button>
-                      {autoSaveStatus && (
-                        <p className="text-[11px] font-semibold text-emerald-400 text-center py-1 bg-emerald-950/40 rounded-lg border border-emerald-500/30">
-                          ✓ {autoSaveStatus}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. HD Vector Brand Overlay Settings */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      3 · HD Vector Logo Branding
-                    </span>
+              {/* Precision Garment Color Matching */}
+              <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-xs font-medium tracking-normal ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                    Fabric Color / Dye Code
+                  </h2>
+                  {garmentColor && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const nextVal = !showHdLogoOverlay;
-                        setShowHdLogoOverlay(nextVal);
-                        if (nextVal) {
-                          setActiveRenderOption('b');
-                          setIsEraseMode(false);
-                          setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
-                        }
-                      }}
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer ${
-                        showHdLogoOverlay
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                          : 'bg-white/10 text-white/40 border-white/10'
-                      }`}
+                      onClick={() => setGarmentColor('')}
+                      className="text-[10px] font-bold text-red-400 hover:underline"
                     >
-                      {showHdLogoOverlay ? 'Enabled' : 'Disabled'}
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <p className={`mt-0.5 text-[10px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
+                  Match exact kit shade to prevent color distortion or bleeding during generation.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={garmentColor.startsWith('#') && garmentColor.length === 7 ? garmentColor : '#e5373f'}
+                    onChange={(e) => setGarmentColor(e.target.value)}
+                    className="h-8 w-8 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    title="Pick exact fabric color"
+                  />
+                  <input
+                    type="text"
+                    value={garmentColor}
+                    onChange={(e) => setGarmentColor(e.target.value)}
+                    placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
+                    className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight
+                      ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                      : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
+                      }`}
+                  />
+                </div>
+                {/* Athletic Quick Swatches */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                  {[
+                    { name: 'Crimson Red', hex: '#E5373F' },
+                    { name: 'Deep Navy', hex: '#0A192F' },
+                    { name: 'Jet Black', hex: '#111111' },
+                    { name: 'Optic White', hex: '#FFFFFF' },
+                    { name: 'Royal Blue', hex: '#1D4ED8' },
+                    { name: 'Neon Lime', hex: '#84CC16' },
+                    { name: 'Gold', hex: '#EAB308' },
+                    { name: 'Orange', hex: '#EA580C' },
+                  ].map((sw) => (
+                    <button
+                      key={sw.name}
+                      type="button"
+                      onClick={() => setGarmentColor(`${sw.name} (${sw.hex})`)}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${garmentColor.includes(sw.hex)
+                        ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
+                        : isLight
+                          ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                          : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
+                        }`}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: sw.hex }} />
+                      <span>{sw.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Model Selection Block */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    void handleMultipleFiles(e.dataTransfer.files, 'model');
+                  }
+                }}
+                className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
+                  <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
+                    {(model || selectedModels.length > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModel(null);
+                          setSelectedModels([]);
+                        }}
+                        className={`font-semibold hover:underline ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
+                      >
+                        Clear All
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setTab('library')}
+                      className={tab === 'library' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                    >
+                      Library
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('uploads')}
+                      className={tab === 'uploads' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                    >
+                      Uploads
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('sets')}
+                      className={tab === 'sets' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
+                    >
+                      Saved Sets ({uploadSets.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => modelInput.current?.click()}
+                      disabled={uploading}
+                      className="text-[#e5373f] hover:underline disabled:opacity-30 font-semibold"
+                    >
+                      + Upload Models
                     </button>
                   </div>
+                </div>
+                <input
+                  ref={modelInput}
+                  type="file"
+                  multiple
+                  accept="image/*,.png,.jpg,.jpeg,.webp"
+                  className="hidden"
+                  onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                  onChange={(e) => void handleMultipleFiles(e.target.files, 'model')}
+                />
 
-                  {showHdLogoOverlay && (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setActiveLogoTarget('chest')}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                            activeLogoTarget === 'chest'
-                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                              : 'border-white/10 text-white/60 hover:text-white'
-                          }`}
-                        >
-                          Chest Logo ({hdLogoScale}px)
-                        </button>
+                {uploading && uploadProgress?.kind === 'model' && (
+                  <div className="mt-3 flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent shrink-0" />
+                    <span>Uploading {uploadProgress.current} of {uploadProgress.total} model images...</span>
+                  </div>
+                )}
+
+                {/* Multi-Model Selector Grid (when multiple models uploaded or selected) */}
+                {selectedModels.length > 1 ? (
+                  <div className="mt-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
+                        {selectedModels.length} Models Selected &middot; Click to set Active Try-On
+                      </span>
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveLogoTarget('pant');
-                            setShowPantLogo(true);
+                            setSelectedModels([]);
+                            setModel(null);
                           }}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                            activeLogoTarget === 'pant'
-                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                              : 'border-white/10 text-white/60 hover:text-white'
-                          }`}
+                          className={`text-[11px] font-medium hover:underline ${isLight ? 'text-slate-500 hover:text-slate-700' : 'text-white/50 hover:text-white'}`}
                         >
-                          Pant Logo ({pantLogoScale}px)
+                          Clear All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => modelInput.current?.click()}
+                          disabled={uploading}
+                          className="text-[11px] font-bold text-[#e5373f] hover:underline"
+                        >
+                          + Add More Models
                         </button>
                       </div>
+                    </div>
 
-                      <div>
-                        <div className="flex justify-between items-center text-[11px] opacity-70 mb-1">
-                          <span>Logo Size</span>
-                          <div className="flex items-center gap-2">
-                            {lastErasedSpecRef.current && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {selectedModels.map((item, idx) => {
+                        const isCurrent = model?.url === item.url;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => setModel(item)}
+                            className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${isCurrent
+                              ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
+                              : isLight
+                                ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
+                                : 'border-white/15 bg-black/40 hover:border-white/30'
+                              }`}
+                          >
+                            <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-contain p-1" />
+                            <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
+                              }`}>
+                              {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
+                            </span>
+                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (lastErasedSpecRef.current) {
-                                    if (activeLogoTarget === 'chest') updateChestScale(lastErasedSpecRef.current.scale);
-                                    else updatePantScale(lastErasedSpecRef.current.scale);
-                                  }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openZoomCropForModel(item, idx);
                                 }}
-                                className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500 hover:text-black transition cursor-pointer"
-                                title="Auto-deduce exact size from erased logo box"
+                                className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                title="Zoom & Crop without blur (use this frame for generation)"
                               >
-                                🎯 Auto-Fit ({lastErasedSpecRef.current.scale}px)
+                                <ZoomIn className="h-2.5 w-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const rot = await rotateImage(item.preview ?? item.url, 90);
+                                  setSelectedModels((prev) =>
+                                    prev.map((m, i) => (i === idx ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
+                                  );
+                                  setModel((prev) => (prev && prev.url === item.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
+                                }}
+                                className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
+                                title="Rotate 90° clockwise"
+                              >
+                                <RotateCw className="h-2.5 w-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedModel(idx);
+                                }}
+                                className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
+                                title="Remove model"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                            <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
+                              {item.name}
+                            </p>
+                          </div>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => modelInput.current?.click()}
+                        disabled={uploading}
+                        className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
+                          ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
+                          : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
+                          }`}
+                      >
+                        <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
+                        <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
+                        <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Models</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : model ? (
+                  <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
+                    <div className="flex items-center gap-3">
+                      <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-contain bg-black/40 p-0.5" />
+                      <div className="text-xs">
+                        <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
+                        <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openZoomCropForModel(model)}
+                        className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
+                        title="Zoom & Crop without blur (use this frame for generation)"
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const rot = await rotateImage(model.preview ?? model.url, 90);
+                          setModel((prev) => (prev ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : null));
+                          setSelectedModels((prev) =>
+                            prev.map((m) => (m.url === model.url ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
+                          );
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
+                        title="Rotate 90° clockwise"
+                      >
+                        <RotateCw className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModel(null);
+                          setSelectedModels([]);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors"
+                        title="Deselect model"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+
+                {/* Quick Pick from Previous Models */}
+                {previousModelsList.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
+                        ⚡ Previous Models Library ({previousModelsList.length})
+                      </span>
+                      <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                        Click to select model
+                      </span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                      {previousModelsList.slice(0, 25).map((item, idx) => {
+                        const isSelected =
+                          selectedModels.some((p) => p && p.url === item.url) ||
+                          model?.url === item.url;
+                        return (
+                          <div key={item.url || idx} className="relative shrink-0 group">
+                            <button
+                              type="button"
+                              onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                              className={`card-lift-glow w-14 h-16 rounded-xl border overflow-hidden relative ${isSelected
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                }`}
+                              title={`Select ${item.name}`}
+                            >
+                              <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                              {isSelected && (
+                                <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[9px] font-bold shadow">
+                                  ✓
+                                </span>
+                              )}
+                            </button>
+                            {item.id && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeleteUpload(item.id, item.url);
+                                }}
+                                className="absolute top-1 left-1 w-4 h-4 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
+                                title="Delete uploaded model"
+                              >
+                                ×
                               </button>
                             )}
-                            <span className="font-mono font-bold text-white">{activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}px</span>
                           </div>
-                        </div>
-                        <input
-                          type="range"
-                          min="6"
-                          max="70"
-                          value={activeLogoTarget === 'chest' ? hdLogoScale : pantLogoScale}
-                          onChange={(e) => {
-                            const val = Number(e.target.value);
-                            if (activeLogoTarget === 'chest') updateChestScale(val);
-                            else updatePantScale(val);
-                          }}
-                          className="w-full accent-emerald-500 cursor-pointer"
-                        />
-                      </div>
-
-                      <div>
-                        <span className="text-[11px] opacity-70 block mb-1.5">Logo Color</span>
-                        <div className="flex items-center gap-2">
-                          {['#ffffff', '#111111', '#ffd700', '#0047ab', '#e5373f'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => setHdLogoColor(c)}
-                              style={{ backgroundColor: c }}
-                              className={`w-6 h-6 rounded-full border-2 transition cursor-pointer ${
-                                hdLogoColor.toLowerCase() === c.toLowerCase()
-                                  ? 'border-emerald-400 scale-110 shadow-md'
-                                  : 'border-white/20 hover:scale-105'
-                              }`}
-                              title={c}
-                            />
-                          ))}
-                          <input
-                            type="color"
-                            value={hdLogoColor}
-                            onChange={(e) => setHdLogoColor(e.target.value)}
-                            className="w-6 h-6 rounded-full border-0 p-0 cursor-pointer bg-transparent"
-                            title="Custom Color"
-                          />
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
-              </div>
-            ) : mode === 'swap' ? (
-              <>
-                {/* Multi-Swap Drafts Bar (up to 5 simultaneous swaps) */}
-                <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        Model Swap Drafts (Up to 5 Simultaneous Swaps)
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${validSwapDrafts.length > 0
-                        ? isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                        : isLight ? 'bg-gray-100 text-gray-600 border-gray-300' : 'bg-white/10 text-white/50 border-white/10'
-                        }`}>
-                        {validSwapDrafts.length}/{swapDrafts.length} Ready ({totalRequiredCredits} Credit{totalRequiredCredits > 1 ? 's' : ''})
-                      </span>
-                    </div>
-                    {swapDrafts.length < 5 && (
-                      <button
-                        type="button"
-                        onClick={addSwapDraft}
-                        className="rounded-full border border-dashed border-[#e5373f] bg-[#e5373f]/10 px-3 py-1 text-[11px] font-bold text-[#e5373f] hover:bg-[#e5373f] hover:text-white transition"
-                      >
-                        + Add Draft ({swapDrafts.length + 1}/5)
-                      </button>
-                    )}
                   </div>
+                )}
 
-                  {/* Draft Selection Tabs */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {swapDrafts.map((draft, idx) => {
-                      const isActive = activeSwapDraftIndex === idx;
-                      const isComplete = Boolean(draft.source?.url && draft.target?.url);
-                      return (
-                        <div
-                          key={draft.id}
-                          className={`inline-flex items-center rounded-xl border p-1 transition-all ${isActive
-                            ? 'border-[#e5373f] bg-[#e5373f]/15 ring-1 ring-[#e5373f]'
-                            : isComplete
-                              ? isLight ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-950/20'
-                              : isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'
-                            }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => switchSwapDraft(idx)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold"
-                          >
-                            <span className={isActive ? 'text-[#e5373f] font-bold' : isLight ? 'text-gray-800' : 'text-white'}>
-                              Draft {idx + 1}
-                            </span>
-                            {isComplete && <span className="text-[10px] text-emerald-500 font-bold">✓</span>}
-                          </button>
-                          {swapDrafts.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeSwapDraft(idx);
-                              }}
-                              className="p-1 rounded-full text-red-400 hover:text-red-500 hover:bg-red-500/20"
-                              title="Delete this draft"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className={`mt-2.5 text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                    Configure up to 5 model swaps. When you press Generate, all ready drafts render together (1 credit each for 1K).
-                  </p>
-                </div>
-
-                {/* SLOT 1: Kis Model ko change karna hai (Source Model / Original Outfit) */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between">
+                {/* Athlete Sports Equipment & Prop Preservation Notice */}
+                {effectiveModels.length > 0 && (
+                  <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+                    }`}>
+                    <span className="text-sm shrink-0">🏀</span>
                     <div>
-                      <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        1 &middot; Kis Model ko change karna hai (Draft {activeSwapDraftIndex + 1})
-                      </h2>
-                      <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                        Upload the photo/model whose body or outfit you want to keep while replacing the model/face
+                      <span className="font-bold">Athletic Prop & Pose Guide:</span>
+                      <p className="mt-0.5 text-[10px] opacity-90">
+                        Props held at the <strong>knee, hip, side, or floor</strong> (like the sitting athlete) are 100% preserved. If a ball is held <strong>directly covering the chest/stomach</strong>, virtual try-on replaces that area with the new jacket. To swap models while keeping a chest-held ball 100% intact, use <strong>Model Swap</strong> mode.
                       </p>
                     </div>
-                    {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) && (
-                      <button
-                        type="button"
-                        onClick={() => selectSwapSource(null)}
-                        className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-rose-400 hover:text-rose-300'}`}
-                      >
-                        Remove
-                      </button>
-                    )}
                   </div>
-                  <input
-                    ref={swapSourceInput}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const { dataUrl } = await compressImageForUpload(file);
-                      selectSwapSource({ url: dataUrl, name: file.name });
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => swapSourceInput.current?.click()}
-                    className={`mt-4 flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition ${isLight
-                      ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                      : 'border-white/15 hover:border-white/35'
-                      }`}
-                  >
-                    {(swapDrafts[activeSwapDraftIndex]?.source || swapSource) ? (
-                      <img
-                        src={(swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.url}
-                        alt="Source Model"
-                        className="h-20 w-16 rounded-lg object-cover border-2 border-[#e5373f]"
-                      />
-                    ) : (
-                      <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
-                    )}
-                    <span className="text-sm">
-                      <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        {(swapDrafts[activeSwapDraftIndex]?.source || swapSource)
-                          ? (swapDrafts[activeSwapDraftIndex]?.source || swapSource)?.name
-                          : `Choose Source Model for Draft ${activeSwapDraftIndex + 1}`}
-                      </span>
-                      <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                        PNG, JPEG or WEBP &middot; Click to browse or replace photo
-                      </span>
-                    </span>
-                  </button>
-                </div>
+                )}
 
-                {/* SLOT 2: Kis Model ke sath change karna hai (Target Model / Persona) */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className={`text-[11px] font-bold uppercase tracking-[0.18em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        2 &middot; Kis Model ke sath change karna hai (Draft {activeSwapDraftIndex + 1})
-                      </h2>
-                      <p className={`text-[10px] mt-0.5 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                        Choose from library or upload the new model / face persona to swap in
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
-                      <button
-                        type="button"
-                        onClick={() => setSwapTab('library')}
-                        className={swapTab === 'library' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
-                      >
-                        Library
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSwapTab('uploads')}
-                        className={swapTab === 'uploads' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
-                      >
-                        Uploads
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => swapTargetInput.current?.click()}
-                        className="text-[#e5373f] hover:underline font-semibold"
-                      >
-                        + Upload Target
-                      </button>
-                    </div>
-                  </div>
-                  <input
-                    ref={swapTargetInput}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const { dataUrl } = await compressImageForUpload(file);
-                      selectSwapTarget({ url: dataUrl, name: file.name });
-                    }}
-                  />
-
-                  {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget) && (
-                    <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.preview ?? (swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.url}
-                          alt="Target Model"
-                          className="h-14 w-11 rounded-md object-cover border-2 border-[#e5373f]"
-                        />
-                        <div className="text-xs">
-                          <p className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                            Target Model Persona (Draft {activeSwapDraftIndex + 1})
-                          </p>
-                          <p className={isLight ? 'text-gray-500' : 'text-white/40'}>
-                            {(swapDrafts[activeSwapDraftIndex]?.target || swapTarget)?.name}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => selectSwapTarget(null)}
-                        className={`text-xs px-2.5 py-1 rounded-lg ${isLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-400 hover:bg-rose-950/40'}`}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="mt-4 max-h-[360px] overflow-y-auto pr-1">
-                    {swapTab === 'library' && (
-                      <>
-                        <div className="mb-3.5 flex flex-wrap items-center gap-1.5 border-b pb-2.5 border-white/10">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                            Season:
-                          </span>
-                          {modelCategoryTabs.map((ct) => {
-                            const isSelected = modelCategoryFilter === ct.id;
-                            return (
-                              <button
-                                key={ct.id}
-                                type="button"
-                                onClick={() => setModelCategoryFilter(ct.id)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-[#e5373f] text-white shadow-sm'
-                                    : isLight
-                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                      : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                <div className="mt-4 max-h-[380px] overflow-y-auto pr-1">
+                  {tab === 'library' && (
+                    <>
+                      <div className="mb-3.5 flex flex-wrap items-center gap-1.5 border-b pb-2.5 border-white/10">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                          Season:
+                        </span>
+                        {modelCategoryTabs.map((ct) => {
+                          const isSelected = modelCategoryFilter === ct.id;
+                          return (
+                            <button
+                              key={ct.id}
+                              type="button"
+                              onClick={() => setModelCategoryFilter(ct.id)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${isSelected
+                                  ? 'bg-[#e5373f] text-white shadow-sm'
+                                  : isLight
+                                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
                                 }`}
-                              >
-                                {ct.label}
-                              </button>
-                            );
-                          })}
-                        </div>
+                            >
+                              {ct.label}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                        {filteredCategories.length === 0 ? (
-                          <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${
-                            isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
+                      {filteredCategories.length === 0 ? (
+                        <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
                           }`}>
-                            No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
-                          </div>
-                        ) : (
-                          filteredCategories.map((group) => (
-                            <div key={group.category} className="mb-4">
-                              <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
-                              <div className="grid grid-cols-6 gap-2">
-                                {group.items.map((item) => (
+                          No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
+                        </div>
+                      ) : (
+                        filteredCategories.map((group) => (
+                          <div key={group.category} className="mb-4">
+                            <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
+                            <div className="grid grid-cols-6 gap-2">
+                              {group.items.map((item) => {
+                                const isSelected =
+                                  selectedModels.some((p) => p && p.url === item.url) ||
+                                  model?.url === item.url;
+                                return (
                                   <button
                                     key={item.id}
                                     type="button"
-                                    onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                                    className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                      ? 'border-[#e5373f] ring-1 ring-[#e5373f]'
-                                      : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
+                                    onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
+                                    className={`card-lift-glow group relative overflow-hidden rounded-md border ${isSelected
+                                      ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
+                                      : isLight
+                                        ? 'border-gray-200 hover:border-gray-400'
+                                        : 'border-transparent hover:border-white/30'
                                       }`}
                                   >
                                     <img
@@ -13230,1008 +14361,43 @@ export default function Design() {
                                       }}
                                       className="aspect-[3/4] w-full object-cover"
                                     />
+                                    {isSelected && (
+                                      <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
+                                        ✓
+                                      </span>
+                                    )}
                                   </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </>
-                    )}
-
-                    {swapTab === 'uploads' &&
-                      ((previousModelsList.length > 0 || uploads.length > 0) ? (
-                        <div className="grid grid-cols-6 gap-2">
-                          {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => (
-                            <button
-                              key={item.url || idx}
-                              type="button"
-                              onClick={() => selectSwapTarget({ url: item.url, name: item.name })}
-                              className={`overflow-hidden rounded-md border transition ${(swapDrafts[activeSwapDraftIndex]?.target?.url || swapTarget?.url) === item.url
-                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                : (isLight ? 'border-gray-200 hover:border-gray-400' : 'border-transparent hover:border-white/30')
-                                }`}
-                            >
-                              <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>
-                      ))}
-                  </div>
-                </div>
-
-                {/* SLOT 3: Instructions */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      3 &middot; Swap Instructions (Optional)
-                    </h2>
-                  </div>
-                  <textarea
-                    value={swapPrompt}
-                    onChange={(e) => {
-                      setSwapPrompt(e.target.value);
-                      setSwapDrafts((prev) =>
-                        prev.map((d, i) => (i === activeSwapDraftIndex ? { ...d, prompt: e.target.value } : d))
-                      );
-                    }}
-                    rows={3}
-                    placeholder="e.g. Preserve garment texture and athletic posture, blend lighting naturally, high fidelity face swap"
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
-                      ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                      : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                      }`}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Smart Garment Upload Block */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      void handleMultipleFiles(e.dataTransfer.files, 'cloth');
-                    }
-                  }}
-                  className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      1 · Garments
-                    </h2>
-                    {(classifiedGarments.length > 0 || cloth) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCloth(null);
-                          setSelectedClothes([]);
-                          setClassifiedGarments([]);
-                        }}
-                        className={`text-[11px] uppercase tracking-[0.14em] font-semibold ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Try-On Target Selector */}
-                  <div id="tryon-target-selector" className="mt-4 mb-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                        Try-On Outfit Target
-                      </p>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${
-                        tryOnTarget === 'both'
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                          : tryOnTarget === 'lower'
-                          ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
-                          : tryOnTarget === 'upper'
-                          ? 'border-purple-500/30 bg-purple-500/10 text-purple-400'
-                          : 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-bold animate-pulse'
-                      }`}>
-                        {tryOnTarget === 'both' ? '🥋 Full Outfit Selected' : tryOnTarget === 'lower' ? '👖 Lower (Pants) Selected' : tryOnTarget === 'upper' ? '👕 Upper Only Selected' : '⚠️ Mandatory: Select Outfit Target'}
-                      </span>
-                    </div>
-                    <div className={`inline-flex rounded-xl border p-1 w-full ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/10 bg-black/40'}`}>
-                      {([
-                        { id: 'both', label: '🥋 Full Outfit', hint: 'Top + Bottom (Jacket + Pants together)' },
-                        { id: 'upper', label: '👕 Upper Only', hint: 'Jacket, shirt, hoodie' },
-                        { id: 'lower', label: '👖 Lower Only', hint: 'Pants, shorts' },
-                      ] as { id: TryOnTarget; label: string; hint: string }[]).map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => handleSetTryOnTarget(opt.id)}
-                          title={opt.hint}
-                          className={`flex-1 rounded-lg py-2 px-1 text-[10px] font-semibold transition-all text-center cursor-pointer ${tryOnTarget === opt.id
-                            ? isLight ? 'bg-white text-slate-900 shadow-sm font-bold ring-1 ring-gray-200' : 'bg-white text-gray-900 font-bold shadow-sm'
-                            : isLight ? 'text-gray-600 hover:text-gray-900' : 'text-white/50 hover:text-white'
-                            }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    {tryOnTarget === 'upper' && bottomGarment && (
-                      <div className="mt-2 rounded-lg p-2 bg-amber-500/15 border border-amber-500/30 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-[10px] text-amber-300 font-medium">
-                          <span>⚠️</span>
-                          <span>Pants uploaded, but Target is "Upper Only".</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSetTryOnTarget('both')}
-                          className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black hover:bg-amber-400 shrink-0 cursor-pointer"
-                        >
-                          Switch to Full Outfit
-                        </button>
-                      </div>
-                    )}
-                    {tryOnTarget === 'both' && (
-                      <p className={`mt-1.5 text-[10px] leading-relaxed ${isLight ? 'text-blue-700' : 'text-blue-300'}`}>
-                        ✨ Full outfit: upload top + bottom garments. 1 credit per final image (backend chains 2 API calls automatically).
-                      </p>
-                    )}
-                  </div>
-
-                  <input
-                    ref={clothInput}
-                    type="file"
-                    multiple
-                    accept="image/*,.png,.jpg,.jpeg,.webp"
-                    className="hidden"
-                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                    onChange={(e) => void handleMultipleFiles(e.target.files, 'cloth')}
-                  />
-
-                  {/* Classified Garments Grid */}
-                  {(classifiedGarments.length > 0 || cloth) ? (
-                    <div className="mt-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                          {Math.max(classifiedGarments.length, cloth ? 1 : 0)} Garment{Math.max(classifiedGarments.length, cloth ? 1 : 0) > 1 ? 's' : ''} Uploaded · Auto-Classified
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowPhotoTour(true);
-                              setTourStep(0);
-                            }}
-                            className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
-                            title="Review garment photography guidelines"
-                          >
-                            📸 Photo Guidelines Tour
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleInitiateClothUpload}
-                            disabled={uploading}
-                            className="text-[11px] font-bold text-[#e5373f] hover:underline cursor-pointer"
-                          >
-                            + Add More
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {(classifiedGarments.length > 0 ? classifiedGarments : (cloth ? [{ url: cloth.url, preview: cloth.preview || cloth.url, name: cloth.name, role: 'top-front' as GarmentRole }] : [])).map((garment) => {
-                          return (
-                            <div key={garment.url} className={`group relative rounded-xl border overflow-hidden ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-black/40'
-                              }`}>
-                              <div className="aspect-[3/4] relative bg-black/40 rounded-t-xl overflow-hidden">
-                                <img src={garment.preview ?? garment.url} alt={garment.name} className="h-full w-full object-contain p-1" />
-                                <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openZoomCropForGarment(garment);
-                                    }}
-                                    className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
-                                    title="Zoom & Crop without blur (use this frame for generation)"
-                                  >
-                                    <ZoomIn className="h-2.5 w-2.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      const rot = await rotateImage(garment.preview ?? garment.url, 90);
-                                      setClassifiedGarments((prev) =>
-                                        prev.map((g) => (g.url === garment.url ? { ...g, url: rot.dataUrl, preview: rot.dataUrl } : g))
-                                      );
-                                      setSelectedClothes((prev) =>
-                                        prev.map((c) => (c.url === garment.url ? { ...c, url: rot.dataUrl, preview: rot.dataUrl } : c))
-                                      );
-                                      setCloth((prev) => (prev && prev.url === garment.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
-                                    }}
-                                    className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
-                                    title="Rotate 90° clockwise"
-                                  >
-                                    <RotateCw className="h-2.5 w-2.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeClassifiedGarment(garment.url)}
-                                    className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
-                                    title="Remove"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                </div>
-                              </div>
-                              {/* Role badge + dropdown */}
-                              <div className="p-1.5">
-                                <p className="text-[9px] text-center truncate text-white/70 mb-1">{garment.name}</p>
-                                <select
-                                  value={garment.role}
-                                  onChange={(e) => updateGarmentRole(garment.url, e.target.value as GarmentRole)}
-                                  className={`w-full rounded-lg border text-[9px] font-bold py-0.5 px-1 cursor-pointer ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/10 bg-black/60 text-white'
-                                    }`}
-                                  title="Specify garment view angle"
-                                >
-                                  <option value="top-front">👕 Top Front</option>
-                                  <option value="top-back">🔄 Top Back</option>
-                                  <option value="bottom">👖 Bottom</option>
-                                  <option value="collar">👔 Collar / Neck</option>
-                                  <option value="logo">🔍 Logo / Brand Close-Up</option>
-                                  <option value="detail">✨ Fabric / Tag / Detail</option>
-                                  <option value="left-sleeve">👈 Left Sleeve</option>
-                                  <option value="right-sleeve">👉 Right Sleeve</option>
-                                  <option value="left-bottom">🩳 Left Bottom</option>
-                                  <option value="right-bottom">🩳 Right Bottom</option>
-                                  <option value="custom">✏️ Custom View…</option>
-                                </select>
-                                {garment.role === 'custom' && (
-                                  <input
-                                    type="text"
-                                    value={garment.customLabel || ''}
-                                    onChange={(e) => updateGarmentCustomLabel(garment.url, e.target.value)}
-                                    placeholder="e.g. Collar, Pocket"
-                                    className={`mt-1 w-full rounded border px-1.5 py-0.5 text-[9px] ${isLight ? 'border-gray-200 bg-white text-gray-800' : 'border-white/15 bg-black/60 text-white'
-                                      }`}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        <button
-                          type="button"
-                          onClick={handleInitiateClothUpload}
-                          disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                            }`}
-                        >
-                          <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>Add More</span>
-                          <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/30'}`}>Any order/angle</span>
-                        </button>
-                      </div>
-
-                      {/* Full Outfit Visual Pairing & Quick Swap */}
-                      {tryOnTarget === 'both' && (
-                        <div className={`rounded-2xl border p-3.5 space-y-3 ${isLight ? 'border-emerald-300 bg-emerald-50/70 text-slate-900' : 'border-emerald-500/30 bg-emerald-500/10 text-white'
-                          }`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                              ✨ Full Outfit Pair (1 Credit per Finished Model)
-                            </span>
-                            {classifiedGarments.length >= 2 && (
-                              <button
-                                type="button"
-                                onClick={() => swapTopAndBottomGarments()}
-                                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
-                                title="Swap which image is Top vs Bottom"
-                              >
-                                ⇄ Swap Top & Bottom
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2.5">
-                            {/* Top Garment Card */}
-                            <div className={`rounded-xl border p-2 flex items-center gap-2.5 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
-                              {topFrontGarment ? (
-                                <>
-                                  <img src={topFrontGarment.preview ?? topFrontGarment.url} alt="" className="h-12 w-10 rounded-lg object-cover shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <span className="block text-[9px] font-bold uppercase text-emerald-600">👕 Top Garment</span>
-                                    <p className="text-[10px] font-semibold truncate">{topFrontGarment.name}</p>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-[10px] text-amber-500 font-medium p-1">⚠ Upload Top (Jacket/Shirt)</div>
-                              )}
-                            </div>
-
-                            {/* Bottom Garment Card */}
-                            <div className={`rounded-xl border p-2 flex items-center gap-2.5 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
-                              {bottomGarment ? (
-                                <>
-                                  <img src={bottomGarment.preview ?? bottomGarment.url} alt="" className="h-12 w-10 rounded-lg object-cover shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <span className="block text-[9px] font-bold uppercase text-blue-600">👖 Bottom Garment</span>
-                                    <p className="text-[10px] font-semibold truncate">{bottomGarment.name}</p>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-[10px] text-amber-500 font-medium p-1">⚠ Upload Bottom (Pants)</div>
-                              )}
+                                );
+                              })}
                             </div>
                           </div>
-
-                          <p className={`text-[10px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-white/60'}`}>
-                            Both garments will be combined onto every selected model automatically.
-                            <br />
-                            💡 <em>Tip for pants: Lay pants out full-length (showing both legs down to ankles) for full trousers rather than shorts.</em>
-                          </p>
-                        </div>
+                        ))
                       )}
-                      {tryOnTarget === 'upper' && topBackGarment && topBackGarment.url !== topFrontGarment?.url && (
-                        <p className={`text-[10px] ${isLight ? 'text-indigo-700' : 'text-indigo-300'}`}>
-                          🔄 Back photo detected — will auto-use for back-angle poses in 5-Pose Sequence mode.
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        void handleMultipleFiles(e.dataTransfer.files, 'cloth');
-                      }}
-                    >
-                      <div className="flex items-center justify-between mt-3 mb-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                          Garment Photos
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowPhotoTour(true);
-                            setTourStep(0);
-                          }}
-                          className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition cursor-pointer"
-                          title="Review garment photography guidelines"
-                        >
-                          📸 Photo Guidelines Tour
-                        </button>
-                      </div>
-
-                      {/* Photoshoot Quota & Upload Allowance Info Card */}
-                      {user && (() => {
-                        const totalQuota = user.photoshoots || user.maxModels || 20;
-                        const doneCount = typeof user.photoshootsDone === 'number' ? user.photoshootsDone : Math.floor((user.modelsGenerated || 0) / 5);
-                        const leftCount = Math.max(0, totalQuota - doneCount);
-                        return (
-                          <div className={`mb-3 rounded-2xl border p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs ${isLight ? 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-                            }`}>
-                            <div className="flex items-center gap-2.5">
-                              <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
-                                <Camera className="w-4 h-4" />
-                              </span>
-                              <div>
-                                <p className="font-bold text-xs leading-tight flex items-center gap-2">
-                                  <span>📸 Photoshoot Quota: {leftCount} Left</span>
-                                  <span className="text-[10px] font-mono opacity-75">({doneCount} / {totalQuota} Finished)</span>
-                                </p>
-                                <p className="text-[11px] opacity-80 mt-0.5">
-                                  <strong>Unlimited Reference Uploads:</strong> You can upload any number of garment photos. Quota is only used when studio renders are generated.
-                                </p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 shrink-0">
-                              {user.tier ? `${user.tier.toUpperCase()} QUOTA` : 'ACTIVE'}
-                            </span>
-                          </div>
-                        );
-                      })()}
-
-                      <button
-                        type="button"
-                        onClick={handleInitiateClothUpload}
-                        disabled={uploading}
-                        className={`flex w-full items-center gap-4 rounded-xl border border-dashed p-4 text-left transition disabled:opacity-50 cursor-pointer ${isLight ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400' : 'border-white/15 hover:border-white/35'
-                          }`}
-                      >
-                        {uploading && uploadProgress?.kind === 'cloth' ? (
-                          <div className="flex items-center gap-3 w-full py-1">
-                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#e5373f] border-t-transparent" />
-                            <div>
-                              <span className={`block font-semibold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                Uploading {uploadProgress.current} of {uploadProgress.total} garments...
-                              </span>
-                              <span className={`block text-[11px] ${isLight ? 'text-slate-600' : 'text-white/50'}`}>
-                                Auto-classifying each garment
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <span className={`grid h-20 w-16 place-items-center rounded-lg text-2xl ${isLight ? 'bg-gray-100 text-gray-500' : 'bg-white/5 text-white/30'}`}>+</span>
-                            <span className="text-sm">
-                              <span className={`block font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                Upload garment photos (any number, any order)
-                              </span>
-                              <span className={`mt-1 block text-[11px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                                Front, back, top, bottom — upload all photos, system auto-classifies · PNG, JPEG, WEBP
-                              </span>
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    </>
                   )}
 
-                  {/* Saved Outfit Sets Archive */}
-                  {uploadSets.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-white/10">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
-                          <span>📁 Saved Sets Archive ({uploadSets.length})</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setPageView('my-sets')}
-                          className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Manage Sets</span>
-                          <span>&rarr;</span>
-                        </button>
-                      </div>
-                      <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-                        {uploadSets.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => handleUseSet(s)}
-                            className={`card-lift-glow shrink-0 w-32 rounded-xl border p-2 text-left cursor-pointer group ${isLight
-                              ? 'border-gray-200 bg-white hover:border-[#e5373f] hover:shadow-sm'
-                              : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                              }`}
-                            title={`Load Set #${s.setNumber}: ${s.clothName || 'Garment'} + ${s.modelName || 'Model'}`}
-                          >
-                            <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1">
-                              <span>Set #{s.setNumber}</span>
-                              <span className="text-[8px] opacity-60 font-normal">1-Click</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 rounded-lg overflow-hidden bg-black/40">
-                              {s.clothUrl ? (
-                                <img src={s.clothUrl} alt="" className="aspect-[3/4] w-full object-cover" />
-                              ) : (
-                                <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👕</div>
-                              )}
-                              {s.modelUrl ? (
-                                <img src={s.modelUrl} alt="" className="aspect-[3/4] w-full object-cover" />
-                              ) : (
-                                <div className="aspect-[3/4] bg-white/5 flex items-center justify-center text-[10px]">👤</div>
-                              )}
-                            </div>
-                            <p className="text-[9px] truncate opacity-70 mt-1 font-medium">{s.clothName || 'Garment'}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quick Pick from Previous Clothes */}
-                  {previousGarmentsList.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-white/10">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/70'}`}>
-                          ⚡ Previous Garments Library ({previousGarmentsList.length})
-                        </span>
-                        <div className="flex items-center gap-2.5">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                localStorage.removeItem('sn_broken_urls');
-                                setBrokenImageUrls(new Set());
-                                await api.cleanUserCache().catch(() => { });
-                                void loadUploads();
-                                alert('Dead image cache refreshed.');
-                              } catch {
-                                alert('Cache refreshed.');
-                              }
-                            }}
-                            className={`text-[10px] flex items-center gap-1 transition cursor-pointer ${isLight ? 'text-gray-500 hover:text-gray-900' : 'text-white/50 hover:text-white'
-                              }`}
-                            title="Purge dead/broken cached images"
-                          >
-                            <RefreshCw className="w-2.5 h-2.5" />
-                            <span>Clean Cache</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowAllGarmentsModal(true)}
-                            className="text-[10px] font-bold text-[#e5373f] hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Browse Full Library ({previousGarmentsList.length})</span>
-                            <span>&rarr;</span>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-                        {previousGarmentsList.map((item, idx) => {
-                          const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
-                          return (
-                            <div key={item.url || idx} className="relative shrink-0 group">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const pick = { url: item.url, preview: item.url, name: item.name };
-                                  addClassifiedGarment(pick);
-                                  setCloth(pick);
-                                }}
-                                className={`card-lift-glow w-20 h-28 sm:w-24 sm:h-32 rounded-2xl border overflow-hidden relative text-left cursor-pointer ${isSelected
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-105'
-                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                                  }`}
-                                title={`Select ${item.name}`}
-                              >
-                                <img
-                                  src={item.url}
-                                  alt={item.name}
-                                  onError={() => markGlobalBrokenUrl(item.url)}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                />
-                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1.5 pt-4">
-                                  <p className="text-[10px] font-bold text-white truncate text-center leading-tight">{item.name}</p>
-                                </div>
-                                <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold transition-opacity ${isSelected ? 'bg-emerald-600 text-white opacity-100 shadow' : 'bg-black/60 text-white opacity-0 group-hover:opacity-100'
-                                  }`}>
-                                  {isSelected ? '✓' : '+'}
-                                </span>
-                              </button>
-                              {item.id && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleDeleteUpload(item.id, item.url);
-                                  }}
-                                  className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
-                                  title="Delete uploaded garment"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Full Garments Library Modal */}
-                  {showAllGarmentsModal && (
-                    <div
-                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
-                      onClick={() => setShowAllGarmentsModal(false)}
-                    >
-                      <div
-                        className={`w-full max-w-4xl max-h-[85vh] rounded-3xl border p-6 flex flex-col shadow-2xl ${isLight ? 'bg-white border-gray-200 text-gray-900' : 'bg-[#121316] border-white/10 text-white'
-                          }`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                          <div className="flex items-center gap-2.5">
-                            <span className="p-2 rounded-xl bg-[#e5373f]/15 text-[#e5373f]">
-                              <Layers className="w-5 h-5" />
-                            </span>
-                            <div>
-                              <h3 className="text-base font-bold">Garments Library ({previousGarmentsList.length} Items)</h3>
-                              <p className="text-xs opacity-60">Browse and select any studio garment for your photoshoot render</p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowAllGarmentsModal(false)}
-                            className="p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-
-                        <div className="py-3">
-                          <input
-                            type="text"
-                            value={garmentSearchQuery}
-                            onChange={(e) => setGarmentSearchQuery(e.target.value)}
-                            placeholder="Search garment by name or keyword..."
-                            className={`w-full rounded-xl border px-3.5 py-2 text-xs focus:outline-none ${isLight ? 'bg-gray-100 border-gray-300 text-gray-900 focus:bg-white' : 'bg-black/40 border-white/10 text-white focus:border-white/30'
-                              }`}
-                          />
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 py-2">
-                          {previousGarmentsList
-                            .filter((g) => !garmentSearchQuery.trim() || g.name.toLowerCase().includes(garmentSearchQuery.toLowerCase()))
-                            .map((item, idx) => {
-                              const isSelected = classifiedGarments.some((g) => g.url === item.url) || cloth?.url === item.url;
-                              return (
-                                <button
-                                  key={item.url || idx}
-                                  type="button"
-                                  onClick={() => {
-                                    const pick = { url: item.url, preview: item.url, name: item.name };
-                                    addClassifiedGarment(pick);
-                                    setCloth(pick);
-                                    setShowAllGarmentsModal(false);
-                                  }}
-                                  className={`relative aspect-[3/4] rounded-2xl border overflow-hidden group transition text-left cursor-pointer ${isSelected
-                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 shadow-lg scale-[1.02]'
-                                    : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
-                                    }`}
-                                >
-                                  <img
-                                    src={item.url}
-                                    alt={item.name}
-                                    onError={() => markGlobalBrokenUrl(item.url)}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                  />
-                                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2 pt-4">
-                                    <p className="text-[11px] font-bold text-white truncate text-center">{item.name}</p>
-                                  </div>
-                                  {isSelected && (
-                                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow">
-                                      ✓
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Precision Garment Color Matching */}
-                <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-xs font-medium tracking-normal ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
-                      Fabric Color / Dye Code
-                    </h2>
-                    {garmentColor && (
-                      <button
-                        type="button"
-                        onClick={() => setGarmentColor('')}
-                        className="text-[10px] font-bold text-red-400 hover:underline"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                  <p className={`mt-0.5 text-[10px] ${isLight ? 'text-slate-800' : 'text-white/40'}`}>
-                    Match exact kit shade to prevent color distortion or bleeding during generation.
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={garmentColor.startsWith('#') && garmentColor.length === 7 ? garmentColor : '#e5373f'}
-                      onChange={(e) => setGarmentColor(e.target.value)}
-                      className="h-8 w-8 cursor-pointer rounded-lg border-0 bg-transparent p-0"
-                      title="Pick exact fabric color"
-                    />
-                    <input
-                      type="text"
-                      value={garmentColor}
-                      onChange={(e) => setGarmentColor(e.target.value)}
-                      placeholder="e.g. #E5373F or Crimson Red, Navy Blue..."
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs focus:outline-none ${isLight
-                        ? 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                        : 'border-white/10 bg-black/40 text-white placeholder:text-white/30'
-                        }`}
-                    />
-                  </div>
-                  {/* Athletic Quick Swatches */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {[
-                      { name: 'Crimson Red', hex: '#E5373F' },
-                      { name: 'Deep Navy', hex: '#0A192F' },
-                      { name: 'Jet Black', hex: '#111111' },
-                      { name: 'Optic White', hex: '#FFFFFF' },
-                      { name: 'Royal Blue', hex: '#1D4ED8' },
-                      { name: 'Neon Lime', hex: '#84CC16' },
-                      { name: 'Gold', hex: '#EAB308' },
-                      { name: 'Orange', hex: '#EA580C' },
-                    ].map((sw) => (
-                      <button
-                        key={sw.name}
-                        type="button"
-                        onClick={() => setGarmentColor(`${sw.name} (${sw.hex})`)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-all ${garmentColor.includes(sw.hex)
-                          ? 'border-[#e5373f] bg-[#e5373f]/20 font-bold'
-                          : isLight
-                            ? 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
-                            : 'border-white/10 bg-black/30 text-white/70 hover:border-white/30'
-                          }`}
-                      >
-                        <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: sw.hex }} />
-                        <span>{sw.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Model Selection Block */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      void handleMultipleFiles(e.dataTransfer.files, 'model');
-                    }
-                  }}
-                  className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>2 &middot; Model</h2>
-                    <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em]">
-                      {(model || selectedModels.length > 0) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModel(null);
-                            setSelectedModels([]);
-                          }}
-                          className={`font-semibold hover:underline ${isLight ? 'text-rose-700 hover:text-rose-900' : 'text-white/40 hover:text-white'}`}
-                        >
-                          Clear All
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setTab('library')}
-                        className={tab === 'library' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
-                      >
-                        Library
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTab('uploads')}
-                        className={tab === 'uploads' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
-                      >
-                        Uploads
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTab('sets')}
-                        className={tab === 'sets' ? (isLight ? 'text-slate-900 font-bold underline' : 'text-white font-bold') : (isLight ? 'text-slate-700 hover:text-slate-900' : 'text-white/40 hover:text-white')}
-                      >
-                        Saved Sets ({uploadSets.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => modelInput.current?.click()}
-                        disabled={uploading}
-                        className="text-[#e5373f] hover:underline disabled:opacity-30 font-semibold"
-                      >
-                        + Upload Models
-                      </button>
-                    </div>
-                  </div>
-                  <input
-                    ref={modelInput}
-                    type="file"
-                    multiple
-                    accept="image/*,.png,.jpg,.jpeg,.webp"
-                    className="hidden"
-                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                    onChange={(e) => void handleMultipleFiles(e.target.files, 'model')}
-                  />
-
-                  {uploading && uploadProgress?.kind === 'model' && (
-                    <div className="mt-3 flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-500">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent shrink-0" />
-                      <span>Uploading {uploadProgress.current} of {uploadProgress.total} model images...</span>
-                    </div>
-                  )}
-
-                  {/* Multi-Model Selector Grid (when multiple models uploaded or selected) */}
-                  {selectedModels.length > 1 ? (
-                    <div className="mt-4 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[11px] font-semibold ${isLight ? 'text-slate-800' : 'text-white/70'}`}>
-                          {selectedModels.length} Models Selected &middot; Click to set Active Try-On
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedModels([]);
-                              setModel(null);
-                            }}
-                            className={`text-[11px] font-medium hover:underline ${isLight ? 'text-slate-500 hover:text-slate-700' : 'text-white/50 hover:text-white'}`}
-                          >
-                            Clear All
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => modelInput.current?.click()}
-                            disabled={uploading}
-                            className="text-[11px] font-bold text-[#e5373f] hover:underline"
-                          >
-                            + Add More Models
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                        {selectedModels.map((item, idx) => {
-                          const isCurrent = model?.url === item.url;
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() => setModel(item)}
-                              className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all cursor-pointer ${isCurrent
-                                ? 'border-[#e5373f] ring-2 ring-[#e5373f] shadow-md scale-[1.02]'
-                                : isLight
-                                  ? 'border-gray-200 bg-gray-50 hover:border-gray-400'
-                                  : 'border-white/15 bg-black/40 hover:border-white/30'
-                                }`}
-                            >
-                              <img src={item.preview ?? item.url} alt={item.name} className="h-full w-full object-contain p-1" />
-                              <span className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isCurrent ? 'bg-[#e5373f] text-white shadow' : 'bg-black/75 text-white/90'
-                                }`}>
-                                {isCurrent ? 'Active Try-On' : `Model ${idx + 1}`}
-                              </span>
-                              <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openZoomCropForModel(item, idx);
-                                  }}
-                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
-                                  title="Zoom & Crop without blur (use this frame for generation)"
-                                >
-                                  <ZoomIn className="h-2.5 w-2.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const rot = await rotateImage(item.preview ?? item.url, 90);
-                                    setSelectedModels((prev) =>
-                                      prev.map((m, i) => (i === idx ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
-                                    );
-                                    setModel((prev) => (prev && prev.url === item.url ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : prev));
-                                  }}
-                                  className="rounded-full bg-black/80 p-1 text-white hover:bg-black transition-colors"
-                                  title="Rotate 90° clockwise"
-                                >
-                                  <RotateCw className="h-2.5 w-2.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeSelectedModel(idx);
-                                  }}
-                                  className="rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition-colors"
-                                  title="Remove model"
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </div>
-                              <p className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1 text-[9px] text-white truncate text-center font-medium">
-                                {item.name}
-                              </p>
-                            </div>
-                          );
-                        })}
-
-                        <button
-                          type="button"
-                          onClick={() => modelInput.current?.click()}
-                          disabled={uploading}
-                          className={`flex aspect-[3/4] flex-col items-center justify-center rounded-xl border border-dashed p-2 text-center transition-colors ${isLight
-                            ? 'border-gray-300 bg-gray-50/70 hover:bg-gray-100 hover:border-gray-400'
-                            : 'border-white/20 bg-black/30 hover:border-white/40 hover:bg-black/50'
-                            }`}
-                        >
-                          <span className={`text-xl mb-1 ${isLight ? 'text-slate-800' : 'text-white/40'}`}>+</span>
-                          <span className={`text-[10px] font-semibold ${isLight ? 'text-slate-900' : 'text-white/70'}`}>+ Add More</span>
-                          <span className={`text-[9px] ${isLight ? 'text-slate-700' : 'text-white/30'}`}>Models</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : model ? (
-                    <div className={`mt-4 flex items-center justify-between rounded-xl border p-2.5 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/15 bg-white/[0.04]'}`}>
-                      <div className="flex items-center gap-3">
-                        <img src={model.preview ?? model.url} alt="" className="h-14 w-11 rounded-md object-contain bg-black/40 p-0.5" />
-                        <div className="text-xs">
-                          <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>Selected Model</p>
-                          <p className={isLight ? 'text-slate-800' : 'text-white/40'}>{model.name}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openZoomCropForModel(model)}
-                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
-                          title="Zoom & Crop without blur (use this frame for generation)"
-                        >
-                          <ZoomIn className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const rot = await rotateImage(model.preview ?? model.url, 90);
-                            setModel((prev) => (prev ? { ...prev, url: rot.dataUrl, preview: rot.dataUrl } : null));
-                            setSelectedModels((prev) =>
-                              prev.map((m) => (m.url === model.url ? { ...m, url: rot.dataUrl, preview: rot.dataUrl } : m))
-                            );
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 transition-colors"
-                          title="Rotate 90° clockwise"
-                        >
-                          <RotateCw className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModel(null);
-                            setSelectedModels([]);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors"
-                          title="Deselect model"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-
-                  {/* Quick Pick from Previous Models */}
-                  {previousModelsList.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-700' : 'text-white/60'}`}>
-                          ⚡ Previous Models Library ({previousModelsList.length})
-                        </span>
-                        <span className={`text-[9px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
-                          Click to select model
-                        </span>
-                      </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {previousModelsList.slice(0, 25).map((item, idx) => {
+                  {tab === 'uploads' &&
+                    ((previousModelsList.length > 0 || uploads.length > 0) ? (
+                      <div className="grid grid-cols-6 gap-2">
+                        {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => {
                           const isSelected =
                             selectedModels.some((p) => p && p.url === item.url) ||
                             model?.url === item.url;
                           return (
-                            <div key={item.url || idx} className="relative shrink-0 group">
+                            <div key={item.url || idx} className="relative group">
                               <button
                                 type="button"
                                 onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                className={`card-lift-glow w-14 h-16 rounded-xl border overflow-hidden relative ${isSelected
+                                className={`card-lift-glow w-full relative overflow-hidden rounded-md border ${isSelected
                                   ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                  : isLight ? 'border-gray-200 bg-white hover:border-[#e5373f]' : 'border-white/15 bg-black/40 hover:border-[#e5373f]'
+                                  : isLight
+                                    ? 'border-gray-200 hover:border-gray-400'
+                                    : 'border-transparent hover:border-white/30'
                                   }`}
-                                title={`Select ${item.name}`}
                               >
-                                <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                                <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
                                 {isSelected && (
-                                  <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[9px] font-bold shadow">
+                                  <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
                                     ✓
                                   </span>
                                 )}
@@ -14253,226 +14419,117 @@ export default function Design() {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>
+                    ))}
 
-                  {/* Athlete Sports Equipment & Prop Preservation Notice */}
-                  {effectiveModels.length > 0 && (
-                    <div className={`mt-3 rounded-xl border p-2.5 text-[11px] leading-relaxed flex items-start gap-2 ${isLight ? 'border-amber-200 bg-amber-50/80 text-amber-950' : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
-                      }`}>
-                      <span className="text-sm shrink-0">🏀</span>
-                      <div>
-                        <span className="font-bold">Athletic Prop & Pose Guide:</span>
-                        <p className="mt-0.5 text-[10px] opacity-90">
-                          Props held at the <strong>knee, hip, side, or floor</strong> (like the sitting athlete) are 100% preserved. If a ball is held <strong>directly covering the chest/stomach</strong>, virtual try-on replaces that area with the new jacket. To swap models while keeping a chest-held ball 100% intact, use <strong>Model Swap</strong> mode.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-4 max-h-[380px] overflow-y-auto pr-1">
-                    {tab === 'library' && (
-                      <>
-                        <div className="mb-3.5 flex flex-wrap items-center gap-1.5 border-b pb-2.5 border-white/10">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider mr-1 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                            Season:
-                          </span>
-                          {modelCategoryTabs.map((ct) => {
-                            const isSelected = modelCategoryFilter === ct.id;
-                            return (
-                              <button
-                                key={ct.id}
-                                type="button"
-                                onClick={() => setModelCategoryFilter(ct.id)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-[#e5373f] text-white shadow-sm'
-                                    : isLight
-                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                      : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                  {tab === 'sets' &&
+                    (uploadSets.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {uploadSets.map((s) => {
+                          const isSelected =
+                            selectedModels.some((p) => p && p.url === s.modelUrl) ||
+                            model?.url === s.modelUrl;
+                          return (
+                            <div
+                              key={s.id}
+                              className={`rounded-xl border p-2.5 transition-all text-left ${isSelected
+                                ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 bg-[#e5373f]/5'
+                                : isLight
+                                  ? 'border-gray-200 bg-white hover:border-[#e5373f]'
+                                  : 'border-white/10 bg-black/40 hover:border-[#e5373f]'
                                 }`}
-                              >
-                                {ct.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {filteredCategories.length === 0 ? (
-                          <div className={`text-center py-6 px-4 rounded-xl border border-dashed text-xs ${
-                            isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'
-                          }`}>
-                            No models found under "{modelCategoryFilter}". Select "All" or upload models in the Admin panel.
-                          </div>
-                        ) : (
-                          filteredCategories.map((group) => (
-                            <div key={group.category} className="mb-4">
-                              <p className={`mb-2 text-[10px] uppercase tracking-[0.18em] ${isLight ? 'text-gray-400' : 'text-white/35'}`}>{group.category}</p>
-                              <div className="grid grid-cols-6 gap-2">
-                                {group.items.map((item) => {
-                                  const isSelected =
-                                    selectedModels.some((p) => p && p.url === item.url) ||
-                                    model?.url === item.url;
-                                  return (
-                                    <button
-                                      key={item.id}
-                                      type="button"
-                                      onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                      className={`card-lift-glow group relative overflow-hidden rounded-md border ${isSelected
-                                        ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                        : isLight
-                                          ? 'border-gray-200 hover:border-gray-400'
-                                          : 'border-transparent hover:border-white/30'
-                                        }`}
-                                    >
-                                      <img
-                                      src={item.url}
-                                      alt={item.name}
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        const el = e.currentTarget;
-                                        if (item.id && !el.src.includes(`/models/${encodeURIComponent(item.id)}`)) {
-                                          el.src = `/models/${encodeURIComponent(item.id)}`;
-                                        } else {
-                                          const parent = el.closest('button, div');
-                                          if (parent) (parent as HTMLElement).style.display = 'none';
-                                        }
-                                      }}
-                                      className="aspect-[3/4] w-full object-cover"
-                                    />
-                                      {isSelected && (
-                                        <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
-                                          ✓
-                                        </span>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </>
-                    )}
-
-                    {tab === 'uploads' &&
-                      ((previousModelsList.length > 0 || uploads.length > 0) ? (
-                        <div className="grid grid-cols-6 gap-2">
-                          {(previousModelsList.length > 0 ? previousModelsList : uploads).map((item, idx) => {
-                            const isSelected =
-                              selectedModels.some((p) => p && p.url === item.url) ||
-                              model?.url === item.url;
-                            return (
-                              <div key={item.url || idx} className="relative group">
+                            >
+                              <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1.5">
+                                <span>Set #{s.setNumber}</span>
                                 <button
                                   type="button"
-                                  onClick={() => toggleModelSelection({ url: item.url, name: item.name })}
-                                  className={`card-lift-glow w-full relative overflow-hidden rounded-md border ${isSelected
-                                    ? 'border-[#e5373f] ring-2 ring-[#e5373f]'
-                                    : isLight
-                                      ? 'border-gray-200 hover:border-gray-400'
-                                      : 'border-transparent hover:border-white/30'
-                                    }`}
+                                  onClick={() => handleUseSet(s)}
+                                  className="px-2 py-0.5 rounded bg-[#e5373f] text-white hover:bg-[#d42d35] text-[9px] font-bold shadow-xs cursor-pointer"
+                                  title="Load both garment and model into studio"
                                 >
-                                  <img src={item.url} alt="" className="aspect-[3/4] w-full object-cover" />
-                                  {isSelected && (
-                                    <span className="absolute top-1 right-1 rounded-full bg-[#e5373f] text-white w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow">
-                                      ✓
-                                    </span>
-                                  )}
+                                  Load Set
                                 </button>
-                                {item.id && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleDeleteUpload(item.id, item.url);
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5 rounded-lg overflow-hidden bg-black/40 mb-1.5">
+                                {s.clothUrl ? (
+                                  <div className="relative">
+                                    <img src={s.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                                    <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] text-white text-center py-0.5 truncate px-0.5">Cloth</span>
+                                  </div>
+                                ) : (
+                                  <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Cloth</div>
+                                )}
+                                {s.modelUrl ? (
+                                  <div
+                                    onClick={() => {
+                                      handleModelSelect({ url: s.modelUrl, name: s.modelName || 'Set Model' });
                                     }}
-                                    className="absolute top-1 left-1 w-4 h-4 rounded-full bg-black/75 text-white/80 hover:bg-red-600 hover:text-white flex items-center justify-center text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer z-10"
-                                    title="Delete uploaded model"
+                                    className="relative cursor-pointer hover:opacity-90 transition-opacity"
+                                    title="Click to select this model"
                                   >
-                                    ×
-                                  </button>
+                                    <img src={s.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                                    <span className="absolute bottom-0 inset-x-0 bg-[#e5373f]/80 text-[8px] text-white text-center py-0.5 font-bold">Pick Model</span>
+                                  </div>
+                                ) : (
+                                  <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Model</div>
                                 )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className={`py-6 text-center text-xs ${isLight ? 'text-gray-400' : 'text-white/35'}`}>No custom models uploaded yet.</p>
-                      ))}
-
-                    {tab === 'sets' &&
-                      (uploadSets.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                          {uploadSets.map((s) => {
-                            const isSelected =
-                              selectedModels.some((p) => p && p.url === s.modelUrl) ||
-                              model?.url === s.modelUrl;
-                            return (
-                              <div
-                                key={s.id}
-                                className={`rounded-xl border p-2.5 transition-all text-left ${isSelected
-                                  ? 'border-[#e5373f] ring-2 ring-[#e5373f]/60 bg-[#e5373f]/5'
-                                  : isLight
-                                    ? 'border-gray-200 bg-white hover:border-[#e5373f]'
-                                    : 'border-white/10 bg-black/40 hover:border-[#e5373f]'
-                                  }`}
-                              >
-                                <div className="flex items-center justify-between text-[9px] font-bold text-[#e5373f] mb-1.5">
-                                  <span>Set #{s.setNumber}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUseSet(s)}
-                                    className="px-2 py-0.5 rounded bg-[#e5373f] text-white hover:bg-[#d42d35] text-[9px] font-bold shadow-xs cursor-pointer"
-                                    title="Load both garment and model into studio"
-                                  >
-                                    Load Set
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-1.5 rounded-lg overflow-hidden bg-black/40 mb-1.5">
-                                  {s.clothUrl ? (
-                                    <div className="relative">
-                                      <img src={s.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
-                                      <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] text-white text-center py-0.5 truncate px-0.5">Cloth</span>
-                                    </div>
-                                  ) : (
-                                    <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Cloth</div>
-                                  )}
-                                  {s.modelUrl ? (
-                                    <div
-                                      onClick={() => {
-                                        handleModelSelect({ url: s.modelUrl, name: s.modelName || 'Set Model' });
-                                      }}
-                                      className="relative cursor-pointer hover:opacity-90 transition-opacity"
-                                      title="Click to select this model"
-                                    >
-                                      <img src={s.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
-                                      <span className="absolute bottom-0 inset-x-0 bg-[#e5373f]/80 text-[8px] text-white text-center py-0.5 font-bold">Pick Model</span>
-                                    </div>
-                                  ) : (
-                                    <div className="aspect-[3/4] flex items-center justify-center text-[10px] text-white/40">No Model</div>
-                                  )}
-                                </div>
-                                <p className="text-[10px] font-semibold truncate">{s.clothName || 'Garment'} + {s.modelName || 'Model'}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className={`py-8 text-center rounded-xl border border-dashed ${isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'}`}>
-                          <Folder className="h-6 w-6 mx-auto mb-1 opacity-40" />
-                          <p className="text-xs font-semibold">No saved outfit sets found.</p>
-                          <p className="text-[10px] opacity-70 mt-0.5">Go to "My Sets" tab at top or save an outfit to quickly access sets here.</p>
-                        </div>
-                      ))}
-                  </div>
+                              <p className="text-[10px] font-semibold truncate">{s.clothName || 'Garment'} + {s.modelName || 'Model'}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className={`py-8 text-center rounded-xl border border-dashed ${isLight ? 'border-gray-200 text-gray-500' : 'border-white/10 text-white/40'}`}>
+                        <Folder className="h-6 w-6 mx-auto mb-1 opacity-40" />
+                        <p className="text-xs font-semibold">No saved outfit sets found.</p>
+                        <p className="text-[10px] opacity-70 mt-0.5">Go to "My Sets" tab at top or save an outfit to quickly access sets here.</p>
+                      </div>
+                    ))}
                 </div>
+              </div>
 
-                {/* Instructions Block */}
-                <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>3 &middot; Instructions</h2>
+              {/* Instructions Block */}
+              <div className={`rounded-2xl border p-5 ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>3 &middot; Instructions</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={aiEnhancing}
+                      onClick={async () => {
+                        if (!user) {
+                          window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+                          return;
+                        }
+                        setAiEnhancing(true);
+                        try {
+                          const imgs = [
+                            topFrontGarment?.url,
+                            cloth?.url,
+                            bottomGarment?.url,
+                            model?.url,
+                          ].filter((u): u is string => Boolean(u));
+                          const res = await api.aiAssist({
+                            action: 'enhance-prompt',
+                            prompt: prompt.trim() || `Enhance this sportswear try-on render (${tryOnTarget || 'upper'}, ${quality}).`,
+                            images: imgs,
+                            context: { tryOnTarget, garmentColor, quality },
+                          });
+                          if (res?.text) setPrompt(res.text);
+                        } catch (err: any) {
+                          setError(err?.message || 'AI Prompt Enhance failed.');
+                        } finally {
+                          setAiEnhancing(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-[#C9A468]/50 bg-[#C9A468]/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#C9A468] hover:bg-[#C9A468]/25 transition disabled:opacity-50 cursor-pointer"
+                      title="Use Gemini AI Vision to write a studio-grade Try-On prompt"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>{aiEnhancing ? 'Enhancing…' : 'AI Enhance'}</span>
+                    </button>
                     {settings?.defaultPrompt && (
                       <button
                         type="button"
@@ -14483,1084 +14540,1067 @@ export default function Design() {
                       </button>
                     )}
                   </div>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={3}
-                    placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
-                    className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
-                      ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                      : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
-                      }`}
-                  />
-                  {/* Quick Neckline / Collar & Hood Styling Helper Pills */}
-                  <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[10px]">
-                    <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
-                      Collar & Neck Style:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setPrompt('')}
-                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                        !prompt.trim()
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                      }`}
-                      title="Follow model neckline naturally with zero prompt overrides"
-                    >
-                      🎯 Match Model (Auto)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPrompt((p) => p.includes('folded down') ? p : `${p.trim()} · Matte stand collar zipped, folded down neatly around neck`.replace(/^ · /, ''))}
-                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                        prompt.includes('folded down')
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                      }`}
-                      title="Folded collar around throat matching reference jacket"
-                    >
-                      🧥 Folded Collar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPrompt((p) => p.includes('zipped to throat') ? p : `${p.trim()} · Full zipper zipped to throat, upright stand collar`.replace(/^ · /, ''))}
-                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                        prompt.includes('zipped to throat')
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                      }`}
-                      title="Upright stand collar zipped completely closed"
-                    >
-                      ⚡ Zipped Upright
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPrompt((p) => p.includes('100% hoodless') ? p : `${p.trim()} · 100% hoodless stand collar, zero hood or draped cap behind neck`.replace(/^ · /, ''))}
-                      className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                        prompt.includes('100% hoodless')
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                          : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                      }`}
-                      title="Enforce 100% hoodless stand collar with zero hoodie, cap, or folded cloth behind neck"
-                    >
-                      🚫 100% Hoodless (No Cap/Hood)
-                    </button>
-                  </div>
                 </div>
-              </>
-            )}
-
-            {/* Generate Trigger Button — Opens Confirmation Modal */}
-            <div className="flex items-center gap-4">
-              {/* Pre-Flight Confirmation Pill */}
-              {canRun && mode === 'tryon' && (
-                <div className={`mb-2.5 px-3 py-1 rounded-full border text-[10px] flex items-center justify-center gap-2 flex-wrap ${
-                  isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/[0.04] text-white/70'
-                }`}>
-                  <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : tryOnTarget === 'lower' ? 'text-sky-400 font-bold' : tryOnTarget === 'upper' ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : tryOnTarget === 'upper' ? '👕 Upper Only' : '⚠️ None'}</strong></span>
-                  <span>·</span>
-                  <span>Branding: <strong>{activeRenderOption === 'b' ? (showHdLogoOverlay && showPantLogo ? 'Option B: Dual (Chest + Pant)' : showHdLogoOverlay ? 'Option B: Chest' : showPantLogo ? 'Option B: Pant' : 'Option B') : activeRenderOption === 'a' ? 'Option A: Garment Original' : '⚠️ None'}</strong></span>
-                </div>
-              )}
-
-              {mode !== 'removelogo' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isLocked) {
-                      setError('Your account generation credits have been locked by an administrator.');
-                      return;
-                    }
-                    if (isGlobalBusy) {
-                      setError('Another generation is currently in progress. At one time only one generation is allowed.');
-                      return;
-                    }
-                    if (mode === 'tryon') {
-                      if (!tryOnTarget) {
-                        setError('⚠️ Please select Try-On Target: Upper Only, Lower (Pants), or Full Outfit.');
-                        const el = document.getElementById('tryon-target-selector');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        return;
-                      }
-                      if (!activeRenderOption) {
-                        setError('⚠️ Please select Branding Option: Option A (Garment Original) or Option B (Vector Replace).');
-                        const el = document.getElementById('branding-engine-selector');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        return;
-                      }
-                    }
-                    if (canRun) setShowConfirmModal(true);
-                  }}
-                  disabled={!canRun || isGlobalBusy}
-                  className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
-                    ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
-                    : isGlobalBusy
-                      ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : canRun
-                        ? isLight
-                          ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
-                          : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
-                        : isLight
-                          ? 'cursor-not-allowed bg-gray-200 text-gray-400'
-                          : 'cursor-not-allowed bg-white/20 text-white/40'
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={3}
+                  placeholder={settings?.defaultPrompt || 'e.g. tuck in the shirt, open jacket, athletic stadium lighting'}
+                  className={`mt-3 w-full resize-y rounded-xl border p-3 text-xs focus:outline-none transition-colors ${isLight
+                    ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                    : 'bg-black/40 border-white/10 text-white placeholder:text-white/25 focus:border-white/40'
                     }`}
-                >
-                  {isLocked
-                    ? 'Credits locked by administrator'
-                    : isGlobalBusy
-                      ? 'Generation in Progress (Please wait)…'
-                      : mode === 'swap'
-                        ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
-                        : !tryOnTarget
-                          ? '⚠️ Select Outfit Target (Upper, Lower, Both)'
-                          : !activeRenderOption
-                            ? '⚠️ Select Branding Engine Option (A or B)'
-                            : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
-                </button>
-              )}
-              {mode !== 'removelogo' && (
-                <>
-                  {isLocked ? (
-                    <p className="max-w-xs text-xs leading-relaxed text-rose-500">
-                      Credits locked. Contact administrator to re-enable generations.
-                    </p>
-                  ) : error ? (
-                    <p className={`max-w-xs text-xs leading-relaxed ${isLight ? 'text-red-600' : 'text-[#ff9aa0]'}`}>{error}</p>
-                  ) : missing.length ? (
-                    <p className={`text-xs ${isLight ? 'text-amber-800 font-medium' : 'text-[#ffb3b7]'}`}>
-                      Add {missing.join(' and ')} to start.
-                    </p>
-                  ) : !ready ? (
-                    <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>No render API key configured. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* Result Aside Canvas */}
-          <aside className="space-y-5">
-            <div className={`overflow-hidden rounded-3xl border ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
-              <div className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10'}`}>
-                <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>Result Canvas</span>
-                <div className="flex items-center gap-3">
-                  {busy && <span className={`text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{fmtTime(elapsedSec)}</span>}
-                  {job && <span className={`text-[10px] uppercase tracking-[0.16em] ${isLight ? 'text-slate-900 font-bold' : 'text-white/40'}`}>{job.status.replace('_', ' ')}</span>}
+                />
+                {/* Quick Neckline / Collar & Hood Styling Helper Pills */}
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[10px]">
+                  <span className={`text-[9px] uppercase font-bold shrink-0 ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
+                    Collar & Neck Style:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt('')}
+                    className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${!prompt.trim()
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                        : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    title="Follow model neckline naturally with zero prompt overrides"
+                  >
+                    🎯 Match Model (Auto)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt((p) => p.includes('folded down') ? p : `${p.trim()} · Matte stand collar zipped, folded down neatly around neck`.replace(/^ · /, ''))}
+                    className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${prompt.includes('folded down')
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                        : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    title="Folded collar around throat matching reference jacket"
+                  >
+                    🧥 Folded Collar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt((p) => p.includes('zipped to throat') ? p : `${p.trim()} · Full zipper zipped to throat, upright stand collar`.replace(/^ · /, ''))}
+                    className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${prompt.includes('zipped to throat')
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                        : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    title="Upright stand collar zipped completely closed"
+                  >
+                    ⚡ Zipped Upright
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt((p) => p.includes('100% hoodless') ? p : `${p.trim()} · 100% hoodless stand collar, zero hood or draped cap behind neck`.replace(/^ · /, ''))}
+                    className={`px-2 py-0.5 rounded-full border transition cursor-pointer ${prompt.includes('100% hoodless')
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
+                        : isLight ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    title="Enforce 100% hoodless stand collar with zero hoodie, cap, or folded cloth behind neck"
+                  >
+                    🚫 100% Hoodless (No Cap/Hood)
+                  </button>
                 </div>
               </div>
+            </>
+          )}
 
-              {busy && (
-                <div className={`border-b px-4 py-3 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
-                  <div className={`flex items-center justify-between text-[11px] ${isLight ? 'text-slate-900 font-bold' : 'text-white/60'}`}>
-                    <span>{progressLabel}</span>
-                    <span className="font-mono">{Math.round(progress)}%</span>
-                  </div>
-                  <div className={`mt-2 h-1.5 overflow-hidden rounded-full ${isLight ? 'bg-[#78a48b]' : 'bg-white/10'}`}>
-                    <div
-                      className="h-full rounded-full transition-all duration-700 ease-out"
-                      style={{
-                        width: `${progress}%`,
-                        background: progress >= 100 ? '#22c55e' : '#e5373f',
-                      }}
-                    />
-                  </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2">
-                    <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                      Elapsed: {fmtTime(elapsedSec)} &middot; GPU Active
+          {/* Generate Trigger Button — Opens Confirmation Modal */}
+          <div className="flex items-center gap-4">
+            {/* Pre-Flight Confirmation Pill */}
+            {canRun && mode === 'tryon' && (
+              <div className={`mb-2.5 px-3 py-1 rounded-full border text-[10px] flex items-center justify-center gap-2 flex-wrap ${isLight ? 'border-gray-300 bg-gray-50 text-gray-800' : 'border-white/10 bg-white/[0.04] text-white/70'
+                }`}>
+                <span>Target: <strong className={tryOnTarget === 'both' ? 'text-emerald-400 font-bold' : tryOnTarget === 'lower' ? 'text-sky-400 font-bold' : tryOnTarget === 'upper' ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold'}>{tryOnTarget === 'both' ? '🥋 Full Outfit' : tryOnTarget === 'lower' ? '👖 Lower (Pants)' : tryOnTarget === 'upper' ? '👕 Upper Only' : '⚠️ None'}</strong></span>
+                <span>·</span>
+                <span>Branding: <strong>{activeRenderOption === 'b' ? (showHdLogoOverlay && showPantLogo ? 'Option B: Dual (Chest + Pant)' : showHdLogoOverlay ? 'Option B: Chest' : showPantLogo ? 'Option B: Pant' : 'Option B') : activeRenderOption === 'a' ? 'Option A: Garment Original' : '⚠️ None'}</strong></span>
+              </div>
+            )}
+
+            {mode !== 'removelogo' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isLocked) {
+                    setError('Your account generation credits have been locked by an administrator.');
+                    return;
+                  }
+                  if (isGlobalBusy) {
+                    setError('Another generation is currently in progress. At one time only one generation is allowed.');
+                    return;
+                  }
+                  if (mode === 'tryon') {
+                    if (!tryOnTarget) {
+                      setError('⚠️ Please select Try-On Target: Upper Only, Lower (Pants), or Full Outfit.');
+                      const el = document.getElementById('tryon-target-selector');
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      return;
+                    }
+                    if (!activeRenderOption) {
+                      setError('⚠️ Please select Branding Option: Option A (Garment Original) or Option B (Vector Replace).');
+                      const el = document.getElementById('branding-engine-selector');
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      return;
+                    }
+                  }
+                  if (!user) {
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+                    return;
+                  }
+                  if (canRun) setShowConfirmModal(true);
+                }}
+                disabled={!canRun || isGlobalBusy}
+                className={`rounded-full px-8 py-3.5 text-xs font-semibold uppercase tracking-wider transition-all ${isLocked
+                  ? isLight ? 'cursor-not-allowed bg-rose-100 text-rose-700 border border-rose-300' : 'cursor-not-allowed bg-rose-600/20 text-rose-300 border border-rose-500/40'
+                  : isGlobalBusy
+                    ? isLight ? 'cursor-not-allowed bg-amber-100 text-amber-800 border border-amber-300' : 'cursor-not-allowed bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : canRun
+                      ? isLight
+                        ? 'bg-gray-900 text-white shadow-sm hover:bg-black'
+                        : 'bg-white text-gray-900 shadow-sm hover:bg-gray-100'
+                      : isLight
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                        : 'cursor-not-allowed bg-white/20 text-white/40'
+                  }`}
+              >
+                {isLocked
+                  ? 'Credits locked by administrator'
+                  : isGlobalBusy
+                    ? 'Generation in Progress (Please wait)…'
+                    : mode === 'swap'
+                      ? `Generate ${validSwapDrafts.length > 1 ? `${validSwapDrafts.length} Swaps` : 'Swap'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''})`
+                      : !tryOnTarget
+                        ? '⚠️ Select Outfit Target (Upper, Lower, Both)'
+                        : !activeRenderOption
+                          ? '⚠️ Select Branding Engine Option (A or B)'
+                          : `Generate ${tryOnTarget === 'both' ? 'Full Outfit' : tryOnTarget === 'lower' ? 'Lower (Pants)' : 'Upper Only'} (${quality.toUpperCase()} · ${totalRequiredCredits} Credit${totalRequiredCredits > 1 ? 's' : ''}${multiBatchCount > 1 ? ` for ${multiBatchCount} Models` : ''})`}
+              </button>
+            )}
+            {mode !== 'removelogo' && (
+              <>
+                {isLocked ? (
+                  <p className="max-w-xs text-xs leading-relaxed text-rose-500">
+                    Credits locked. Contact administrator to re-enable generations.
+                  </p>
+                ) : error ? (
+                  <p className={`max-w-xs text-xs leading-relaxed ${isLight ? 'text-red-600' : 'text-[#ff9aa0]'}`}>{error}</p>
+                ) : missing.length ? (
+                  <p className={`text-xs ${isLight ? 'text-amber-800 font-medium' : 'text-[#ffb3b7]'}`}>
+                    Add {missing.join(' and ')} to start.
+                  </p>
+                ) : !ready ? (
+                  <p className={`text-xs ${isLight ? 'text-amber-800' : 'text-[#ffb3b7]'}`}>No render API key configured. <a href="/admin" className="underline font-bold">Set it up &rarr;</a></p>
+                ) : null}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Result Aside Canvas */}
+        <aside className="space-y-5 min-w-0">
+          <div className={`overflow-hidden rounded-3xl border ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.02]'}`}>
+            <div className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10'}`}>
+              <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-white/60'}`}>Result Canvas</span>
+              <div className="flex items-center gap-3">
+                {busy && <span className={`text-[10px] ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{fmtTime(elapsedSec)}</span>}
+                {job && <span className={`text-[10px] uppercase tracking-[0.16em] ${isLight ? 'text-slate-900 font-bold' : 'text-white/40'}`}>{job.status.replace('_', ' ')}</span>}
+              </div>
+            </div>
+
+            {busy && (
+              <div className={`border-b px-4 py-3 ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
+                <div className={`flex items-center justify-between text-[11px] ${isLight ? 'text-slate-900 font-bold' : 'text-white/60'}`}>
+                  <span>{progressLabel}</span>
+                  <span className="font-mono">{Math.round(progress)}%</span>
+                </div>
+                <div className={`mt-2 h-1.5 overflow-hidden rounded-full ${isLight ? 'bg-[#78a48b]' : 'bg-white/10'}`}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${progress}%`,
+                      background: progress >= 100 ? '#22c55e' : '#e5373f',
+                    }}
+                  />
+                </div>
+                <div className="mt-2.5 flex items-center justify-between gap-2">
+                  <span className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                    Elapsed: {fmtTime(elapsedSec)} &middot; GPU Active
+                  </span>
+                  {elapsedSec <= 8 ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleCancelGeneration()}
+                      disabled={cancellingJob}
+                      className="rounded-full border border-red-500/70 bg-red-500/20 px-3 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition animate-pulse disabled:opacity-50"
+                      title="Cancel generation under the first 8s window and refund credits"
+                    >
+                      {cancellingJob ? 'Cancelling & Refunding…' : `✕ Cancel Generation (${Math.max(1, 8 - elapsedSec)}s)`}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-white/40 italic">
+                      🔒 Rendering Locked
                     </span>
-                    {elapsedSec <= 8 ? (
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Batch Renders Strip (5-Pose, Multi-Model, or Multi-Swap) */}
+            {fivePoseItems.length > 0 && (
+              <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                    {mode === 'swap'
+                      ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`
+                      : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {fivePoseItems.some((p) => p.status === 'pending') && (
                       <button
                         type="button"
-                        onClick={() => void handleCancelGeneration()}
-                        disabled={cancellingJob}
-                        className="rounded-full border border-red-500/70 bg-red-500/20 px-3 py-1 text-[10px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition animate-pulse disabled:opacity-50"
-                        title="Cancel generation under the first 8s window and refund credits"
+                        onClick={handleCancelRemainingQueue}
+                        className="rounded-full border border-red-500/70 bg-red-500/20 px-2.5 py-0.5 text-[9px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition cursor-pointer"
+                        title="Cancel all upcoming pending poses in queue"
                       >
-                        {cancellingJob ? 'Cancelling & Refunding…' : `✕ Cancel Generation (${Math.max(1, 8 - elapsedSec)}s)`}
+                        ⏹ Stop Remaining Queue
                       </button>
-                    ) : (
-                      <span className="text-[10px] text-white/40 italic">
-                        🔒 Rendering Locked
-                      </span>
                     )}
+                    <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
                   </div>
                 </div>
-              )}
-
-              {/* Batch Renders Strip (5-Pose, Multi-Model, or Multi-Swap) */}
-              {fivePoseItems.length > 0 && (
-                <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                      {mode === 'swap'
-                        ? `${fivePoseItems.length} Model Swaps (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`
-                        : `${fivePoseItems.length} Model Renders (${fivePoseItems.filter((p) => p.status === 'completed' && Boolean(p.url)).length}/${fivePoseItems.length} Completed${fivePoseItems.some((p) => p.status === 'failed') ? ` · ${fivePoseItems.filter((p) => p.status === 'failed').length} Failed` : ''})`}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {fivePoseItems.some((p) => p.status === 'pending') && (
+                <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                  {fivePoseItems.map((pose, idx) => {
+                    const isSelected = selectedPoseIndex === idx;
+                    const thumbUrl = resolveImageUrl(pose.url || pose.model?.preview || pose.model?.url);
+                    return (
+                      <div key={pose.id} className="relative group">
                         <button
                           type="button"
-                          onClick={handleCancelRemainingQueue}
-                          className="rounded-full border border-red-500/70 bg-red-500/20 px-2.5 py-0.5 text-[9px] font-bold text-red-400 hover:bg-red-500 hover:text-white transition cursor-pointer"
-                          title="Cancel all upcoming pending poses in queue"
+                          onClick={() => {
+                            currentEditGenIdRef.current = '';
+                            setSelectedPoseIndex(idx);
+                            if (pose.url) {
+                              setResult(pose.url);
+                              setCleanResultBackup(pose.url);
+                              setActiveRenderOption('b');
+                              setShowHdLogoOverlay(true);
+                              setShowPantLogo(true);
+                              setIsEraseMode(false);
+                              autoDetectContrastColor(pose.url);
+                            }
+                          }}
+                          className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
+                            ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
+                            : isLight
+                              ? 'border-gray-300 bg-white hover:bg-gray-50'
+                              : 'border-white/10 bg-black/40 hover:border-white/20'
+                            }`}
                         >
-                          ⏹ Stop Remaining Queue
-                        </button>
-                      )}
-                      <span className={`text-[10px] font-bold ${isLight ? 'text-amber-950 font-black' : 'text-amber-500'}`}>{creditCost} Credit / Render</span>
-                    </div>
-                  </div>
-                  <div className={`grid gap-1.5 ${fivePoseItems.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
-                    {fivePoseItems.map((pose, idx) => {
-                      const isSelected = selectedPoseIndex === idx;
-                      const thumbUrl = resolveImageUrl(pose.url || pose.model?.preview || pose.model?.url);
-                      return (
-                        <div key={pose.id} className="relative group">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              currentEditGenIdRef.current = '';
-                              setSelectedPoseIndex(idx);
-                              if (pose.url) {
-                                setResult(pose.url);
-                                setCleanResultBackup(pose.url);
-                                setActiveRenderOption('b');
-                                setShowHdLogoOverlay(true);
-                                setShowPantLogo(true);
-                                setIsEraseMode(false);
-                                autoDetectContrastColor(pose.url);
-                              }
-                            }}
-                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border ${isSelected
-                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
-                              : isLight
-                                ? 'border-gray-300 bg-white hover:bg-gray-50'
-                                : 'border-white/10 bg-black/40 hover:border-white/20'
-                              }`}
-                          >
-                            {thumbUrl ? (
-                              <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
-                                <img src={thumbUrl} alt={pose.name} className="h-full w-full object-cover" />
-                                {pose.status === 'completed' && Boolean(pose.url) && (
-                                  <span className="absolute bottom-0 right-0 bg-emerald-600 text-white text-[7px] font-bold px-1 rounded-tl">
-                                    ✓
-                                  </span>
-                                )}
-                                {pose.status === 'failed' && (
-                                  <span className="absolute bottom-0 right-0 bg-red-600 text-white text-[7px] font-bold px-1 rounded-tl">
-                                    ✕
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-sm">{pose.icon}</span>
-                            )}
-                            <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
-                            <div className="flex items-center gap-1 justify-center my-0.5">
-                              <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}`}>
-                                {/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? '🔄 Back View' : '👕 Front View'}
-                              </span>
-                            </div>
-                            <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
-                            <div className="mt-1 flex flex-col items-center gap-1">
-                              {pose.status === 'completed' && Boolean(pose.url) && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
-                              {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
-                              {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
+                          {thumbUrl ? (
+                            <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
+                              <img src={thumbUrl} alt={pose.name} className="h-full w-full object-cover" />
+                              {pose.status === 'completed' && Boolean(pose.url) && (
+                                <span className="absolute bottom-0 right-0 bg-emerald-600 text-white text-[7px] font-bold px-1 rounded-tl">
+                                  ✓
+                                </span>
+                              )}
                               {pose.status === 'failed' && (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="text-[9px] text-rose-500 font-bold">Failed</span>
-                                  {!busy && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void handleRetrySinglePose(idx);
-                                      }}
-                                      className="px-1.5 py-0.2 rounded text-[7.5px] font-bold bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black border border-amber-500/40 transition cursor-pointer"
-                                      title="Retry rendering this model"
-                                    >
-                                      🔄 Retry
-                                    </button>
-                                  )}
-                                </div>
+                                <span className="absolute bottom-0 right-0 bg-red-600 text-white text-[7px] font-bold px-1 rounded-tl">
+                                  ✕
+                                </span>
                               )}
                             </div>
-                          </button>
+                          ) : (
+                            <span className="text-sm">{pose.icon}</span>
+                          )}
+                          <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>{pose.name}</span>
+                          <div className="flex items-center gap-1 justify-center my-0.5">
+                            <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}`}>
+                              {/back|rear|behind|reverse|peche|dorsal/i.test(`${pose.name} ${pose.angle}`) ? '🔄 Back View' : '👕 Front View'}
+                            </span>
+                          </div>
+                          <span className={`text-[8px] truncate ${isLight ? 'text-slate-700' : 'text-white/40'}`}>{pose.angle}</span>
+                          <div className="mt-1 flex flex-col items-center gap-1">
+                            {pose.status === 'completed' && Boolean(pose.url) && <span className="text-[9px] text-emerald-500 font-bold">👁️ View</span>}
+                            {pose.status === 'generating' && <span className={`text-[9px] font-medium ${isLight ? 'text-amber-950 font-bold' : 'text-amber-400'}`}>Rendering…</span>}
+                            {pose.status === 'pending' && <span className={`text-[9px] ${isLight ? 'text-slate-600' : 'text-white/40'}`}>Queue</span>}
+                            {pose.status === 'failed' && (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="text-[9px] text-rose-500 font-bold">Failed</span>
+                                {!busy && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleRetrySinglePose(idx);
+                                    }}
+                                    className="px-1.5 py-0.2 rounded text-[7.5px] font-bold bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black border border-amber-500/40 transition cursor-pointer"
+                                    title="Retry rendering this model"
+                                  >
+                                    🔄 Retry
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDeleteOrCancelPose(idx, pose.id);
+                          }}
+                          className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Cancel or delete this pose"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Target Models for Generation Strip (shows photos of selected models above canvas) */}
+            {fivePoseItems.length === 0 && effectiveModels.length > 0 && (
+              <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
+                    <span>👤 Target Model{effectiveModels.length > 1 ? `s for Generation (${effectiveModels.length})` : ' for Generation'}</span>
+                  </span>
+                  <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${isLight ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    {effectiveModels.length > 1 ? `Multi-Model Batch · ${effectiveModels.length} Photos` : 'Active Model Selected'}
+                  </span>
+                </div>
+                <div className={`grid gap-1.5 ${effectiveModels.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                  {effectiveModels.slice(0, 10).map((m, idx) => {
+                    const isChosen = (model?.url === m.url) || (idx === 0 && !model);
+                    const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(m.name || '');
+                    return (
+                      <div key={m.url || idx} className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => setModel(m)}
+                          className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border cursor-pointer ${isChosen
+                              ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
+                              : isLight
+                                ? 'border-gray-300 bg-white hover:bg-gray-100'
+                                : 'border-white/10 bg-black/40 hover:border-white/20'
+                            }`}
+                          title={`Select ${m.name || `Model ${idx + 1}`} as active`}
+                        >
+                          <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
+                            <img src={resolveImageUrl(m.preview || m.url)} alt={m.name} className="h-full w-full object-cover" />
+                            {isChosen && (
+                              <span className="absolute top-0.5 right-0.5 bg-[#e5373f] text-white text-[8px] font-bold px-1 rounded">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            {m.name || `Model ${idx + 1}`}
+                          </span>
+                          <div className="flex items-center gap-1 justify-center my-0.5">
+                            <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${isBack
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              }`}>
+                              {isBack ? '🔄 Back View' : '👕 Front View'}
+                            </span>
+                          </div>
+                          <span className={`text-[8px] ${isChosen ? (isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400 font-bold') : (isLight ? 'text-slate-500' : 'text-white/40')}`}>
+                            {isChosen ? 'Active' : 'Click to Set'}
+                          </span>
+                        </button>
+                        {effectiveModels.length > 1 && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              void handleDeleteOrCancelPose(idx, pose.id);
+                              removeSelectedModel(idx);
                             }}
                             className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                            title="Cancel or delete this pose"
+                            title="Remove this model"
                           >
                             ✕
                           </button>
-                        </div>
-                      );
-                    })}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Before & After: Show Selected Model (Target Pose) directly above Generated Output */}
+            {(() => {
+              const activeSelectedModel =
+                fivePoseItems[selectedPoseIndex]?.model?.url ||
+                effectiveModels[selectedPoseIndex]?.url ||
+                model?.url ||
+                effectiveModels[0]?.url ||
+                (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null);
+              return activeSelectedModel ? (
+                <div className={`space-y-1.5 p-3 border-b ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/20'}`}>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider opacity-70">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <span>🎯 Selected Model (Target Pose)</span>
+                    </span>
+                    <span className="text-[9px] font-normal truncate max-w-[200px]">
+                      {fivePoseItems[selectedPoseIndex]?.name || effectiveModels[selectedPoseIndex]?.name || model?.name || 'Model Reference'}
+                    </span>
+                  </div>
+                  <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-h-[220px] flex items-center justify-center">
+                    <img src={resolveImageUrl(activeSelectedModel)} alt="Target Pose" className="max-h-[220px] w-full object-contain" />
                   </div>
                 </div>
-              )}
+              ) : null;
+            })()}
 
-              {/* Target Models for Generation Strip (shows photos of selected models above canvas) */}
-              {fivePoseItems.length === 0 && effectiveModels.length > 0 && (
-                <div className={`border-b p-3 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-white/70'}`}>
-                      <span>👤 Target Model{effectiveModels.length > 1 ? `s for Generation (${effectiveModels.length})` : ' for Generation'}</span>
-                    </span>
-                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${isLight ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                      {effectiveModels.length > 1 ? `Multi-Model Batch · ${effectiveModels.length} Photos` : 'Active Model Selected'}
-                    </span>
-                  </div>
-                  <div className={`grid gap-1.5 ${effectiveModels.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
-                    {effectiveModels.slice(0, 10).map((m, idx) => {
-                      const isChosen = (model?.url === m.url) || (idx === 0 && !model);
-                      const isBack = /back|rear|behind|reverse|peche|dorsal/i.test(m.name || '');
-                      return (
-                        <div key={m.url || idx} className="relative group">
-                          <button
-                            type="button"
-                            onClick={() => setModel(m)}
-                            className={`w-full rounded-xl p-1.5 flex flex-col items-center justify-center text-center transition-all border cursor-pointer ${
-                              isChosen
-                                ? 'border-[#e5373f] bg-[#e5373f]/15 ring-2 ring-[#e5373f]'
-                                : isLight
-                                  ? 'border-gray-300 bg-white hover:bg-gray-100'
-                                  : 'border-white/10 bg-black/40 hover:border-white/20'
-                            }`}
-                            title={`Select ${m.name || `Model ${idx + 1}`} as active`}
-                          >
-                            <div className="relative h-11 w-11 mb-1 rounded-md overflow-hidden shadow-sm border border-white/20 bg-black/40">
-                              <img src={resolveImageUrl(m.preview || m.url)} alt={m.name} className="h-full w-full object-cover" />
-                              {isChosen && (
-                                <span className="absolute top-0.5 right-0.5 bg-[#e5373f] text-white text-[8px] font-bold px-1 rounded">
-                                  ✓
-                                </span>
-                              )}
-                            </div>
-                            <span className={`text-[9px] font-bold truncate max-w-full mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                              {m.name || `Model ${idx + 1}`}
-                            </span>
-                            <div className="flex items-center gap-1 justify-center my-0.5">
-                              <span className={`text-[7.5px] font-bold px-1.5 py-0.2 rounded ${
-                                isBack
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              }`}>
-                                {isBack ? '🔄 Back View' : '👕 Front View'}
-                              </span>
-                            </div>
-                            <span className={`text-[8px] ${isChosen ? (isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400 font-bold') : (isLight ? 'text-slate-500' : 'text-white/40')}`}>
-                              {isChosen ? 'Active' : 'Click to Set'}
-                            </span>
-                          </button>
-                          {effectiveModels.length > 1 && (
+            {result && (
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500 px-4 pt-3 pb-1">
+                <span>✨ Generated AI Studio Render</span>
+                <span className={`text-[9px] font-normal ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
+                  {fivePoseItems[selectedPoseIndex]?.name ? `Pose: ${fivePoseItems[selectedPoseIndex]?.name}` : 'Ready for Brand / HD Download'}
+                </span>
+              </div>
+            )}
+
+            {/* Main Result Canvas Preview Area */}
+            <div
+              ref={previewContainerRef}
+              className={`relative aspect-[3/4] w-full ${isEraseMode && eraseCanvasZoom > 1.0 ? 'overflow-auto' : 'overflow-hidden'} bg-black/40 flex items-center justify-center select-none`}
+            >
+              {result ? (
+                <div
+                  ref={imageWrapperRef}
+                  onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
+                  onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
+                  onMouseMove={(e) => {
+                    if (!isEraseMode) return;
+                    const rect = getImageElementRect();
+                    if (rect) setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                  }}
+                  onMouseLeave={() => {
+                    if (!isRubbing) setCursorPos(null);
+                  }}
+                  style={{
+                    ...(renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : {}),
+                    ...(isEraseMode && eraseCanvasZoom > 1.0
+                      ? {
+                        transform: `scale(${eraseCanvasZoom})`,
+                        transformOrigin: 'center center',
+                        transition: 'transform 0.15s ease-out',
+                      }
+                      : {}),
+                  }}
+                  className={`relative max-h-full max-w-full flex items-center justify-center select-none ${isEraseMode ? (eraseTool === 'brush' ? 'cursor-none' : 'cursor-crosshair') : ''
+                    }`}
+                >
+                  <img
+                    id="rendered-main-img"
+                    src={resolveImageUrl(activeRenderOption === 'b' ? result : (cleanResultBackup || result))}
+                    alt="Rendered result"
+                    onLoad={(e) => {
+                      const target = e.currentTarget;
+                      if (target.naturalWidth && target.naturalHeight) {
+                        setRenderedImgAspect(target.naturalWidth / target.naturalHeight);
+                      }
+                    }}
+                    className="w-full h-full object-contain block select-none pointer-events-none"
+                  />
+
+                  {/* Realtime Rubbing Overlay Canvas (in Brush mode) */}
+                  {isEraseMode && eraseTool === 'brush' && (
+                    <canvas
+                      ref={rubCanvasRef}
+                      className="absolute inset-0 w-full h-full pointer-events-none z-30"
+                    />
+                  )}
+
+                  {/* Circular Cursor Brush Follower (in Brush mode) */}
+                  {isEraseMode && eraseTool === 'brush' && cursorPos && !isErasing && (
+                    <div
+                      style={{
+                        left: `${cursorPos.x}px`,
+                        top: `${cursorPos.y}px`,
+                        width: `${brushRadius * 2}px`,
+                        height: `${brushRadius * 2}px`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                      className="pointer-events-none absolute z-30 rounded-full border border-red-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-red-400/10"
+                    />
+                  )}
+
+                  {/* Canva-style Multi-Area Bounding Boxes & Active Box (in Area mode) */}
+                  {isEraseMode && eraseTool === 'area' && (
+                    <>
+                      {eraseBoxes.map((b, bIdx) => (
+                        <div
+                          key={b.id}
+                          style={{
+                            position: 'absolute',
+                            left: `${b.x}%`,
+                            top: `${b.y}%`,
+                            width: `${b.width}%`,
+                            height: `${b.height}%`,
+                            zIndex: 30,
+                          }}
+                          className="border-2 border-amber-400 bg-amber-400/10 shadow-[0_0_0_1px_rgba(0,0,0,0.7)] group pointer-events-none select-none"
+                        >
+                          <div className="absolute -top-5 left-0 flex items-center gap-1 bg-black/90 text-amber-300 border border-amber-400/50 text-[9px] font-mono px-1.5 py-0.5 rounded shadow-md pointer-events-auto">
+                            <span>Area {bIdx + 1}</span>
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeSelectedModel(idx);
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                handleRemoveEraseBox(b.id);
                               }}
-                              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-[9px] font-bold shadow-md z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                              title="Remove this model"
+                              className="hover:text-red-400 text-amber-200 ml-1 font-bold px-0.5 cursor-pointer"
+                              title="Delete this selected area"
                             >
                               ✕
                             </button>
-                          )}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                      ))}
 
-              {/* Before & After: Show Selected Model (Target Pose) directly above Generated Output */}
-              {(() => {
-                const activeSelectedModel =
-                  fivePoseItems[selectedPoseIndex]?.model?.url ||
-                  effectiveModels[selectedPoseIndex]?.url ||
-                  model?.url ||
-                  effectiveModels[0]?.url ||
-                  (mode === 'swap' ? (validSwapDrafts[0]?.target?.url || swapTarget?.url) : null);
-                return activeSelectedModel ? (
-                  <div className={`space-y-1.5 p-3 border-b ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/20'}`}>
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider opacity-70">
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <span>🎯 Selected Model (Target Pose)</span>
-                      </span>
-                      <span className="text-[9px] font-normal truncate max-w-[200px]">
-                        {fivePoseItems[selectedPoseIndex]?.name || effectiveModels[selectedPoseIndex]?.name || model?.name || 'Model Reference'}
-                      </span>
-                    </div>
-                    <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-h-[220px] flex items-center justify-center">
-                      <img src={resolveImageUrl(activeSelectedModel)} alt="Target Pose" className="max-h-[220px] w-full object-contain" />
-                    </div>
-                  </div>
-                ) : null;
-              })()}
+                      {activeDrawingBox && activeDrawingBox.width > 0 && activeDrawingBox.height > 0 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${activeDrawingBox.x}%`,
+                            top: `${activeDrawingBox.y}%`,
+                            width: `${activeDrawingBox.width}%`,
+                            height: `${activeDrawingBox.height}%`,
+                            zIndex: 31,
+                          }}
+                          className="border-2 border-dashed border-amber-300 bg-amber-400/15 pointer-events-none select-none"
+                        >
+                          <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/90 text-amber-300 border border-amber-400/40 text-[8px] font-mono px-1 py-0 rounded pointer-events-none whitespace-nowrap shadow-sm">
+                            {Math.round(activeDrawingBox.width)}% × {Math.round(activeDrawingBox.height)}%
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
 
-              {result && (
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-500 px-4 pt-3 pb-1">
-                  <span>✨ Generated AI Studio Render</span>
-                  <span className={`text-[9px] font-normal ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                    {fivePoseItems[selectedPoseIndex]?.name ? `Pose: ${fivePoseItems[selectedPoseIndex]?.name}` : 'Ready for Brand / HD Download'}
-                  </span>
-                </div>
-              )}
-
-              {/* Main Result Canvas Preview Area */}
-              <div
-                ref={previewContainerRef}
-                className={`relative aspect-[3/4] w-full ${isEraseMode && eraseCanvasZoom > 1.0 ? 'overflow-auto' : 'overflow-hidden'} bg-black/40 flex items-center justify-center select-none`}
-              >
-                {result ? (
-                  <div
-                    ref={imageWrapperRef}
-                    onMouseDown={isEraseMode ? handleStartEraseSelect : undefined}
-                    onTouchStart={isEraseMode ? handleStartEraseSelect : undefined}
-                    onMouseMove={(e) => {
-                      if (!isEraseMode) return;
-                      const rect = getImageElementRect();
-                      if (rect) setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                    }}
-                    onMouseLeave={() => {
-                      if (!isRubbing) setCursorPos(null);
-                    }}
-                    style={{
-                      ...(renderedImgAspect ? { aspectRatio: `${renderedImgAspect}` } : {}),
-                      ...(isEraseMode && eraseCanvasZoom > 1.0
-                        ? {
-                            transform: `scale(${eraseCanvasZoom})`,
-                            transformOrigin: 'center center',
-                            transition: 'transform 0.15s ease-out',
-                          }
-                        : {}),
-                    }}
-                    className={`relative max-h-full max-w-full flex items-center justify-center select-none ${
-                      isEraseMode ? (eraseTool === 'brush' ? 'cursor-none' : 'cursor-crosshair') : ''
-                    }`}
-                  >
-                    <img
-                      id="rendered-main-img"
-                      src={resolveImageUrl(activeRenderOption === 'b' ? result : (cleanResultBackup || result))}
-                      alt="Rendered result"
-                      onLoad={(e) => {
-                        const target = e.currentTarget;
-                        if (target.naturalWidth && target.naturalHeight) {
-                          setRenderedImgAspect(target.naturalWidth / target.naturalHeight);
-                        }
+                  {/* Live HD Logo Overlays (Chest, Pant, Back, Extra) for Option B Preview with Direct Mouse & Touch Drag */}
+                  {activeRenderOption === 'b' && showHdLogoOverlay && !isEraseMode && (
+                    <div
+                      onMouseDown={(e) => handleStartDragLogo(e, 'chest')}
+                      onTouchStart={(e) => handleStartDragLogo(e, 'chest')}
+                      style={{
+                        position: 'absolute',
+                        left: `${hdLogoX}%`,
+                        top: `${hdLogoY}%`,
+                        transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, ${hdLogoTiltY})`,
+                        filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
+                        width: `${Math.max(6, hdLogoScale)}px`,
+                        opacity: 0.96,
+                        cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
+                        touchAction: 'none',
+                        zIndex: 20,
                       }}
-                      className="w-full h-full object-contain block select-none pointer-events-none"
-                    />
-
-                    {/* Realtime Rubbing Overlay Canvas (in Brush mode) */}
-                    {isEraseMode && eraseTool === 'brush' && (
-                      <canvas
-                        ref={rubCanvasRef}
-                        className="absolute inset-0 w-full h-full pointer-events-none z-30"
+                      className={`group rounded p-0 transition-all select-none ${activeLogoTarget === 'chest'
+                          ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                          : 'hover:ring-1 hover:ring-white/70'
+                        }`}
+                      title="Click and drag with mouse to position Chest Logo anywhere"
+                    >
+                      <ShivNareshSvgLogo
+                        color={chestLogoColor || hdLogoColor}
+                        logoStyle={chestLogoStyle}
+                        curvatureDepth={hdLogoCurvature}
+                        curveDirection={hdLogoCurveDirection}
                       />
-                    )}
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                        ✥ Drag Chest Logo ({chestLogoStyle})
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Circular Cursor Brush Follower (in Brush mode) */}
-                    {isEraseMode && eraseTool === 'brush' && cursorPos && !isErasing && (
-                      <div
-                        style={{
-                          left: `${cursorPos.x}px`,
-                          top: `${cursorPos.y}px`,
-                          width: `${brushRadius * 2}px`,
-                          height: `${brushRadius * 2}px`,
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                        className="pointer-events-none absolute z-30 rounded-full border border-red-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-red-400/10"
+                  {activeRenderOption === 'b' && showPantLogo && !isEraseMode && (
+                    <div
+                      onMouseDown={(e) => handleStartDragLogo(e, 'pant')}
+                      onTouchStart={(e) => handleStartDragLogo(e, 'pant')}
+                      style={{
+                        position: 'absolute',
+                        left: `${pantLogoX}%`,
+                        top: `${pantLogoY}%`,
+                        transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, ${pantLogoTiltY})`,
+                        filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
+                        width: `${Math.max(6, pantLogoScale)}px`,
+                        opacity: 0.96,
+                        cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
+                        touchAction: 'none',
+                        zIndex: 20,
+                      }}
+                      className={`group rounded p-0 transition-all select-none ${activeLogoTarget === 'pant'
+                          ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                          : 'hover:ring-1 hover:ring-white/70'
+                        }`}
+                      title="Click and drag with mouse to position Lower / Pant Logo anywhere"
+                    >
+                      <ShivNareshSvgLogo
+                        color={pantLogoColor || hdLogoColor}
+                        logoStyle={pantLogoStyle}
+                        curvatureDepth={10}
+                        curveDirection="standard"
                       />
-                    )}
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                        ✥ Drag Lower Logo ({pantLogoStyle})
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Canva-style Multi-Area Bounding Boxes & Active Box (in Area mode) */}
-                    {isEraseMode && eraseTool === 'area' && (
-                      <>
-                        {eraseBoxes.map((b, bIdx) => (
-                          <div
-                            key={b.id}
-                            style={{
-                              position: 'absolute',
-                              left: `${b.x}%`,
-                              top: `${b.y}%`,
-                              width: `${b.width}%`,
-                              height: `${b.height}%`,
-                              zIndex: 30,
-                            }}
-                            className="border-2 border-amber-400 bg-amber-400/10 shadow-[0_0_0_1px_rgba(0,0,0,0.7)] group pointer-events-none select-none"
-                          >
-                            <div className="absolute -top-5 left-0 flex items-center gap-1 bg-black/90 text-amber-300 border border-amber-400/50 text-[9px] font-mono px-1.5 py-0.5 rounded shadow-md pointer-events-auto">
-                              <span>Area {bIdx + 1}</span>
-                              <button
-                                type="button"
-                                onClick={(ev) => {
-                                  ev.stopPropagation();
-                                  handleRemoveEraseBox(b.id);
-                                }}
-                                className="hover:text-red-400 text-amber-200 ml-1 font-bold px-0.5 cursor-pointer"
-                                title="Delete this selected area"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-
-                        {activeDrawingBox && activeDrawingBox.width > 0 && activeDrawingBox.height > 0 && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${activeDrawingBox.x}%`,
-                              top: `${activeDrawingBox.y}%`,
-                              width: `${activeDrawingBox.width}%`,
-                              height: `${activeDrawingBox.height}%`,
-                              zIndex: 31,
-                            }}
-                            className="border-2 border-dashed border-amber-300 bg-amber-400/15 pointer-events-none select-none"
-                          >
-                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/90 text-amber-300 border border-amber-400/40 text-[8px] font-mono px-1 py-0 rounded pointer-events-none whitespace-nowrap shadow-sm">
-                              {Math.round(activeDrawingBox.width)}% × {Math.round(activeDrawingBox.height)}%
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* Live HD Logo Overlays (Chest, Pant, Back, Extra) for Option B Preview with Direct Mouse & Touch Drag */}
-                    {activeRenderOption === 'b' && showHdLogoOverlay && !isEraseMode && (
-                      <div
-                        onMouseDown={(e) => handleStartDragLogo(e, 'chest')}
-                        onTouchStart={(e) => handleStartDragLogo(e, 'chest')}
-                        style={{
-                          position: 'absolute',
-                          left: `${hdLogoX}%`,
-                          top: `${hdLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${hdLogoAngle}deg) scale(${hdLogoPerspective}, ${hdLogoTiltY})`,
-                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(6, hdLogoScale)}px`,
-                          opacity: 0.96,
-                          cursor: draggingLogo === 'chest' ? 'grabbing' : 'grab',
-                          touchAction: 'none',
-                          zIndex: 20,
-                        }}
-                        className={`group rounded p-0 transition-all select-none ${
-                          activeLogoTarget === 'chest'
-                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
-                            : 'hover:ring-1 hover:ring-white/70'
+                  {activeRenderOption === 'b' && showBackLogo && !isEraseMode && (
+                    <div
+                      onMouseDown={(e) => handleStartDragLogo(e, 'back')}
+                      onTouchStart={(e) => handleStartDragLogo(e, 'back')}
+                      style={{
+                        position: 'absolute',
+                        left: `${backLogoX}%`,
+                        top: `${backLogoY}%`,
+                        transform: `translate(-50%, -50%) rotate(${backLogoAngle}deg) scale(${backLogoPerspective}, ${backLogoTiltY})`,
+                        filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
+                        width: `${Math.max(6, backLogoScale)}px`,
+                        opacity: 0.96,
+                        cursor: draggingLogo === 'back' ? 'grabbing' : 'grab',
+                        touchAction: 'none',
+                        zIndex: 20,
+                      }}
+                      className={`group rounded p-0 transition-all select-none ${activeLogoTarget === 'back'
+                          ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                          : 'hover:ring-1 hover:ring-white/70'
                         }`}
-                        title="Click and drag with mouse to position Chest Logo anywhere"
-                      >
-                        <ShivNareshSvgLogo
-                          color={chestLogoColor || hdLogoColor}
-                          logoStyle={chestLogoStyle}
-                          curvatureDepth={hdLogoCurvature}
-                          curveDirection={hdLogoCurveDirection}
-                        />
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
-                          ✥ Drag Chest Logo ({chestLogoStyle})
-                        </div>
+                      title="Click and drag with mouse to position Back Logo anywhere"
+                    >
+                      <ShivNareshSvgLogo
+                        color={backLogoColor || hdLogoColor}
+                        logoStyle={backLogoStyle}
+                        curvatureDepth={12}
+                        curveDirection="standard"
+                      />
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                        ✥ Drag Back Logo ({backLogoStyle})
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {activeRenderOption === 'b' && showPantLogo && !isEraseMode && (
-                      <div
-                        onMouseDown={(e) => handleStartDragLogo(e, 'pant')}
-                        onTouchStart={(e) => handleStartDragLogo(e, 'pant')}
-                        style={{
-                          position: 'absolute',
-                          left: `${pantLogoX}%`,
-                          top: `${pantLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${pantLogoAngle}deg) scale(${pantLogoPerspective}, ${pantLogoTiltY})`,
-                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(6, pantLogoScale)}px`,
-                          opacity: 0.96,
-                          cursor: draggingLogo === 'pant' ? 'grabbing' : 'grab',
-                          touchAction: 'none',
-                          zIndex: 20,
-                        }}
-                        className={`group rounded p-0 transition-all select-none ${
-                          activeLogoTarget === 'pant'
-                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
-                            : 'hover:ring-1 hover:ring-white/70'
+                  {activeRenderOption === 'b' && showExtraLogo && !isEraseMode && (
+                    <div
+                      onMouseDown={(e) => handleStartDragLogo(e, 'extra')}
+                      onTouchStart={(e) => handleStartDragLogo(e, 'extra')}
+                      style={{
+                        position: 'absolute',
+                        left: `${extraLogoX}%`,
+                        top: `${extraLogoY}%`,
+                        transform: `translate(-50%, -50%) rotate(${extraLogoAngle}deg) scale(${extraLogoPerspective}, ${extraLogoTiltY})`,
+                        filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
+                        width: `${Math.max(6, extraLogoScale)}px`,
+                        opacity: 0.96,
+                        cursor: draggingLogo === 'extra' ? 'grabbing' : 'grab',
+                        touchAction: 'none',
+                        zIndex: 20,
+                      }}
+                      className={`group rounded p-0 transition-all select-none ${activeLogoTarget === 'extra'
+                          ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
+                          : 'hover:ring-1 hover:ring-white/70'
                         }`}
-                        title="Click and drag with mouse to position Lower / Pant Logo anywhere"
-                      >
-                        <ShivNareshSvgLogo
-                          color={pantLogoColor || hdLogoColor}
-                          logoStyle={pantLogoStyle}
-                          curvatureDepth={10}
-                          curveDirection="standard"
-                        />
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
-                          ✥ Drag Lower Logo ({pantLogoStyle})
-                        </div>
+                      title="Click and drag with mouse to position Extra Logo (Sleeve/Collar/Pocket) anywhere"
+                    >
+                      <ShivNareshSvgLogo
+                        color={extraLogoColor || hdLogoColor}
+                        logoStyle={extraLogoStyle}
+                        curvatureDepth={8}
+                        curveDirection="standard"
+                      />
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
+                        ✥ Drag Extra Logo ({extraLogoStyle})
                       </div>
-                    )}
-
-                    {activeRenderOption === 'b' && showBackLogo && !isEraseMode && (
-                      <div
-                        onMouseDown={(e) => handleStartDragLogo(e, 'back')}
-                        onTouchStart={(e) => handleStartDragLogo(e, 'back')}
-                        style={{
-                          position: 'absolute',
-                          left: `${backLogoX}%`,
-                          top: `${backLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${backLogoAngle}deg) scale(${backLogoPerspective}, ${backLogoTiltY})`,
-                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(6, backLogoScale)}px`,
-                          opacity: 0.96,
-                          cursor: draggingLogo === 'back' ? 'grabbing' : 'grab',
-                          touchAction: 'none',
-                          zIndex: 20,
-                        }}
-                        className={`group rounded p-0 transition-all select-none ${
-                          activeLogoTarget === 'back'
-                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
-                            : 'hover:ring-1 hover:ring-white/70'
-                        }`}
-                        title="Click and drag with mouse to position Back Logo anywhere"
-                      >
-                        <ShivNareshSvgLogo
-                          color={backLogoColor || hdLogoColor}
-                          logoStyle={backLogoStyle}
-                          curvatureDepth={12}
-                          curveDirection="standard"
-                        />
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
-                          ✥ Drag Back Logo ({backLogoStyle})
-                        </div>
-                      </div>
-                    )}
-
-                    {activeRenderOption === 'b' && showExtraLogo && !isEraseMode && (
-                      <div
-                        onMouseDown={(e) => handleStartDragLogo(e, 'extra')}
-                        onTouchStart={(e) => handleStartDragLogo(e, 'extra')}
-                        style={{
-                          position: 'absolute',
-                          left: `${extraLogoX}%`,
-                          top: `${extraLogoY}%`,
-                          transform: `translate(-50%, -50%) rotate(${extraLogoAngle}deg) scale(${extraLogoPerspective}, ${extraLogoTiltY})`,
-                          filter: 'drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0.5px 1px rgba(255, 255, 255, 0.15))',
-                          width: `${Math.max(6, extraLogoScale)}px`,
-                          opacity: 0.96,
-                          cursor: draggingLogo === 'extra' ? 'grabbing' : 'grab',
-                          touchAction: 'none',
-                          zIndex: 20,
-                        }}
-                        className={`group rounded p-0 transition-all select-none ${
-                          activeLogoTarget === 'extra'
-                            ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 shadow-lg'
-                            : 'hover:ring-1 hover:ring-white/70'
-                        }`}
-                        title="Click and drag with mouse to position Extra Logo (Sleeve/Collar/Pocket) anywhere"
-                      >
-                        <ShivNareshSvgLogo
-                          color={extraLogoColor || hdLogoColor}
-                          logoStyle={extraLogoStyle}
-                          curvatureDepth={8}
-                          curveDirection="standard"
-                        />
-                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-white/20 shadow-md">
-                          ✥ Drag Extra Logo ({extraLogoStyle})
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : busy ? (
-                  <div className="flex flex-col items-center justify-center text-center p-6 text-white/40">
-                    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-3" />
-                    <p className="text-xs font-semibold text-emerald-400">Rendering sportswear model…</p>
-                    <p className="text-[10px] mt-1 opacity-60">Applying fabric, fidelity, and styling</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center p-6 text-white/30">
-                    {mode === 'removelogo' ? (
-                      <div className="flex flex-col items-center justify-center max-w-sm p-4">
-                        <Eraser className="h-10 w-10 mb-2 text-amber-400 opacity-90" />
-                        <p className="text-sm font-bold text-white mb-1">Erase or Replace AI Logo</p>
-                        <p className="text-xs text-white/60 mb-4">
-                          Upload an image from your device or pick one from My Sets on the left to erase unwanted logos on this canvas.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => eraseUploadInputRef.current?.click()}
-                          className="rounded-full bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 text-xs font-bold transition shadow-lg cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Upload Image to Clean</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <Sparkles className="h-10 w-10 mb-2 opacity-50" />
-                        <p className="text-xs font-semibold">Your generated high-res model render will appear here</p>
-                        <p className="text-[10px] mt-1 opacity-60">Upload clothing & model reference to start</p>
-                        <button
-                          type="button"
-                          onClick={() => setMode('removelogo')}
-                          className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2 cursor-pointer"
-                        >
-                          <Eraser className="w-3 h-3" />
-                          <span>Have an existing image? Open Logo Eraser Studio &rarr;</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Dedicated Bottom Erase Studio Control Bar (Docked under image preview) */}
-              {isEraseMode && result && (
-                <div
-                  className={`p-3 sm:p-4 border-t border-b flex flex-col gap-3 transition-all ${
-                    isLight
-                      ? 'bg-amber-50/80 border-amber-200 text-slate-900 shadow-inner'
-                      : 'bg-gradient-to-r from-amber-950/40 via-neutral-900/90 to-amber-950/40 border-amber-500/30 text-white shadow-xl'
-                  }`}
-                >
-                  {/* Row 1: Mode Switcher (Brush vs Area), Brush Scale % Slider, Crease Protect */}
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    {/* Canva Mode Selector: Brush (Rub) vs Area */}
-                    <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10 shrink-0">
+                    </div>
+                  )}
+                </div>
+              ) : busy ? (
+                <div className="flex flex-col items-center justify-center text-center p-6 text-white/40">
+                  <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-3" />
+                  <p className="text-xs font-semibold text-emerald-400">Rendering sportswear model…</p>
+                  <p className="text-[10px] mt-1 opacity-60">Applying fabric, fidelity, and styling</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-6 text-white/30">
+                  {mode === 'removelogo' ? (
+                    <div className="flex flex-col items-center justify-center max-w-sm p-4">
+                      <Eraser className="h-10 w-10 mb-2 text-amber-400 opacity-90" />
+                      <p className="text-sm font-bold text-white mb-1">Erase or Replace AI Logo</p>
+                      <p className="text-xs text-white/60 mb-4">
+                        Upload an image from your device or pick one from My Sets on the left to erase unwanted logos on this canvas.
+                      </p>
                       <button
                         type="button"
-                        onClick={() => handleSwitchEraseTool('brush')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          eraseTool === 'brush'
-                            ? 'bg-amber-500 text-black shadow-xs'
-                            : 'text-white/70 hover:text-white hover:bg-white/10'
-                        }`}
-                        title="Brush Mode: Rub freehand over any irregular logo, text, or defect"
+                        onClick={() => eraseUploadInputRef.current?.click()}
+                        className="rounded-full bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 text-xs font-bold transition shadow-lg cursor-pointer flex items-center gap-1.5"
                       >
-                        <Paintbrush className="w-3.5 h-3.5" />
-                        <span>Brush (Rub)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSwitchEraseTool('area')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          eraseTool === 'area'
-                            ? 'bg-amber-500 text-black shadow-xs'
-                            : 'text-white/70 hover:text-white hover:bg-white/10'
-                        }`}
-                        title="Canva Area Mode: Drag a bounding box tightly around any logo or text block"
-                      >
-                        {/* Official Canva Area Sparkles / Magic Wand SVG */}
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M8.128 2.118c.406 1.982 1.284 2.963 3.317 3.37a.254.254 0 1 1 0 .508c-1.983.406-2.91 1.328-3.316 3.361a.25.25 0 0 1-.242.197.25.25 0 0 1-.246-.21c-.406-1.982-1.28-2.942-3.313-3.348a.254.254 0 0 1 0-.509c1.983-.406 2.91-1.334 3.317-3.367a.25.25 0 0 1 .242-.191.25.25 0 0 1 .24.189Zm-2.63 7.55C4.64 9.41 4.14 8.998 3.97 8.14a.187.187 0 0 0-.374 0c-.257.857-.67 1.356-1.528 1.528a.187.187 0 0 0 0 .373c.858.258 1.357.671 1.528 1.528a.187.187 0 1 0 .374 0c.257-.857.67-1.356 1.528-1.528a.187.187 0 1 0 0-.373Zm4.783 5.39 6.144-6.666 1.896 1.635-6.607 6.426a1 1 0 0 1-1.433-1.395Zm9.112-6.087L17.442 7.29l.81-.88a1.322 1.322 0 1 1 1.893 1.844l-.823.8.07-.082Zm-8.31 9.264a2.495 2.495 0 0 0 1.677-.707l8.431-8.2a2.822 2.822 0 1 0-4.042-3.935l-7.97 8.648a2.49 2.49 0 0 0-.66 1.814c-.727-.141-1.395-.029-1.976.323-.908.549-1.365 1.547-1.515 2.376-.04.22-.131.336-.2.38a1.798 1.798 0 0 0-.827 1.485 1.5 1.5 0 0 0 .923 1.401c2.127.918 3.926.573 5.062-.522a3.66 3.66 0 0 0 1.098-3.063Zm-1.636-.247c.316.722.125 1.67-.499 2.271-.57.55-1.657.935-3.368.196-.035-.015-.047-.03-.051-.038a.108.108 0 0 1-.014-.058.25.25 0 0 1 .122-.201c.541-.357.794-.92.881-1.402.106-.585.402-1.093.78-1.322.305-.184.893-.319 1.942.34.118.074.18.152.207.214Z"
-                          />
-                        </svg>
-                        <span>Area (Canva)</span>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Image to Clean</span>
                       </button>
                     </div>
+                  ) : (
+                    <>
+                      <Sparkles className="h-10 w-10 mb-2 opacity-50" />
+                      <p className="text-xs font-semibold">Your generated high-res model render will appear here</p>
+                      <p className="text-[10px] mt-1 opacity-60">Upload clothing & model reference to start</p>
+                      <button
+                        type="button"
+                        onClick={() => setMode('removelogo')}
+                        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2 cursor-pointer"
+                      >
+                        <Eraser className="w-3 h-3" />
+                        <span>Have an existing image? Open Logo Eraser Studio &rarr;</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
-                    {/* Scale in % Slider (Brush Mode) or Area Drag Guidance (Area Mode) */}
-                    {eraseTool === 'brush' ? (
-                      <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 whitespace-nowrap">
-                          Scale:
-                        </span>
-                        <input
-                          type="range"
-                          min={2}
-                          max={100}
-                          step={1}
-                          value={brushScalePercent}
-                          onChange={(e) => setBrushScalePercent(Number(e.target.value))}
-                          className="flex-1 accent-amber-500 cursor-pointer h-1.5 bg-white/20 rounded-lg"
-                          title={`Eraser brush scale: ${brushScalePercent}% (${brushRadius * 2}px)`}
-                        />
-                        <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md min-w-[46px] text-center">
-                          {brushScalePercent}%
-                        </span>
-                        <div className="hidden sm:flex items-center gap-1">
-                          {[5, 10, 20, 40].map((pct) => (
-                            <button
-                              key={pct}
-                              type="button"
-                              onClick={() => setBrushScalePercent(pct)}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition cursor-pointer ${
-                                brushScalePercent === pct
-                                  ? 'bg-amber-400 text-black'
-                                  : 'bg-white/10 text-white/60 hover:text-white'
-                              }`}
-                            >
-                              {pct}%
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-amber-300/80 flex-1">
-                        <span className="text-amber-400 font-bold">🪄 Canva Area Mode:</span>
-                        <span>
-                          {eraseBoxes.length > 0 ? (
-                            <span>
-                              Selected <strong className="text-amber-300 font-mono">{eraseBoxes.length} area{eraseBoxes.length > 1 ? 's' : ''}</strong> — ready to erase (drag across other logos to add more areas)
-                            </span>
-                          ) : (
-                            'Drag a rectangle tightly around any logo or text. You can select multiple areas.'
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Crease Protect toggle */}
+            {/* Dedicated Bottom Erase Studio Control Bar (Docked under image preview) */}
+            {isEraseMode && result && (
+              <div
+                className={`p-3 sm:p-4 border-t border-b flex flex-col gap-3 transition-all ${isLight
+                    ? 'bg-amber-50/80 border-amber-200 text-slate-900 shadow-inner'
+                    : 'bg-gradient-to-r from-amber-950/40 via-neutral-900/90 to-amber-950/40 border-amber-500/30 text-white shadow-xl'
+                  }`}
+              >
+                {/* Row 1: Mode Switcher (Brush vs Area), Brush Scale % Slider, Crease Protect */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  {/* Canva Mode Selector: Brush (Rub) vs Area */}
+                  <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10 shrink-0">
                     <button
                       type="button"
-                      onClick={() => setIsSeamProtect((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shrink-0 ${
-                        isSeamProtect
-                          ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                          : 'bg-white/5 border-white/20 text-white/50'
-                      }`}
-                      title="When ON, preserves trouser pleats, creases, piping, and seams 100% and selectively removes only contrasting logo ink"
+                      onClick={() => handleSwitchEraseTool('brush')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${eraseTool === 'brush'
+                          ? 'bg-amber-500 text-black shadow-xs'
+                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                      title="Brush Mode: Rub freehand over any irregular logo, text, or defect"
                     >
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
+                      <Paintbrush className="w-3.5 h-3.5" />
+                      <span>Brush (Rub)</span>
                     </button>
-
-                    {/* Canvas Zoom Controls (Erase Studio) */}
-                    <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 border border-white/10 text-xs shrink-0">
-                      <span className="text-[10px] font-mono font-bold text-white/70 px-1 flex items-center gap-1">
-                        <ZoomIn className="w-3 h-3 text-amber-400" />
-                        <span>Zoom:</span>
-                      </span>
-                      {[1.0, 1.5, 2.0, 2.5].map((z) => (
-                        <button
-                          key={z}
-                          type="button"
-                          onClick={() => setEraseCanvasZoom(z)}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                            eraseCanvasZoom === z
-                              ? 'bg-amber-400 text-black'
-                              : 'text-white/70 hover:text-white hover:bg-white/10'
-                          }`}
-                        >
-                          {z}×
-                        </button>
-                      ))}
-                      {eraseCanvasZoom > 1.0 && (
-                        <button
-                          type="button"
-                          onClick={() => setEraseCanvasZoom(1.0)}
-                          className="px-1.5 py-0.5 rounded text-[9px] font-medium text-amber-300 hover:text-white transition cursor-pointer"
-                          title="Reset zoom to 1×"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchEraseTool('area')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${eraseTool === 'area'
+                          ? 'bg-amber-500 text-black shadow-xs'
+                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                      title="Canva Area Mode: Drag a bounding box tightly around any logo or text block"
+                    >
+                      {/* Official Canva Area Sparkles / Magic Wand SVG */}
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M8.128 2.118c.406 1.982 1.284 2.963 3.317 3.37a.254.254 0 1 1 0 .508c-1.983.406-2.91 1.328-3.316 3.361a.25.25 0 0 1-.242.197.25.25 0 0 1-.246-.21c-.406-1.982-1.28-2.942-3.313-3.348a.254.254 0 0 1 0-.509c1.983-.406 2.91-1.334 3.317-3.367a.25.25 0 0 1 .242-.191.25.25 0 0 1 .24.189Zm-2.63 7.55C4.64 9.41 4.14 8.998 3.97 8.14a.187.187 0 0 0-.374 0c-.257.857-.67 1.356-1.528 1.528a.187.187 0 0 0 0 .373c.858.258 1.357.671 1.528 1.528a.187.187 0 1 0 .374 0c.257-.857.67-1.356 1.528-1.528a.187.187 0 1 0 0-.373Zm4.783 5.39 6.144-6.666 1.896 1.635-6.607 6.426a1 1 0 0 1-1.433-1.395Zm9.112-6.087L17.442 7.29l.81-.88a1.322 1.322 0 1 1 1.893 1.844l-.823.8.07-.082Zm-8.31 9.264a2.495 2.495 0 0 0 1.677-.707l8.431-8.2a2.822 2.822 0 1 0-4.042-3.935l-7.97 8.648a2.49 2.49 0 0 0-.66 1.814c-.727-.141-1.395-.029-1.976.323-.908.549-1.365 1.547-1.515 2.376-.04.22-.131.336-.2.38a1.798 1.798 0 0 0-.827 1.485 1.5 1.5 0 0 0 .923 1.401c2.127.918 3.926.573 5.062-.522a3.66 3.66 0 0 0 1.098-3.063Zm-1.636-.247c.316.722.125 1.67-.499 2.271-.57.55-1.657.935-3.368.196-.035-.015-.047-.03-.051-.038a.108.108 0 0 1-.014-.058.25.25 0 0 1 .122-.201c.541-.357.794-.92.881-1.402.106-.585.402-1.093.78-1.322.305-.184.893-.319 1.942.34.118.074.18.152.207.214Z"
+                        />
+                      </svg>
+                      <span>Area (Canva)</span>
+                    </button>
                   </div>
 
-                  {/* Row 2: Action Buttons */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-white/10">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Erase Logo Button */}
-                      <button
-                        type="button"
-                        disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
-                        onClick={() => handleExecuteErase(false)}
-                        className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                        title="Seamlessly blend and remove selected logo area(s) with surrounding fabric texture"
-                      >
-                        <Eraser className="w-3.5 h-3.5" />
-                        <span>
-                          {isErasing
-                            ? 'Erasing…'
-                            : eraseTool === 'brush'
-                            ? 'Erase Rubbed Logo'
-                            : eraseBoxes.length > 1
-                            ? `Erase All (${eraseBoxes.length} Areas)`
-                            : 'Erase Logo Area'}
-                        </span>
-                      </button>
-
-                      {/* Erase & Snap HD Vector */}
-                      {(() => {
-                        const curRect = getImageElementRect();
-                        const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
-                        const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
-                        return (
+                  {/* Scale in % Slider (Brush Mode) or Area Drag Guidance (Area Mode) */}
+                  {eraseTool === 'brush' ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 whitespace-nowrap">
+                        Scale:
+                      </span>
+                      <input
+                        type="range"
+                        min={2}
+                        max={100}
+                        step={1}
+                        value={brushScalePercent}
+                        onChange={(e) => setBrushScalePercent(Number(e.target.value))}
+                        className="flex-1 accent-amber-500 cursor-pointer h-1.5 bg-white/20 rounded-lg"
+                        title={`Eraser brush scale: ${brushScalePercent}% (${brushRadius * 2}px)`}
+                      />
+                      <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md min-w-[46px] text-center">
+                        {brushScalePercent}%
+                      </span>
+                      <div className="hidden sm:flex items-center gap-1">
+                        {[5, 10, 20, 40].map((pct) => (
                           <button
+                            key={pct}
                             type="button"
-                            disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
-                            onClick={() => handleExecuteErase(true)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                            title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
+                            onClick={() => setBrushScalePercent(pct)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition cursor-pointer ${brushScalePercent === pct
+                                ? 'bg-amber-400 text-black'
+                                : 'bg-white/10 text-white/60 hover:text-white'
+                              }`}
                           >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                            <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                            {pct}%
                           </button>
-                        );
-                      })()}
-
-                      {/* Restore Seam */}
-                      <button
-                        type="button"
-                        disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
-                        onClick={() => handleExecuteErase(false, true)}
-                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
-                        title="Reconnect and repair a blurred vertical trouser crease line across the selected area"
-                      >
-                        <Scissors className="w-3.5 h-3.5 text-indigo-300" />
-                        <span>🧵 Restore Seam</span>
-                      </button>
-
-                      {/* Clear Rub / Cancel Area */}
-                      {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
-                        <button
-                          type="button"
-                          onClick={handleClearStrokes}
-                          className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${
-                            isLight
-                              ? 'border-gray-300 text-slate-700 hover:bg-black/5'
-                              : 'border-white/20 text-white/70 hover:text-white hover:bg-white/10'
-                          }`}
-                          title="Clear the current selection"
-                        >
-                          <X className="w-3 h-3" />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-amber-300/80 flex-1">
+                      <span className="text-amber-400 font-bold">🪄 Canva Area Mode:</span>
+                      <span>
+                        {eraseBoxes.length > 0 ? (
                           <span>
-                            {eraseTool === 'brush'
-                              ? 'Clear Rub'
-                              : eraseBoxes.length > 1
-                              ? `Clear All (${eraseBoxes.length})`
-                              : 'Cancel Area'}
+                            Selected <strong className="text-amber-300 font-mono">{eraseBoxes.length} area{eraseBoxes.length > 1 ? 's' : ''}</strong> — ready to erase (drag across other logos to add more areas)
                           </span>
-                        </button>
-                      )}
+                        ) : (
+                          'Drag a rectangle tightly around any logo or text. You can select multiple areas.'
+                        )}
+                      </span>
                     </div>
+                  )}
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Undo Step Back */}
+                  {/* Crease Protect toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSeamProtect((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shrink-0 ${isSeamProtect
+                        ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                        : 'bg-white/5 border-white/20 text-white/50'
+                      }`}
+                    title="When ON, preserves trouser pleats, creases, piping, and seams 100% and selectively removes only contrasting logo ink"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Crease Protect: {isSeamProtect ? 'ON' : 'OFF'}</span>
+                  </button>
+
+                  {/* Canvas Zoom Controls (Erase Studio) */}
+                  <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 border border-white/10 text-xs shrink-0">
+                    <span className="text-[10px] font-mono font-bold text-white/70 px-1 flex items-center gap-1">
+                      <ZoomIn className="w-3 h-3 text-amber-400" />
+                      <span>Zoom:</span>
+                    </span>
+                    {[1.0, 1.5, 2.0, 2.5].map((z) => (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => setEraseCanvasZoom(z)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${eraseCanvasZoom === z
+                            ? 'bg-amber-400 text-black'
+                            : 'text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                      >
+                        {z}×
+                      </button>
+                    ))}
+                    {eraseCanvasZoom > 1.0 && (
                       <button
                         type="button"
-                        disabled={eraseUndoStack.length === 0}
-                        onClick={handleUndoErase}
-                        className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                        title={eraseUndoStack.length > 0 ? `Step back to previous state before last erase (${eraseUndoStack.length} in history)` : 'Undo (no erase history)'}
+                        onClick={() => setEraseCanvasZoom(1.0)}
+                        className="px-1.5 py-0.5 rounded text-[9px] font-medium text-amber-300 hover:text-white transition cursor-pointer"
+                        title="Reset zoom to 1×"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Undo {eraseUndoStack.length > 0 ? `(${eraseUndoStack.length})` : ''}</span>
+                        Reset
                       </button>
-
-                      {/* Redo */}
-                      <button
-                        type="button"
-                        disabled={eraseRedoStack.length === 0}
-                        onClick={handleRedoErase}
-                        className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                        title={eraseRedoStack.length > 0 ? `Redo previously undone erase (${eraseRedoStack.length} in history)` : 'Redo (no redo steps)'}
-                      >
-                        <RotateCw className="w-3.5 h-3.5" />
-                        <span>Redo {eraseRedoStack.length > 0 ? `(${eraseRedoStack.length})` : ''}</span>
-                      </button>
-
-                      {/* Save to My Sets */}
-                      {eraseUndoStack.length > 0 && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleSaveToMySets()}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                          title="Save this erased image to My Sets archive"
-                        >
-                          <Bookmark className="w-3.5 h-3.5" />
-                          <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
-                        </button>
-                      )}
-
-                      {/* Save to My Sets */}
-                      {eraseUndoStack.length > 0 && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleSaveToMySets()}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                          title="Save this erased image to My Sets archive"
-                        >
-                          <Bookmark className="w-3.5 h-3.5" />
-                          <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
-                        </button>
-                      )}
-
-                      {/* Done / Exit Erase Mode */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEraseMode(false);
-                          setEraseCanvasZoom(1.0);
-                          handleClearStrokes();
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                          isLight
-                            ? 'bg-black/10 hover:bg-black/15 text-slate-800'
-                            : 'bg-white/10 hover:bg-white/20 text-white'
-                        }`}
-                        title="Done / Exit Erase Mode"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Done</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* Action Buttons bar & Option A / Option B Selector */}
-              {result && (
-                <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-t border-white/10">
+                {/* Row 2: Action Buttons */}
+                <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-white/10">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Option A / Option B Dual Pill */}
-                    <div className="inline-flex rounded-full border border-emerald-500/40 p-0.5 bg-black/40">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveRenderOption('a');
-                          setShowHdLogoOverlay(false);
-                          setShowPantLogo(false);
-                        }}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                          activeRenderOption === 'a'
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'text-white/60 hover:text-white'
-                        }`}
-                        title="Pure raw AI generation without vector logo overlay"
-                      >
-                        🅰️ Option A (Clean AI)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveRenderOption('b');
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(true);
-                          setIsEraseMode(false);
-                          setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
-                          setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
-                        }}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                          activeRenderOption === 'b'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-white/60 hover:text-white'
-                        }`}
-                        title="Crisp official vector Shiv-Naresh logos applied at exact coordinates"
-                      >
-                        🅱️ Option B (HD Vector Brand)
-                      </button>
-                    </div>
+                    {/* Erase Logo Button */}
+                    <button
+                      type="button"
+                      disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
+                      onClick={() => handleExecuteErase(false)}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                      title="Seamlessly blend and remove selected logo area(s) with surrounding fabric texture"
+                    >
+                      <Eraser className="w-3.5 h-3.5" />
+                      <span>
+                        {isErasing
+                          ? 'Erasing…'
+                          : eraseTool === 'brush'
+                            ? 'Erase Rubbed Logo'
+                            : eraseBoxes.length > 1
+                              ? `Erase All (${eraseBoxes.length} Areas)`
+                              : 'Erase Logo Area'}
+                      </span>
+                    </button>
 
-                    {result && (
+                    {/* Erase & Snap HD Vector */}
+                    {(() => {
+                      const curRect = getImageElementRect();
+                      const primaryBox = eraseBoxes[eraseBoxes.length - 1] || eraseBox;
+                      const autoScalePx = Math.max(14, Math.min(80, Math.round(((curRect?.width || 380) * (primaryBox?.width || 12)) / 100)));
+                      return (
+                        <button
+                          type="button"
+                          disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
+                          onClick={() => handleExecuteErase(true)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                          title={`Erase unwanted AI logo and snap crisp HD vector logo at exact auto-detected size (${autoScalePx}px)`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Erase & Snap HD Vector ({autoScalePx}px)</span>
+                        </button>
+                      );
+                    })()}
+
+                    {/* Restore Seam */}
+                    <button
+                      type="button"
+                      disabled={isErasing || (eraseTool === 'brush' ? rubStrokes.length === 0 : (eraseBoxes.length === 0 && !eraseBox))}
+                      onClick={() => handleExecuteErase(false, true)}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
+                      title="Reconnect and repair a blurred vertical trouser crease line across the selected area"
+                    >
+                      <Scissors className="w-3.5 h-3.5 text-indigo-300" />
+                      <span>🧵 Restore Seam</span>
+                    </button>
+
+                    {/* Clear Rub / Cancel Area */}
+                    {(eraseBoxes.length > 0 || eraseBox || rubStrokes.length > 0) && (
+                      <button
+                        type="button"
+                        onClick={handleClearStrokes}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${isLight
+                            ? 'border-gray-300 text-slate-700 hover:bg-black/5'
+                            : 'border-white/20 text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                        title="Clear the current selection"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>
+                          {eraseTool === 'brush'
+                            ? 'Clear Rub'
+                            : eraseBoxes.length > 1
+                              ? `Clear All (${eraseBoxes.length})`
+                              : 'Cancel Area'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Undo Step Back */}
+                    <button
+                      type="button"
+                      disabled={eraseUndoStack.length === 0}
+                      onClick={handleUndoErase}
+                      className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={eraseUndoStack.length > 0 ? `Step back to previous state before last erase (${eraseUndoStack.length} in history)` : 'Undo (no erase history)'}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Undo {eraseUndoStack.length > 0 ? `(${eraseUndoStack.length})` : ''}</span>
+                    </button>
+
+                    {/* Redo */}
+                    <button
+                      type="button"
+                      disabled={eraseRedoStack.length === 0}
+                      onClick={handleRedoErase}
+                      className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 dark:text-sky-300 border border-sky-400/30 text-xs font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={eraseRedoStack.length > 0 ? `Redo previously undone erase (${eraseRedoStack.length} in history)` : 'Redo (no redo steps)'}
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      <span>Redo {eraseRedoStack.length > 0 ? `(${eraseRedoStack.length})` : ''}</span>
+                    </button>
+
+                    {/* Save to My Sets */}
+                    {eraseUndoStack.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleSaveToMySets()}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        title="Save this erased image to My Sets archive"
+                      >
+                        <Bookmark className="w-3.5 h-3.5" />
+                        <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
+                      </button>
+                    )}
+
+                    {/* Save to My Sets */}
+                    {eraseUndoStack.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleSaveToMySets()}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        title="Save this erased image to My Sets archive"
+                      >
+                        <Bookmark className="w-3.5 h-3.5" />
+                        <span>{busy ? 'Saving…' : 'Save to My Sets'}</span>
+                      </button>
+                    )}
+
+                    {/* Done / Exit Erase Mode */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEraseMode(false);
+                        setEraseCanvasZoom(1.0);
+                        handleClearStrokes();
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${isLight
+                          ? 'bg-black/10 hover:bg-black/15 text-slate-800'
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                        }`}
+                      title="Done / Exit Erase Mode"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Done</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons bar & Option A / Option B Selector */}
+            {result && (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-t border-white/10">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Option A / Option B Dual Pill */}
+                  <div className="inline-flex rounded-full border border-emerald-500/40 p-0.5 bg-black/40">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveRenderOption('a');
+                        setShowHdLogoOverlay(false);
+                        setShowPantLogo(false);
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRenderOption === 'a'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                        }`}
+                      title="Pure raw AI generation without vector logo overlay"
+                    >
+                      🅰️ Option A (Clean AI)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveRenderOption('b');
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(true);
+                        setIsEraseMode(false);
+                        setHdLogoScale((prev) => (prev && prev >= 6 ? prev : 48));
+                        setPantLogoScale((prev) => (prev && prev >= 6 ? prev : 36));
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRenderOption === 'b'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                        }`}
+                      title="Crisp official vector Shiv-Naresh logos applied at exact coordinates"
+                    >
+                      🅱️ Option B (HD Vector Brand)
+                    </button>
+                  </div>
+
+                  {result && (
                     <a
                       href={result.startsWith('http') || result.startsWith('data:') ? result : window.location.origin + (result.startsWith('/') ? result : '/' + result)}
                       target="_blank"
@@ -15572,707 +15612,697 @@ export default function Design() {
                     >
                       Open New Tab
                     </a>
-                    )}
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const baseToUse = cleanResultBackup || result;
-                        let targetUrl = activeRenderOption === 'b' ? result : baseToUse;
-                        if (!targetUrl) return;
-                        if (activeRenderOption === 'b' && isAnyLogoActive) {
-                          try {
-                            targetUrl = await stampHdLogoOntoImage(baseToUse || result, { targetWidth: 1807, targetHeight: 3000 });
-                          } catch {}
-                        }
-                        setZoomCropImage(resolveImageUrl(targetUrl));
-                        setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.name || 'render-zoom');
-                        setShowZoomCropModal(true);
-                      }}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isLight
-                        ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
-                        : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
-                        }`}
-                      title="Open full interactive Zoom & Macro Crop Studio"
-                    >
-                      <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Zoom Studio</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const baseToUse = cleanResultBackup || result;
+                      let targetUrl = activeRenderOption === 'b' ? result : baseToUse;
+                      if (!targetUrl) return;
+                      if (activeRenderOption === 'b' && isAnyLogoActive) {
+                        try {
+                          targetUrl = await stampHdLogoOntoImage(baseToUse || result, { targetWidth: 1807, targetHeight: 3000 });
+                        } catch { }
+                      }
+                      setZoomCropImage(resolveImageUrl(targetUrl));
+                      setZoomCropTitle(fivePoseItems[selectedPoseIndex]?.name || 'render-zoom');
+                      setShowZoomCropModal(true);
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isLight
+                      ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
+                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
+                      }`}
+                    title="Open full interactive Zoom & Macro Crop Studio"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Zoom Studio</span>
+                  </button>
 
-                    {/* Erase Logo Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsEraseMode((prev) => !prev);
-                        setEraseBox(null);
-                        setEraseBoxes([]);
-                      }}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                        isEraseMode
-                          ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-xs'
-                          : isLight
+                  {/* Erase Logo Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEraseMode((prev) => !prev);
+                      setEraseBox(null);
+                      setEraseBoxes([]);
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${isEraseMode
+                        ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-xs'
+                        : isLight
                           ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
                           : 'border-white/20 text-white/80 hover:text-white hover:border-white/50'
                       }`}
-                      title="Select any unwanted AI logo or defect on the garment to erase it cleanly"
-                    >
-                      <Eraser className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{isEraseMode ? 'Exit Erase' : 'Erase Logo'}</span>
-                    </button>
+                    title="Select any unwanted AI logo or defect on the garment to erase it cleanly"
+                  >
+                    <Eraser className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isEraseMode ? 'Exit Erase' : 'Erase Logo'}</span>
+                  </button>
 
-                    {/* Undo Erase Button */}
-                    {eraseUndoStack.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleUndoErase}
-                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
-                          isLight
-                            ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
-                            : 'border-white/20 text-sky-400 hover:text-sky-300 hover:border-sky-400/50'
-                        }`}
-                        title="Undo last logo erasure"
-                      >
-                        <Undo2 className="w-3 h-3" />
-                        <span>Undo Erase</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {result && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleSaveToMySets('ready')}
-                          className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                          title="Save current render directly into Ready to Use archive (with or without edits)"
-                        >
-                          <span>⭐ Save to Ready to Use</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleSaveToMySets('edited')}
-                          className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                          title="Permanently save current image to My Sets archive"
-                        >
-                          <Bookmark className="w-3.5 h-3.5" />
-                          <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const baseToUse = cleanResultBackup || result;
-                            if (baseToUse) {
-                              setZoomCropImage(baseToUse);
-                              setZoomCropTitle('render-crop');
-                              setShowZoomCropModal(true);
-                            }
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                            isLight
-                              ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                              : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
-                          }`}
-                          title="Crop any section of this render and save to Ready to Use or Edited"
-                        >
-                          <Crop className="w-3.5 h-3.5 text-sky-400" />
-                          <span>✂️ Crop View</span>
-                        </button>
-                        {autoSaveStatus && (
-                          <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-xs font-bold shadow-xs">
-                            ✓ {autoSaveStatus}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const baseToUse = cleanResultBackup || result;
-                            if (!baseToUse) return;
-                            const win = window.open('', '_blank');
-                            if (win) {
-                              try {
-                                win.document.write('<!DOCTYPE html><html><head><title>Loading Shiv-Naresh Preview…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f17;color:#94a3b8;font-family:sans-serif;font-size:14px;}</style></head><body>Preparing high-resolution render preview…</body></html>');
-                              } catch {}
-                            }
-                            let viewTarget = baseToUse;
-                            if (activeRenderOption === 'b') {
-                              try {
-                                viewTarget = await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 }) || baseToUse;
-                              } catch { viewTarget = baseToUse; }
-                            }
-                            safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render 1807×3000 (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                            isLight
-                              ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                              : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
-                          }`}
-                          title="Open this render preview full-screen in a new tab"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Open in new tab</span>
-                        </button>
-                      </>
-                    )}
-
+                  {/* Undo Erase Button */}
+                  {eraseUndoStack.length > 0 && (
                     <button
                       type="button"
-                      disabled={!result}
-                      onClick={async () => {
-                        if (!result) return;
-                        const baseToUse = cleanResultBackup || result;
-                        const downloadTarget = activeRenderOption === 'b'
-                          ? await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 })
-                          : baseToUse;
-                        await downloadDirectFile(
-                          downloadTarget,
-                          `shivnaresh-${activeRenderOption === 'b' ? 'option-b-branded' : 'option-a-clean'}-1807x3000-${Date.now()}.png`
-                        );
-                      }}
-                      className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                      title={activeRenderOption === 'b' ? 'Direct high-res 1807×3000 download with crisp HD vector branding stamped at exact coordinates' : 'Direct high-res 1807×3000 download of clean AI render'}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{activeRenderOption === 'b' ? '⬇️ Download 1807×3000 (HD Vector)' : '⬇️ Download 1807×3000 (Clean AI)'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsEditOpen((prev) => !prev)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${isEditOpen
-                        ? 'bg-[#e5373f] text-white border-[#e5373f]'
-                        : isLight
-                          ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
-                          : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
+                      onClick={handleUndoErase}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${isLight
+                          ? 'border-gray-300 text-gray-800 hover:bg-gray-50'
+                          : 'border-white/20 text-sky-400 hover:text-sky-300 hover:border-sky-400/50'
                         }`}
+                      title="Undo last logo erasure"
                     >
-                      {isEditOpen ? 'Close edit' : 'Edit render'}
+                      <Undo2 className="w-3 h-3" />
+                      <span>Undo Erase</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResult(null);
-                        setFivePoseItems([]);
-                      }}
-                      className={`rounded-full border px-2.5 py-1.5 text-xs transition-colors font-medium ${isLight
-                        ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
-                        : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
-                        }`}
-                      title="Clear this preview from canvas"
-                    >
-                      Clear
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
 
-              {/* HD Logo Stamp Controls Strip */}
-              {result && (activeRenderOption === 'b' || isAnyLogoActive) && (
-                <div className={`border-t px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ${isLight ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950' : 'bg-emerald-950/30 border-emerald-500/20 text-emerald-200'}`}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ Branding:</span>
-
-                    {/* 4 Slot Selector Buttons */}
-                    <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/30">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {result && (
+                    <>
                       <button
                         type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('chest');
-                          if (!showHdLogoOverlay) setShowHdLogoOverlay(true);
-                        }}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          activeLogoTarget === 'chest' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
+                        disabled={busy}
+                        onClick={() => void handleSaveToMySets('ready')}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        title="Save current render directly into Ready to Use archive (with or without edits)"
                       >
-                        👕 Chest {showHdLogoOverlay ? 'ON' : 'OFF'}
+                        <span>⭐ Save to Ready to Use</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('pant');
-                          if (!showPantLogo) setShowPantLogo(true);
-                        }}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          activeLogoTarget === 'pant' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
+                        disabled={busy}
+                        onClick={() => void handleSaveToMySets('edited')}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        title="Permanently save current image to My Sets archive"
                       >
-                        👖 Lower {showPantLogo ? 'ON' : 'OFF'}
+                        <Bookmark className="w-3.5 h-3.5" />
+                        <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          setActiveLogoTarget('back');
-                          if (!showBackLogo) setShowBackLogo(true);
+                          const baseToUse = cleanResultBackup || result;
+                          if (baseToUse) {
+                            setZoomCropImage(baseToUse);
+                            setZoomCropTitle('render-crop');
+                            setShowZoomCropModal(true);
+                          }
                         }}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          activeLogoTarget === 'back' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${isLight
+                            ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                            : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
+                          }`}
+                        title="Crop any section of this render and save to Ready to Use or Edited"
                       >
-                        🎒 Back {showBackLogo ? 'ON' : 'OFF'}
+                        <Crop className="w-3.5 h-3.5 text-sky-400" />
+                        <span>✂️ Crop View</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveLogoTarget('extra');
-                          if (!showExtraLogo) setShowExtraLogo(true);
-                        }}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          activeLogoTarget === 'extra' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        ➕ Extra {showExtraLogo ? 'ON' : 'OFF'}
-                      </button>
-                    </div>
-
-                    {/* Logo Style Selector for Active Target */}
-                    <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/30">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('classic')}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          getActiveTargetStyle() === 'classic' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
-                        title="Classic Cheetah + Curved Text"
-                      >
-                        Classic
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('modern')}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          getActiveTargetStyle() === 'modern' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
-                        title="Modern Speed-Slash Icon (Negative Space Claw Cuts)"
-                      >
-                        ⚡ Speed
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTargetStyle('embroidered')}
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          getActiveTargetStyle() === 'embroidered' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
-                        }`}
-                        title="Authentic Needle & Thread Embroidered (3D Stitch Weave)"
-                      >
-                        🧵 Thread
-                      </button>
-                    </div>
-
-                    {/* Auto Match Color */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAutoLogoColor(true);
-                        autoDetectContrastColor();
-                      }}
-                      className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer"
-                      title="Auto-detect high contrast color from fabric for current logo"
-                    >
-                      <span>🤖 Auto Contrast</span>
-                    </button>
-
-                    {/* Quick Sports Swatches */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {BRAND_COLOR_PRESETS.map((p) => (
-                        <button
-                          key={p.hex}
-                          type="button"
-                          onClick={() => {
-                            setIsAutoLogoColor(false);
-                            setActiveTargetColor(p.hex);
-                          }}
-                          title={`${p.name} (${p.hex})`}
-                          className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${getActiveTargetColor().toLowerCase() === p.hex.toLowerCase()
-                              ? 'ring-2 ring-emerald-500 scale-110 border-white'
-                              : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
-                            }`}
-                          style={{ backgroundColor: p.hex }}
-                        />
-                      ))}
-                      {/* Color Wheel + Hex input */}
-                      <div className="flex items-center gap-1 bg-black/40 border border-emerald-500/30 rounded-full px-2 py-0.5 ml-0.5">
-                        <input
-                          type="color"
-                          value={getActiveTargetColor().startsWith('#') && getActiveTargetColor().length === 7 ? getActiveTargetColor() : '#ffffff'}
-                          onChange={(e) => {
-                            setIsAutoLogoColor(false);
-                            setActiveTargetColor(e.target.value);
-                          }}
-                          className="w-3.5 h-3.5 rounded-full cursor-pointer border-0 bg-transparent p-0"
-                          title="Pick custom color or use eyedropper"
-                        />
-                        <input
-                          type="text"
-                          value={getActiveTargetColor()}
-                          onChange={(e) => {
-                            setIsAutoLogoColor(false);
-                            setActiveTargetColor(e.target.value);
-                          }}
-                          placeholder="#ffffff"
-                          className="w-14 bg-transparent text-[10px] font-mono text-white outline-none"
-                          maxLength={7}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 3D Model Pose Presets */}
-                    <div className="flex items-center gap-1 bg-black/30 border border-emerald-500/30 rounded-full px-2 py-0.5">
-                      <span className="text-[9px] font-bold text-emerald-400 uppercase">Pose:</span>
-                      <button
-                        type="button"
-                        onClick={() => applyPoseContour('front')}
-                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
-                          hdLogoCurveDirection === 'standard' && Math.abs(hdLogoAngle) <= 3
-                            ? 'bg-emerald-500 text-white font-bold'
-                            : 'opacity-70 hover:opacity-100 hover:text-white'
-                        }`}
-                        title="Front facing stance"
-                      >
-                        🧍 Front
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPoseContour('angled-left')}
-                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
-                          hdLogoCurveDirection === 'left'
-                            ? 'bg-emerald-500 text-white font-bold'
-                            : 'opacity-70 hover:opacity-100 hover:text-white'
-                        }`}
-                        title="3/4 Turn Left stance"
-                      >
-                        🏃 3/4 Left
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPoseContour('angled-right')}
-                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${
-                          hdLogoCurveDirection === 'right'
-                            ? 'bg-emerald-500 text-white font-bold'
-                            : 'opacity-70 hover:opacity-100 hover:text-white'
-                        }`}
-                        title="3/4 Turn Right stance"
-                      >
-                        🚶 3/4 Right
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1 ml-1">
-                      <span className="text-[10px] opacity-75">Preset:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowHdLogoOverlay(true);
-                          setShowPantLogo(true);
-                          setActiveLogoTarget('chest');
-                        }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
-                      >
-                        🥋 Both
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowBackLogo(true);
-                          setActiveLogoTarget('back');
-                        }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
-                      >
-                        🎒 Back
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowExtraLogo(true);
-                          setActiveLogoTarget('extra');
-                        }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
-                      >
-                        ➕ Extra
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-[11px]">
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase">
-                      {`${activeLogoTarget.toUpperCase()}:`}
-                    </span>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] opacity-75 font-medium">Size</span>
-                      <input
-                        type="range"
-                        min={6}
-                        max={70}
-                        step={1}
-                        value={getActiveScale()}
-                        onChange={(e) => updateActiveScale(Number(e.target.value))}
-                        className="w-14 accent-emerald-500 cursor-pointer"
-                      />
-                      <input
-                        type="number"
-                        min={6}
-                        max={70}
-                        step={1}
-                        value={getActiveScale()}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (!isNaN(val)) updateActiveScale(val);
-                        }}
-                        className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
-                        title="Exact Size number"
-                      />
-                    </label>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] opacity-75 font-medium">X %</span>
-                      <input
-                        type="range"
-                        min={2}
-                        max={98}
-                        step={0.5}
-                        value={getActiveX()}
-                        onChange={(e) => updateActiveX(Number(e.target.value))}
-                        className="w-14 accent-emerald-500 cursor-pointer"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.5}
-                        value={getActiveX()}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (!isNaN(val)) updateActiveX(val);
-                        }}
-                        className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
-                        title="Exact X horizontal position in %"
-                      />
-                    </label>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] opacity-75 font-medium">Y %</span>
-                      <input
-                        type="range"
-                        min={2}
-                        max={98}
-                        step={0.5}
-                        value={getActiveY()}
-                        onChange={(e) => updateActiveY(Number(e.target.value))}
-                        className="w-14 accent-emerald-500 cursor-pointer"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.5}
-                        value={getActiveY()}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (!isNaN(val)) updateActiveY(val);
-                        }}
-                        className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
-                        title="Exact Y vertical position in %"
-                      />
-                    </label>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] opacity-75 font-medium">Tilt °</span>
-                      <input
-                        type="range"
-                        min={-25}
-                        max={25}
-                        step={0.5}
-                        value={getActiveAngle()}
-                        onChange={(e) => updateActiveAngle(Number(e.target.value))}
-                        className="w-14 accent-emerald-500 cursor-pointer"
-                        title="Tilt & slant to match athletic muscle angle"
-                      />
-                      <input
-                        type="number"
-                        min={-25}
-                        max={25}
-                        step={0.5}
-                        value={getActiveAngle()}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (!isNaN(val)) updateActiveAngle(val);
-                        }}
-                        className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
-                        title="Exact Tilt degrees"
-                      />
-                    </label>
-
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void handleSaveToMySets()}
-                      className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer flex items-center gap-1 ml-1 disabled:opacity-50"
-                      title="Permanently burn all active vector-sharp official logos into the image file and save to My Sets"
-                    >
-                      <Bookmark className="w-3 h-3" />
-                      <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
-                    </button>
-                    {cleanResultBackup && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResult(cleanResultBackup);
-                          setFivePoseItems((prev) =>
-                            prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: cleanResultBackup } : p))
-                          );
-                          setCleanResultBackup(null);
-                        }}
-                        className="px-2 py-1 rounded text-[10px] font-semibold border border-white/20 hover:bg-white/10 text-white cursor-pointer ml-1"
-                        title="Revert back to clean original render without burned logos"
-                      >
-                        ↩️ Revert to Clean AI
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* EDIT PANEL (Placed underneath generated image in Result Canvas) */}
-              {result && isEditOpen && (
-                <div className={`border-t p-4 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
-                  }`}>
-                  <div className="flex items-center justify-between border-b pb-2 mb-3 border-current/10">
-                    <div className="flex items-center gap-2">
-                      <Sliders className="h-4 w-4 text-current/70" />
-                      <div>
-                        <h4 className="text-xs font-semibold uppercase tracking-wider">Edit Studio</h4>
-                        <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
-                          Takes current render as reference &middot; ({quality.toUpperCase()} · {creditCost} Credit{creditCost > 1 ? 's' : ''})
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditOpen(false)}
-                      className="text-xs opacity-50 hover:opacity-100 p-1"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    {/* Base reference badge */}
-                    <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 p-2 bg-emerald-500/10">
-                      <img src={result} alt="Base" className="h-12 w-10 rounded-md object-cover border border-emerald-500/40" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider block">Current render locked as base</span>
-                        <p className={`text-[10px] truncate ${isLight ? 'text-gray-600' : 'text-white/60'}`}>Modifications will apply on this base image</p>
-                      </div>
-                    </div>
-
-                    {/* Optional Reference Upload */}
-                    <div>
-                      <label className={`block text-[10px] font-semibold uppercase tracking-wider mb-1 ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
-                        Optional: Upload Reference Garment / Detail
-                      </label>
-                      <input
-                        ref={editRefInput}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0];
-                          if (!f) return;
-                          const { dataUrl } = await compressImageForUpload(f);
-                          setEditRefImage({ url: dataUrl, name: f.name });
-                        }}
-                      />
-                      {editRefImage ? (
-                        <div className={`flex items-center justify-between rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/30'}`}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <img src={editRefImage.url} alt="Ref" className="h-10 w-8 rounded object-cover" />
-                            <span className="text-xs truncate">{editRefImage.name}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setEditRefImage(null)}
-                            className="text-xs text-rose-500 font-semibold hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => editRefInput.current?.click()}
-                          className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
-                            }`}
-                        >
-                          + Add Reference Image (Optional)
-                        </button>
+                      {autoSaveStatus && (
+                        <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 text-xs font-bold shadow-xs">
+                          ✓ {autoSaveStatus}
+                        </span>
                       )}
-                    </div>
-
-                    {/* Edit Prompt Instructions */}
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
-                        What changes would you like to make? (Instructions)
-                      </label>
-                      <textarea
-                        value={editPrompt}
-                        onChange={(e) => setEditPrompt(e.target.value)}
-                        rows={2}
-                        placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
-                        className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
-                          ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
-                          : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const baseToUse = cleanResultBackup || result;
+                          if (!baseToUse) return;
+                          const win = window.open('', '_blank');
+                          if (win) {
+                            try {
+                              win.document.write('<!DOCTYPE html><html><head><title>Loading Shiv-Naresh Preview…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f17;color:#94a3b8;font-family:sans-serif;font-size:14px;}</style></head><body>Preparing high-resolution render preview…</body></html>');
+                            } catch { }
+                          }
+                          let viewTarget = baseToUse;
+                          if (activeRenderOption === 'b') {
+                            try {
+                              viewTarget = await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 }) || baseToUse;
+                            } catch { viewTarget = baseToUse; }
+                          }
+                          safeOpenMediaInNewTab(viewTarget, `Shiv-Naresh Render 1807×3000 (${activeRenderOption === 'b' ? 'HD Vector' : 'Clean'})`, win);
+                        }}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${isLight
+                            ? 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                            : 'border-white/20 text-white/80 hover:bg-white/10 hover:text-white'
                           }`}
-                      />
-                    </div>
+                        title="Open this render preview full-screen in a new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open in new tab</span>
+                      </button>
+                    </>
+                  )}
 
-                    {/* Trigger Edit Button */}
+                  <button
+                    type="button"
+                    disabled={!result}
+                    onClick={async () => {
+                      if (!result) return;
+                      const baseToUse = cleanResultBackup || result;
+                      const downloadTarget = activeRenderOption === 'b'
+                        ? await stampHdLogoOntoImage(baseToUse, { targetWidth: 1807, targetHeight: 3000 })
+                        : baseToUse;
+                      await downloadDirectFile(
+                        downloadTarget,
+                        `shivnaresh-${activeRenderOption === 'b' ? 'option-b-branded' : 'option-a-clean'}-1807x3000-${Date.now()}.png`
+                      );
+                    }}
+                    className="rounded-full bg-[#e5373f] hover:bg-[#d42d35] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                    title={activeRenderOption === 'b' ? 'Direct high-res 1807×3000 download with crisp HD vector branding stamped at exact coordinates' : 'Direct high-res 1807×3000 download of clean AI render'}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{activeRenderOption === 'b' ? '⬇️ Download 1807×3000 (HD Vector)' : '⬇️ Download 1807×3000 (Clean AI)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen((prev) => !prev)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${isEditOpen
+                      ? 'bg-[#e5373f] text-white border-[#e5373f]'
+                      : isLight
+                        ? 'border-[#e5373f] text-[#e5373f] hover:bg-[#e5373f] hover:text-white'
+                        : 'border-[#e5373f]/60 text-[#ff9aa0] hover:border-[#e5373f] hover:text-white'
+                      }`}
+                  >
+                    {isEditOpen ? 'Close edit' : 'Edit render'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResult(null);
+                      setFivePoseItems([]);
+                    }}
+                    className={`rounded-full border px-2.5 py-1.5 text-xs transition-colors font-medium ${isLight
+                      ? 'border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-300'
+                      : 'border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30'
+                      }`}
+                    title="Clear this preview from canvas"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* HD Logo Stamp Controls Strip */}
+            {result && (activeRenderOption === 'b' || isAnyLogoActive) && (
+              <div className={`border-t px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs ${isLight ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950' : 'bg-emerald-950/30 border-emerald-500/20 text-emerald-200'}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-[11px] text-emerald-600 uppercase tracking-wider">✨ Branding:</span>
+
+                  {/* 4 Slot Selector Buttons */}
+                  <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/30">
                     <button
                       type="button"
                       onClick={() => {
-                        if (isLocked) {
-                          setError('Your account generation credits are locked by an administrator.');
-                          return;
-                        }
-                        if (isGlobalBusy) {
-                          setError('Another generation is currently in progress. Please wait.');
-                          return;
-                        }
-                        setIsEditingRender(true);
-                        setShowConfirmModal(true);
+                        setActiveLogoTarget('chest');
+                        if (!showHdLogoOverlay) setShowHdLogoOverlay(true);
                       }}
-                      disabled={isGlobalBusy || isLocked}
-                      className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${activeLogoTarget === 'chest' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
                     >
-                      Generate Edit ({quality.toUpperCase()} &middot; {creditCost} Credit{creditCost > 1 ? 's' : ''}) &rarr;
+                      👕 Chest {showHdLogoOverlay ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('pant');
+                        if (!showPantLogo) setShowPantLogo(true);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${activeLogoTarget === 'pant' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                    >
+                      👖 Lower {showPantLogo ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('back');
+                        if (!showBackLogo) setShowBackLogo(true);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${activeLogoTarget === 'back' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                    >
+                      🎒 Back {showBackLogo ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveLogoTarget('extra');
+                        if (!showExtraLogo) setShowExtraLogo(true);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${activeLogoTarget === 'extra' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                    >
+                      ➕ Extra {showExtraLogo ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+
+                  {/* Logo Style Selector for Active Target */}
+                  <div className="inline-flex rounded-full border border-emerald-500/30 p-0.5 bg-black/30">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('classic')}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${getActiveTargetStyle() === 'classic' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                      title="Classic Cheetah + Curved Text"
+                    >
+                      Classic
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('modern')}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${getActiveTargetStyle() === 'modern' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                      title="Modern Speed-Slash Icon (Negative Space Claw Cuts)"
+                    >
+                      ⚡ Speed
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTargetStyle('embroidered')}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${getActiveTargetStyle() === 'embroidered' ? 'bg-emerald-500 text-white shadow-xs' : 'text-current opacity-70 hover:opacity-100'
+                        }`}
+                      title="Authentic Needle & Thread Embroidered (3D Stitch Weave)"
+                    >
+                      🧵 Thread
+                    </button>
+                  </div>
+
+                  {/* Auto Match Color */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAutoLogoColor(true);
+                      autoDetectContrastColor();
+                    }}
+                    className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer"
+                    title="Auto-detect high contrast color from fabric for current logo"
+                  >
+                    <span>🤖 Auto Contrast</span>
+                  </button>
+
+                  {/* Quick Sports Swatches */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {BRAND_COLOR_PRESETS.map((p) => (
+                      <button
+                        key={p.hex}
+                        type="button"
+                        onClick={() => {
+                          setIsAutoLogoColor(false);
+                          setActiveTargetColor(p.hex);
+                        }}
+                        title={`${p.name} (${p.hex})`}
+                        className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${getActiveTargetColor().toLowerCase() === p.hex.toLowerCase()
+                          ? 'ring-2 ring-emerald-500 scale-110 border-white'
+                          : 'border-white/30 opacity-80 hover:opacity-100 hover:scale-105'
+                          }`}
+                        style={{ backgroundColor: p.hex }}
+                      />
+                    ))}
+                    {/* Color Wheel + Hex input */}
+                    <div className="flex items-center gap-1 bg-black/40 border border-emerald-500/30 rounded-full px-2 py-0.5 ml-0.5">
+                      <input
+                        type="color"
+                        value={getActiveTargetColor().startsWith('#') && getActiveTargetColor().length === 7 ? getActiveTargetColor() : '#ffffff'}
+                        onChange={(e) => {
+                          setIsAutoLogoColor(false);
+                          setActiveTargetColor(e.target.value);
+                        }}
+                        className="w-3.5 h-3.5 rounded-full cursor-pointer border-0 bg-transparent p-0"
+                        title="Pick custom color or use eyedropper"
+                      />
+                      <input
+                        type="text"
+                        value={getActiveTargetColor()}
+                        onChange={(e) => {
+                          setIsAutoLogoColor(false);
+                          setActiveTargetColor(e.target.value);
+                        }}
+                        placeholder="#ffffff"
+                        className="w-14 bg-transparent text-[10px] font-mono text-white outline-none"
+                        maxLength={7}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3D Model Pose Presets */}
+                  <div className="flex items-center gap-1 bg-black/30 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                    <span className="text-[9px] font-bold text-emerald-400 uppercase">Pose:</span>
+                    <button
+                      type="button"
+                      onClick={() => applyPoseContour('front')}
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${hdLogoCurveDirection === 'standard' && Math.abs(hdLogoAngle) <= 3
+                          ? 'bg-emerald-500 text-white font-bold'
+                          : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                      title="Front facing stance"
+                    >
+                      🧍 Front
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPoseContour('angled-left')}
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${hdLogoCurveDirection === 'left'
+                          ? 'bg-emerald-500 text-white font-bold'
+                          : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                      title="3/4 Turn Left stance"
+                    >
+                      🏃 3/4 Left
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPoseContour('angled-right')}
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-semibold transition cursor-pointer ${hdLogoCurveDirection === 'right'
+                          ? 'bg-emerald-500 text-white font-bold'
+                          : 'opacity-70 hover:opacity-100 hover:text-white'
+                        }`}
+                      title="3/4 Turn Right stance"
+                    >
+                      🚶 3/4 Right
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1 ml-1">
+                    <span className="text-[10px] opacity-75">Preset:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHdLogoOverlay(true);
+                        setShowPantLogo(true);
+                        setActiveLogoTarget('chest');
+                      }}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
+                    >
+                      🥋 Both
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBackLogo(true);
+                        setActiveLogoTarget('back');
+                      }}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
+                    >
+                      🎒 Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExtraLogo(true);
+                        setActiveLogoTarget('extra');
+                      }}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 cursor-pointer"
+                    >
+                      ➕ Extra
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
-          </aside>
-        </div>
-      )}
 
-      {/* Floating Direct Access Button for Split Compare (Bottom Left) */}
-      <div className="fixed bottom-6 left-6 z-40">
-        <button
-          type="button"
-          onClick={() => setPageView((curr) => (curr === 'compare' ? 'studio' : 'compare'))}
-          className={`flex items-center gap-2 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all border text-xs font-semibold cursor-pointer ${pageView === 'compare'
-            ? 'bg-[#e5373f] text-white border-[#e5373f] ring-2 ring-[#e5373f]/30'
-            : isLight
-              ? 'bg-white/95 text-gray-900 border-gray-300 hover:border-gray-400 hover:shadow-lg'
-              : 'bg-black/90 text-white border-white/20 hover:border-white/40 hover:bg-black'
-            }`}
-          title="Open Split Compare Studio (Dual synchronized 1807×3000 comparison)"
-        >
-          <Columns className="w-4 h-4 text-[#e5373f]" />
-          <span>Split Compare</span>
-          {userGenerations.length > 0 && (
-            <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-bold">
-              {userGenerations.length}
-            </span>
-          )}
-        </button>
+                <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                    {`${activeLogoTarget.toUpperCase()}:`}
+                  </span>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[10px] opacity-75 font-medium">Size</span>
+                    <input
+                      type="range"
+                      min={6}
+                      max={70}
+                      step={1}
+                      value={getActiveScale()}
+                      onChange={(e) => updateActiveScale(Number(e.target.value))}
+                      className="w-14 accent-emerald-500 cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      min={6}
+                      max={70}
+                      step={1}
+                      value={getActiveScale()}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) updateActiveScale(val);
+                      }}
+                      className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                      title="Exact Size number"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[10px] opacity-75 font-medium">X %</span>
+                    <input
+                      type="range"
+                      min={2}
+                      max={98}
+                      step={0.5}
+                      value={getActiveX()}
+                      onChange={(e) => updateActiveX(Number(e.target.value))}
+                      className="w-14 accent-emerald-500 cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={getActiveX()}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) updateActiveX(val);
+                      }}
+                      className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                      title="Exact X horizontal position in %"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[10px] opacity-75 font-medium">Y %</span>
+                    <input
+                      type="range"
+                      min={2}
+                      max={98}
+                      step={0.5}
+                      value={getActiveY()}
+                      onChange={(e) => updateActiveY(Number(e.target.value))}
+                      className="w-14 accent-emerald-500 cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={getActiveY()}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) updateActiveY(val);
+                      }}
+                      className="w-13 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                      title="Exact Y vertical position in %"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[10px] opacity-75 font-medium">Tilt °</span>
+                    <input
+                      type="range"
+                      min={-25}
+                      max={25}
+                      step={0.5}
+                      value={getActiveAngle()}
+                      onChange={(e) => updateActiveAngle(Number(e.target.value))}
+                      className="w-14 accent-emerald-500 cursor-pointer"
+                      title="Tilt & slant to match athletic muscle angle"
+                    />
+                    <input
+                      type="number"
+                      min={-25}
+                      max={25}
+                      step={0.5}
+                      value={getActiveAngle()}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val)) updateActiveAngle(val);
+                      }}
+                      className="w-12 px-1 py-0.5 text-center text-[10px] font-mono rounded bg-black/50 border border-emerald-500/40 text-white focus:outline-none focus:border-emerald-400"
+                      title="Exact Tilt degrees"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleSaveToMySets()}
+                    className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer flex items-center gap-1 ml-1 disabled:opacity-50"
+                    title="Permanently burn all active vector-sharp official logos into the image file and save to My Sets"
+                  >
+                    <Bookmark className="w-3 h-3" />
+                    <span>{busy ? 'Saving…' : '💾 Save to My Sets'}</span>
+                  </button>
+                  {cleanResultBackup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResult(cleanResultBackup);
+                        setFivePoseItems((prev) =>
+                          prev.map((p, i) => (i === selectedPoseIndex ? { ...p, url: cleanResultBackup } : p))
+                        );
+                        setCleanResultBackup(null);
+                      }}
+                      className="px-2 py-1 rounded text-[10px] font-semibold border border-white/20 hover:bg-white/10 text-white cursor-pointer ml-1"
+                      title="Revert back to clean original render without burned logos"
+                    >
+                      ↩️ Revert to Clean AI
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* EDIT PANEL (Placed underneath generated image in Result Canvas) */}
+            {result && isEditOpen && (
+              <div className={`border-t p-4 transition-all ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/40 text-white'
+                }`}>
+                <div className="flex items-center justify-between border-b pb-2 mb-3 border-current/10">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-current/70" />
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider">Edit Studio</h4>
+                      <p className={`text-[10px] ${isLight ? 'text-gray-500' : 'text-white/50'}`}>
+                        Takes current render as reference &middot; ({quality.toUpperCase()} · {creditCost} Credit{creditCost > 1 ? 's' : ''})
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(false)}
+                    className="text-xs opacity-50 hover:opacity-100 p-1"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  {/* Base reference badge */}
+                  <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 p-2 bg-emerald-500/10">
+                    <img src={result} alt="Base" className="h-12 w-10 rounded-md object-cover border border-emerald-500/40" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider block">Current render locked as base</span>
+                      <p className={`text-[10px] truncate ${isLight ? 'text-gray-600' : 'text-white/60'}`}>Modifications will apply on this base image</p>
+                    </div>
+                  </div>
+
+                  {/* Optional Reference Upload */}
+                  <div>
+                    <label className={`block text-[10px] font-semibold uppercase tracking-wider mb-1 ${isLight ? 'text-gray-600' : 'text-white/60'}`}>
+                      Optional: Upload Reference Garment / Detail
+                    </label>
+                    <input
+                      ref={editRefInput}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const { dataUrl } = await compressImageForUpload(f);
+                        setEditRefImage({ url: dataUrl, name: f.name });
+                      }}
+                    />
+                    {editRefImage ? (
+                      <div className={`flex items-center justify-between rounded-xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/30'}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img src={editRefImage.url} alt="Ref" className="h-10 w-8 rounded object-cover" />
+                          <span className="text-xs truncate">{editRefImage.name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditRefImage(null)}
+                          className="text-xs text-rose-500 font-semibold hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => editRefInput.current?.click()}
+                        className={`w-full rounded-xl border border-dashed p-2 text-center text-xs transition ${isLight ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium' : 'border-white/20 bg-black/20 hover:border-white/40 text-white/70'
+                          }`}
+                      >
+                        + Add Reference Image (Optional)
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Edit Prompt Instructions */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isLight ? 'text-slate-900' : 'text-white/60'}`}>
+                      What changes would you like to make? (Instructions)
+                    </label>
+                    <textarea
+                      value={editPrompt}
+                      onChange={(e) => setEditPrompt(e.target.value)}
+                      rows={2}
+                      placeholder="e.g. Change jersey color to navy blue with red accents, adjust sleeve length, athletic studio lighting"
+                      className={`w-full rounded-xl border p-2.5 text-xs focus:outline-none transition-colors ${isLight
+                        ? 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#e5373f]'
+                        : 'bg-black/50 border-white/10 text-white placeholder:text-white/30 focus:border-white/40'
+                        }`}
+                    />
+                  </div>
+
+                  {/* Trigger Edit Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLocked) {
+                        setError('Your account generation credits are locked by an administrator.');
+                        return;
+                      }
+                      if (isGlobalBusy) {
+                        setError('Another generation is currently in progress. Please wait.');
+                        return;
+                      }
+                      if (!user) {
+                        window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+                        return;
+                      }
+                      setIsEditingRender(true);
+                      setShowConfirmModal(true);
+                    }}
+                    disabled={isGlobalBusy || isLocked}
+                    className="w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d42d35] disabled:opacity-50 transition-colors shadow-md"
+                  >
+                    Generate Edit ({quality.toUpperCase()} &middot; {creditCost} Credit{creditCost > 1 ? 's' : ''}) &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
+    )}
+
+    {/* Floating Direct Access Button for Split Compare (Bottom Left) */}
+    <div className="fixed bottom-6 left-6 z-40">
+      <button
+        type="button"
+        onClick={() => setPageView((curr) => (curr === 'compare' ? 'studio' : 'compare'))}
+        className={`flex items-center gap-2 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all border text-xs font-semibold cursor-pointer ${pageView === 'compare'
+          ? 'bg-[#e5373f] text-white border-[#e5373f] ring-2 ring-[#e5373f]/30'
+          : isLight
+            ? 'bg-white/95 text-gray-900 border-gray-300 hover:border-gray-400 hover:shadow-lg'
+            : 'bg-black/90 text-white border-white/20 hover:border-white/40 hover:bg-black'
+          }`}
+        title="Open Split Compare Studio (Dual synchronized 1807×3000 comparison)"
+      >
+        <Columns className="w-4 h-4 text-[#e5373f]" />
+        <span>Split Compare</span>
+        {userGenerations.length > 0 && (
+          <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-bold">
+            {userGenerations.length}
+          </span>
+        )}
+      </button>
     </div>
-  );
+  </div>
+);
 }

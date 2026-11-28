@@ -417,7 +417,7 @@ export default function ColorSwapStudio({
   const [logoColorHex, setLogoColorHex] = useState<string>('#FFFFFF');
   const [zipperMode, setZipperMode] = useState<'preserve' | 'match'>('preserve');
 
-  // Backend Default Best Quality Settings (Hidden under "Show More" accordion)
+  // Backend Default Best Quality Settings (Hidden under "Show More"accordion)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
   const [tolerance, setTolerance] = useState<number>(28); // 15..70 deg (default 28: best quality)
   const [lightnessOffset, setLightnessOffset] = useState<number>(0); // -0.7..+0.7
@@ -455,7 +455,7 @@ export default function ColorSwapStudio({
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
-  // Fetch all existing uploaded garments from server so 'Uploads' tab always shows previous + new uploads
+  // Fetch all existing uploaded garments from server so 'Uploads'tab always shows previous + new uploads
   useEffect(() => {
     let active = true;
     api.uploads()
@@ -468,7 +468,7 @@ export default function ColorSwapStudio({
             url: u.url,
             title: u.name || 'Uploaded Garment',
             folder: 'uploads',
-            source: 'upload' as const,
+            source: 'upload'as const,
           }));
         setServerUploads(mapped);
       })
@@ -756,7 +756,7 @@ export default function ColorSwapStudio({
           Math.round(totalB / validCount)
         );
         setSourceHex(detected);
-        showToast(`✨ Auto-detected garment color: ${detected} (${getColorName(detected)})`);
+        showToast(`Auto-detected garment color: ${detected} (${getColorName(detected)})`);
       }
     } catch {
       // fallback
@@ -790,7 +790,7 @@ export default function ColorSwapStudio({
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           const item: ImageItem = {
-            id: 'up_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            id: 'up_'+ Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             url: reader.result,
             title: file.name.replace(/\.[^/.]+$/, ''),
             source: 'upload',
@@ -816,7 +816,7 @@ export default function ColorSwapStudio({
       if (typeof reader.result === 'string') {
         setFabricRefImage(reader.result);
         setFabricRefTitle(file.name);
-        showToast(`📤 Loaded fabric swatch: ${file.name}`);
+        showToast(`Loaded fabric swatch: ${file.name}`);
       }
     };
     reader.readAsDataURL(file);
@@ -862,7 +862,7 @@ export default function ColorSwapStudio({
     if (!hoveredColor) return;
     if (subTab === 'swap') {
       setSourceHex(hoveredColor.hex);
-      showToast(`🎯 Source color to swap set to: ${hoveredColor.hex}`);
+      showToast(`Source color to swap set to: ${hoveredColor.hex}`);
     }
     // Add to sampled history palette
     setSampledPalette((prev) => {
@@ -907,12 +907,12 @@ export default function ColorSwapStudio({
     setTargetHex(hex);
     setSampledPalette((prev) => [hex, ...prev.filter((c) => c !== hex)].slice(0, 10));
     copyToClipboard(hex);
-    showToast(`⚡ Sampled & Copied: ${hex} (${getColorName(hex)})! Click 'Apply & Go to Swap' to recolor.`);
+    showToast(`Sampled & Copied: ${hex} (${getColorName(hex)})! Click 'Apply & Go to Swap'to recolor.`);
   };
 
   // Native Browser EyeDropper API (Chrome/Edge)
   const handleNativeEyedropper = async (mode: 'source' | 'target') => {
-    if (typeof window !== 'undefined' && 'EyeDropper' in window) {
+    if (typeof window !== 'undefined' && 'EyeDropper'in window) {
       try {
         const eyeDropper = new (window as any).EyeDropper();
         const res = await eyeDropper.open();
@@ -920,11 +920,11 @@ export default function ColorSwapStudio({
           const sampled = res.sRGBHex.toUpperCase();
           if (mode === 'source') {
             setSourceHex(sampled);
-            showToast(`🎯 Source color set: ${sampled}`);
+            showToast(`Source color set: ${sampled}`);
           } else {
             setTargetHex(sampled);
             setSampledPalette((prev) => [sampled, ...prev.filter((c) => c !== sampled)].slice(0, 10));
-            showToast(`🎨 Target color set: ${sampled}`);
+            showToast(`Target color set: ${sampled}`);
           }
         }
       } catch {
@@ -942,7 +942,7 @@ export default function ColorSwapStudio({
     setPaintTargetImage(imageUrl);
     setPaintTargetTitle(title || 'Studio Garment');
     setSubTab('paint');
-    showToast('🖌️ Opened in MS Paint Pro Studio!');
+    showToast('Opened in MS Paint Pro Studio!');
   };
 
 
@@ -965,7 +965,7 @@ export default function ColorSwapStudio({
       if (!browserPipelineRef.current) {
         const { pipeline, env } = await import('@xenova/transformers');
         env.allowLocalModels = false;
-        env.useBrowserCache = false; // Disabling browser cache prevents 'Browser cache is not available' error
+        env.useBrowserCache = false; // Disabling browser cache prevents 'Browser cache is not available'error
         if (env.backends?.onnx?.wasm) {
           env.backends.onnx.wasm.numThreads = 1; // Single-thread prevents SharedArrayBuffer error in browser
           env.backends.onnx.wasm.simd = true;
@@ -1532,7 +1532,7 @@ export default function ColorSwapStudio({
 
         if (recoloredDataUrl && recoloredDataUrl !== item.url) {
           const resItem: RecolorResult = {
-            id: 'recolor_' + item.id + '_' + Date.now().toString(36) + '_' + i,
+            id: 'recolor_'+ item.id + '_'+ Date.now().toString(36) + '_'+ i,
             sourceUrl: item.url,
             recoloredUrl: recoloredDataUrl,
             targetHex,
@@ -1578,10 +1578,10 @@ export default function ColorSwapStudio({
       }
 
       setProgressPercent(100);
-      showToast(`🎉 Success! Recolored ${newResults.length} pose(s) to ${getColorName(targetHex)}.`);
+      showToast(`Success! Recolored ${newResults.length} pose(s) to ${getColorName(targetHex)}.`);
     } catch (err: any) {
       console.error('[BatchColorSwap] Error:', err);
-      setError('Color swap failed: ' + (err?.message || err));
+      setError('Color swap failed: '+ (err?.message || err));
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
@@ -1596,7 +1596,7 @@ export default function ColorSwapStudio({
       setSavedIds((prev) => new Set([...prev, item.id]));
       showToast(`⭐ Saved to ${folder === 'ready' ? 'Ready to Use' : 'Edited'}!`);
     } catch (err: any) {
-      setError('Failed to save to My Sets: ' + (err?.message || err));
+      setError('Failed to save to My Sets: '+ (err?.message || err));
     }
   };
 
@@ -1613,7 +1613,7 @@ export default function ColorSwapStudio({
       onRefreshGenerations();
       showToast(`⭐ All ${recolorResults.length} images saved to Ready to Use!`);
     } catch (err: any) {
-      setError('Save all error: ' + (err?.message || err));
+      setError('Save all error: '+ (err?.message || err));
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
@@ -1647,7 +1647,7 @@ export default function ColorSwapStudio({
       setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
       showToast('⬇️ Downloaded all variants as ZIP!');
     } catch (err: any) {
-      setError('ZIP creation error: ' + (err?.message || err));
+      setError('ZIP creation error: '+ (err?.message || err));
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
@@ -1657,7 +1657,7 @@ export default function ColorSwapStudio({
   const copyToClipboard = (hex: string) => {
     navigator.clipboard.writeText(hex);
     setCopiedHex(hex);
-    showToast(`📋 Copied: ${hex}`);
+    showToast(`Copied: ${hex}`);
     setTimeout(() => setCopiedHex(null), 1800);
   };
 
@@ -1682,7 +1682,7 @@ export default function ColorSwapStudio({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold tracking-tight">16.7M Fabric Color Swap & Palette Studio</h1>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                  ⚡ 0 Credits · Real-Time
+                   0 Credits · Real-Time
                 </span>
               </div>
               <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-zinc-400'}`}>
@@ -1707,7 +1707,7 @@ export default function ColorSwapStudio({
               }`}
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>🔄 Color Swap</span>
+            <span> Color Swap</span>
           </button>
           <button
             type="button"
@@ -1734,7 +1734,7 @@ export default function ColorSwapStudio({
               }`}
           >
             <Paintbrush className="w-3.5 h-3.5" />
-            <span>🖌️ Canva Paint & Clone Studio</span>
+            <span> Canva Paint & Clone Studio</span>
           </button>
           <button
             type="button"
@@ -1755,7 +1755,7 @@ export default function ColorSwapStudio({
               }`}
           >
             <Pipette className="w-3.5 h-3.5" />
-            <span>🎨 Canva Eyedropper & Palette</span>
+            <span> Canva Eyedropper & Palette</span>
           </button>
         </div>
       </div>
@@ -1780,9 +1780,9 @@ export default function ColorSwapStudio({
               {[
                 { id: 'all', label: 'All' },
                 { id: 'ready', label: '⭐ Ready' },
-                { id: 'edited', label: '✏️ Edited' },
-                { id: 'generated', label: '📸 Gen' },
-                { id: 'uploads', label: '📤 Uploads' },
+                { id: 'edited', label: 'Edited' },
+                { id: 'generated', label: 'Gen' },
+                { id: 'uploads', label: 'Uploads' },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -1904,7 +1904,7 @@ export default function ColorSwapStudio({
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : 'bg-zinc-500/20 text-zinc-300'
                             }`}>
-                            {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? '✏️ Edited' : '📸 Gen'}
+                            {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? 'Edited' : 'Gen'}
                           </span>
                           {isActive && (
                             <span className="text-[9px] font-bold text-[#e5373f]">● Active View</span>
@@ -1956,7 +1956,7 @@ export default function ColorSwapStudio({
                   title="Open active preview in Canva Paint & Clone Studio"
                 >
                   <Paintbrush className="w-3 h-3 text-rose-400" />
-                  <span>🖌️ Edit in Paint Studio</span>
+                  <span> Edit in Paint Studio</span>
                 </button>
 
                 <button
@@ -2065,7 +2065,7 @@ export default function ColorSwapStudio({
                           : 'text-zinc-400 hover:text-white'
                         }`}
                     >
-                      <span>🧥 Upper Only (Jacket/Top)</span>
+                      <span> Upper Only (Jacket/Top)</span>
                     </button>
                     <button
                       type="button"
@@ -2075,7 +2075,7 @@ export default function ColorSwapStudio({
                           : 'text-zinc-400 hover:text-white'
                         }`}
                     >
-                      <span>👖 Lower Only (Pants/Bottom)</span>
+                      <span> Lower Only (Pants/Bottom)</span>
                     </button>
                     <button
                       type="button"
@@ -2085,7 +2085,7 @@ export default function ColorSwapStudio({
                           : 'text-zinc-400 hover:text-white'
                         }`}
                     >
-                      <span>⚡ Both (Full Outfit)</span>
+                      <span> Both (Full Outfit)</span>
                     </button>
                   </div>
                 </div>
@@ -2130,7 +2130,7 @@ export default function ColorSwapStudio({
                         onClick={handleAutoDetectGarmentColor}
                         className="text-[10px] text-[#e5373f] hover:underline font-bold cursor-pointer"
                       >
-                        ⚡ Re-detect from chest
+                         Re-detect from chest
                       </button>
                     </div>
                   </div>
@@ -2178,7 +2178,7 @@ export default function ColorSwapStudio({
                 <div className="pt-2 border-t border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider opacity-75">
-                      ⚡ Quick Brand Athletic Colors:
+                       Quick Brand Athletic Colors:
                     </span>
                     <span className="text-[10px] font-bold text-[#e5373f]">{getColorName(targetHex)}</span>
                   </div>
@@ -2235,7 +2235,7 @@ export default function ColorSwapStudio({
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
                             }`}
                         >
-                          ✨ Keep Original
+                           Keep Original
                         </button>
                         <button
                           type="button"
@@ -2245,7 +2245,7 @@ export default function ColorSwapStudio({
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
                             }`}
                         >
-                          🎨 Custom Recolor
+                           Custom Recolor
                         </button>
                       </div>
                       {logoMode === 'recolor' && (
@@ -2283,7 +2283,7 @@ export default function ColorSwapStudio({
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
                             }`}
                         >
-                          🔩 Metallic Shine
+                           Metallic Shine
                         </button>
                         <button
                           type="button"
@@ -2293,7 +2293,7 @@ export default function ColorSwapStudio({
                               : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
                             }`}
                         >
-                          🧥 Match Garment
+                           Match Garment
                         </button>
                       </div>
                     </div>
@@ -2314,7 +2314,7 @@ export default function ColorSwapStudio({
                       <Sliders className="w-3.5 h-3.5 text-[#e5373f]" />
                       <span>Advanced Quality Settings (Best Quality Presets Running in Backend)</span>
                       <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
-                        🛡️ Skin & Studio Background Protected
+                         Skin & Studio Background Protected
                       </span>
                     </div>
                     {showAdvancedSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -2454,8 +2454,8 @@ export default function ColorSwapStudio({
                       {isProcessing
                         ? progressMsg || 'Processing…'
                         : selectedIds.size > 1
-                          ? `⚡ Recolor All ${selectedIds.size} Selected Models / Poses (1 Click)`
-                          : `⚡ Color Swap Active Model (0 Credits)`}
+                          ? `Recolor All ${selectedIds.size} Selected Models / Poses (1 Click)`
+                          : `Color Swap Active Model (0 Credits)`}
                     </span>
                   </button>
                 </div>
@@ -2543,7 +2543,7 @@ export default function ColorSwapStudio({
                             className="py-1 px-2 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
                             title="Save into Edited sub-tab"
                           >
-                            💾 Edited
+                             Edited
                           </button>
 
                           <button
@@ -2553,7 +2553,7 @@ export default function ColorSwapStudio({
                             title="Open in Canva Paint & Clone Studio"
                           >
                             <Paintbrush className="w-3 h-3 text-rose-400" />
-                            <span>🖌️ Paint</span>
+                            <span> Paint</span>
                           </button>
 
                           <button
@@ -2616,7 +2616,7 @@ export default function ColorSwapStudio({
                 }}
                 onSendToColorSwap={(dataUrl, title) => {
                   const item: ImageItem = {
-                    id: 'paint_' + Date.now().toString(36),
+                    id: 'paint_'+ Date.now().toString(36),
                     url: dataUrl,
                     title,
                     source: 'upload',
@@ -2695,9 +2695,9 @@ export default function ColorSwapStudio({
                         {[
                           { id: 'all', label: 'All' },
                           { id: 'ready', label: '⭐ Ready' },
-                          { id: 'edited', label: '✏️ Edited' },
-                          { id: 'generated', label: '📸 Gen' },
-                          { id: 'uploads', label: '📤 Uploads' },
+                          { id: 'edited', label: 'Edited' },
+                          { id: 'generated', label: 'Gen' },
+                          { id: 'uploads', label: 'Uploads' },
                         ].map((f) => (
                           <button
                             key={f.id}
@@ -2727,7 +2727,7 @@ export default function ColorSwapStudio({
                             onClick={() => {
                               setFabricRefImage(resolved);
                               setFabricRefTitle(img.title);
-                              showToast(`🔍 Loaded for Eyedropper: ${img.title}`);
+                              showToast(`Loaded for Eyedropper: ${img.title}`);
                             }}
                             className={`w-20 shrink-0 p-1 rounded-xl border flex flex-col items-center text-center cursor-pointer transition hover:scale-105 ${
                               isCurrentRef
@@ -2749,7 +2749,7 @@ export default function ColorSwapStudio({
                                   ? 'bg-emerald-500/20 text-emerald-400'
                                   : 'bg-zinc-500/20 text-zinc-300'
                             }`}>
-                              {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? '✏️ Edited' : '📸 Gen'}
+                              {img.folder === 'ready' ? '⭐ Ready' : img.folder === 'edited' ? 'Edited' : 'Gen'}
                             </span>
                           </div>
                         );
@@ -2784,7 +2784,7 @@ export default function ColorSwapStudio({
                           onClick={() => {
                             if (fabricHoveredColor) setTargetHex(fabricHoveredColor.hex);
                             setSubTab('swap');
-                            showToast(`⚡ Switched to Color Swap with target: ${targetHex}`);
+                            showToast(`Switched to Color Swap with target: ${targetHex}`);
                           }}
                           className="px-3 py-1 rounded-lg text-xs font-bold bg-[#e5373f] hover:bg-[#d42d35] text-white flex items-center gap-1.5 cursor-pointer shadow-md"
                         >
@@ -2827,7 +2827,7 @@ export default function ColorSwapStudio({
                       )}
                     </div>
                     <p className="text-[11px] text-zinc-400 italic text-center">
-                      💡 Click anywhere on your fabric/garment photo to sample & copy its exact HEX code and set it as Target Color for model swap!
+                       Click anywhere on your fabric/garment photo to sample & copy its exact HEX code and set it as Target Color for model swap!
                     </p>
 
                     {/* Dominant Palette Extracted from Uploaded Fabric */}
@@ -2857,11 +2857,11 @@ export default function ColorSwapStudio({
                                 onClick={() => {
                                   setTargetHex(item.hex);
                                   setSubTab('swap');
-                                  showToast(`⚡ Target color set to: ${item.hex}`);
+                                  showToast(`Target color set to: ${item.hex}`);
                                 }}
                                 className="w-full py-1 rounded text-[10px] font-bold bg-[#e5373f] hover:bg-[#d42d35] text-white cursor-pointer"
                               >
-                                ⚡ Swap to this
+                                 Swap to this
                               </button>
                             </div>
                           ))}
@@ -2943,11 +2943,11 @@ export default function ColorSwapStudio({
                         onClick={() => {
                           setTargetHex(color.hex);
                           setSubTab('swap');
-                          showToast(`⚡ Target swap color set to: ${color.hex}`);
+                          showToast(`Target swap color set to: ${color.hex}`);
                         }}
                         className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-[#e5373f] hover:bg-[#d42d35] text-white transition flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        <span>🔄 Swap to This Color</span>
+                        <span> Swap to This Color</span>
                       </button>
                     </div>
                   ))}
@@ -2995,7 +2995,7 @@ export default function ColorSwapStudio({
                         onClick={() => {
                           setTargetHex(hex);
                           setSubTab('swap');
-                          showToast(`⚡ Target color set to: ${hex}`);
+                          showToast(`Target color set to: ${hex}`);
                         }}
                         className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#e5373f] text-white hover:bg-[#d42d35] cursor-pointer"
                       >

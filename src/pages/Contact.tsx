@@ -20,6 +20,39 @@ export default function Contact() {
   const [subject, setSubject] = useState('Plan Activation / Payment Inquiry');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.stagger-item'));
+    if (!items.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || typeof IntersectionObserver === 'undefined') {
+      items.forEach((el) => el.classList.add('is-visible'));
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    items.forEach((el, idx) => {
+      el.style.transitionDelay = `${idx * 45}ms`;
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -58,34 +91,45 @@ Message: ${message}`;
   }
 
   return (
-    <div className={`min-h-screen ${isLight ? 'bg-[#97c1a9] text-gray-900' : 'bg-[#0a0a0f] text-white'}`}>
+    <div className={`min-h-screen overflow-x-hidden ${isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${isLight ? 'border-gray-200 bg-white/80' : 'border-white/10 bg-[#0a0a0f]/80'}`}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="/" className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e5373f] text-xs font-semibold text-white">
+      <header className={`sticky top-0 z-50 border-b transition-all duration-200 ${
+        isLight
+          ? scrolled
+            ? 'border-gray-300 bg-white/95 backdrop-blur-xl shadow-sm'
+            : 'border-gray-200 bg-white/80 backdrop-blur-md'
+          : scrolled
+          ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/95 backdrop-blur-xl shadow-lg'
+          : 'edge-light border-white/10 bg-[var(--ink-0,#0C0C0E)]/80 backdrop-blur-md'
+      }`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 py-4">
+          <a href="/"data-cursor="OPEN"className="flex items-center gap-2.5 sm:gap-3 min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e5373f] text-xs font-semibold text-white">
               SN
             </span>
-            <span className={`text-sm font-semibold tracking-wider ${isLight ? 'text-gray-900' : 'text-white'}`}>
+            <span className={`truncate text-sm font-semibold tracking-wider ${isLight ? 'text-gray-900' : 'text-[var(--text-hi,#F5F2EC)]'}`}>
               Shiv-Naresh
             </span>
-            <span className="rounded px-2 py-0.5 text-[10px] font-medium text-[#e5373f] bg-[#e5373f]/10 border border-[#e5373f]/20">
+            <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium border ${
+              isLight ? 'text-[#9e1c23] bg-[#e5373f]/10 border-[#9e1c23]/25' : 'text-[var(--accent,#C9A468)] bg-[var(--accent,#C9A468)]/10 border-[var(--accent,#C9A468)]/25'
+            }`}>
               Contact
             </span>
           </a>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={toggleTheme}
-              className={`rounded-lg border p-2 text-xs transition-colors ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
+              className={`key-press rounded-lg border p-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${isLight ? 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'}`}
               title="Toggle theme"
             >
               {isLight ? <Moon size={15} /> : <Sun size={15} />}
             </button>
             <a
               href="/pricing"
-              className="rounded-lg bg-[#e5373f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
+              data-cursor="OPEN"
+              className="btn-fill-swipe key-press rounded-lg bg-[#e5373f] px-3.5 sm:px-4 py-2 text-xs font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]"
             >
               View plans
             </a>
@@ -94,26 +138,26 @@ Message: ${message}`;
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-5xl px-6 py-16">
-        <div className="text-center space-y-3">
-          <p className="text-xs font-medium text-[#e5373f]">
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-12 sm:py-16">
+        <div className="stagger-item text-center space-y-3">
+          <p className={`text-xs font-semibold ${isLight ? 'text-[#9e1c23]' : 'text-[var(--accent,#C9A468)]'}`}>
             Support & direct inquiries
           </p>
           <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
             Get in Touch With Our Studio
           </h1>
-          <p className="mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed opacity-75">
+          <p className={`mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed ${isLight ? 'text-slate-900/85' : 'opacity-75'}`}>
             Questions regarding squad kit orders, multi-angle sequences, UPI payment, or manual account activation.
           </p>
         </div>
 
         <div className="mt-12 grid gap-8 md:grid-cols-5">
           {/* Left: Contact Info Cards */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-2 space-y-4 min-w-0">
             {/* WhatsApp Direct Card */}
-            <div className="rounded-2xl border p-5 space-y-3" style={{
+            <div className={`stagger-item rounded-2xl border p-5 space-y-3 ${!isLight ? 'edge-light bg-[var(--ink-1,#141418)]' : ''}`} style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-              backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
+              backgroundColor: isLight ? '#f9fafb' : undefined
             }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
@@ -131,45 +175,46 @@ Message: ${message}`;
                 href={`https://api.whatsapp.com/send/?phone=91${profile.mobile}&text=${encodeURIComponent('Hello SHIV-NARESH Admin, I need support with AI Studio.')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+                data-cursor="OPEN"
+                className="key-press inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
               >
                 <MessageSquare size={14} /> Open WhatsApp chat
               </a>
             </div>
 
             {/* Official Mobile */}
-            <div className="rounded-2xl border p-5 space-y-1.5" style={{
+            <div className={`stagger-item rounded-2xl border p-5 space-y-1.5 ${!isLight ? 'edge-light bg-[var(--ink-1,#141418)]' : ''}`} style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-              backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
+              backgroundColor: isLight ? '#f9fafb' : undefined
             }}>
               <div className="flex items-center gap-2 text-xs opacity-60">
                 <Phone size={13} />
                 <span className="font-medium">Direct phone</span>
               </div>
-              <a href={`tel:+91${profile.mobile}`} className="text-lg font-mono font-semibold text-[#e5373f] hover:underline block">
+              <a href={`tel:+91${profile.mobile}`} data-cursor="OPEN"className={`link-border-draw text-lg font-mono font-semibold block ${isLight ? 'text-[#e5373f]' : 'text-[var(--accent,#C9A468)]'}`}>
                 +91 {profile.mobile}
               </a>
               <p className="text-[11px] opacity-60">Available 9:00 AM &ndash; 11:00 PM IST</p>
             </div>
 
             {/* Official Email */}
-            <div className="rounded-2xl border p-5 space-y-1.5" style={{
+            <div className={`stagger-item rounded-2xl border p-5 space-y-1.5 min-w-0 ${!isLight ? 'edge-light bg-[var(--ink-1,#141418)]' : ''}`} style={{
               borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-              backgroundColor: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)'
+              backgroundColor: isLight ? '#f9fafb' : undefined
             }}>
               <div className="flex items-center gap-2 text-xs opacity-60">
                 <Mail size={13} />
                 <span className="font-medium">Inquiries & billing</span>
               </div>
-              <a href={`mailto:${profile.email}`} className="text-xs font-medium text-[#e5373f] hover:underline block truncate">
+              <a href={`mailto:${profile.email}`} data-cursor="OPEN"className={`link-border-draw text-xs font-medium block truncate ${isLight ? 'text-[#e5373f]' : 'text-[var(--accent,#C9A468)]'}`}>
                 {profile.email}
               </a>
               <p className="text-[11px] opacity-60">General inquiries and partnerships</p>
             </div>
 
             {/* Turnaround Guarantee */}
-            <div className={`rounded-2xl border p-4 text-xs space-y-1 ${
-              isLight ? 'border-amber-400 bg-amber-100 text-amber-950 font-medium' : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+            <div className={`stagger-item rounded-2xl border p-4 text-xs space-y-1 ${
+              isLight ? 'border-amber-400 bg-amber-100 text-amber-950 font-medium' : 'edge-light border-[var(--accent,#C9A468)]/30 bg-[var(--accent,#C9A468)]/10 text-[var(--accent,#C9A468)]'
             }`}>
               <div className="flex items-center gap-1.5 font-semibold">
                 <Clock size={14} />
@@ -182,9 +227,9 @@ Message: ${message}`;
           </div>
 
           {/* Right: Interactive Contact Form */}
-          <div className="md:col-span-3 rounded-2xl border p-6 sm:p-8 transition-colors shadow-sm" style={{
+          <div className={`stagger-item md:col-span-3 rounded-2xl border p-6 sm:p-8 transition-colors shadow-sm min-w-0 ${!isLight ? 'edge-light bg-[var(--ink-1,#141418)]' : ''}`} style={{
             borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-            backgroundColor: isLight ? '#ffffff' : 'rgba(255,255,255,0.02)'
+            backgroundColor: isLight ? '#ffffff' : undefined
           }}>
             <h2 className="text-lg font-semibold tracking-tight">Send a message</h2>
             <p className="text-xs opacity-60 mt-0.5">
@@ -284,7 +329,8 @@ Message: ${message}`;
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-[#e5373f] py-2.5 text-xs font-semibold text-white hover:bg-[#d42d35] transition-colors"
+                data-cursor="OPEN"
+                className="btn-fill-swipe key-press w-full rounded-xl bg-[#e5373f] py-2.5 text-xs font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]"
               >
                 Send message via WhatsApp
               </button>

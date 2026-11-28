@@ -24,7 +24,7 @@ function PasswordInput({
 }) {
   const [visible, setVisible] = useState(false);
   const inputClass = isLight
-    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-3 pr-11 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
+    ? 'mt-2 w-full rounded-xl border border-[#C9A468]/35 bg-[#1E3028] px-3.5 py-3 pr-11 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
     : FIELD;
 
   return (
@@ -99,6 +99,48 @@ export default function Login() {
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(180);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.stagger-item'));
+    if (!items.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || typeof IntersectionObserver === 'undefined') {
+      items.forEach((el) => el.classList.add('is-visible'));
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    items.forEach((el, idx) => {
+      el.style.transitionDelay = `${idx * 45}ms`;
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!showForgotModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowForgotModal(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showForgotModal]);
 
   /* OTP Countdown Timer — Wall-clock backed, continues in background tab/app */
   useEffect(() => {
@@ -303,12 +345,12 @@ export default function Login() {
   }
 
   const field = isLight
-    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
+    ? 'mt-2 w-full rounded-xl border border-[#C9A468]/35 bg-[#1E3028] px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none focus:ring-0 shadow-sm'
     : 'mt-2 w-full rounded-xl border border-white/12 bg-black/50 px-3.5 py-3 text-sm text-white placeholder:text-white/25 focus:border-white/45 focus:outline-none focus:ring-0';
 
   return (
-    <div className={`relative min-h-screen overflow-hidden ${
-      isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#08080a] text-white'
+    <div className={`relative min-h-screen overflow-x-hidden ${
+      isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
     }`}>
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -322,33 +364,51 @@ export default function Login() {
       <div
         className="pointer-events-none absolute -top-40 right-0 h-[520px] w-[520px] rounded-full blur-[120px]"
         aria-hidden="true"
-        style={{ background: 'radial-gradient(circle, rgba(229,55,63,0.28), transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(201,164,104,0.22), transparent 70%)' }}
       />
 
-      <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-5 py-5 sm:px-8">
-        <a href="/" className={`flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] ${
-          isLight ? 'text-gray-900 font-bold' : 'text-white'
-        }`}>
-          <img
-            src={isLight ? '/brand-mark-black.png' : '/brand-mark-white.png'}
-            alt=""
-            onError={(e) => { (e.target as HTMLImageElement).src = '/brand-mark-white.png'; }}
-            className="h-4 w-auto"
-          />
-          SHIV-NARESH
-        </a>
-        <div className="flex items-center gap-3">
-          <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-          <a href="/" className={`text-[11px] uppercase tracking-[0.2em] transition-colors ${
-            isLight ? 'text-gray-800 hover:text-black font-semibold' : 'text-white/45 hover:text-white'
+      <header className={`sticky top-0 z-30 border-b transition-all duration-200 ${
+        isLight
+          ? scrolled
+            ? 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-xl shadow-sm'
+            : 'border-transparent bg-[#756357] backdrop-blur-md'
+          : scrolled
+          ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/95 backdrop-blur-xl shadow-lg'
+          : 'edge-light border-transparent bg-[var(--ink-0,#0C0C0E)]/80 backdrop-blur-md'
+      }`}>
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-1.5 sm:gap-2 px-3 py-3.5 sm:px-8 sm:py-4">
+          <a href="/" className={`flex items-center gap-1.5 sm:gap-2 shrink-0 rounded-lg text-[10px] sm:text-[11px] font-semibold tracking-[0.14em] sm:tracking-[0.2em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
+            isLight ? 'text-gray-900 font-bold' : 'text-[var(--text-hi,#F5F2EC)]'
           }`}>
-            Back to home
+            <img
+              src={isLight ? '/brand-mark-black.png' : '/brand-mark-white.png'}
+              alt=""
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (img.src.endsWith('/brand-mark-black.png')) {
+                  img.src = '/brand-mark.png';
+                } else {
+                  img.src = '/brand-mark-white.png';
+                }
+              }}
+              className="h-4 w-auto"
+            />
+            SHIV-NARESH
           </a>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+            <a href="/" className={`rounded-lg px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.2em] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
+              isLight ? 'text-slate-900 hover:text-black font-semibold' : 'text-white/60 hover:text-white'
+            }`}>
+              <span className="sm:hidden">Home</span>
+              <span className="hidden sm:inline">Back to home</span>
+            </a>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-16 pt-6 sm:px-0 sm:pt-10">
-        <div className={isLight ? 'rounded-3xl border border-[#78a48b] bg-[#8db89f]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-slate-900' : 'rounded-3xl border border-white/10 bg-[#0c1017]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-white'}>
+      <main className="relative z-10 mx-auto flex max-w-md flex-col px-4 pb-16 pt-6 sm:px-0 sm:pt-10">
+        <div className={`stagger-item ${isLight ? 'rounded-2xl border border-[#C9A468]/35 bg-[#8db89f]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-slate-900' : 'edge-light rounded-2xl border border-white/10 bg-[var(--ink-1,#141418)]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md text-[var(--text-hi,#F5F2EC)]'}`}>
           {step === 'password' ? (
             <>
               <h1 className="text-2xl font-semibold tracking-[-0.02em]">Create a password</h1>
@@ -407,32 +467,33 @@ export default function Login() {
               <h1 className="text-2xl font-semibold tracking-[-0.02em]">
                 {mode === 'signin' ? 'Sign in' : 'Create your account'}
               </h1>
-              <p className={`mt-1.5 text-sm ${isLight ? 'text-gray-600' : 'text-white/45'}`}>
+              <p className={`mt-1.5 text-sm ${isLight ? 'text-slate-900/80' : 'text-white/45'}`}>
                 {mode === 'signin'
                   ? 'Your designs, renders and collections — in one place.'
                   : 'Save every kit you design, then come back to it any time.'}
               </p>
 
               <div className={`mt-7 flex gap-1 rounded-full p-1 text-[11px] uppercase tracking-[0.14em] ${
-                isLight ? 'border border-gray-300 bg-gray-100' : 'border border-white/10 bg-white/[0.03]'
+                isLight ? 'border border-slate-900/20 bg-white/55' : 'border border-white/10 bg-white/[0.03]'
               }`}>
                 {(['signin', 'signup'] as const).map((id) => (
                   <button
                     key={id}
                     type="button"
+                    aria-pressed={mode === id}
                     onClick={() => {
                       setMode(id);
                       setError('');
                     }}
                     className={
-                      'flex-1 rounded-full px-4 py-2 transition-colors ' +
+                      'key-press flex-1 rounded-full px-4 py-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] '+
                       (mode === id
                         ? isLight
-                          ? 'bg-white text-gray-900 font-bold shadow-sm'
-                          : 'bg-white text-gray-900'
+                          ? 'bg-slate-900 text-white font-bold shadow-sm'
+                          : 'bg-white text-gray-900 font-semibold shadow-sm'
                         : isLight
-                        ? 'text-gray-600 hover:text-gray-900'
-                        : 'text-white/55 hover:text-white')
+                        ? 'text-slate-900 hover:text-black font-medium'
+                        : 'text-white/60 hover:text-white')
                     }
                   >
                     {id === 'signin' ? 'Sign in' : 'Create account'}
@@ -494,7 +555,9 @@ export default function Login() {
                           setForgotSuccess('');
                           setShowForgotModal(true);
                         }}
-                        className="text-[11px] font-medium text-[#e5373f] hover:text-[#d42d35] transition-colors"
+                        className={`link-border-draw text-[11px] font-semibold transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
+                          isLight ? 'text-[#9e1c23] hover:text-[#7f151b]' : 'text-[var(--accent,#C9A468)] hover:opacity-80'
+                        }`}
                       >
                         Forgot password?
                       </button>
@@ -519,8 +582,8 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className={`w-full rounded-full px-6 py-3 text-sm font-semibold transition enabled:hover:opacity-90 disabled:opacity-50 ${
-                    isLight ? 'bg-[#e5373f] text-white shadow-md hover:bg-[#d42d35]' : 'bg-white text-gray-900 enabled:hover:bg-gray-100'
+                  className={`w-full rounded-full px-6 py-3 text-sm font-semibold transition-all enabled:hover:brightness-105 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
+                    isLight ? 'bg-[#e5373f] text-white shadow-md' : 'bg-white text-gray-900'
                   }`}
                 >
                   {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
@@ -528,22 +591,22 @@ export default function Login() {
               </form>
 
               <div className={`my-6 flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] ${
-                isLight ? 'text-gray-500' : 'text-white/25'
+                isLight ? 'text-slate-900/75' : 'text-white/25'
               }`}>
-                <span className={`h-px flex-1 ${isLight ? 'bg-gray-300' : 'bg-white/10'}`} />
+                <span className={`h-px flex-1 ${isLight ? 'bg-slate-900/20' : 'bg-white/10'}`} />
                 or
-                <span className={`h-px flex-1 ${isLight ? 'bg-gray-300' : 'bg-white/10'}`} />
+                <span className={`h-px flex-1 ${isLight ? 'bg-slate-900/20' : 'bg-white/10'}`} />
               </div>
 
               <a
                 href={getApiUrl(`/api/auth/google/start?next=${encodeURIComponent(next)}&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`)}
-                className={`flex w-full items-center justify-center gap-3 rounded-full border px-6 py-3 text-sm font-medium transition-colors ${
+                className={`flex w-full items-center justify-center gap-3 rounded-full border px-6 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                   isLight
                     ? 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50 shadow-sm'
                     : 'border-white/15 bg-white/[0.03] text-white hover:border-white/35 hover:bg-white/[0.07]'
                 }`}
               >
-                <svg viewBox="0 0 48 48" className="h-4 w-4" aria-hidden="true">
+                <svg viewBox="0 0 48 48"className="h-4 w-4"aria-hidden="true">
                   <path
                     fill="#EA4335"
                     d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.3 17.6 9.5 24 9.5z"
@@ -580,14 +643,15 @@ export default function Login() {
 
       {/* Forgot Password OTP Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`relative w-full max-w-md rounded-3xl border p-7 shadow-2xl transition-all ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className={`modal-scale-in relative w-full max-w-md rounded-2xl border p-7 shadow-2xl transition-all ${
             isLight ? 'border-[#76a187] bg-[#8eb8a0] text-slate-900 shadow-2xl' : 'border-white/15 bg-[#0f0f13] text-white'
           }`}>
             <button
               onClick={() => setShowForgotModal(false)}
-              className={`absolute top-5 right-5 p-2 rounded-full transition-colors ${
-                isLight ? 'text-gray-400 hover:text-gray-900 hover:bg-gray-100' : 'text-white/40 hover:text-white hover:bg-white/10'
+              aria-label="Close forgot password modal"
+              className={`absolute top-5 right-5 p-2 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${
+                isLight ? 'text-slate-800 hover:text-black hover:bg-black/10' : 'text-white/40 hover:text-white hover:bg-white/10'
               }`}
             >
               <X size={18} />
@@ -599,7 +663,7 @@ export default function Login() {
                   <Mail size={22} />
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Forgot Password</h3>
-                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-white/50'}`}>
+                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-slate-900/80' : 'text-white/50'}`}>
                   Enter your registered email address. We will dispatch a secure 6-digit OTP code to verify your identity.
                 </p>
 
@@ -617,7 +681,9 @@ export default function Login() {
                   </div>
 
                   {forgotSuccess && (
-                    <p className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-400">
+                    <p className={`rounded-xl border px-3 py-2 text-[12px] ${
+                      isLight ? 'border-emerald-800/35 bg-emerald-900/10 text-emerald-950 font-medium' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-400'
+                    }`}>
                       {forgotSuccess}
                     </p>
                   )}
@@ -645,12 +711,14 @@ export default function Login() {
 
             {forgotStep === 'otp' && (
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4">
+                <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center mb-4 ${
+                  isLight ? 'bg-amber-900/15 border-amber-900/30 text-amber-950' : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                }`}>
                   <KeyRound size={22} />
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Enter Verification Code</h3>
-                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-white/50'}`}>
-                  We sent a 6-digit OTP to <span className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>{forgotEmail}</span>.
+                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-slate-900/80' : 'text-white/50'}`}>
+                  We sent a 6-digit OTP to <span className={`font-semibold ${isLight ? 'text-slate-950' : 'text-white'}`}>{forgotEmail}</span>.
                 </p>
 
                 <div className={`mt-3 flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${
@@ -679,7 +747,9 @@ export default function Login() {
                   </div>
 
                   {forgotSuccess && (
-                    <p className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-400">
+                    <p className={`rounded-xl border px-3 py-2 text-[12px] ${
+                      isLight ? 'border-emerald-800/35 bg-emerald-900/10 text-emerald-950 font-medium' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-400'
+                    }`}>
                       {forgotSuccess}
                     </p>
                   )}
@@ -729,11 +799,13 @@ export default function Login() {
 
             {forgotStep === 'new-password' && (
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
+                <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center mb-4 ${
+                  isLight ? 'bg-emerald-900/15 border-emerald-900/30 text-emerald-950' : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                }`}>
                   <ShieldCheck size={22} />
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Create New Password</h3>
-                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-gray-600' : 'text-white/50'}`}>
+                <p className={`mt-1 text-xs leading-relaxed ${isLight ? 'text-slate-900/80' : 'text-white/50'}`}>
                   Identity verified. Enter a secure new password (at least 8 characters) for your account.
                 </p>
 
@@ -763,7 +835,9 @@ export default function Login() {
                   </div>
 
                   {forgotSuccess && (
-                    <p className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-400">
+                    <p className={`rounded-xl border px-3 py-2 text-[12px] ${
+                      isLight ? 'border-emerald-800/35 bg-emerald-900/10 text-emerald-950 font-medium' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-400'
+                    }`}>
                       {forgotSuccess}
                     </p>
                   )}
@@ -791,7 +865,7 @@ export default function Login() {
 
             {forgotStep === 'done' && (
               <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mx-auto mb-4">
                   <ShieldCheck size={32} />
                 </div>
                 <h3 className="text-xl font-bold">Password Reset Complete!</h3>

@@ -356,7 +356,7 @@ export function WatermarkRemoverContent({
           if (now - lastAdvanceTime > 360000 || now - pollStart > 1500000) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             setStatus('error');
-            setErrorMsg('Watermark removal took longer than expected. Please click "Remove Logo & Watermark" to retry or try a shorter clip.');
+            setErrorMsg('Watermark removal took longer than expected. Please click "Remove Logo & Watermark"to retry or try a shorter clip.');
             return;
           }
 
@@ -454,7 +454,11 @@ export function WatermarkRemoverContent({
     <div className="space-y-6 w-full">
       {/* Title Header */}
       <div className="text-center space-y-3 mb-8">
-        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+        <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest border ${
+          isLight
+            ? 'bg-emerald-900/10 text-emerald-950 border-emerald-900/25'
+            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+        }`}>
           <Sparkles size={13} />
           0 Credits Used · 100% Free · Lossless Video Inpainting
         </div>
@@ -486,16 +490,25 @@ export function WatermarkRemoverContent({
           {/* Upload Box / Drag & Drop */}
           {!file ? (
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Upload video or image file"
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
-              className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-10 sm:p-14 text-center transition-all ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  inputRef.current?.click();
+                }
+              }}
+              className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-14 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 motion-reduce:transition-none ${
                 dragActive
-                  ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01]'
+                  ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01] motion-reduce:scale-100'
                   : isLight
-                  ? 'border-gray-400/60 bg-white/60 hover:bg-white/90 hover:border-gray-600'
+                  ? 'border-gray-500/60 bg-white/75 hover:bg-white/95 hover:border-gray-700'
                   : 'border-white/15 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/30'
               }`}
             >
@@ -506,31 +519,35 @@ export function WatermarkRemoverContent({
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4 border border-emerald-500/20">
+              <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full mb-4 border ${
+                isLight ? 'bg-emerald-600/15 text-emerald-800 border-emerald-700/25' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              }`}>
                 <UploadCloud size={32} />
               </div>
               <h3 className="text-base sm:text-lg font-semibold tracking-tight">
-                Drag & drop video here, or <span className="text-emerald-500 underline underline-offset-4">browse</span>
+                Drag & drop video here, or <span className={`underline underline-offset-4 ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>browse</span>
               </h3>
-              <p className="mt-2 text-xs opacity-60">
+              <p className="mt-2 text-xs opacity-70">
                 Supports MP4, MOV, WEBM, MKV (up to 400 MB). Resolution and audio tracks are 100% preserved.
               </p>
             </div>
           ) : (
             /* Selected Video / Progress / Result View */
             <div
-              className={`rounded-2xl border p-6 sm:p-8 space-y-6 transition-colors ${
+              className={`rounded-2xl border p-4 sm:p-8 space-y-6 transition-colors ${
                 isLight ? 'border-gray-300 bg-white/90 shadow-sm' : 'border-white/10 bg-white/[0.03]'
               }`}
             >
               {/* File Info Bar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b ${
+                isLight ? 'border-gray-200' : 'border-white/10'
+              }`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                     <FileVideo size={20} />
                   </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-semibold truncate max-w-[280px] sm:max-w-md">
+                  <div className="min-w-0">
+                    <h4 className="text-xs sm:text-sm font-semibold truncate max-w-[200px] sm:max-w-md">
                       {file.name}
                     </h4>
                     <p className="text-[11px] opacity-60">
@@ -544,9 +561,9 @@ export function WatermarkRemoverContent({
                     <button
                       type="button"
                       onClick={() => setShowOptions(!showOptions)}
-                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      className={`key-press flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                         showOptions
-                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-500'
+                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600'
                           : isLight
                           ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
                           : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
@@ -560,7 +577,7 @@ export function WatermarkRemoverContent({
                     type="button"
                     onClick={resetAll}
                     disabled={status === 'uploading' || status === 'processing'}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+                    className={`key-press rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                       isLight ? 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
                     }`}
                   >
@@ -571,7 +588,7 @@ export function WatermarkRemoverContent({
 
               {/* Collapsible Quality / Region Settings */}
               {showOptions && status === 'idle' && (
-                <div className={`p-4 rounded-xl border space-y-4 text-xs ${isLight ? 'bg-gray-50 border-gray-200' : 'bg-black/30 border-white/10'}`}>
+                <div className={`p-4 rounded-xl border space-y-4 text-xs ${isLight ? 'bg-gray-50 border-gray-200' : 'edge-light bg-[var(--ink-1,#141418)] border-white/10'}`}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block font-semibold mb-1 opacity-80">Watermark Position / Preset</label>
@@ -579,7 +596,7 @@ export function WatermarkRemoverContent({
                         <button
                           type="button"
                           onClick={() => applyPreset('bottom-right')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'bottom-right' || regionMode === 'auto'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
@@ -590,29 +607,29 @@ export function WatermarkRemoverContent({
                         <button
                           type="button"
                           onClick={() => applyPreset('mid-star')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'mid-star'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
                           }`}
                         >
-                          ✨ Mid-Lower Star
+                           Mid-Lower Star
                         </button>
                         <button
                           type="button"
                           onClick={() => applyPreset('landscape')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'landscape'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
                           }`}
                         >
-                          📐 16:9 Corner
+                           16:9 Corner
                         </button>
                         <button
                           type="button"
                           onClick={() => applyPreset('bottom-left')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'bottom-left'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
@@ -623,7 +640,7 @@ export function WatermarkRemoverContent({
                         <button
                           type="button"
                           onClick={() => applyPreset('top-right')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'top-right'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
@@ -634,13 +651,13 @@ export function WatermarkRemoverContent({
                         <button
                           type="button"
                           onClick={() => setRegionMode('custom')}
-                          className={`py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
+                          className={`key-press py-1.5 px-2 rounded-lg border text-[11px] font-medium transition text-center ${
                             regionMode === 'custom'
                               ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 font-bold'
                               : 'opacity-60 border-transparent hover:opacity-100'
                           }`}
                         >
-                          ⚙️ Manual Box
+                           Manual Box
                         </button>
                       </div>
                     </div>
@@ -725,7 +742,7 @@ export function WatermarkRemoverContent({
                     <button
                       type="button"
                       onClick={() => applyPreset('bottom-right')}
-                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+                      className={`key-press px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                         regionMode === 'bottom-right' || regionMode === 'auto'
                           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
                           : 'bg-white/5 text-white/70 border-white/10 hover:text-white'
@@ -736,13 +753,13 @@ export function WatermarkRemoverContent({
                     <button
                       type="button"
                       onClick={() => applyPreset('mid-star')}
-                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+                      className={`key-press px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                         regionMode === 'mid-star'
                           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
                           : 'bg-white/5 text-white/70 border-white/10 hover:text-white'
                       }`}
                     >
-                      ✨ Mid-Lower Star
+                       Mid-Lower Star
                     </button>
                   </div>
 
@@ -752,7 +769,7 @@ export function WatermarkRemoverContent({
                       <button
                         type="button"
                         onClick={() => changeBoxSize('tight')}
-                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                        className={`key-press px-2.5 py-1 rounded text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                           boxSize === 'tight' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
@@ -761,7 +778,7 @@ export function WatermarkRemoverContent({
                       <button
                         type="button"
                         onClick={() => changeBoxSize('standard')}
-                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                        className={`key-press px-2.5 py-1 rounded text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                           boxSize === 'standard' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
@@ -770,7 +787,7 @@ export function WatermarkRemoverContent({
                       <button
                         type="button"
                         onClick={() => changeBoxSize('wide')}
-                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                        className={`key-press px-2.5 py-1 rounded text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                           boxSize === 'wide' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-white/60 hover:text-white'
                         }`}
                       >
@@ -781,7 +798,7 @@ export function WatermarkRemoverContent({
                     <button
                       type="button"
                       onClick={() => setInteractiveBox(!interactiveBox)}
-                      className={`ml-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
+                      className={`key-press ml-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                         interactiveBox ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-white/5 text-white/50 border-white/10'
                       }`}
                     >
@@ -832,7 +849,7 @@ export function WatermarkRemoverContent({
                         className="absolute inset-0 cursor-crosshair z-10 select-none overflow-hidden group"
                         title="Click directly on the watermark / star in the video to target it"
                       >
-                        {/* Target Box with green dashed animated border */}
+                        {/* Crisp interactive crosshair lock frame */}
                         <div
                           style={{
                             left: `${targetBox.x * 100}%`,
@@ -840,17 +857,21 @@ export function WatermarkRemoverContent({
                             width: `${targetBox.w * 100}%`,
                             height: `${targetBox.h * 100}%`,
                           }}
-                          className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/25 rounded pointer-events-none flex flex-col items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.7)] transition-all duration-150 animate-pulse"
+                          className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/20 rounded pointer-events-none flex flex-col items-center justify-center shadow-[0_0_16px_rgba(16,185,129,0.55)] transition-all duration-150 motion-reduce:transition-none"
                         >
-                          <span className="text-[10px] font-bold text-white bg-emerald-600/90 px-1.5 py-0.5 rounded shadow whitespace-nowrap">
-                            ✨ Target Watermark
+                          <span className="pointer-events-none absolute -top-1 -left-1 h-2 w-2 border-t-2 border-l-2 border-white"aria-hidden="true" />
+                          <span className="pointer-events-none absolute -top-1 -right-1 h-2 w-2 border-t-2 border-r-2 border-white"aria-hidden="true" />
+                          <span className="pointer-events-none absolute -bottom-1 -left-1 h-2 w-2 border-b-2 border-l-2 border-white"aria-hidden="true" />
+                          <span className="pointer-events-none absolute -bottom-1 -right-1 h-2 w-2 border-b-2 border-r-2 border-white"aria-hidden="true" />
+                          <span className="text-[10px] font-bold text-white bg-emerald-600/95 px-1.5 py-0.5 rounded shadow whitespace-nowrap">
+                            Target Lock
                           </span>
                         </div>
 
                         {/* Top floating instruction pill */}
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/20 text-white/90 text-[11px] px-3 py-1 rounded-full pointer-events-none shadow-md flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition whitespace-nowrap">
-                          <Crosshair size={12} className="text-emerald-400" />
-                          Controls removed from video frame. Click directly on star to lock box.
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 max-w-[calc(100%-1rem)] truncate bg-black/85 backdrop-blur-md border border-white/20 text-white/90 text-[11px] px-3 py-1 rounded-full pointer-events-none shadow-md flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition">
+                          <Crosshair size={12} className="text-emerald-400 shrink-0" />
+                          <span className="truncate">Click directly on watermark to lock box.</span>
                         </div>
                       </div>
                     )}
@@ -1009,7 +1030,7 @@ export function WatermarkRemoverContent({
                     type="button"
                     onClick={startRemoval}
                     disabled={status === 'uploading' || status === 'processing'}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-8 py-3 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                    className="key-press w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-8 py-3 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                   >
                     {status === 'uploading' || status === 'processing' ? (
                       <>
@@ -1037,42 +1058,99 @@ export default function RemoveLogo() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
   const [me, setMe] = useState<User | null>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     api.me().then((res) => setMe(res.user)).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.stagger-item'));
+    if (!items.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || typeof IntersectionObserver === 'undefined') {
+      items.forEach((el) => el.classList.add('is-visible'));
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    items.forEach((el, idx) => {
+      el.style.transitionDelay = `${idx * 45}ms`;
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <div
-      className={`min-h-screen flex flex-col justify-between tracking-[-0.02em] transition-colors ${
-        isLight ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
+      className={`min-h-screen overflow-x-hidden flex flex-col justify-between tracking-[-0.02em] transition-colors ${
+        isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
       }`}
-      style={{ fontFamily: "'JetBrains Mono', monospace" }}
     >
       {/* Top Navbar */}
       <header
-        className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${
-          isLight ? 'border-gray-300/80 bg-white/80' : 'border-white/10 bg-[#070709]/80'
+        className={`sticky top-0 z-50 border-b transition-all duration-200 ${
+          isLight
+            ? scrolled
+              ? 'border-gray-400/70 bg-white/92 backdrop-blur-xl shadow-sm'
+              : 'border-gray-300/80 bg-white/80 backdrop-blur-md'
+            : scrolled
+            ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/92 backdrop-blur-xl shadow-lg'
+            : 'edge-light border-white/10 bg-[var(--ink-0,#0C0C0E)]/80 backdrop-blur-md'
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <a href="/" className="flex items-center gap-2 group">
-              <img src="/brand-mark-white.png" alt="" className="h-4 w-auto" />
-              <span className={`text-xs font-semibold tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-white'}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <a
+              href="/"
+              data-cursor="OPEN"
+              className="flex items-center gap-2 group shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]"
+            >
+              <img
+                src={isLight ? '/brand-mark-black.png' : '/brand-mark-white.png'}
+                alt=""
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.src.endsWith('/brand-mark-black.png')) {
+                    img.src = '/brand-mark.png';
+                  } else {
+                    img.src = '/brand-mark-white.png';
+                  }
+                }}
+                className="h-4 w-auto shrink-0"
+              />
+              <span className={`whitespace-nowrap text-[11px] sm:text-xs font-semibold tracking-[0.14em] sm:tracking-[0.2em] ${isLight ? 'text-gray-900' : 'text-[var(--text-hi,#F5F2EC)]'}`}>
                 SHIV-NARESH
               </span>
             </a>
-            <span className="h-4 w-px bg-white/20" aria-hidden="true" />
-            <span className="rounded px-2 py-0.5 text-[10px] font-semibold text-[#e5373f] bg-[#e5373f]/10 border border-[#e5373f]/20 uppercase tracking-wider">
+            <span className={`hidden sm:inline-block h-4 w-px shrink-0 ${isLight ? 'bg-gray-300' : 'bg-white/20'}`} aria-hidden="true" />
+            <span className={`shrink-0 whitespace-nowrap rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider border ${
+              isLight ? 'text-[#e5373f] bg-[#e5373f]/10 border-[#e5373f]/20' : 'text-[var(--accent,#C9A468)] bg-[var(--accent,#C9A468)]/10 border-[var(--accent,#C9A468)]/25'
+            }`}>
               Logo Remover
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <a
               href="/design"
-              className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+              data-cursor="DESIGN"
+              className={`link-border-draw hidden sm:inline-block text-xs font-medium px-3 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                 isLight ? 'text-slate-800 hover:bg-black/5' : 'text-gray-300 hover:bg-white/10'
               }`}
             >
@@ -1080,7 +1158,8 @@ export default function RemoveLogo() {
             </a>
             <a
               href="/pricing"
-              className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+              data-cursor="OPEN"
+              className={`link-border-draw hidden sm:inline-block text-xs font-medium px-3 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                 isLight ? 'text-slate-800 hover:bg-black/5' : 'text-gray-300 hover:bg-white/10'
               }`}
             >
@@ -1089,7 +1168,7 @@ export default function RemoveLogo() {
             <button
               type="button"
               onClick={toggleTheme}
-              className={`rounded-full border p-2 text-xs transition-colors ${
+              className={`key-press rounded-full border p-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                 isLight ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100' : 'border-white/10 bg-white/5 text-white/70 hover:text-white'
               }`}
               title="Toggle theme"
@@ -1098,7 +1177,8 @@ export default function RemoveLogo() {
             </button>
             <a
               href="/"
-              className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+              data-cursor="OPEN"
+              className={`btn-fill-swipe key-press flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
                 isLight ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-gray-900 hover:bg-gray-100'
               }`}
             >
@@ -1110,7 +1190,7 @@ export default function RemoveLogo() {
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-12 flex-1 w-full">
+      <main className="stagger-item mx-auto max-w-4xl px-4 sm:px-6 py-12 flex-1 w-full">
         <WatermarkRemoverContent user={me} isLight={isLight} />
       </main>
 

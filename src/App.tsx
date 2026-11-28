@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Menu, X } from 'lucide-react';
 import Design from './pages/Design';
 import RemoveLogo from './pages/RemoveLogo';
 import Admin from './pages/Admin';
@@ -9,40 +8,42 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Terms from './pages/Terms';
 import SiteFooter from './components/SiteFooter';
+import { CustomCursor } from './components/CustomCursor';
 import { useTheme, ThemeToggle } from './lib/theme';
+import { api } from './lib/api';
 
 /* ------------------------------------------------------------------ */
-/*  Assets                                                             */
-/*  Portraits mirrored into /public so the build never depends on the  */
-/*  image proxy. Originals:                                            */
-/*    BG_IMAGE_1 https://images.higgs.ai/?...hf_20260609_125121_...png */
-/*    BG_IMAGE_2 https://images.higgs.ai/?...hf_20260609_135737_...png */
+/* Assets                                                             */
+/* Portraits mirrored into /public so the build never depends on the  */
+/* image proxy. Originals:                                            */
+/* BG_IMAGE_1 https://images.higgs.ai/?...hf_20260609_125121_...png */
+/* BG_IMAGE_2 https://images.higgs.ai/?...hf_20260609_135737_...png */
 /* ------------------------------------------------------------------ */
-const BG_IMAGE_1 = "url('/hero-base.webp')";
-const BG_IMAGE_2 = "url('/hero-reveal.webp')";
+const BG_IMAGE_1 = "url('/hero-base.jpg')";
+const BG_IMAGE_2 = "url('/hero-reveal.jpg')";
 
 const BRAND_MARK = '/brand-mark-white.png';
 
 const NAV_LINKS = [
-  { label: 'Home', href: '/' },
-  { label: 'Design', href: '/design' },
-  { label: 'Remove Logo', href: '/remove-logo' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'About', href: '/about' },
-  { label: 'Contact', href: '/contact' },
-  { label: 'Terms', href: '/terms' },
+  { key: 'home', label: 'Home', href: '/' },
+  { key: 'design', label: 'Design', href: '/design' },
+  { key: 'removeLogo', label: 'Remove Logo', href: '/remove-logo' },
+  { key: 'pricing', label: 'Pricing', href: '/pricing' },
+  { key: 'about', label: 'About', href: '/about' },
+  { key: 'contact', label: 'Contact', href: '/contact' },
+  { key: 'terms', label: 'Terms', href: '/terms' },
 ] as const;
 
 /* Chest branding — wearer's left chest, in *image* coordinates.
    Percentages resolve against the 16:9 stage below, not the viewport, so the
-   mark stays on the pectoral however `cover` crops the portrait. */
+   mark stays on the pectoral however `cover`crops the portrait. */
 const CHEST = { left: '62.5%', top: '92%' };
 
 /* Intro reveal: the whole face goes cyberpunk for a beat, then falls back to
    the cursor spotlight. Seconds, matched by the sound design below. */
 const INTRO = { grow: 1.7, hold: 3.2, out: 4.8 };
 
-/* A box that always matches what `background-size: cover` would show, so that
+/* A box that always matches what `background-size: cover`would show, so that
    anything anchored inside it moves with the photograph, not the viewport. */
 const STAGE: CSSProperties = {
   width: 'max(100%, calc(100dvh * 16 / 9))',
@@ -50,101 +51,170 @@ const STAGE: CSSProperties = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Brand                                                              */
+/* Brand                                                              */
 /* ------------------------------------------------------------------ */
 function Brand({ size = 'md' }: { size?: 'sm' | 'md' }) {
   const mark = size === 'sm' ? 'h-[13px]' : 'h-[16px]';
   const label = size === 'sm' ? 'text-[10px]' : 'text-[11px]';
   return (
     <span className="flex items-center gap-2">
-      <img src={BRAND_MARK} alt="" className={`${mark} w-auto`} draggable={false} />
+      <img src={BRAND_MARK} alt=""className={`${mark} w-auto`} draggable={false} />
       <span className={`${label} font-semibold tracking-[0.2em] text-white`}>SHIV-NARESH</span>
     </span>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Navbar — two panels only                                           */
+/* Navbar — two panels only                                           */
 /* ------------------------------------------------------------------ */
 function NavBar() {
   const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const active = typeof window === 'undefined' ? '/' : window.location.pathname.replace(/\/$/, '') || '/';
+  const navGroupRef = useRef<HTMLDivElement | null>(null);
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+  const [headerLinks, setHeaderLinks] = useState<Record<string, boolean>>(() => {
+    try {
+      const cached = localStorage.getItem('cached_header_links');
+      if (cached) return JSON.parse(cached);
+    } catch { }
+    return { home: true, design: true, removeLogo: true, pricing: true, about: true, contact: true, terms: true, startDesign: true };
+  });
+
+  useEffect(() => {
+    api.studio().then((s) => {
+      if (s?.headerLinks && typeof s.headerLinks === 'object') {
+        setHeaderLinks(s.headerLinks);
+        try { localStorage.setItem('cached_header_links', JSON.stringify(s.headerLinks)); } catch { }
+      }
+    }).catch(() => { });
+  }, []);
+
+  const visibleNavLinks = NAV_LINKS.filter((l) => headerLinks[l.key] !== false);
+  const showStartDesign = headerLinks.startDesign !== false;
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const group = navGroupRef.current;
+      const activeEl = linkRefs.current[active];
+      if (!group || !activeEl) {
+        setIndicator(null);
+        return;
+      }
+      setIndicator({
+        left: activeEl.offsetLeft,
+        width: activeEl.offsetWidth,
+      });
+    };
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [active]);
 
   return (
     <>
-      <nav className="nav-drop fixed top-0 left-0 right-0 z-50 flex items-center justify-between md:justify-center p-4 sm:p-5">
+      <nav className="nav-drop fixed top-0 left-0 right-0 z-50 flex items-center justify-between lg:justify-center p-4 sm:p-5">
         {/* Desktop: one centered pill */}
-        <div className="hidden md:flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-full pl-3 pr-2 py-2">
-          <a href="/" className="flex items-center rounded-full pr-3">
+        <div className="hidden lg:flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-full pl-3 pr-2 py-2">
+          <a href="/"className="flex items-center rounded-full pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
             <Brand />
           </a>
-          <span className="mr-1 h-4 w-px bg-white/20" aria-hidden="true" />
-          {NAV_LINKS.map((link) => (
+          <span className="mr-1 h-4 w-px bg-white/20"aria-hidden="true" />
+          <div ref={navGroupRef} className="relative flex items-center gap-1">
+            {indicator && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 rounded-full bg-white/15 transition-all duration-300 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none"
+                style={{ left: indicator.left, width: indicator.width }}
+              />
+            )}
+            {visibleNavLinks.map((link) => {
+              const isCurrent = active === (link.href === '/' ? '/' : link.href);
+              return (
+                <a
+                  key={link.label}
+                  ref={(el) => { linkRefs.current[link.href] = el; }}
+                  href={link.href}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  className={
+                    isCurrent
+                      ? 'relative z-10 text-[#F5F0E7] text-sm font-semibold px-3 py-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]'
+                      : 'relative z-10 text-[#F5F0E7]/85 text-sm font-medium px-3 py-1.5 rounded-full hover:bg-white/10 hover:text-[#E7CFA4] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]'
+                  }
+                >
+                  <span className="text-swap">
+                    <span className="text-swap-primary">{link.label}</span>
+                    <span className="text-swap-secondary"aria-hidden="true">{link.label}</span>
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+          {showStartDesign && (
             <a
-              key={link.label}
-              href={link.href}
-              aria-current={active === (link.href === '/' ? '/' : link.href) ? 'page' : undefined}
-              className={
-                active === (link.href === '/' ? '/' : link.href)
-                  ? 'text-white text-sm font-medium px-3 py-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70'
-                  : 'text-gray-300 text-sm font-medium px-3 py-1.5 rounded-full hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70'
-              }
+              href="/design"
+              className={`btn-fill-swipe text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
+                theme === 'light' ? 'bg-[#F5F0E7] text-[#1A1408]' : 'bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)]'
+              }`}
             >
-              {link.label}
+              Start design
             </a>
-          ))}
-          <a
-            href="/design"
-            className={`text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors ${
-              theme === 'light' ? 'bg-[#82b095] text-slate-950 hover:bg-[#72a185]' : 'bg-white text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            Start design
-          </a>
+          )}
           <div className="ml-2">
             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
           </div>
         </div>
 
         {/* Mobile: brand pill */}
-        <a href="#home" className="md:hidden flex items-center bg-black/60 backdrop-blur-md rounded-full px-3 py-2.5">
+        <a href="#home"className="lg:hidden flex items-center bg-black/60 backdrop-blur-md rounded-full px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]">
           <Brand size="sm" />
         </a>
 
-        {/* Mobile: toggle pill */}
+        {/* Mobile: toggle pill (6.15 Icon morph) */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="md:hidden flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full p-2.5 text-white"
+          className="lg:hidden flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full p-2.5 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]"
         >
-          {open ? <X size={22} /> : <Menu size={22} />}
+          <span className={`icon-morph-bars ${open ? 'is-open' : ''}`} aria-hidden="true">
+            <span className="icon-morph-bar" />
+            <span className="icon-morph-bar" />
+            <span className="icon-morph-bar" />
+          </span>
         </button>
       </nav>
 
       {open && (
         <div className={`nav-drop fixed top-0 left-0 right-0 z-40 w-full pt-16 pb-6 px-5 shadow-lg md:hidden ${
-          theme === 'light' ? 'bg-[#8ab59c] text-slate-900 border-b border-[#79a48b]' : 'bg-[#0c1017] text-white border-b border-white/10'
+          theme === 'light' ? 'bg-[#263B32] text-[#F5F0E7] border-b border-[#C9A468]/30' : 'edge-light bg-[var(--ink-1,#141418)] text-[var(--text-hi,#F5F2EC)] border-b border-white/10'
         }`}>
-          {NAV_LINKS.map((link) => (
+          {visibleNavLinks.map((link) => (
             <a
               key={link.label}
               href={link.href}
+              aria-current={active === (link.href === '/' ? '/' : link.href) ? 'page' : undefined}
               onClick={() => setOpen(false)}
-              className="block w-full text-left text-gray-800 py-3 border-b border-gray-100"
+              className={`block w-full text-left py-3 border-b transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+                theme === 'light'
+                  ? 'text-slate-900 border-slate-900/15 hover:text-black focus-visible:ring-slate-900'
+                  : 'text-white/90 border-white/10 hover:text-white focus-visible:ring-white/70'
+              }`}
             >
               {link.label}
             </a>
           ))}
-          <a
-            href="/design"
-            onClick={() => setOpen(false)}
-            className="mt-5 block w-full text-center bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-full"
-          >
-            Start design
-          </a>
+          {showStartDesign && (
+            <a
+              href="/design"
+              onClick={() => setOpen(false)}
+              className="mt-5 block w-full text-center bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              Start design
+            </a>
+          )}
         </div>
       )}
     </>
@@ -152,7 +222,7 @@ function NavBar() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Stats on fading arc                                                */
+/* Stats on fading arc                                                */
 /* ------------------------------------------------------------------ */
 const ARC_CENTER = { x: -110, y: 300 };
 const RAD = Math.PI / 180;
@@ -193,11 +263,11 @@ function StatsArc() {
                 x2={end.x}
                 y2={end.y}
               >
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-                <stop offset="22%" stopColor="#ffffff" stopOpacity="0.5" />
-                <stop offset="55%" stopColor="#ffffff" stopOpacity="0.5" />
-                <stop offset="85%" stopColor="#ffffff" stopOpacity="0.1" />
-                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="0%"stopColor="#ffffff"stopOpacity="0" />
+                <stop offset="22%"stopColor="#ffffff"stopOpacity="0.5" />
+                <stop offset="55%"stopColor="#ffffff"stopOpacity="0.5" />
+                <stop offset="85%"stopColor="#ffffff"stopOpacity="0.1" />
+                <stop offset="100%"stopColor="#ffffff"stopOpacity="0" />
               </linearGradient>
             );
           })}
@@ -293,14 +363,14 @@ function StatsArc() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Chest branding                                                     */
+/* Chest branding                                                     */
 /* ------------------------------------------------------------------ */
 function ChestBadge() {
-  // Below `lg` the portrait is cropped so tight that the chest sits behind the
+  // Below `lg`the portrait is cropped so tight that the chest sits behind the
   // headline — the nav carries the brand there instead.
   return (
-    <div className="pointer-events-none absolute inset-0 z-40 hidden select-none lg:block" aria-hidden="true">
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
+    <div className="pointer-events-none absolute inset-0 z-40 hidden select-none lg:block"aria-hidden="true">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
         <div
           className="absolute"
           style={{
@@ -336,7 +406,64 @@ function ChestBadge() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Panel 01 — Home                                                    */
+/* 6.9 Scramble / decode micro-label (400ms settle)                   */
+/* ------------------------------------------------------------------ */
+const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+function ScrambleLabel({ text }: { text: string }) {
+  const [display, setDisplay] = useState(text);
+  const rafRef = useRef<number>(0);
+
+  const trigger = () => {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(text);
+      return;
+    }
+    window.cancelAnimationFrame(rafRef.current);
+    const start = performance.now();
+    const duration = 400;
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const settled = Math.floor(progress * text.length);
+      let next = '';
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === ' ' || i < settled) {
+          next += ch;
+        } else {
+          next += SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+        }
+      }
+      setDisplay(next);
+      if (progress < 1) {
+        rafRef.current = window.requestAnimationFrame(tick);
+      } else {
+        setDisplay(text);
+      }
+    };
+
+    rafRef.current = window.requestAnimationFrame(tick);
+  };
+
+  useEffect(() => {
+    trigger();
+    return () => window.cancelAnimationFrame(rafRef.current);
+  }, [text]);
+
+  return (
+    <span
+      onMouseEnter={trigger}
+      onFocus={trigger}
+      className="inline-block font-mono tracking-[0.04em] text-[var(--accent,#C9A468)]"
+    >
+      {display}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel 01 — Home                                                    */
 /* ------------------------------------------------------------------ */
 function Hero() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -526,13 +653,13 @@ function Hero() {
     };
   }, []);
 
-  // `isolate` keeps the hero's z-50 layers underneath the fixed nav (z-50)
+  // `isolate`keeps the hero's z-50 layers underneath the fixed nav (z-50)
   // and the mobile dropdown (z-40), which live in the root stacking context.
   return (
-    <section id="home" className="relative isolate h-[100dvh] w-full overflow-hidden bg-black">
+    <section id="home"className="relative isolate h-[100dvh] w-full overflow-hidden bg-black">
       {/* 1 — grid */}
-      <div className="absolute inset-0 z-0" aria-hidden="true">
-        <svg className="h-full w-full" style={{ opacity: 0.1 }}>
+      <div className="absolute inset-0 z-0"aria-hidden="true">
+        <svg className="h-full w-full"style={{ opacity: 0.1 }}>
           <defs>
             <pattern
               ref={patternRef}
@@ -541,16 +668,16 @@ function Hero() {
               height="48"
               patternUnits="userSpaceOnUse"
             >
-              <path d="M 48 0 L 0 0 L 0 48" fill="none" stroke="#64748b" strokeWidth="0.6" />
+              <path d="M 48 0 L 0 0 L 0 48"fill="none"stroke="#64748b"strokeWidth="0.6" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#hero-grid)" />
+          <rect width="100%"height="100%"fill="url(#hero-grid)" />
         </svg>
       </div>
 
       {/* 2 — base portrait */}
-      <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
+      <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden"aria-hidden="true">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
           <div
             className="animate-ken-burns absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: BG_IMAGE_1 }}
@@ -566,14 +693,14 @@ function Hero() {
         className="pointer-events-none absolute inset-0 z-30 overflow-hidden"
         aria-hidden="true"
       >
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
           <div
             className="animate-ken-burns absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: BG_IMAGE_2 }}
           />
         </div>
       </div>
-      <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
+      <canvas ref={canvasRef} className="hidden"aria-hidden="true" />
 
       {/* scanner sweep that rides the intro reveal */}
       <div
@@ -604,14 +731,14 @@ function Hero() {
       {/* 5 — hero copy */}
       <div className="absolute bottom-12 sm:bottom-16 md:bottom-24 left-5 sm:left-8 md:left-12 max-w-[320px] sm:max-w-md z-50">
         <p
-          className="hero-rise text-xs font-medium text-white/80"
+          className="stagger-item hero-rise text-xs font-medium text-[var(--accent,#C9A468)]"
           style={{ animationDelay: '0.15s' }}
         >
-          Custom sportswear for athletic squads
+          <ScrambleLabel text="Custom sportswear for athletic squads" />
         </p>
 
         <h1
-          className="hero-rise mt-3 text-4xl sm:text-5xl md:text-6xl font-medium leading-[1.08] tracking-[-0.03em] text-white"
+          className="stagger-item hero-rise mt-3 text-4xl sm:text-5xl md:text-6xl font-medium leading-[1.08] tracking-[-0.03em] text-[var(--text-hi,#F5F2EC)]"
           style={{ animationDelay: '0.3s' }}
         >
           Your crest.
@@ -622,16 +749,16 @@ function Hero() {
         </h1>
 
         <p
-          className="hero-rise mt-4 text-sm sm:text-base text-white/80 leading-relaxed"
+          className="stagger-item hero-rise mt-4 text-sm sm:text-base text-white/80 leading-relaxed"
           style={{ animationDelay: '0.5s' }}
         >
           Sublimated team kits, training sets and club apparel, sampled before a stitch and cut to your squad’s measurements.
         </p>
 
-        <div className="hero-rise mt-6 flex items-center gap-4" style={{ animationDelay: '0.7s' }}>
+        <div className="stagger-item hero-rise mt-6 flex items-center gap-4"style={{ animationDelay: '0.7s' }}>
           <a
             href="/design"
-            className="inline-flex items-center justify-center bg-white text-gray-900 text-sm font-semibold px-6 py-3 rounded-full hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="btn-fill-swipe inline-flex items-center justify-center bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)] text-sm font-semibold px-6 py-3 rounded-full active:scale-[0.98] transition-[transform,color] duration-[320ms] ease-[cubic-bezier(.22,.61,.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] motion-reduce:transition-none"
           >
             Design your kit
           </a>
@@ -642,33 +769,67 @@ function Hero() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  App                                                                */
+/* App                                                                */
 /* ------------------------------------------------------------------ */
 export default function App() {
   const { theme } = useTheme();
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/$/, "") || "/";
 
-  if (path === "/design" || path.startsWith("/design/")) return <Design />;
-  if (path === "/remove-logo" || path.startsWith("/remove-logo/")) return <RemoveLogo />;
-  if (path === "/admin" || path.startsWith("/admin/")) return <Admin />;
-  if (path === "/login" || path.startsWith("/login/")) return <Login />;
-  if (path === "/pricing" || path.startsWith("/pricing/")) return <Pricing />;
-  if (path === "/about" || path.startsWith("/about/")) return <About />;
-  if (path === "/contact" || path.startsWith("/contact/")) return <Contact />;
-  if (path === "/terms" || path.startsWith("/terms/")) return <Terms />;
+  useEffect(() => {
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.stagger-item'));
+    if (!items.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || typeof IntersectionObserver === 'undefined') {
+      items.forEach((el) => el.classList.add('is-visible'));
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    items.forEach((el, idx) => {
+      el.style.transitionDelay = `${idx * 45}ms`;
+      obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, [path]);
+
+  const renderPage = () => {
+    if (path === "/design" || path.startsWith("/design/")) return <Design />;
+    if (path === "/remove-logo" || path.startsWith("/remove-logo/")) return <RemoveLogo />;
+    if (path === "/admin" || path.startsWith("/admin/")) return <Admin />;
+    if (path === "/login" || path.startsWith("/login/")) return <Login />;
+    if (path === "/pricing" || path.startsWith("/pricing/")) return <Pricing />;
+    if (path === "/about" || path.startsWith("/about/")) return <About />;
+    if (path === "/contact" || path.startsWith("/contact/")) return <Contact />;
+    if (path === "/terms" || path.startsWith("/terms/")) return <Terms />;
+
+    return (
+      <div
+        className={`min-h-screen tracking-[-0.02em] flex flex-col justify-between transition-colors ${
+          theme === 'light' ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
+        }`}
+      >
+        <NavBar />
+        <main className="flex-1">
+          <Hero />
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  };
 
   return (
-    <div
-      className={`min-h-screen tracking-[-0.02em] flex flex-col justify-between transition-colors ${
-        theme === 'light' ? 'bg-[#97c1a9] text-slate-900' : 'bg-[#070709] text-white'
-      }`}
-      style={{ fontFamily: "'JetBrains Mono', monospace" }}
-    >
-      <NavBar />
-      <main className="flex-1">
-        <Hero />
-      </main>
-      <SiteFooter />
-    </div>
+    <>
+      <CustomCursor />
+      <div className="grain-overlay"aria-hidden="true" />
+      {renderPage()}
+    </>
   );
 }

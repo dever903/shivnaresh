@@ -82,7 +82,7 @@ function playAdminNotificationChime() {
 
 function sendAdminNotification(title: string, body: string) {
   playAdminNotificationChime();
-  if (!('Notification' in window)) return;
+  if (!('Notification'in window)) return;
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon: '/brand-mark-white.png' });
   } else if (Notification.permission !== 'denied') {
@@ -227,6 +227,17 @@ export default function Admin() {
   const [developerImageUrl, setDeveloperImageUrl] = useState('');
   const [googleApiKey, setGoogleApiKey] = useState('');
   const [descriptionPrompt, setDescriptionPrompt] = useState('');
+  const [headerLinks, setHeaderLinks] = useState<Record<string, boolean>>({
+    home: true,
+    design: true,
+    removeLogo: true,
+    pricing: true,
+    about: true,
+    contact: true,
+    terms: true,
+    startDesign: true,
+  });
+  const [savingHeaderLinks, setSavingHeaderLinks] = useState(false);
 
   /* Model Upload & Management State (Single or Multiple) */
   const [seasons, setSeasons] = useState<string[]>(['Summer', 'Winter']);
@@ -614,6 +625,9 @@ export default function Admin() {
     setAdmin2faEnabled(Boolean(s.admin2faEnabled));
     setDeveloperImageUrl(s.developerImageUrl || '');
     if ((s as any).descriptionPrompt) setDescriptionPrompt((s as any).descriptionPrompt);
+    if (s.headerLinks && typeof s.headerLinks === 'object') {
+      setHeaderLinks((prev) => ({ ...prev, ...s.headerLinks }));
+    }
     if (s.plans && !isEditingPlansRef.current) {
       setPlanPrices((prev) => ({
         ...prev,
@@ -729,10 +743,12 @@ export default function Admin() {
 
   async function handleDeleteGeneration(id: string) {
     if (!confirm('Delete this generation record?')) return;
+    setGenerationsList((prev) => prev.filter((g) => g.id !== id));
     try {
       await api.adminDeleteGeneration(id);
-      await loadGenerations();
+      await loadGenerations(true);
     } catch (err: any) {
+      await loadGenerations(true);
       alert(err.message || 'Failed to delete generation');
     }
   }
@@ -918,7 +934,7 @@ export default function Admin() {
   );
 
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
+    if ('Notification'in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => { });
     }
     api.adminGetTabVisibility().then((res) => {
@@ -953,7 +969,7 @@ export default function Admin() {
         localStorage.setItem('sn_admin_notified_reqs', JSON.stringify(Array.from(notifiedRequestIdsRef.current).slice(-200)));
       } catch { }
       sendAdminNotification(
-        '🔔 New Custom Order Received!',
+        'New Custom Order Received!',
         `${newlyUnread.length} new custom tailoring request${newlyUnread.length > 1 ? 's' : ''} received from client.`
       );
     }
@@ -961,7 +977,7 @@ export default function Admin() {
     // New UPI payment proof submitted
     if (gatewayStats.reviewCount > prev.reviews) {
       sendAdminNotification(
-        '💳 New Payment Submitted!',
+        'New Payment Submitted!',
         'New UPI payment proof submitted for verification in Payments & UPI tab.'
       );
     }
@@ -969,7 +985,7 @@ export default function Admin() {
     // New photoshoot query submitted
     if (currentQueries > prev.queries) {
       sendAdminNotification(
-        '📸 Photoshoot Quota Inquiry!',
+        'Photoshoot Quota Inquiry!',
         'A user submitted an inquiry regarding photoshoot quota.'
       );
     }
@@ -1220,6 +1236,7 @@ export default function Admin() {
         brevoApiKey: validBrevo,
         admin2faEnabled,
         developerImageUrl: developerImageUrl.trim() || undefined,
+        headerLinks,
         plans: planPrices,
       });
 
@@ -1233,7 +1250,7 @@ export default function Admin() {
       setBrevoApiKey('');
       setGoogleApiKey('');
       await loadSettings();
-      setStatus(`✓ Saved successfully: ${saved.join(' · ')}`);
+      setStatus(`✓ Saved successfully: ${saved.join('· ')}`);
       setTimeout(() => setStatus(''), 4500);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : 'Save failed');
@@ -1294,7 +1311,7 @@ export default function Admin() {
           name: item.name || uploadModelName.trim(),
           imageData: item.dataUrl || uploadModelDataUrl,
         });
-        setModelMessage(`✓ Successfully added model "${item.name || uploadModelName}" into category "${finalCat}" (Season: ${uploadModelSeason || 'All Seasons'}).`);
+        setModelMessage(`✓ Successfully added model "${item.name || uploadModelName}"into category "${finalCat}" (Season: ${uploadModelSeason || 'All Seasons'}).`);
       }
       setUploadModelName('');
       setUploadModelDataUrl('');
@@ -1331,7 +1348,7 @@ export default function Admin() {
       updateCategoriesAndCache(fresh.categories);
       if (fresh.seasons) setSeasons(fresh.seasons);
     } catch (err: any) {
-      alert('Could not update model season: ' + err.message);
+      alert('Could not update model season: '+ err.message);
     } finally {
       setUpdatingModelSeasonId(null);
     }
@@ -1347,10 +1364,10 @@ export default function Admin() {
       setUploadModelSeason(name);
       setNewSeasonInput('');
       setShowNewSeasonModal(false);
-      setModelMessage(`✓ New season "${name}" created successfully.`);
+      setModelMessage(`✓ New season "${name}"created successfully.`);
       setTimeout(() => setModelMessage(''), 5000);
     } catch (err: any) {
-      alert('Could not create season: ' + err.message);
+      alert('Could not create season: '+ err.message);
     }
   }
 
@@ -1369,7 +1386,7 @@ export default function Admin() {
         setUploadModelCat(trimmedNew);
       }
       setRenamingCategory(null);
-      setModelMessage(`✓ Successfully renamed category "${oldCat}" to "${trimmedNew}".`);
+      setModelMessage(`✓ Successfully renamed category "${oldCat}"to "${trimmedNew}".`);
       setTimeout(() => setModelMessage(''), 5000);
     } catch (err: any) {
       alert(`Could not rename category: ${err.message || err}`);
@@ -1379,7 +1396,7 @@ export default function Admin() {
   }
 
   async function handleDeleteModel(modelId: string) {
-    if (!window.confirm(`Are you sure you want to delete model "${modelId}" from the Studio Library?`)) {
+    if (!window.confirm(`Are you sure you want to delete model "${modelId}"from the Studio Library?`)) {
       return;
     }
     setDeletingModelId(modelId);
@@ -1481,7 +1498,7 @@ ${log.stack || 'None'}
       await api.toggleResolveLog(id);
       await loadSystemLogs();
     } catch (err: any) {
-      alert('Could not update log status: ' + err.message);
+      alert('Could not update log status: '+ err.message);
     }
   }
 
@@ -1490,7 +1507,7 @@ ${log.stack || 'None'}
       await api.deleteSystemLog(id);
       await loadSystemLogs();
     } catch (err: any) {
-      alert('Could not delete log: ' + err.message);
+      alert('Could not delete log: '+ err.message);
     }
   }
 
@@ -1500,7 +1517,7 @@ ${log.stack || 'None'}
       await api.clearSystemLogs();
       await loadSystemLogs();
     } catch (err: any) {
-      alert('Could not clear logs: ' + err.message);
+      alert('Could not clear logs: '+ err.message);
     }
   }
 
@@ -1672,7 +1689,7 @@ ${log.stack || 'None'}
         recipientEmail: targetUser.email,
         recipientName: targetUser.name || targetUser.email,
         type: effectiveType,
-        title: dispatchTitle.trim() || `${allAssetsToSend.length > 0 ? allAssetsToSend.length + ' Item ' : ''}Studio Delivery`,
+        title: dispatchTitle.trim() || `${allAssetsToSend.length > 0 ? allAssetsToSend.length + 'Item ' : ''}Studio Delivery`,
         textMessage: dispatchMessage.trim() || undefined,
         assets: allAssetsToSend,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
@@ -1688,7 +1705,7 @@ ${log.stack || 'None'}
       }
 
       const res = await api.createAdminDelivery(payload);
-      setDispatchSuccess(`Successfully dispatched ${allAssetsToSend.length > 0 ? allAssetsToSend.length + ' asset(s)' : 'delivery'} to ${targetUser.email}! Notification sent to client.`);
+      setDispatchSuccess(`Successfully dispatched ${allAssetsToSend.length > 0 ? allAssetsToSend.length + 'asset(s)' : 'delivery'} to ${targetUser.email}! Notification sent to client.`);
       setDispatchTitle('');
       setDispatchMessage('');
       setDispatchFile(null);
@@ -1862,15 +1879,11 @@ ${log.stack || 'None'}
   const pill = (ok: boolean, good: string, bad: string) => (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${ok
-        ? theme === 'light'
-          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-          : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
-        : theme === 'light'
-          ? 'bg-red-100 text-red-800 border border-red-300'
-          : 'bg-red-950/60 text-red-400 border border-red-800/40'
+        ? 'bg-[#133827] text-[#6EE7B7] border border-[#34D399]/50'
+        : 'bg-[#3B181B] text-[#FCA5A5] border border-[#F87171]/50'
         }`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[#34D399]' : 'bg-[#F87171]'}`} />
       {ok ? good : bad}
     </span>
   );
@@ -1879,10 +1892,10 @@ ${log.stack || 'None'}
 
   const cardClass = isLight
     ? 'rounded-2xl border border-gray-200 bg-white p-6 shadow-sm text-gray-900'
-    : 'rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-white backdrop-blur-md';
+    : 'edge-light rounded-2xl border border-[var(--line-1)] bg-[var(--ink-1)] p-6 text-[var(--text-hi)] backdrop-blur-md';
 
   const inputClass = isLight
-    ? 'mt-2 w-full rounded-xl border border-[#78a48b] bg-[#82b095]/40 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none transition-colors'
+    ? 'mt-2 w-full rounded-xl border border-[#C9A468]/35 bg-[#1E3028] px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-600 focus:border-slate-800 focus:outline-none transition-colors'
     : 'mt-2 w-full rounded-xl border border-white/10 bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder:text-white/25 focus:border-white/40 focus:outline-none transition-colors';
 
   const filteredRequests = customRequests.filter((r) => {
@@ -1903,17 +1916,17 @@ ${log.stack || 'None'}
   /* Shell Layout */
   const shell = (children: React.ReactNode) => (
     <div
-      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#97c1a9] text-gray-900 selection:bg-[#e5373f] selection:text-white' : 'bg-[#070709] text-white selection:bg-[#e5373f] selection:text-white'
+      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#756357] text-[#F5F2EC] selection:bg-[#e5373f] selection:text-white' : 'bg-[var(--ink-0)] text-[var(--text-hi)] selection:bg-[#e5373f] selection:text-white'
         }`}
     >
       {/* Top Enterprise Header */}
       <header
-        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#78a48b] bg-[#97c1a9]/95 shadow-sm' : 'border-white/10 bg-[#09090c]/90'
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#C9A468]/35 bg-[#756357] shadow-sm' : 'edge-light border-[var(--line-1)] bg-[var(--ink-0)]/90'
           }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-          <div className="flex items-center gap-4">
-            <a href="/" className="flex items-center gap-2.5 text-xs font-semibold tracking-[0.2em]">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3.5 py-3 sm:px-6 sm:py-3.5">
+          <div className="flex items-center gap-3 shrink-0">
+            <a href="/"className="flex items-center gap-2.5 text-xs font-semibold tracking-[0.2em]">
               <img
                 src={isLight ? '/brand-mark-black.png' : '/brand-mark-white.png'}
                 alt="Shiv-Naresh"
@@ -1927,7 +1940,7 @@ ${log.stack || 'None'}
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4 text-xs">
             {/* Light / Dark Mode Toggle */}
             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
@@ -1955,7 +1968,7 @@ ${log.stack || 'None'}
                   onClick={() => void loadFashnCredits()}
                   disabled={fashnCreditsLoading}
                   title="Refresh Fashn.ai balance"
-                  className="ml-1 opacity-60 hover:opacity-100 transition"
+                  className="ml-1 opacity-60 hover:opacity-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] rounded"
                 >
                   <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
                 </button>
@@ -1976,9 +1989,9 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                className={`key-press hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isLight
                   ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-                  : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                  : 'border-[var(--line-2)] bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
@@ -1992,16 +2005,16 @@ ${log.stack || 'None'}
                 setToken('');
                 window.location.replace('/login?next=%2Fadmin');
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm ${isLight
+              className={`key-press inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isLight
                 ? 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-900'
                 : 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300'
                 }`}
               title="Sign out of Admin Session"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="h-3.5 w-3.5"viewBox="0 0 24 24"fill="none"stroke="currentColor"strokeWidth="2"strokeLinecap="round"strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
+                <line x1="21"y1="12"x2="9"y2="12" />
               </svg>
               <span>Sign out</span>
             </button>
@@ -2010,7 +2023,7 @@ ${log.stack || 'None'}
 
         {/* Executive Sub-Navigation Bar */}
         {access?.admin && (
-          <div className={`border-t transition-colors ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/5 bg-black/40'}`}>
+          <div className={`border-t transition-colors ${isLight ? 'border-[#C9A468]/35 bg-[#8db89f]' : 'border-white/5 bg-black/40'}`}>
             <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 py-2 no-scrollbar">
               {[
                 { id: 'overview', label: 'Metrics', icon: BarChart3 },
@@ -2064,13 +2077,13 @@ ${log.stack || 'None'}
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${isActive
+                    className={`key-press flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isActive
                       ? isLight
-                        ? 'bg-[#78a48b] text-slate-900 font-bold shadow-sm ring-1 ring-[#6b997e]'
-                        : 'bg-white/10 text-white shadow-sm ring-1 ring-white/15'
+                        ? 'bg-[#C9A468] text-[#1A1408] font-bold shadow-sm ring-1 ring-[#C9A468]/60'
+                        : 'bg-[var(--accent)] text-[var(--accent-ink)] shadow-sm ring-1 ring-[var(--accent-hi)]/40'
                       : isLight
-                        ? 'text-slate-800 hover:bg-[#82b095] hover:text-slate-900'
-                        : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                        ? 'text-slate-800 hover:bg-[#1E3028] hover:text-slate-900'
+                        : 'text-[var(--text-mid)] hover:bg-[var(--ink-2)] hover:text-[var(--text-hi)]'
                       }`}
                   >
                     <IconComponent className="h-3.5 w-3.5" />
@@ -2094,7 +2107,7 @@ ${log.stack || 'None'}
 
         {/* Global Technical Problem Alert Notification */}
         {access?.admin && unresolvedProblemsCount > 0 && showProblemAlertBanner && (
-          <div className="bg-gradient-to-r from-[#e5373f] via-[#c62828] to-[#991b1b] text-white px-6 py-2.5 shadow-md flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+          <div className="bg-[#e5373f] text-white px-6 py-2.5 shadow-md flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-3">
               <span className="p-1 rounded-lg bg-black/25 flex items-center justify-center">
                 <ShieldAlert size={16} className="text-white animate-bounce" />
@@ -2106,7 +2119,7 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => setActiveTab('problems')}
-                className="ml-2 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur-sm transition"
+                className="ml-2 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Inspect Problem Logs &rarr;
               </button>
@@ -2114,7 +2127,7 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setShowProblemAlertBanner(false)}
-              className="p-1 text-white/70 hover:text-white rounded-md transition"
+              className="p-1 text-white/70 hover:text-white rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               title="Dismiss banner"
             >
               <X size={16} />
@@ -2133,7 +2146,7 @@ ${log.stack || 'None'}
           onClick={() => setLightboxImg(null)}
         >
           <div className="relative max-h-[90vh] max-w-[90vw]">
-            <img src={lightboxImg} alt="Preview" className="max-h-[85vh] w-auto rounded-2xl shadow-2xl object-contain" />
+            <img src={lightboxImg} alt="Preview"className="max-h-[85vh] w-auto rounded-2xl shadow-2xl object-contain" />
             <p className="mt-3 text-center text-xs text-white/50">Click anywhere to close</p>
           </div>
         </div>
@@ -2151,7 +2164,7 @@ ${log.stack || 'None'}
 
     return shell(
       <div className="mx-auto max-w-md py-12 text-center">
-        <div className="w-16 h-16 rounded-3xl bg-[#e5373f]/10 border border-[#e5373f]/20 text-[#e5373f] flex items-center justify-center mx-auto mb-4 shadow-sm">
+        <div className="w-16 h-16 rounded-2xl bg-[#e5373f]/10 border border-[#e5373f]/20 text-[#e5373f] flex items-center justify-center mx-auto mb-4 shadow-sm">
           <ShieldAlert className="h-8 w-8" />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">Enterprise admin portal</h1>
@@ -2178,7 +2191,7 @@ ${log.stack || 'None'}
                   onClick={() => void loadFashnCredits()}
                   disabled={fashnCreditsLoading}
                   title="Refresh Fashn.ai balance"
-                  className="ml-1 opacity-60 hover:opacity-100 transition"
+                  className="ml-1 opacity-60 hover:opacity-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] rounded"
                 >
                   <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading ? 'animate-spin' : ''}`} />
                 </button>
@@ -2199,9 +2212,9 @@ ${log.stack || 'None'}
                 }}
                 disabled={fashnCreditsLoading || usersLoading || generationsLoading}
                 title="Refresh Live Admin Data & Fashn Credits"
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm ${isLight
+                className={`key-press hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isLight
                   ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-                  : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+                  : 'border-[var(--line-2)] bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <RefreshCw className={`h-3 w-3 ${fashnCreditsLoading || usersLoading || generationsLoading ? 'animate-spin' : ''}`} />
@@ -2215,7 +2228,7 @@ ${log.stack || 'None'}
                 setToken('');
                 window.location.replace('/login?next=%2Fadmin');
               }}
-              className="mt-5 w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#d42d35] transition"
+              className="mt-5 w-full rounded-full bg-[#e5373f] py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#d42d35] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Sign In with Admin Account &rarr;
             </button>
@@ -2253,7 +2266,7 @@ ${log.stack || 'None'}
                     type="button"
                     onClick={() => void handleSendAdminOtp()}
                     disabled={admin2FaBusy}
-                    className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50"
+                    className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                   >
                     {admin2FaBusy ? 'Dispatching 2FA Code…' : 'Send 2FA Code to Jaatshab11223315@gmail.com'}
                   </button>
@@ -2485,7 +2498,7 @@ ${log.stack || 'None'}
             <span>Sub: <strong>{fashnCredits?.subscription ?? 0}</strong></span>
           </div>
           {fashnCredits?.error && (
-            <p className="mt-1.5 text-[10px] text-amber-500 truncate" title={fashnCredits.error}>
+            <p className="mt-1.5 text-[10px] text-amber-500 truncate"title={fashnCredits.error}>
               {fashnCredits.error}
             </p>
           )}
@@ -2603,7 +2616,7 @@ ${log.stack || 'None'}
       <div className={`${cardClass} border-blue-500/20 bg-blue-500/5`}>
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
-            💾 Live Storage Quotas & System Capacity
+             Live Storage Quotas & System Capacity
           </span>
           <button
             type="button"
@@ -2633,14 +2646,14 @@ ${log.stack || 'None'}
               <span className="text-xs opacity-60">({storageStatus?.database.collections || 0} collections)</span>
             </div>
             <p className="mt-2 text-[10px] opacity-60">
-              {storageStatus?.database.connected ? '🟢 MongoDB Cloud Cluster Connected' : '⚪ Local JSON Storage'}
+              {storageStatus?.database.connected ? 'MongoDB Cloud Cluster Connected' : 'Local JSON Storage'}
             </p>
           </div>
 
           <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-white' : 'border-white/10 bg-black/40'}`}>
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Hosted CDN Images</span>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-purple-400">{storageStatus?.hosted.totalHostedImages || 0}</span>
+              <span className="text-2xl font-extrabold text-[#E7CFA4]">{storageStatus?.hosted.totalHostedImages || 0}</span>
               <span className="text-xs opacity-60">synced assets</span>
             </div>
             <p className="mt-2 text-[10px] opacity-60">
@@ -2651,7 +2664,7 @@ ${log.stack || 'None'}
       </div>
 
       {/* Quick Jump Callout */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-[#e5373f]/30 bg-gradient-to-r from-[#e5373f]/10 to-transparent p-6">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-[#e5373f]/30 bg-gradient-to-r from-[#e5373f]/10 to-transparent p-6">
         <div>
           <h4 className="text-sm font-bold">Review Client Orders & Deliver Bespoke Renders</h4>
           <p className="mt-1 text-xs opacity-70">
@@ -2677,7 +2690,7 @@ ${log.stack || 'None'}
         <button
           type="button"
           onClick={handleOpenReceivedTab}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'receive'
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${adminRequestsTab === 'receive'
             ? isLight
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
@@ -2689,7 +2702,7 @@ ${log.stack || 'None'}
           <Inbox className="w-3.5 h-3.5" />
           <span>Received Requests</span>
           {unreadClientRequestsCount > 0 ? (
-            <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[10px] font-bold text-white animate-pulse">
+            <span className="rounded-full bg-[#e5373f] px-2 py-0.5 text-[10px] font-bold text-white">
               {unreadClientRequestsCount} New
             </span>
           ) : (
@@ -2704,7 +2717,7 @@ ${log.stack || 'None'}
             void loadAdminDeliveries();
             if (usersList.length === 0) void loadUsers();
           }}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'send'
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${adminRequestsTab === 'send'
             ? isLight
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
@@ -2726,7 +2739,7 @@ ${log.stack || 'None'}
             setAdminRequestsTab('bin');
             void loadBin();
           }}
-          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${adminRequestsTab === 'bin'
+          className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5373f] ${adminRequestsTab === 'bin'
             ? isLight
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
@@ -2878,7 +2891,7 @@ ${log.stack || 'None'}
                             onClick={() => req.clothUrl && setLightboxImg(req.clothUrl)}
                           >
                             {req.clothUrl ? (
-                              <img src={req.clothUrl} alt="Garment" className="aspect-[3/4] w-full object-cover" />
+                              <img src={req.clothUrl} alt="Garment"className="aspect-[3/4] w-full object-cover" />
                             ) : (
                               <div className="flex aspect-[3/4] w-full items-center justify-center text-xs opacity-30">
                                 <Layers className="h-6 w-6" />
@@ -2909,7 +2922,7 @@ ${log.stack || 'None'}
                                 className={`group relative cursor-pointer overflow-hidden rounded-2xl border w-24 shrink-0 ${isLight ? 'border-gray-200 bg-gray-100' : 'border-white/5 bg-white/5'}`}
                                 onClick={() => setLightboxImg(req.modelUrl || '')}
                               >
-                                <img src={req.modelUrl} alt="Model" className="aspect-[3/4] w-full object-cover" />
+                                <img src={req.modelUrl} alt="Model"className="aspect-[3/4] w-full object-cover" />
                                 <p className="absolute bottom-0 inset-x-0 bg-black/60 py-1 text-center text-[9px] text-white backdrop-blur-sm truncate px-1">
                                   {req.modelName || 'Model'}
                                 </p>
@@ -3181,7 +3194,7 @@ ${log.stack || 'None'}
                   {replyImageUrl && !replyAttachment && (
                     <div className={`rounded-2xl border p-2 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/10 bg-black/30'}`}>
                       <p className="text-[10px] opacity-60 uppercase mb-1">Delivered Preview</p>
-                      <img src={replyImageUrl} alt="Delivery preview" className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
+                      <img src={replyImageUrl} alt="Delivery preview"className="max-h-36 w-auto rounded-lg mx-auto object-contain shadow" />
                     </div>
                   )}
                 </div>
@@ -3318,14 +3331,14 @@ ${log.stack || 'None'}
               </div>
 
               {/* Quick Pick from User Sets & Generations */}
-              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'border-indigo-300 bg-indigo-50/70 text-indigo-950' : 'border-indigo-500/30 bg-indigo-500/10 text-white'
+              <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isLight ? 'border-[#C9A468]/40 bg-[#C9A468]/20 text-[#E7CFA4]' : 'border-[#C9A468]/40 bg-[#C9A468]/15 text-white'
                 }`}>
                 <div>
-                  <p className="text-xs font-bold flex items-center gap-1.5 text-indigo-400">
+                  <p className="text-xs font-bold flex items-center gap-1.5 text-[#E7CFA4]">
                     <Package className="w-4 h-4" />
                     <span>Select from User Sets or AI Generated Renders</span>
                   </p>
-                  <p className={`text-[11px] mt-0.5 ${isLight ? 'text-indigo-800' : 'text-indigo-200/60'}`}>
+                  <p className={`text-[11px] mt-0.5 ${isLight ? 'text-[#E7CFA4]' : 'text-[#E7CFA4]'}`}>
                     Choose from {adminUploadSetsList.length} User Upload Sets or {generationsList.filter(g => g.url || g.outputUrl).length} Completed Renders. Send as photo or bundle into ZIP.
                   </p>
                 </div>
@@ -3336,7 +3349,7 @@ ${log.stack || 'None'}
                     if (generationsList.length === 0) void loadGenerations();
                     setShowAssetPickerModal(true);
                   }}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer whitespace-nowrap"
+                  className="px-4 py-2 rounded-xl bg-[#C9A468] text-[#1A1408] hover:bg-[#C9A468] text-[#1A1408] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer whitespace-nowrap"
                 >
                   <Package className="w-3.5 h-3.5" />
                   <span>Browse &amp; Pick Assets</span>
@@ -3410,10 +3423,10 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchPhotoInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900' : 'border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300'
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-[#C9A468]/45 bg-[#C9A468]/20 hover:bg-[#C9A468]/20 text-[#E7CFA4]' : 'border-[#C9A468]/40 bg-[#C9A468]/15 hover:bg-[#C9A468]/15 text-[#E7CFA4]'
                         }`}
                     >
-                      <Camera className="w-4 h-4 text-purple-400" />
+                      <Camera className="w-4 h-4 text-[#E7CFA4]" />
                       <span>+ Add Photos</span>
                     </button>
 
@@ -3631,7 +3644,7 @@ ${log.stack || 'None'}
                               Read by user
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e5373f]/20 text-[#ff5252] border border-red-500/30 animate-pulse">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e5373f]/20 text-[#ff5252] border border-red-500/30">
                               Unread (Active Notification)
                             </span>
                           )}
@@ -3700,7 +3713,7 @@ ${log.stack || 'None'}
               Loading deleted items...
             </div>
           ) : binCount === 0 ? (
-            <div className={`rounded-3xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
+            <div className={`rounded-2xl border p-12 text-center ${isLight ? 'border-gray-200 bg-white text-gray-900 shadow-sm' : 'border-white/10 bg-white/[0.01]'
               }`}>
               <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500 opacity-60" />
               <h3 className="text-base font-bold">Recycle Bin is Empty</h3>
@@ -3712,7 +3725,7 @@ ${log.stack || 'None'}
             <div className="space-y-6">
               {/* Deleted User Uploads Section */}
               {binUploads.length > 0 && (
-                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                <div className={`rounded-2xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-4 flex items-center gap-2">
                     <Camera className="w-4 h-4" />
                     <span>Deleted User Uploads ({binUploads.length})</span>
@@ -3738,7 +3751,7 @@ ${log.stack || 'None'}
                               />
                             ) : (
                               <div className="w-14 h-18 rounded-lg border border-white/10 bg-black/40 flex items-center justify-center shrink-0 text-xl text-zinc-500">
-                                🖼️
+                                
                               </div>
                             )}
                             <div className="space-y-1">
@@ -3753,7 +3766,7 @@ ${log.stack || 'None'}
                               </div>
                               <p className="text-[11px] opacity-70">
                                 User: <span className="font-semibold">{up.userEmail || up.userId || 'Unknown'}</span>
-                                {up.at ? ` · Uploaded: ${new Date(up.at).toLocaleDateString()}` : ''}
+                                {up.at ? `· Uploaded: ${new Date(up.at).toLocaleDateString()}` : ''}
                               </p>
                               {up.deletedAt && (
                                 <p className="text-[10px] text-red-400">
@@ -3792,8 +3805,8 @@ ${log.stack || 'None'}
 
               {/* Deleted Studio Images & Generations Section */}
               {binGenerations.length > 0 && (
-                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400 mb-4 flex items-center gap-2">
+                <div className={`rounded-2xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#E7CFA4] mb-4 flex items-center gap-2">
                     <Camera className="w-4 h-4" />
                     <span>Deleted Studio Images & Generations ({binGenerations.length})</span>
                   </h3>
@@ -3818,13 +3831,13 @@ ${log.stack || 'None'}
                               />
                             ) : (
                               <div className="w-14 h-18 rounded-lg border border-white/10 bg-black/40 flex items-center justify-center shrink-0 text-xl text-zinc-500">
-                                🖼️
+                                
                               </div>
                             )}
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-xs">{gen.cloth || 'Studio Fashion Render'}</span>
-                                <span className="px-2 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-300 font-semibold uppercase">
+                                <span className="px-2 py-0.5 rounded text-[9px] bg-[#C9A468]/15 text-[#E7CFA4] font-semibold uppercase">
                                   {gen.type || 'image'}
                                 </span>
                                 <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold uppercase">
@@ -3876,7 +3889,7 @@ ${log.stack || 'None'}
               )}
               {/* Deleted Custom Requests Section */}
               {binRequests.length > 0 && (
-                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                <div className={`rounded-2xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 mb-4 flex items-center gap-2">
                     <Inbox className="w-4 h-4" />
                     <span>Deleted Custom Requests ({binRequests.length})</span>
@@ -3936,7 +3949,7 @@ ${log.stack || 'None'}
 
               {/* Deleted Admin Deliveries Section */}
               {binDeliveries.length > 0 && (
-                <div className={`rounded-3xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
+                <div className={`rounded-2xl border p-6 ${isLight ? 'bg-white border-gray-200' : 'bg-white/[0.02] border-white/10'}`}>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-blue-400 mb-4 flex items-center gap-2">
                     <Send className="w-4 h-4" />
                     <span>Deleted Deliveries & Dispatches ({binDeliveries.length})</span>
@@ -4044,10 +4057,10 @@ ${log.stack || 'None'}
           No registered accounts match your query.
         </div>
       ) : (
-        <div className={`overflow-x-auto rounded-3xl border ${isLight ? 'border-[#78a48b] bg-[#8db89f] shadow-md text-slate-900' : 'border-white/10 bg-white/[0.02]'}`}>
+        <div className={`overflow-x-auto rounded-2xl border ${isLight ? 'border-[#C9A468]/35 bg-[#8db89f] shadow-md text-slate-900' : 'border-white/10 bg-white/[0.02]'}`}>
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className={`border-b text-[10px] font-semibold uppercase tracking-[0.16em] ${isLight ? 'border-[#78a48b] bg-[#82b095] text-slate-900 font-bold' : 'border-white/10 bg-white/5 text-white/50'}`}>
+              <tr className={`border-b text-[10px] font-semibold uppercase tracking-[0.16em] ${isLight ? 'border-[#C9A468]/35 bg-[#1E3028] text-slate-900 font-bold' : 'border-white/10 bg-white/5 text-white/50'}`}>
                 <th className="py-4 px-6">User / Contact</th>
                 <th className="py-4 px-3">Plan / Tier</th>
                 <th className="py-4 px-3">Credits</th>
@@ -4059,7 +4072,7 @@ ${log.stack || 'None'}
                 <th className="py-4 px-6 text-right">Individual Save & Delete</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isLight ? 'divide-[#78a48b]' : 'divide-white/5'}`}>
+            <tbody className={`divide-y ${isLight ? 'divide-[#C9A468]/25' : 'divide-white/5'}`}>
               {filteredUsers.map((user) => {
                 const edits = userRowEdits[user.id] || {};
                 const currentTier = edits.tier ?? user.tier ?? 'free';
@@ -4071,7 +4084,7 @@ ${log.stack || 'None'}
                 const isSaved = Boolean(edits.saved);
 
                 return (
-                  <tr key={user.id} className={`transition-colors ${isLight ? 'hover:bg-[#82b095]/60 text-slate-900' : 'hover:bg-white/[0.02]'}`}>
+                  <tr key={user.id} className={`transition-colors ${isLight ? 'hover:bg-[#1E3028] text-slate-900' : 'hover:bg-white/[0.02]'}`}>
                     {/* User Info */}
                     <td className="py-4 px-6 font-medium">
                       <div className="font-semibold text-xs">{user.email}</div>
@@ -4109,7 +4122,7 @@ ${log.stack || 'None'}
                             },
                           }));
                         }}
-                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider border ${isLight ? 'border-[#C9A468]/35 bg-[#87b299] text-slate-900' : 'border-white/15 bg-black/60 text-white'
                           }`}
                       >
                         <option value="free">Starter ($0)</option>
@@ -4131,7 +4144,7 @@ ${log.stack || 'None'}
                             [user.id]: { ...(prev[user.id] || {}), credits: Number(e.target.value) },
                           }))
                         }
-                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
+                        className={`w-20 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${isLight ? 'border-[#C9A468]/35 bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-amber-400'
                           }`}
                       />
                     </td>
@@ -4149,7 +4162,7 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxVideos: Number(e.target.value) },
                             }))
                           }
-                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-purple-400'
+                          className={`w-16 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#C9A468]/35 bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-[#E7CFA4]'
                             }`}
                         />
                         <span className="text-[10px] opacity-40">({user.videosGenerated ?? 0} used)</span>
@@ -4170,7 +4183,7 @@ ${log.stack || 'None'}
                               [user.id]: { ...(prev[user.id] || {}), maxModels: val, photoshoots: val },
                             }));
                           }}
-                          className={`w-20 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#78a48b] bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
+                          className={`w-20 rounded-lg border px-2 py-1 font-mono text-xs ${isLight ? 'border-[#C9A468]/35 bg-[#87b299] text-slate-900' : 'border-white/20 bg-black text-cyan-400'
                             }`}
                         />
                         <span className="text-[10px] opacity-50 whitespace-nowrap">(= {currentModels * 6} poses)</span>
@@ -4202,7 +4215,7 @@ ${log.stack || 'None'}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.hd2k
                                 ? isLight ? 'bg-amber-100 text-amber-950 border border-amber-300 font-bold' : 'bg-amber-500/20 text-amber-500 border border-amber-500/40'
                                 : isLight
-                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
                                 }`}
                               title="Toggle 2K Ultra HD Generation"
@@ -4221,7 +4234,7 @@ ${log.stack || 'None'}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.fivePose
                                 ? 'bg-rose-500/20 text-rose-500 border border-rose-500/40'
                                 : isLight
-                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
                                 }`}
                               title="Toggle 5-Pose Sequence"
@@ -4238,9 +4251,9 @@ ${log.stack || 'None'}
                                 }));
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.video
-                                ? 'bg-purple-500/20 text-purple-600 border border-purple-500/40'
+                                ? 'bg-[#C9A468]/15 text-[#E7CFA4] border border-[#C9A468]/40'
                                 : isLight
-                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
                                 }`}
                               title="Toggle Runway Video"
@@ -4259,7 +4272,7 @@ ${log.stack || 'None'}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.customRequests
                                 ? 'bg-cyan-500/20 text-cyan-600 border border-cyan-500/40'
                                 : isLight
-                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
                                 }`}
                               title="Toggle Bespoke Custom Requests"
@@ -4278,7 +4291,7 @@ ${log.stack || 'None'}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${(edits.watermarkAccess !== undefined ? edits.watermarkAccess : (user.watermarkAccess !== false))
                                 ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40'
                                 : isLight
-                                  ? 'bg-[#78a48b] text-slate-700 border border-[#6b997e]'
+                                  ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
                                 }`}
                               title="Enable or Disable Logo / Watermark Remover"
@@ -4913,7 +4926,7 @@ ${log.stack || 'None'}
             </div>
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider opacity-90">Google Gemini AI Description Settings</h3>
-              <p className="text-[11px] opacity-50">Powers the customer "📝 AI Description" Studio tab with multimodal product descriptions</p>
+              <p className="text-[11px] opacity-50">Powers the customer "AI Description"Studio tab with multimodal product descriptions</p>
             </div>
           </div>
           {pill(Boolean((settings as any)?.googleApiKeySet || googleApiKey), 'Key Active', 'No Key (System Key Used)')}
@@ -4949,6 +4962,69 @@ ${log.stack || 'None'}
               Admin-controlled base prompt for all e-commerce garment descriptions. Users can customize this prompt directly in their Description Studio.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Website Header Navigation Visibility (All Visitors) */}
+      <section className={cardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Website Header Elements (All Visitors)</h3>
+            <p className="text-[11px] opacity-55 mt-0.5">
+              Choose which navigation links and CTA buttons are visible in the website header for everyone.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={savingHeaderLinks}
+            onClick={async () => {
+              setSavingHeaderLinks(true);
+              try {
+                await api.saveAdminSettings({ headerLinks });
+                setStatus('✓ Website header visibility updated for all visitors.');
+                setTimeout(() => setStatus(''), 4000);
+              } catch (err: any) {
+                alert(err?.message || 'Failed to save header settings.');
+              } finally {
+                setSavingHeaderLinks(false);
+              }
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider bg-[#C9A468] hover:bg-[#b59156] text-[#1A1408] transition disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            {savingHeaderLinks ? 'Saving…' : 'Save Header Visibility'}
+          </button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {[
+            { key: 'home', label: 'Home' },
+            { key: 'design', label: 'Design' },
+            { key: 'removeLogo', label: 'Remove Logo' },
+            { key: 'pricing', label: 'Pricing' },
+            { key: 'about', label: 'About' },
+            { key: 'contact', label: 'Contact' },
+            { key: 'terms', label: 'Terms' },
+            { key: 'startDesign', label: 'Start design CTA' },
+          ].map((item) => {
+            const checked = headerLinks[item.key] !== false;
+            return (
+              <label
+                key={item.key}
+                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium cursor-pointer transition ${
+                  checked
+                    ? 'border-[#C9A468]/60 bg-[#C9A468]/15 text-[#F5F0E7]'
+                    : 'border-white/10 bg-black/20 text-white/50'
+                }`}
+              >
+                <span>{item.label}</span>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => setHeaderLinks((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                  className="h-4 w-4 accent-[#C9A468] cursor-pointer"
+                />
+              </label>
+            );
+          })}
         </div>
       </section>
 
@@ -5139,10 +5215,10 @@ ${log.stack || 'None'}
                     className={`w-full rounded-xl border px-3 py-2.5 text-xs focus:outline-none ${isLight ? 'border-gray-300 bg-gray-50 text-gray-900' : 'border-white/10 bg-black/60 text-white'
                       }`}
                   >
-                    <option value="All Seasons">🌐 All Seasons (Universal)</option>
+                    <option value="All Seasons"> All Seasons (Universal)</option>
                     {seasons.map((s) => (
                       <option key={s} value={s}>
-                        {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ '}{s}
+                        {s.toLowerCase() === 'summer' ? ' ' : s.toLowerCase() === 'winter' ? ' ' : ' '}{s}
                       </option>
                     ))}
                   </select>
@@ -5212,7 +5288,7 @@ ${log.stack || 'None'}
                       setUploadModelName(`${items.length} Poses Batch`);
                     }
                   } catch (err: any) {
-                    alert('Could not read image(s): ' + err.message);
+                    alert('Could not read image(s): '+ err.message);
                   }
                 }}
               />
@@ -5362,11 +5438,11 @@ ${log.stack || 'None'}
                     : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
               >
-                🌐 All Seasons
+                 All Seasons
               </button>
               {seasons.map((s) => {
                 const isActive = adminSeasonFilter.toLowerCase() === s.toLowerCase();
-                const icon = s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : '🏷️ ';
+                const icon = s.toLowerCase() === 'summer' ? ' ' : s.toLowerCase() === 'winter' ? ' ' : ' ';
                 return (
                   <button
                     key={s}
@@ -5395,7 +5471,7 @@ ${log.stack || 'None'}
                   try {
                     const res = await api.createSeason({ name: name.trim() });
                     if (res.seasons) setSeasons(res.seasons);
-                    setModelMessage(`✓ New season "${name.trim()}" created successfully.`);
+                    setModelMessage(`✓ New season "${name.trim()}"created successfully.`);
                     setTimeout(() => setModelMessage(''), 4000);
                   } catch (err: any) {
                     alert(err.message || 'Could not create season');
@@ -5529,7 +5605,7 @@ ${log.stack || 'None'}
                           }}
                           className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${isLight ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
                             }`}
-                          title={`Rename "${cat.category}" category`}
+                          title={`Rename "${cat.category}"category`}
                         >
                           <Edit2 size={11} />
                           <span>Rename</span>
@@ -5537,7 +5613,7 @@ ${log.stack || 'None'}
                       </>
                     )}
                     {isOver && (
-                      <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full animate-pulse">
+                      <span className="text-[10px] font-bold text-[#e5373f] bg-[#e5373f]/15 border border-[#e5373f]/30 px-2 py-0.5 rounded-full">
                         Drop here to move into "{cat.category}"
                       </span>
                     )}
@@ -5550,7 +5626,7 @@ ${log.stack || 'None'}
                       title={`Select season for all models in ${cat.category}`}
                     >
                       <option value="">Set Category Season…</option>
-                      <option value="All Seasons">🌐 All Seasons</option>
+                      <option value="All Seasons"> All Seasons</option>
                       {seasons.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -5572,7 +5648,7 @@ ${log.stack || 'None'}
                                 : c
                             )
                           );
-                          alert(`All models in "${cat.category}" updated to "${targetSeason}".`);
+                          alert(`All models in "${cat.category}"updated to "${targetSeason}".`);
                         } catch (err: any) {
                           alert(err?.message || 'Failed to update category season.');
                         } finally {
@@ -5701,10 +5777,10 @@ ${log.stack || 'None'}
                               className="text-[8px] font-bold rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 px-1 py-0.5 cursor-pointer outline-none shrink-0"
                               title="Assign model to season"
                             >
-                              <option value="All Seasons" className="bg-neutral-900 text-white">🌐 All</option>
+                              <option value="All Seasons"className="bg-neutral-900 text-white"> All</option>
                               {seasons.map((s) => (
                                 <option key={s} value={s} className="bg-neutral-900 text-white">
-                                  {s.toLowerCase() === 'summer' ? '☀️ ' : s.toLowerCase() === 'winter' ? '❄️ ' : ''}{s}
+                                  {s.toLowerCase() === 'summer' ? ' ' : s.toLowerCase() === 'winter' ? ' ' : ''}{s}
                                 </option>
                               ))}
                             </select>
@@ -5990,7 +6066,7 @@ ${log.stack || 'None'}
         </div>
 
         {/* Filters */}
-        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        <div className={`rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3 ${isLight ? 'border-[#C9A468]/35 bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
           }`}>
           <div className="flex flex-1 items-center gap-2 min-w-[240px]">
             <input
@@ -6033,7 +6109,7 @@ ${log.stack || 'None'}
         </div>
 
         {/* Generations Table */}
-        <div className={`overflow-hidden rounded-3xl border shadow-sm ${isLight ? 'border-[#78a48b] bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
+        <div className={`overflow-hidden rounded-2xl border shadow-sm ${isLight ? 'border-[#C9A468]/35 bg-[#8db89f]' : 'border-white/10 bg-white/[0.02]'
           }`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -6049,7 +6125,7 @@ ${log.stack || 'None'}
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y ${isLight ? 'divide-[#78a48b]/40' : 'divide-white/5'}`}>
+              <tbody className={`divide-y ${isLight ? 'divide-[#C9A468]/25' : 'divide-white/5'}`}>
                 {(() => {
                   const seenKeys = new Set<string>();
                   const uniqueFiltered = filtered.filter((g) => {
@@ -6087,7 +6163,7 @@ ${log.stack || 'None'}
 
                           <td className="py-3 px-4">
                             <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${g.type === 'video'
-                              ? 'bg-purple-500/20 text-purple-600 border border-purple-500/30'
+                              ? 'bg-[#C9A468]/15 text-[#E7CFA4] border border-[#C9A468]/40'
                               : g.mode === 'swap' || g.type === 'model-swap'
                                 ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-500/30'
                                 : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
@@ -6096,7 +6172,7 @@ ${log.stack || 'None'}
                             </span>
                             {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
                               <span className="inline-block ml-1 rounded-md px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider bg-amber-400 text-black border border-amber-300 shadow-xs">
-                                ✏️ EDITED
+                                 EDITED
                               </span>
                             )}
                             <span className="block mt-1 font-mono text-[10px] font-bold opacity-80">
@@ -6154,7 +6230,7 @@ ${log.stack || 'None'}
                                     onClick={() => setPreviewGenItem(g)}
                                   />
                                 )}
-                                <span className="text-[10px] opacity-70 underline cursor-pointer" onClick={() => setPreviewGenItem(g)}>
+                                <span className="text-[10px] opacity-70 underline cursor-pointer"onClick={() => setPreviewGenItem(g)}>
                                   Click to view render
                                 </span>
                               </div>
@@ -6165,7 +6241,7 @@ ${log.stack || 'None'}
                                 <strong>Error:</strong> {g.error}
                               </div>
                             ) : g.prompt ? (
-                              <p className="text-[10px] opacity-75 truncate max-w-full" title={g.prompt}>
+                              <p className="text-[10px] opacity-75 truncate max-w-full"title={g.prompt}>
                                 &ldquo;{g.prompt}&rdquo;
                               </p>
                             ) : (
@@ -6218,7 +6294,7 @@ ${log.stack || 'None'}
             onClick={() => setPreviewGenItem(null)}
           >
             <div
-              className={`relative max-w-2xl w-full rounded-3xl border p-6 ${isLight ? 'bg-[#97c1a9] border-[#78a48b] text-slate-900' : 'bg-black/95 border-white/20 text-white'
+              className={`relative max-w-2xl w-full rounded-2xl border p-6 ${isLight ? 'bg-[#756357] border-[#C9A468]/35 text-slate-900' : 'bg-black/95 border-white/20 text-white'
                 }`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -6240,7 +6316,7 @@ ${log.stack || 'None'}
                 {previewGenItem.type === 'video' ? (
                   <video src={resolveImageUrl(previewGenItem.outputUrl || previewGenItem.url || '')} controls autoPlay loop className="max-h-[58vh] rounded-xl object-contain" />
                 ) : (
-                  <img src={resolveImageUrl(previewGenItem.outputUrl || previewGenItem.url || '')} alt="generation" className="max-h-[58vh] rounded-xl object-contain" />
+                  <img src={resolveImageUrl(previewGenItem.outputUrl || previewGenItem.url || '')} alt="generation"className="max-h-[58vh] rounded-xl object-contain" />
                 )}
               </div>
 
@@ -6557,7 +6633,7 @@ ${log.stack || 'None'}
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Needs Review</span>
               {gatewayStats.reviewCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
               )}
             </div>
             <div className="mt-1 text-2xl font-black text-amber-500">
@@ -6894,12 +6970,12 @@ ${log.stack || 'None'}
 
           {/* External UPI Gateway Integration (mynkdev-21/upi-gateway) */}
           <div className="mt-6 pt-5 border-t border-white/10 space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#E7CFA4] flex items-center gap-1.5">
               <ExternalLink className="w-3.5 h-3.5" />
               <span>External UPI Gateway Bridge (mynkdev-21/upi-gateway)</span>
             </h4>
             <p className="text-[11px] opacity-60">
-              Optional: connect an external self-hosted Laravel instance of `mynkdev-21/upi-gateway` if hosted on a separate PHP/MySQL server.
+              Optional: connect an external self-hosted Laravel instance of `mynkdev-21/upi-gateway`if hosted on a separate PHP/MySQL server.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -7128,9 +7204,9 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setUserSetsSubTab('sets')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${userSetsSubTab === 'sets'
+              className={`key-press px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${userSetsSubTab === 'sets'
                 ? 'bg-[#e5373f] text-white shadow-sm'
-                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -7140,9 +7216,9 @@ ${log.stack || 'None'}
             <button
               type="button"
               onClick={() => setUserSetsSubTab('renders')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${userSetsSubTab === 'renders'
+              className={`key-press px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${userSetsSubTab === 'renders'
                 ? 'bg-[#e5373f] text-white shadow-sm'
-                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                 }`}
             >
               <Film className="w-3.5 h-3.5" />
@@ -7193,7 +7269,7 @@ ${log.stack || 'None'}
                     dataUrl: a.url,
                     name: a.name,
                     size: 500000,
-                    type: 'photo' as const,
+                    type: 'photo'as const,
                     mimeType: 'image/png',
                     preview: a.url,
                   }));
@@ -7245,7 +7321,7 @@ ${log.stack || 'None'}
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-[#e5373f]">Set #{s.setNumber}</span>
                         <span className="opacity-50">&middot;</span>
-                        <span className="truncate max-w-[160px] opacity-80" title={s.userEmail}>{s.userEmail || 'Unknown User'}</span>
+                        <span className="truncate max-w-[160px] opacity-80"title={s.userEmail}>{s.userEmail || 'Unknown User'}</span>
                       </div>
                       <span className="text-[10px] opacity-50">{new Date(s.createdAt).toLocaleDateString()}</span>
                     </div>
@@ -7404,7 +7480,7 @@ ${log.stack || 'None'}
                           />
                           {Boolean(g.isEdited || g.type === 'edit' || (g.prompt && /\b(edit|edited|option b)\b/i.test(g.prompt))) && (
                             <span className="absolute bottom-1.5 left-1.5 rounded-md bg-amber-400 text-black px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wider shadow-md z-10 border border-amber-300">
-                              ✏️ EDITED
+                               EDITED
                             </span>
                           )}
 
@@ -7564,7 +7640,7 @@ ${log.stack || 'None'}
                         <p className={`font-bold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>{u.email}</p>
                         <p className={`text-[10px] truncate ${isLight ? 'text-slate-500' : 'text-white/60'}`}>{u.name || 'Client'}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${u.tier === 'ultra' ? (isLight ? 'bg-purple-100 text-purple-800 border border-purple-300' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30') :
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${u.tier === 'ultra' ? (isLight ? 'bg-[#C9A468]/20 text-[#E7CFA4] border border-[#C9A468]/40' : 'bg-[#C9A468]/15 text-[#E7CFA4] border border-[#C9A468]/40') :
                         u.tier === 'pro' ? (isLight ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') :
                           u.tier === 'ondemand' ? (isLight ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30') :
                             (isLight ? 'bg-slate-200 text-slate-700' : 'bg-white/10 text-white/60')
@@ -7576,7 +7652,7 @@ ${log.stack || 'None'}
                     {/* Stats & Progress Controls */}
                     <div className={boxClass}>
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
-                        📸 Photoshoot Quota
+                         Photoshoot Quota
                       </p>
                       {/* Delivered Photoshoots Stepper & Input */}
                       <div className="flex items-center justify-between text-xs gap-2">
@@ -7641,7 +7717,7 @@ ${log.stack || 'None'}
                       {/* Video Quota Section */}
                       <div className={`pt-2 border-t space-y-2 ${dividerClass}`}>
                         <p className={`text-[10px] font-bold uppercase tracking-wider ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
-                          🎬 Video Quota
+                           Video Quota
                         </p>
                         <div className="flex items-center justify-between text-xs gap-2">
                           <span className={labelClass}>Videos Done:</span>
@@ -7885,7 +7961,7 @@ ${log.stack || 'None'}
                       <div className="mt-3 space-y-1.5">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="opacity-60">Offer Status:</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${offer.status === 'queried' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${offer.status === 'queried' ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
                             offer.status === 'agreed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
                               'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                             }`}>
@@ -8023,12 +8099,12 @@ ${log.stack || 'None'}
 
     return (
       <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-150">
-        <div className={`w-full max-w-5xl max-h-[92vh] rounded-3xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
+        <div className={`w-full max-w-5xl max-h-[92vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col select-none ${isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-[#0e0e12] border-zinc-800 text-zinc-100'
           }`}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <span className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+              <span className="p-2.5 rounded-xl bg-[#C9A468]/15 border border-[#C9A468]/40 text-[#E7CFA4]">
                 <Package className="w-5 h-5" />
               </span>
               <div>
@@ -8051,9 +8127,9 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => setAssetPickerSubTab('sets')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${assetPickerSubTab === 'sets'
+                className={`key-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${assetPickerSubTab === 'sets'
                   ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -8062,9 +8138,9 @@ ${log.stack || 'None'}
               <button
                 type="button"
                 onClick={() => setAssetPickerSubTab('renders')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${assetPickerSubTab === 'renders'
+                className={`key-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${assetPickerSubTab === 'renders'
                   ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <Film className="w-3.5 h-3.5" />
@@ -8119,7 +8195,7 @@ ${log.stack || 'None'}
                               {s.clothName || 'Garment'}
                             </span>
                             <div className="absolute top-1 left-1">
-                              <input type="checkbox" checked={isSelected(s.clothUrl)} readOnly className="rounded text-[#e5373f]" />
+                              <input type="checkbox"checked={isSelected(s.clothUrl)} readOnly className="rounded text-[#e5373f]" />
                             </div>
                           </div>
                         )}
@@ -8134,7 +8210,7 @@ ${log.stack || 'None'}
                               {s.modelName || 'Model'}
                             </span>
                             <div className="absolute top-1 left-1">
-                              <input type="checkbox" checked={isSelected(s.modelUrl)} readOnly className="rounded text-[#e5373f]" />
+                              <input type="checkbox"checked={isSelected(s.modelUrl)} readOnly className="rounded text-[#e5373f]" />
                             </div>
                           </div>
                         )}
@@ -8188,7 +8264,7 @@ ${log.stack || 'None'}
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute top-2 left-2">
-                            <input type="checkbox" checked={checked} readOnly className="rounded text-[#e5373f]" />
+                            <input type="checkbox"checked={checked} readOnly className="rounded text-[#e5373f]" />
                           </div>
                           <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 text-white">
                             <p className="text-[10px] font-bold truncate">{g.userEmail ? g.userEmail.split('@')[0] : 'User'}</p>
@@ -8237,7 +8313,7 @@ ${log.stack || 'None'}
                         dataUrl: a.url,
                         name: a.name,
                         size: 500000,
-                        type: 'photo' as const,
+                        type: 'photo'as const,
                         mimeType: 'image/png',
                         preview: a.url,
                       }));
