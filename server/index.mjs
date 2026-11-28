@@ -1159,14 +1159,16 @@ async function listModels(forceFresh = false) {
     }
   } catch { }
 
-  // 4. Format into category array with stable sorting
+  // 4. Format into category array with stable sorting & category-level season propagation
   const out = [];
   for (const [category, itemsMap] of categoriesMap.entries()) {
-    const items = Array.from(itemsMap.values())
-      .filter((it) => !deletedSet.has(it.id))
+    const rawItems = Array.from(itemsMap.values()).filter((it) => !deletedSet.has(it.id));
+    const catDefaultSeason = rawItems.find((i) => i.season && String(i.season).trim())?.season || '';
+    const items = rawItems
+      .map((i) => (!i.season && catDefaultSeason ? { ...i, season: catDefaultSeason } : i))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || a.name.localeCompare(b.name));
     if (items.length > 0) {
-      out.push({ category, items });
+      out.push({ category, season: catDefaultSeason, items });
     }
   }
   const state = await readState().catch(() => ({}));
@@ -6132,12 +6134,11 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
       list = await readGenerations();
     }
 
-    const items = list.filter((g) => {
-      // Exclude soft-deleted items (preserved safely in Admin Recycle Bin)
-      if (g.deleted === true || g.isDeleted === true) return false;
-
-      if (isAdmin) return true;
-      const gUserId = g.userId ? String(g.userId) : '';
+    const items = list
+      .filter((g) => {
+        if (g.deleted === true || g.isDeleted === true) return false;
+        if (canViewAll) return true;
+        const gUserId = g.userId ? String(g.userId) : '';
       const gEmail = (g.userEmail || '').toLowerCase().trim();
       return (gUserId && gUserId === currentUserId) || (gEmail && currentUserEmail && gEmail === currentUserEmail) || (!gUserId && !gEmail);
     }).map((g) => {
@@ -6452,6 +6453,35 @@ app.post('/api/user/generations/batch-rename', auth.requireUser, async (req, res
     res.json({ ok: true, count: updatedCount || ids.length, title: cleanTitle });
   } catch (error) {
     res.status(500).json({ error: 'batch_rename_failed', message: error.message });
+  }
+});
+
+app.post('/api/user/generations/reorder', auth.requireUser, async (req, res) => {
+  try {
+    const { orderedIds } = req.body || {};
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ error: 'bad_request', message: 'orderedIds array required' });
+    }
+    const db = await getMongoDb();
+    if (db) {
+      const bulk = orderedIds.map((id, idx) => ({
+        updateOne: {
+          filter: { id: String(id) },
+          update: { $set: { sortOrder: idx } },
+        },
+      }));
+      if (bulk.length > 0) await db.collection('generations').bulkWrite(bulk, { ordered: false }).catch(() => { });
+    }
+    const list = await readGenerations();
+    const orderMap = new Map(orderedIds.map((id, idx) => [String(id), idx]));
+    for (const item of list) {
+      if (orderMap.has(item.id)) item.sortOrder = orderMap.get(item.id);
+    }
+    cachedGenerations = { items: list, time: Date.now() };
+    void writeGenerations(list).catch(() => { });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: 'reorder_failed', message: error.message });
   }
 });
 

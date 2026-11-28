@@ -721,6 +721,8 @@ export const api = {
       '/api/user/generations/batch-delete',
       json({ ids })
     ),
+  reorderUserGenerations: (orderedIds: string[]) =>
+    request<{ ok: boolean }>('/api/user/generations/reorder', json({ orderedIds })),
   batchUpdateGenerationsFolder: (ids: string[], folder: 'ready' | 'edited' | 'generated') =>
     request<{ ok: boolean; updatedCount: number; folder: string }>(
       '/api/user/generations/batch-folder',

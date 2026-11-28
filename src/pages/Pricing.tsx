@@ -1496,7 +1496,7 @@ export default function Pricing() {
                 <div className="space-y-4">
                   {/* Plan Price Banner */}
                   <div className={`p-3 rounded-2xl border flex items-center justify-between ${
-                    isLight ? 'bg-amber-50 border-amber-200' : 'bg-slate-900/90 border-amber-500/30'
+                    isLight ? 'bg-[#263B32] border-[#C9A468]/40 text-[#F5F0E7]' : 'bg-slate-900/90 border-amber-500/30'
                   }`}>
                     <div>
                       <span className="text-[10px] uppercase font-bold tracking-wider opacity-60 block">Selected Plan</span>
@@ -1587,15 +1587,15 @@ export default function Pricing() {
 
                   {/* AUTHORIZATION CODE SUBMIT & GENERATE INVOICE OPTION */}
                   <div className={`p-4 rounded-2xl border ${
-                    isLight ? 'bg-amber-50/80 border-amber-200' : 'bg-slate-950/80 border-amber-500/30'
+                    isLight ? 'bg-[#263B32] border-[#C9A468]/40 text-[#F5F0E7]' : 'bg-slate-950/80 border-amber-500/30'
                   }`}>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <FileText className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                      <FileText className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
                         Generate Invoice
                       </span>
                     </div>
-                    <p className={`text-xs mb-3 leading-relaxed ${isLight ? 'text-gray-600' : 'text-slate-300'}`}>
+                    <p className={`text-xs mb-3 leading-relaxed ${isLight ? 'text-[#F5F0E7]' : 'text-slate-300'}`}>
                       After payment, enter the authorization code you received to generate your invoice and activate the plan.
                     </p>
 

@@ -2586,6 +2586,9 @@ function MySetsPanel({
           ? generatedGenerations
           : imageGenerations
   ).slice().sort((a, b) => {
+    const soA = typeof (a as any).sortOrder === 'number' ? (a as any).sortOrder : null;
+    const soB = typeof (b as any).sortOrder === 'number' ? (b as any).sortOrder : null;
+    if (soA !== null && soB !== null && soA !== soB) return soA - soB;
     if (customGenOrder.length > 0) {
       const idxA = customGenOrder.indexOf(a.id);
       const idxB = customGenOrder.indexOf(b.id);
@@ -2612,6 +2615,7 @@ function MySetsPanel({
     try {
       localStorage.setItem('my_sets_gen_order', JSON.stringify(merged));
     } catch { }
+    void api.reorderUserGenerations(merged).catch(() => { });
   };
 
   function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>, kind: 'cloth' | 'model') {
@@ -10995,13 +10999,6 @@ async function runActualGeneration() {
       };
       setFivePoseItems([singleInitialPose]);
       setSelectedPoseIndex(0);
-      activePoseIndexRef.current = -1;
-      batchPayloadRef.current = null;
-      setProgress(5);
-      setProgressLabel(isEditingRender ? 'Applying AI edits to render…' : 'Initiating GPU render…');
-
-      const singleCloth = topFrontGarment || cloth || classifiedGarments[0];
-      const singlePayload: Record<string, unknown> = {
         ...payload,
         ...(singleModel?.url ? { model: singleModel.url } : {}),
       ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
@@ -11082,7 +11079,7 @@ if (mode === 'tryon') {
   if (needsBottom) tryonMissing.push('bottom garment (pants/lower)');
 }
 const missing = isSwapMode ? swapMissing : tryonMissing;
-const isUltraUser = Boolean(user?.tier === 'ultra' || user?.features?.hd2k);
+const isUltraUser = Boolean(user?.features?.hd2k === true);
 const isLocked = Boolean(user?.creditsLocked);
 const canRun = ready && !isGlobalBusy && missing.length === 0 && !uploading && !isLocked;
 

@@ -1827,7 +1827,7 @@ ${log.stack || 'None'}
     const isPaid = ['ondemand', 'pro', 'ultra'].includes(chosenTier);
     const isUltra = chosenTier === 'ultra';
     const defaultFeatures = {
-      hd2k: Boolean(user.features?.hd2k || isPaid),
+      hd2k: Boolean(user.features?.hd2k),
       fivePose: Boolean(user.features?.fivePose || isPaid),
       video: Boolean(user.features?.video || isPaid),
       customRequests: Boolean(user.features?.customRequests || isUltra),
@@ -1843,7 +1843,7 @@ ${log.stack || 'None'}
       features: edits.features !== undefined ? {
         ...edits.features,
         customRequests: Boolean(edits.features.customRequests !== undefined ? edits.features.customRequests : isUltra),
-        hd2k: Boolean(edits.features.hd2k || isPaid),
+        hd2k: Boolean(edits.features.hd2k),
         fivePose: Boolean(edits.features.fivePose || isPaid),
         video: Boolean(edits.features.video || isPaid),
       } : defaultFeatures,
@@ -1952,7 +1952,7 @@ ${log.stack || 'None'}
               Studio &rarr;
             </a>
 
-            <div className={`h-4 w-px hidden sm:block ${isLight ? 'bg-gray-200' : 'bg-white/10'}`} />
+            <div className={`h-4 w-px hidden sm:block ${isLight ? 'bg-[#E0F2FE]' : 'bg-white/10'}`} />
 
             <span className={`text-[11px] truncate max-w-[180px] ${isLight ? 'text-gray-500' : 'text-white/40'}`}>
               {me?.email}
@@ -2094,7 +2094,7 @@ ${log.stack || 'None'}
                       </span>
                     )}
                     {tab.count !== undefined && tab.count > 0 && tab.badge === undefined && (
-                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] ${isLight ? 'bg-gray-200 text-gray-700 font-bold' : 'bg-white/10 text-white/60'}`}>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[9px] ${isLight ? 'bg-[#E0F2FE] text-gray-700 font-bold' : 'bg-white/10 text-white/60'}`}>
                         {tab.count}
                       </span>
                     )}
@@ -2590,7 +2590,7 @@ ${log.stack || 'None'}
           <div className={`rounded-2xl border p-4 ${isLight ? 'border-gray-200 bg-gray-50' : 'border-white/5 bg-black/40'}`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold">Accounts Storage</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#E0F2FE] text-emerald-800 border border-emerald-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {settings?.storage === 'mongodb' ? 'MongoDB Active' : 'Local File Active'}
               </span>
@@ -2695,7 +2695,7 @@ ${log.stack || 'None'}
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
             : isLight
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[#E0F2FE] text-gray-700 hover:bg-gray-300'
               : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
             }`}
         >
@@ -2722,7 +2722,7 @@ ${log.stack || 'None'}
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
             : isLight
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[#E0F2FE] text-gray-700 hover:bg-gray-300'
               : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
             }`}
         >
@@ -2744,7 +2744,7 @@ ${log.stack || 'None'}
               ? 'bg-gray-900 text-white shadow-sm'
               : 'bg-white text-gray-900 shadow-sm'
             : isLight
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[#E0F2FE] text-gray-700 hover:bg-gray-300'
               : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
             }`}
         >
@@ -2780,7 +2780,7 @@ ${log.stack || 'None'}
                       ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-900'
                     : isLight
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-[#E0F2FE] text-gray-700 hover:bg-gray-300'
                       : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
                     }`}
                 >
@@ -2825,7 +2825,7 @@ ${log.stack || 'None'}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${req.status === 'delivered'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            ? 'bg-[#E0F2FE] text-emerald-800 border border-emerald-300'
                             : req.status === 'in_progress'
                               ? 'bg-blue-100 text-blue-800 border border-blue-300'
                               : 'bg-amber-100 text-amber-800 border border-amber-300'
@@ -2850,7 +2850,7 @@ ${log.stack || 'None'}
                       {/* Badges: Type & Visual Color Swatch */}
                       <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         {req.requestType && (
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/80'}`}>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isLight ? 'bg-[#E0F2FE] text-gray-800' : 'bg-white/10 text-white/80'}`}>
                             {req.requestType === 'both' ? 'Stills + Video' : req.requestType === 'video' ? 'Video' : '2K Stills'}
                           </span>
                         )}
@@ -3075,7 +3075,7 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => setSelectedRequest(null)}
-                      className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                      className={`rounded-full p-2 transition-colors ${isLight ? 'bg-gray-100 hover:bg-[#E0F2FE] text-gray-700' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -3098,7 +3098,7 @@ ${log.stack || 'None'}
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'bg-amber-600 text-white shadow-sm'
                             : isLight
-                              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]'
                               : 'bg-white/5 text-white/50 hover:bg-white/10'
                             }`}
                         >
@@ -3290,7 +3290,7 @@ ${log.stack || 'None'}
                         className={`p-3 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition cursor-pointer ${isActive
                           ? 'bg-[#e5373f] text-white border-[#e5373f] shadow-md'
                           : isLight
-                            ? 'bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800'
+                            ? 'bg-gray-100 hover:bg-[#E0F2FE] border-gray-300 text-gray-800'
                             : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
                           }`}
                       >
@@ -3453,7 +3453,7 @@ ${log.stack || 'None'}
                     <button
                       type="button"
                       onClick={() => dispatchFolderInputRef.current?.click()}
-                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
+                      className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${isLight ? 'border-emerald-200 bg-emerald-50/70 hover:bg-[#E0F2FE] text-emerald-900' : 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
                         }`}
                     >
                       <Folder className="w-4 h-4 text-emerald-400" />
@@ -4023,7 +4023,7 @@ ${log.stack || 'None'}
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold tracking-tight">Registered User Accounts ({usersList.length} Total)</h2>
-            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-bold uppercase">
+            <span className="rounded-full bg-[#E0F2FE] text-emerald-800 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-bold uppercase">
               {usersList.length} Accounts
             </span>
           </div>
@@ -4104,7 +4104,7 @@ ${log.stack || 'None'}
                           const isPaid = ['ondemand', 'pro', 'ultra'].includes(newTier);
                           const isTierUltra = newTier === 'ultra';
                           const autoFeatures = {
-                            hd2k: isTierUltra,
+                            hd2k: false,
                             fivePose: isPaid,
                             video: isPaid,
                             customRequests: isTierUltra,
@@ -4196,7 +4196,7 @@ ${log.stack || 'None'}
                         const isTierPaid = ['ondemand', 'pro', 'ultra'].includes(currentTier);
                         const isTierUltra = currentTier === 'ultra';
                         const currentFeatures = edits.features || {
-                          hd2k: Boolean(user.features?.hd2k || isTierUltra),
+                          hd2k: Boolean(user.features?.hd2k),
                           fivePose: Boolean(user.features?.fivePose || isTierPaid),
                           video: Boolean(user.features?.video || isTierPaid),
                           customRequests: Boolean(user.features?.customRequests || isTierUltra),
@@ -4233,7 +4233,7 @@ ${log.stack || 'None'}
                                 }));
                               }}
                               className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase transition ${currentFeatures.canViewAllAssets
-                                ? isLight ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                ? isLight ? 'bg-[#E0F2FE] text-emerald-950 border border-emerald-300 font-bold' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                                 : isLight
                                   ? 'bg-[#2E473C] text-slate-700 border border-[#C9A468]/35'
                                   : 'bg-white/5 text-white/30 border border-white/10'
@@ -4363,7 +4363,7 @@ ${log.stack || 'None'}
                                   className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${isAllowed
                                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                                     : isLight
-                                      ? 'bg-gray-200 text-gray-400 border border-gray-300 line-through opacity-60'
+                                      ? 'bg-[#E0F2FE] text-gray-400 border border-gray-300 line-through opacity-60'
                                       : 'bg-white/5 text-white/20 border border-white/10 line-through opacity-60'
                                     }`}
                                   title={`Toggle ${t.label} tab visibility for this user`}
@@ -4498,7 +4498,7 @@ ${log.stack || 'None'}
         <section className={cardClass}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider opacity-60">Accounts Storage Engine</h3>
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#E0F2FE] text-emerald-800 border border-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {settings?.storage === 'mongodb' ? 'MongoDB Active' : 'Local File Active'}
             </span>
@@ -5144,7 +5144,7 @@ ${log.stack || 'None'}
               Upload custom models, create new categories, and manage live try-on models saved in <code>public/models/</code>.
             </p>
           </div>
-          <span className={`self-start sm:self-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'}`}>
+          <span className={`self-start sm:self-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isLight ? 'bg-[#E0F2FE] text-gray-800' : 'bg-white/10 text-white/70'}`}>
             {modelCount} Models across {categories.length} Categories
           </span>
         </div>
@@ -5318,7 +5318,7 @@ ${log.stack || 'None'}
                   type="button"
                   onClick={() => modelFileInput.current?.click()}
                   className={`rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${isLight
-                    ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'
+                    ? 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-[#E0F2FE]'
                     : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
                     }`}
                 >
@@ -5601,7 +5601,7 @@ ${log.stack || 'None'}
                             type="button"
                             disabled={catIdx === 0}
                             onClick={() => void moveCategoryOrder(-1)}
-                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
                             title="Move category up"
                           >
                             ↑
@@ -5610,7 +5610,7 @@ ${log.stack || 'None'}
                             type="button"
                             disabled={catIdx === categories.length - 1}
                             onClick={() => void moveCategoryOrder(1)}
-                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}`}
                             title="Move category down"
                           >
                             ↓
@@ -5623,7 +5623,7 @@ ${log.stack || 'None'}
                             setRenamingCategory(cat.category);
                             setNewCategoryRenameInput(cat.category);
                           }}
-                          className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${isLight ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                          className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${isLight ? 'bg-gray-100 text-gray-600 hover:bg-[#E0F2FE] hover:text-gray-900' : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
                             }`}
                           title={`Rename "${cat.category}"category`}
                         >
@@ -5888,7 +5888,7 @@ ${log.stack || 'None'}
               className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${problemFilter === mode
                 ? 'bg-[#e5373f] text-white shadow-sm'
                 : isLight
-                  ? 'bg-gray-200/80 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-[#E0F2FE]/80 text-gray-700 hover:bg-gray-300'
                   : 'bg-white/5 text-white/60 hover:bg-white/10'
                 }`}
             >
@@ -5926,7 +5926,7 @@ ${log.stack || 'None'}
                         }`}>
                         {log.severity}
                       </span>
-                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-gray-200 text-gray-800' : 'bg-white/10 text-white/70'
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-mono ${isLight ? 'bg-[#E0F2FE] text-gray-800' : 'bg-white/10 text-white/70'
                         }`}>
                         [{log.module}]
                       </span>
@@ -6695,7 +6695,7 @@ ${log.stack || 'None'}
                   className={`px-3 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer ${gatewayFilter === f.id
                     ? 'bg-[#e5373f] text-white shadow-sm'
                     : isLight
-                      ? 'bg-gray-100 hover:bg-gray-200 text-slate-700'
+                      ? 'bg-gray-100 hover:bg-[#E0F2FE] text-slate-700'
                       : 'bg-white/5 hover:bg-white/10 text-white/70'
                     }`}
                 >
@@ -7226,7 +7226,7 @@ ${log.stack || 'None'}
               onClick={() => setUserSetsSubTab('sets')}
               className={`key-press px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${userSetsSubTab === 'sets'
                 ? 'bg-[#e5373f] text-white shadow-sm'
-                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -7238,7 +7238,7 @@ ${log.stack || 'None'}
               onClick={() => setUserSetsSubTab('renders')}
               className={`key-press px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${userSetsSubTab === 'renders'
                 ? 'bg-[#e5373f] text-white shadow-sm'
-                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
+                : isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                 }`}
             >
               <Film className="w-3.5 h-3.5" />
@@ -7600,7 +7600,7 @@ ${log.stack || 'None'}
                 onClick={() => setPhotoshootFilter(f)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition cursor-pointer ${photoshootFilter === f
                   ? 'bg-[#e5373f] text-white shadow'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
               >
                 {f === 'queries' ? `Queries (${queriedUsers.length})` : f}
@@ -7823,7 +7823,7 @@ ${log.stack || 'None'}
                                 <button
                                   type="button"
                                   onClick={() => setPhotoshootDrafts((prev) => ({ ...prev, [u.id]: { done: activeDone + 1, quota: activeQuota } }))}
-                                  className={`px-2 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition ${isLight ? 'bg-emerald-100 border-emerald-300 hover:bg-emerald-200 text-emerald-800' : 'bg-emerald-600/30 border-emerald-500/40 hover:bg-emerald-600/50 text-emerald-300'}`}
+                                  className={`px-2 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition ${isLight ? 'bg-[#E0F2FE] border-emerald-300 hover:bg-emerald-200 text-emerald-800' : 'bg-emerald-600/30 border-emerald-500/40 hover:bg-emerald-600/50 text-emerald-300'}`}
                                   title="Quick +1 Photoshoot"
                                 >
                                   +1 Shoot
@@ -8149,7 +8149,7 @@ ${log.stack || 'None'}
                 onClick={() => setAssetPickerSubTab('sets')}
                 className={`key-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${assetPickerSubTab === 'sets'
                   ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -8160,7 +8160,7 @@ ${log.stack || 'None'}
                 onClick={() => setAssetPickerSubTab('renders')}
                 className={`key-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${assetPickerSubTab === 'renders'
                   ? 'bg-[#e5373f] text-white shadow-sm'
-                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
+                  : isLight ? 'bg-gray-100 text-gray-700 hover:bg-[#E0F2FE]' : 'bg-[var(--ink-2)] text-[var(--text-hi)] hover:bg-[var(--ink-3)]'
                   }`}
               >
                 <Film className="w-3.5 h-3.5" />
