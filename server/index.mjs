@@ -2577,10 +2577,20 @@ app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
       if (base64Data) parts.push({ inlineData: { mimeType, data: base64Data } });
     }
 
+    const now = new Date();
+    const realTimeStr = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     const sysInstruction = AI_ASSIST_SYSTEM_PROMPTS[action] || AI_ASSIST_SYSTEM_PROMPTS.custom;
     const ctxText = context && Object.keys(context).length ? `\nStudio Context: ${JSON.stringify(context)}` : '';
     const userPrompt = String(prompt || '').trim() || 'Analyze the garment and provide expert studio output.';
-    parts.push({ text: `${sysInstruction}${ctxText}\n\nUser Request: ${userPrompt}` });
+    parts.push({ text: `[Real-time IST: ${realTimeStr}]\n${sysInstruction}${ctxText}\n\nUser Request: ${userPrompt}` });
 
     const candidateModels = [
       'gemini-flash-lite-latest',

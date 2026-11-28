@@ -791,7 +791,7 @@ export default function Pricing() {
 
   return (
     <div className={`min-h-screen font-sans antialiased ${
-      isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[#070709] text-white'
+      isLight ? 'bg-[#B1A38E] text-[#F5F2EC]' : 'bg-[#070709] text-white'
     }`}>
       <style>{`
         @page {
@@ -839,8 +839,8 @@ export default function Pricing() {
       <header className={`sticky top-0 z-40 border-b transition-all duration-200 ${
         isLight
           ? scrolled
-            ? 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-xl shadow-sm'
-            : 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-md'
+            ? 'border-[#C9A468]/35 bg-[#B1A38E] backdrop-blur-xl shadow-sm'
+            : 'border-[#C9A468]/35 bg-[#B1A38E] backdrop-blur-md'
           : scrolled
           ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/95 backdrop-blur-xl shadow-lg'
           : 'edge-light border-white/10 bg-[var(--ink-0,#0C0C0E)]/85 backdrop-blur-md'

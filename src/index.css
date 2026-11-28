@@ -48,7 +48,7 @@
 
 html.light {
   /* Forest Green + Champagne Gold Light Theme */
-  --ink-0: #756357;
+  --ink-0: #B1A38E;
   --ink-1: #263B32;
   --ink-2: #1E3028;
   --ink-3: #182720;
@@ -76,16 +76,16 @@ html.light {
   --shadow-glow: 0 0 28px -4px rgba(201, 164, 104, 0.34);
 }
 
-/* Light theme: dark forest background (#756357) text -> #F5F0E7 / #D5CFC4 */
-html.light .bg-\[\#756357\] {
+/* Light theme: dark forest background (#B1A38E) text -> #F5F0E7 / #D5CFC4 */
+html.light .bg-\[\#B1A38E\] {
   color: #F5F0E7;
 }
 
-html.light .bg-\[\#756357\] :is(h1, h2, h3, h4, .text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800, .text-slate-700) {
+html.light .bg-\[\#B1A38E\] :is(h1, h2, h3, h4, .text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800, .text-slate-700) {
   color: #F5F0E7 !important;
 }
 
-html.light .bg-\[\#756357\] :is(p, .text-gray-600, .text-gray-500, .text-slate-600, .text-slate-500) {
+html.light .bg-\[\#B1A38E\] :is(p, .text-gray-600, .text-gray-500, .text-slate-600, .text-slate-500) {
   color: #E2DDD4 !important;
 }
 
@@ -454,7 +454,8 @@ html {
 
 @media (hover: hover) and (pointer: fine) {
   .card-lift-glow:hover {
-    box-shadow: var(--shadow-l2);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-l2), var(--shadow-glow);
     border-color: rgba(201, 164, 104, 0.55);
   }
 }
@@ -462,28 +463,38 @@ html {
 .card-lift-glow:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-  box-shadow: var(--shadow-l2);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-l2), var(--shadow-glow);
 }
 
-/* Button Fill Swipe (neutralized to prevent brown hover box & edge vibration) */
+/* Button Fill Swipe */
 .btn-fill-swipe {
   position: relative;
   overflow: hidden;
   isolation: isolate;
   transition:
     color var(--dur-2) var(--ease-std),
-    border-color var(--dur-2) var(--ease-std),
-    filter var(--dur-2) var(--ease-std);
+    border-color var(--dur-2) var(--ease-std);
 }
 
 .btn-fill-swipe::before {
-  content: none;
-  display: none;
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--btn-swipe-bg, var(--accent));
+  transform: translateY(101%);
+  transition: transform var(--dur-2) var(--ease-out);
+  pointer-events: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .btn-fill-swipe:hover {
-    filter: brightness(1.06);
+    color: var(--accent-ink);
+  }
+
+  .btn-fill-swipe:hover::before {
+    transform: translateY(0);
   }
 }
 

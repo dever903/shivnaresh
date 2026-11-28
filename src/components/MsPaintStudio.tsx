@@ -260,6 +260,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   const currentPointerPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef<number>(1);
+  const isPinchingRef = useRef<boolean>(false);
 
   // Selection Drag / Transform State
   const isSelectingBoxRef = useRef<boolean>(false);
@@ -1012,6 +1013,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   // Pointer Events (Mouse Down, Move, Up)
   // --------------------------------------------------------------------------
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isPinchingRef.current || !e.isPrimary) return;
     e.preventDefault();
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -1126,6 +1128,7 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isPinchingRef.current || !e.isPrimary) return;
     const coords = getCanvasCoords(e);
     currentPointerPosRef.current = coords;
 
@@ -1231,6 +1234,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isPinchingRef.current || !e.isPrimary) {
+      isMouseDownRef.current = false;
+      return;
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch { }
@@ -2081,7 +2088,10 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             }
           }}
           onTouchStart={(e) => {
-            if (e.touches.length === 2) {
+            if (e.touches.length >= 2) {
+              isPinchingRef.current = true;
+              isMouseDownRef.current = false;
+              e.preventDefault();
               const dx = e.touches[0].clientX - e.touches[1].clientX;
               const dy = e.touches[0].clientY - e.touches[1].clientY;
               pinchStartDistRef.current = Math.hypot(dx, dy);
@@ -2089,8 +2099,11 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
             }
           }}
           onTouchMove={(e) => {
-            if (e.touches.length === 2 && pinchStartDistRef.current) {
+            if (e.touches.length >= 2 && pinchStartDistRef.current) {
+              isPinchingRef.current = true;
+              isMouseDownRef.current = false;
               e.preventDefault();
+              e.stopPropagation();
               const dx = e.touches[0].clientX - e.touches[1].clientX;
               const dy = e.touches[0].clientY - e.touches[1].clientY;
               const dist = Math.hypot(dx, dy);
@@ -2098,10 +2111,15 @@ export const MsPaintStudio: React.FC<MsPaintStudioProps> = ({
               setZoomLevel(Math.min(4, Math.max(0.15, Number((pinchStartZoomRef.current * ratio).toFixed(2)))));
             }
           }}
-          onTouchEnd={() => {
-            pinchStartDistRef.current = null;
+          onTouchEnd={(e) => {
+            if (e.touches.length < 2) {
+              pinchStartDistRef.current = null;
+              setTimeout(() => {
+                isPinchingRef.current = false;
+              }, 220);
+            }
           }}
-          className="relative rounded-xl overflow-auto border border-[#C9A468]/30 bg-zinc-950 p-6 min-h-[500px] max-h-[76vh] flex touch-pan-x touch-pan-y"
+          className="relative rounded-xl overflow-auto border border-[#C9A468]/30 bg-zinc-950 p-6 min-h-[500px] max-h-[76vh] flex touch-none"
         >
           <div
             style={{

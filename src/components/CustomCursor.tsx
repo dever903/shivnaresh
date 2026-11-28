@@ -89,9 +89,12 @@ export function CustomCursor() {
         setVisible(true);
       }
 
-      if (lastLabel !== '') {
-        lastLabel = '';
-        setLabel('');
+      const target = e.target as Element | null;
+      const cursorEl = target?.closest?.('[data-cursor]');
+      const nextLabel = cursorEl?.getAttribute('data-cursor')?.trim().toUpperCase() || '';
+      if (nextLabel !== lastLabel) {
+        lastLabel = nextLabel;
+        setLabel(nextLabel);
       }
     };
 

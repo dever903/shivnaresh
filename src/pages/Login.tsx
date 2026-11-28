@@ -350,7 +350,7 @@ export default function Login() {
 
   return (
     <div className={`relative min-h-screen overflow-x-hidden ${
-      isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
+      isLight ? 'bg-[#B1A38E] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
     }`}>
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -370,8 +370,8 @@ export default function Login() {
       <header className={`sticky top-0 z-30 border-b transition-all duration-200 ${
         isLight
           ? scrolled
-            ? 'border-[#C9A468]/35 bg-[#756357] backdrop-blur-xl shadow-sm'
-            : 'border-transparent bg-[#756357] backdrop-blur-md'
+            ? 'border-[#C9A468]/35 bg-[#B1A38E] backdrop-blur-xl shadow-sm'
+            : 'border-transparent bg-[#B1A38E] backdrop-blur-md'
           : scrolled
           ? 'edge-light border-white/20 bg-[var(--ink-0,#0C0C0E)]/95 backdrop-blur-xl shadow-lg'
           : 'edge-light border-transparent bg-[var(--ink-0,#0C0C0E)]/80 backdrop-blur-md'

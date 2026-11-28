@@ -1693,17 +1693,17 @@ export default function ColorSwapStudio({
         </div>
 
         {/* Sub-Tabs: Swap vs Paint vs Palette */}
-        <div className={`inline-flex rounded-xl p-1 border flex-wrap gap-1 ${isLight ? 'border-gray-300 bg-gray-100' : 'border-zinc-800 bg-zinc-900/80'}`}>
+        <div className={`inline-flex rounded-xl p-1.5 border flex-wrap gap-1.5 ${isLight ? 'border-[#C9A468]/35 bg-[#263B32] shadow-sm' : 'border-zinc-800 bg-zinc-900/80'}`}>
           <button
             type="button"
             onClick={() => setSubTab('swap')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'swap'
+            className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'swap'
               ? isLight
-                ? 'bg-white text-gray-950 font-bold shadow-sm'
-                : 'bg-[#e5373f] text-white font-bold shadow-md'
+                ? 'border-[#C9A468] bg-[#1E3028] text-[#F5F0E7] font-bold shadow-sm'
+                : 'border-[#e5373f] bg-[#e5373f] text-white font-bold shadow-md'
               : isLight
-                ? 'text-gray-600 hover:text-gray-900'
-                : 'text-zinc-400 hover:text-white'
+                ? 'border-[#C9A468]/25 bg-transparent text-[#D5CFC4] hover:border-[#C9A468]/60 hover:bg-[#1E3028]/60 hover:text-[#F5F0E7]'
+                : 'border-white/10 text-zinc-400 hover:border-white/25 hover:text-white'
               }`}
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -1724,13 +1724,13 @@ export default function ColorSwapStudio({
                 handleOpenInPaintStudio(resolveImageUrl(activeImage.url), activeImage.title);
               }
             }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'paint'
+            className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'paint'
               ? isLight
-                ? 'bg-white text-gray-950 font-bold shadow-sm'
-                : 'bg-[#e5373f] text-white font-bold shadow-md'
+                ? 'border-[#C9A468] bg-[#1E3028] text-[#F5F0E7] font-bold shadow-sm'
+                : 'border-[#e5373f] bg-[#e5373f] text-white font-bold shadow-md'
               : isLight
-                ? 'text-gray-600 hover:text-gray-900'
-                : 'text-zinc-400 hover:text-white'
+                ? 'border-[#C9A468]/25 bg-transparent text-[#D5CFC4] hover:border-[#C9A468]/60 hover:bg-[#1E3028]/60 hover:text-[#F5F0E7]'
+                : 'border-white/10 text-zinc-400 hover:border-white/25 hover:text-white'
               }`}
           >
             <Paintbrush className="w-3.5 h-3.5" />
@@ -1745,13 +1745,13 @@ export default function ColorSwapStudio({
                 setFabricRefTitle(activeImage.title || 'Studio Garment');
               }
             }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'palette'
+            className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${subTab === 'palette'
               ? isLight
-                ? 'bg-white text-gray-950 font-bold shadow-sm'
-                : 'bg-[#e5373f] text-white font-bold shadow-md'
+                ? 'border-[#C9A468] bg-[#1E3028] text-[#F5F0E7] font-bold shadow-sm'
+                : 'border-[#e5373f] bg-[#e5373f] text-white font-bold shadow-md'
               : isLight
-                ? 'text-gray-600 hover:text-gray-900'
-                : 'text-zinc-400 hover:text-white'
+                ? 'border-[#C9A468]/25 bg-transparent text-[#D5CFC4] hover:border-[#C9A468]/60 hover:bg-[#1E3028]/60 hover:text-[#F5F0E7]'
+                : 'border-white/10 text-zinc-400 hover:border-white/25 hover:text-white'
               }`}
           >
             <Pipette className="w-3.5 h-3.5" />

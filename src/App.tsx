@@ -58,7 +58,7 @@ function Brand({ size = 'md' }: { size?: 'sm' | 'md' }) {
   const label = size === 'sm' ? 'text-[10px]' : 'text-[11px]';
   return (
     <span className="flex items-center gap-2">
-      <img src={BRAND_MARK} alt=""className={`${mark} w-auto`} draggable={false} />
+      <img src={BRAND_MARK} alt="" className={`${mark} w-auto`} draggable={false} />
       <span className={`${label} font-semibold tracking-[0.2em] text-white`}>SHIV-NARESH</span>
     </span>
   );
@@ -117,10 +117,10 @@ function NavBar() {
       <nav className="nav-drop fixed top-0 left-0 right-0 z-50 flex items-center justify-between lg:justify-center p-4 sm:p-5">
         {/* Desktop: one centered pill */}
         <div className="hidden lg:flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-full pl-3 pr-2 py-2">
-          <a href="/"className="flex items-center rounded-full pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
+          <a href="/" className="flex items-center rounded-full pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
             <Brand />
           </a>
-          <span className="mr-1 h-4 w-px bg-white/20"aria-hidden="true" />
+          <span className="mr-1 h-4 w-px bg-white/20" aria-hidden="true" />
           <div ref={navGroupRef} className="relative flex items-center gap-1">
             {indicator && (
               <span
@@ -145,7 +145,7 @@ function NavBar() {
                 >
                   <span className="text-swap">
                     <span className="text-swap-primary">{link.label}</span>
-                    <span className="text-swap-secondary"aria-hidden="true">{link.label}</span>
+                    <span className="text-swap-secondary" aria-hidden="true">{link.label}</span>
                   </span>
                 </a>
               );
@@ -154,9 +154,9 @@ function NavBar() {
           {showStartDesign && (
             <a
               href="/design"
-              className={`btn-fill-swipe text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${
-                theme === 'light' ? 'bg-[#F5F0E7] text-[#1A1408]' : 'bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)]'
-              }`}
+              data-cursor="DESIGN"
+              className={`btn-fill-swipe text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${theme === 'light' ? 'bg-[#F5F0E7] text-[#1A1408]' : 'bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)]'
+                }`}
             >
               Start design
             </a>
@@ -167,7 +167,7 @@ function NavBar() {
         </div>
 
         {/* Mobile: brand pill */}
-        <a href="#home"className="lg:hidden flex items-center bg-black/60 backdrop-blur-md rounded-full px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]">
+        <a href="#home" className="lg:hidden flex items-center bg-black/60 backdrop-blur-md rounded-full px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)]">
           <Brand size="sm" />
         </a>
 
@@ -188,20 +188,18 @@ function NavBar() {
       </nav>
 
       {open && (
-        <div className={`nav-drop fixed top-0 left-0 right-0 z-40 w-full pt-16 pb-6 px-5 shadow-lg md:hidden ${
-          theme === 'light' ? 'bg-[#263B32] text-[#F5F0E7] border-b border-[#C9A468]/30' : 'edge-light bg-[var(--ink-1,#141418)] text-[var(--text-hi,#F5F2EC)] border-b border-white/10'
-        }`}>
+        <div className={`nav-drop fixed top-0 left-0 right-0 z-40 w-full pt-16 pb-6 px-5 shadow-lg md:hidden ${theme === 'light' ? 'bg-[#263B32] text-[#F5F0E7] border-b border-[#C9A468]/30' : 'edge-light bg-[var(--ink-1,#141418)] text-[var(--text-hi,#F5F2EC)] border-b border-white/10'
+          }`}>
           {visibleNavLinks.map((link) => (
             <a
               key={link.label}
               href={link.href}
               aria-current={active === (link.href === '/' ? '/' : link.href) ? 'page' : undefined}
               onClick={() => setOpen(false)}
-              className={`block w-full text-left py-3 border-b transition-colors focus-visible:outline-none focus-visible:ring-2 ${
-                theme === 'light'
-                  ? 'text-slate-900 border-slate-900/15 hover:text-black focus-visible:ring-slate-900'
-                  : 'text-white/90 border-white/10 hover:text-white focus-visible:ring-white/70'
-              }`}
+              className={`block w-full text-left py-3 border-b transition-colors focus-visible:outline-none focus-visible:ring-2 ${theme === 'light'
+                ? 'text-slate-900 border-slate-900/15 hover:text-black focus-visible:ring-slate-900'
+                : 'text-white/90 border-white/10 hover:text-white focus-visible:ring-white/70'
+                }`}
             >
               {link.label}
             </a>
@@ -263,11 +261,11 @@ function StatsArc() {
                 x2={end.x}
                 y2={end.y}
               >
-                <stop offset="0%"stopColor="#ffffff"stopOpacity="0" />
-                <stop offset="22%"stopColor="#ffffff"stopOpacity="0.5" />
-                <stop offset="55%"stopColor="#ffffff"stopOpacity="0.5" />
-                <stop offset="85%"stopColor="#ffffff"stopOpacity="0.1" />
-                <stop offset="100%"stopColor="#ffffff"stopOpacity="0" />
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="22%" stopColor="#ffffff" stopOpacity="0.5" />
+                <stop offset="55%" stopColor="#ffffff" stopOpacity="0.5" />
+                <stop offset="85%" stopColor="#ffffff" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
               </linearGradient>
             );
           })}
@@ -369,8 +367,8 @@ function ChestBadge() {
   // Below `lg`the portrait is cropped so tight that the chest sits behind the
   // headline — the nav carries the brand there instead.
   return (
-    <div className="pointer-events-none absolute inset-0 z-40 hidden select-none lg:block"aria-hidden="true">
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
+    <div className="pointer-events-none absolute inset-0 z-40 hidden select-none lg:block" aria-hidden="true">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
         <div
           className="absolute"
           style={{
@@ -656,10 +654,10 @@ function Hero() {
   // `isolate`keeps the hero's z-50 layers underneath the fixed nav (z-50)
   // and the mobile dropdown (z-40), which live in the root stacking context.
   return (
-    <section id="home"className="relative isolate h-[100dvh] w-full overflow-hidden bg-black">
+    <section id="home" className="relative isolate h-[100dvh] w-full overflow-hidden bg-black">
       {/* 1 — grid */}
-      <div className="absolute inset-0 z-0"aria-hidden="true">
-        <svg className="h-full w-full"style={{ opacity: 0.1 }}>
+      <div className="absolute inset-0 z-0" aria-hidden="true">
+        <svg className="h-full w-full" style={{ opacity: 0.1 }}>
           <defs>
             <pattern
               ref={patternRef}
@@ -668,16 +666,16 @@ function Hero() {
               height="48"
               patternUnits="userSpaceOnUse"
             >
-              <path d="M 48 0 L 0 0 L 0 48"fill="none"stroke="#64748b"strokeWidth="0.6" />
+              <path d="M 48 0 L 0 0 L 0 48" fill="none" stroke="#64748b" strokeWidth="0.6" />
             </pattern>
           </defs>
-          <rect width="100%"height="100%"fill="url(#hero-grid)" />
+          <rect width="100%" height="100%" fill="url(#hero-grid)" />
         </svg>
       </div>
 
       {/* 2 — base portrait */}
-      <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden"aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
+      <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
           <div
             className="animate-ken-burns absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: BG_IMAGE_1 }}
@@ -693,14 +691,14 @@ function Hero() {
         className="pointer-events-none absolute inset-0 z-30 overflow-hidden"
         aria-hidden="true"
       >
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"style={STAGE}>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={STAGE}>
           <div
             className="animate-ken-burns absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: BG_IMAGE_2 }}
           />
         </div>
       </div>
-      <canvas ref={canvasRef} className="hidden"aria-hidden="true" />
+      <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
 
       {/* scanner sweep that rides the intro reveal */}
       <div
@@ -755,9 +753,10 @@ function Hero() {
           Sublimated team kits, training sets and club apparel, sampled before a stitch and cut to your squad’s measurements.
         </p>
 
-        <div className="stagger-item hero-rise mt-6 flex items-center gap-4"style={{ animationDelay: '0.7s' }}>
+        <div className="stagger-item hero-rise mt-6 flex items-center gap-4" style={{ animationDelay: '0.7s' }}>
           <a
             href="/design"
+            data-cursor="DESIGN"
             className="btn-fill-swipe inline-flex items-center justify-center bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)] text-sm font-semibold px-6 py-3 rounded-full active:scale-[0.98] transition-[transform,color] duration-[320ms] ease-[cubic-bezier(.22,.61,.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] motion-reduce:transition-none"
           >
             Design your kit
@@ -812,9 +811,8 @@ export default function App() {
 
     return (
       <div
-        className={`min-h-screen tracking-[-0.02em] flex flex-col justify-between transition-colors ${
-          theme === 'light' ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
-        }`}
+        className={`min-h-screen tracking-[-0.02em] flex flex-col justify-between transition-colors ${theme === 'light' ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
+          }`}
       >
         <NavBar />
         <main className="flex-1">
@@ -828,7 +826,7 @@ export default function App() {
   return (
     <>
       <CustomCursor />
-      <div className="grain-overlay"aria-hidden="true" />
+      <div className="grain-overlay" aria-hidden="true" />
       {renderPage()}
     </>
   );

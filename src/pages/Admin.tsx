@@ -1916,12 +1916,12 @@ ${log.stack || 'None'}
   /* Shell Layout */
   const shell = (children: React.ReactNode) => (
     <div
-      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#756357] text-[#F5F2EC] selection:bg-[#e5373f] selection:text-white' : 'bg-[var(--ink-0)] text-[var(--text-hi)] selection:bg-[#e5373f] selection:text-white'
+      className={`min-h-screen font-sans antialiased ${isLight ? 'bg-[#B1A38E] text-[#F5F2EC] selection:bg-[#e5373f] selection:text-white' : 'bg-[var(--ink-0)] text-[var(--text-hi)] selection:bg-[#e5373f] selection:text-white'
         }`}
     >
       {/* Top Enterprise Header */}
       <header
-        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#C9A468]/35 bg-[#756357] shadow-sm' : 'edge-light border-[var(--line-1)] bg-[var(--ink-0)]/90'
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl transition-colors ${isLight ? 'border-[#C9A468]/35 bg-[#B1A38E] shadow-sm' : 'edge-light border-[var(--line-1)] bg-[var(--ink-0)]/90'
           }`}
       >
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3.5 py-3 sm:px-6 sm:py-3.5">
@@ -6294,7 +6294,7 @@ ${log.stack || 'None'}
             onClick={() => setPreviewGenItem(null)}
           >
             <div
-              className={`relative max-w-2xl w-full rounded-2xl border p-6 ${isLight ? 'bg-[#756357] border-[#C9A468]/35 text-slate-900' : 'bg-black/95 border-white/20 text-white'
+              className={`relative max-w-2xl w-full rounded-2xl border p-6 ${isLight ? 'bg-[#B1A38E] border-[#C9A468]/35 text-slate-900' : 'bg-black/95 border-white/20 text-white'
                 }`}
               onClick={(e) => e.stopPropagation()}
             >

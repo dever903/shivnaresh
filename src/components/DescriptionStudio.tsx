@@ -55,16 +55,11 @@ Write 5 short points with clear do's and don'ts.
 SEO KEYWORDS
 Give 10 keywords separated by commas, with no brand name.`;
 
-type AiStudioMode = 'blank' | 'listing' | 'enhance-prompt' | 'inspect-garment' | 'outfit-stylist' | 'b2b-pitch' | 'social-copy';
+type AiStudioMode = 'listing' | 'blank';
 
 const AI_STUDIO_MODES: { id: AiStudioMode; label: string; hint: string }[] = [
-  { id: 'blank', label: 'Blank (Ask Anything)', hint: 'Start with a blank prompt — ask AI anything or give any custom command' },
-  { id: 'listing', label: 'E-Commerce Listing', hint: 'Amazon / Flipkart / Shopify SEO titles, bullets & specs' },
-  { id: 'enhance-prompt', label: 'Try-On Prompt Architect', hint: 'Generate a studio-grade Fashn Try-On prompt from garment' },
-  { id: 'inspect-garment', label: 'QC & Fabric Inspector', hint: 'Detect collar, stitching, color hex codes & GSM estimate' },
-  { id: 'outfit-stylist', label: 'Outfit & Color Stylist', hint: 'Suggest matching kit combinations & lighting directions' },
-  { id: 'b2b-pitch', label: 'B2B Bulk Pitch', hint: 'Ready-to-send WhatsApp / Email team kit quotation pitch' },
-  { id: 'social-copy', label: 'Reels & Ad Copy', hint: 'Instagram Reels hooks, ad captions & targeted hashtags' },
+  { id: 'listing', label: 'Default (Product Description)', hint: 'Uses the preset e-commerce sportswear listing prompt' },
+  { id: 'blank', label: 'Blank (Ask AI Anything)', hint: 'Start blank — ask AI anything with real-time date/info or attach images' },
 ];
 
 export default function DescriptionStudio({
