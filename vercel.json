@@ -2,6 +2,11 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "excludeFiles": "{server/data/**,public/**,dist/**,node_modules/@xenova/**,node_modules/onnxruntime-web/**,node_modules/playwright/**}"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -9,10 +14,6 @@
     },
     {
       "source": "/uploads/(.*)",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/models/(.*)",
       "destination": "/api/index.js"
     },
     {

@@ -447,8 +447,7 @@ export class ApiError extends Error {
 }
 
 const rawApiBase = (import.meta.env.VITE_API_URL || '').trim();
-// Ignore dead/suspended external domains to ensure reliable unified same-origin routing
-export const API_BASE = rawApiBase.includes('shivnaresh-api.onrender.com') ? '' : rawApiBase.replace(/\/+$/, '');
+export const API_BASE = rawApiBase.replace(/\/+$/, '');
 
 export function getApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
