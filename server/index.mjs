@@ -2625,7 +2625,7 @@ app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
 
       for (const payloadBody of tryPayloads) {
         try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
           const geminiRes = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
@@ -2659,6 +2659,314 @@ app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
   } catch (err) {
     console.error('[AIAssist] Error:', err);
     res.status(500).json({ error: 'internal_error', message: err?.message || 'Internal AI error' });
+  }
+});
+
+async function resolveAiStudioImagePart(item) {
+  if (!item || typeof item !== 'string') return null;
+  let mimeType = 'image/jpeg';
+  let base64Data = '';
+
+  if (item.startsWith('data:')) {
+    const m = item.match(/^data:([^;]+);base64,(.+)$/);
+    if (m) {
+      mimeType = m[1];
+      base64Data = m[2];
+    }
+  } else {
+    const fetchUrl = item.startsWith('/') ? `http://127.0.0.1:${PORT || 8787}${item}` : item;
+    try {
+      const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        const ct = r.headers.get('content-type');
+        if (ct && ct.startsWith('image/')) mimeType = ct.split(';')[0];
+        base64Data = Buffer.from(await r.arrayBuffer()).toString('base64');
+      }
+    } catch { }
+  }
+
+  return base64Data ? { inlineData: { mimeType, data: base64Data } } : null;
+}
+
+app.post('/api/ai-studio/chat', auth.requireUser, async (req, res) => {
+  const controller = new AbortController();
+  let clientAborted = false;
+  const onClose = () => {
+    if (!res.writableEnded) {
+      clientAborted = true;
+      controller.abort();
+    }
+  };
+  res.on('close', onClose);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const { messages, systemInstruction, continueMode } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'bad_request', message: 'messages array is required.' });
+    }
+
+    const s = await readState();
+    const effectiveApiKey = String(s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+    if (!effectiveApiKey) {
+      return res.status(400).json({
+        error: 'no_api_key',
+        message: 'No Google Gemini API Key configured. Please set GEMINI_API_KEY or add it in Admin Settings.',
+      });
+    }
+
+    const contents = [];
+    for (const msg of messages) {
+      if (!msg || typeof msg !== 'object') continue;
+      const role = msg.role === 'assistant' ? 'model' : 'user';
+      const parts = [];
+      const imgs = Array.isArray(msg.images) ? msg.images.filter((u) => typeof u === 'string' && u.trim()).slice(0, 6) : [];
+      for (const img of imgs) {
+        const imgPart = await resolveAiStudioImagePart(img);
+        if (imgPart) parts.push(imgPart);
+      }
+      const textContent = typeof msg.content === 'string' ? msg.content : '';
+      if (textContent.trim() || parts.length === 0) {
+        parts.push({ text: textContent || ' ' });
+      }
+      contents.push({ role, parts });
+    }
+
+    if (contents.length === 0) {
+      return res.status(400).json({ error: 'bad_request', message: 'At least one valid message is required.' });
+    }
+
+    if (continueMode && contents[contents.length - 1]?.role === 'model') {
+      contents.push({
+        role: 'user',
+        parts: [{ text: 'Continue seamlessly from your last response where you left off. Do not repeat anything you already wrote.' }],
+      });
+    }
+
+    const now = new Date();
+    const realTimeStr = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const baseSys = String(systemInstruction || '').trim() ||
+      'You are a helpful, accurate, and versatile AI assistant in AI Studio. Use full conversation history for follow-ups and provide clear, well-structured answers.';
+    const continueNote = continueMode
+      ? '\n\n[Continue Mode]: Seamlessly continue directly from the end of the last assistant message without repeating any prior sentences or headings.'
+      : '';
+    const fullSystemInstruction = `[Real-time IST: ${realTimeStr}]\n${baseSys}${continueNote}`;
+
+    const candidateModels = [
+      'gemini-flash-lite-latest',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+      'gemini-pro-latest',
+    ];
+
+    let reply = null;
+    let modelUsed = '';
+    let groundingSources = [];
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      if (clientAborted) break;
+      const payloads = [
+        {
+          systemInstruction: { parts: [{ text: fullSystemInstruction }] },
+          contents,
+          tools: [{ google_search: {} }],
+          generationConfig: { temperature: 0.5, maxOutputTokens: 2048 },
+        },
+        {
+          systemInstruction: { parts: [{ text: fullSystemInstruction }] },
+          contents,
+          generationConfig: { temperature: 0.5, maxOutputTokens: 2048 },
+        },
+      ];
+
+      for (const payloadBody of payloads) {
+        if (clientAborted) break;
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+          const geminiRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
+            body: JSON.stringify(payloadBody),
+            signal: controller.signal,
+          });
+          const geminiData = await geminiRes.json().catch(() => ({}));
+          const candidate = geminiData?.candidates?.[0];
+          const textParts = (candidate?.content?.parts || [])
+            .map((p) => (typeof p?.text === 'string' ? p.text : ''))
+            .filter(Boolean);
+
+          if (geminiRes.ok && textParts.length > 0) {
+            reply = textParts.join('\n').trim();
+            modelUsed = model;
+            const chunks = candidate?.groundingMetadata?.groundingChunks;
+            if (Array.isArray(chunks)) {
+              groundingSources = chunks
+                .filter((c) => c?.web?.uri)
+                .map((c) => ({ title: c.web.title || c.web.uri, url: c.web.uri }));
+            }
+            break;
+          }
+          if (geminiData?.error) {
+            lastError = geminiData.error.message || JSON.stringify(geminiData.error);
+            if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) {
+              break;
+            }
+          }
+        } catch (err) {
+          if (clientAborted || err?.name === 'AbortError') break;
+          lastError = err?.message || 'Gemini request failed';
+        }
+      }
+      if (reply || clientAborted) break;
+    }
+
+    if (clientAborted) return;
+
+    if (!reply) {
+      return res.status(502).json({
+        error: 'gemini_error',
+        message: lastError || 'Gemini API could not generate a response.',
+      });
+    }
+
+    const result = { reply, model: modelUsed };
+    if (groundingSources.length > 0) result.groundingSources = groundingSources;
+    res.json(result);
+  } catch (err) {
+    if (clientAborted || err?.name === 'AbortError') return;
+    console.error('[AIStudioChat] Error:', err);
+    res.status(500).json({ error: 'internal_error', message: err?.message || 'Internal AI chat error' });
+  } finally {
+    clearTimeout(timeoutId);
+    res.off('close', onClose);
+  }
+});
+
+app.post('/api/ai-studio/generate-image', auth.requireUser, async (req, res) => {
+  const controller = new AbortController();
+  let clientAborted = false;
+  const onClose = () => {
+    if (!res.writableEnded) {
+      clientAborted = true;
+      controller.abort();
+    }
+  };
+  res.on('close', onClose);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const { prompt, aspectRatio } = req.body || {};
+    const cleanPrompt = String(prompt || '').trim();
+    if (!cleanPrompt) {
+      return res.status(400).json({ error: 'bad_request', message: 'prompt is required.' });
+    }
+
+    const s = await readState();
+    const effectiveApiKey = String(s.googleApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+    if (!effectiveApiKey) {
+      return res.status(400).json({
+        error: 'no_api_key',
+        message: 'No Google Gemini API Key configured. Please set GEMINI_API_KEY or add it in Admin Settings.',
+      });
+    }
+
+    const candidateModels = [
+      'gemini-2.5-flash-image',
+      'gemini-2.0-flash-exp-image-generation',
+      'gemini-2.5-flash-preview-image-generation',
+    ];
+
+    let imageUrl = null;
+    let mimeType = 'image/png';
+    let modelUsed = '';
+    let lastError = null;
+
+    for (const model of candidateModels) {
+      if (clientAborted) break;
+      const payloads = aspectRatio
+        ? [
+            {
+              contents: [{ parts: [{ text: cleanPrompt }] }],
+              generationConfig: {
+                responseModalities: ['IMAGE', 'TEXT'],
+                imageConfig: { aspectRatio: String(aspectRatio) },
+              },
+            },
+            {
+              contents: [{ parts: [{ text: `${cleanPrompt}\n\nAspect ratio: ${String(aspectRatio)}` }] }],
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+            },
+          ]
+        : [
+            {
+              contents: [{ parts: [{ text: cleanPrompt }] }],
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+            },
+          ];
+
+      for (const payloadBody of payloads) {
+        if (clientAborted) break;
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+          const geminiRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
+            body: JSON.stringify(payloadBody),
+            signal: controller.signal,
+          });
+          const geminiData = await geminiRes.json().catch(() => ({}));
+          const parts = geminiData?.candidates?.[0]?.content?.parts || [];
+          const imgPart = parts.find((p) => p?.inlineData?.data);
+          if (geminiRes.ok && imgPart) {
+            mimeType = imgPart.inlineData.mimeType || 'image/png';
+            imageUrl = `data:${mimeType};base64,${imgPart.inlineData.data}`;
+            modelUsed = model;
+            break;
+          }
+          if (geminiData?.error) {
+            lastError = geminiData.error.message || JSON.stringify(geminiData.error);
+            if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) {
+              break;
+            }
+          } else if (geminiRes.ok) {
+            const textReply = parts.map((p) => p?.text).filter(Boolean).join(' ').trim();
+            if (textReply) lastError = `Model ${model} returned text instead of an image: ${textReply.slice(0, 140)}`;
+          }
+        } catch (err) {
+          if (clientAborted || err?.name === 'AbortError') break;
+          lastError = err?.message || 'Gemini image generation request failed';
+        }
+      }
+      if (imageUrl || clientAborted) break;
+    }
+
+    if (clientAborted) return;
+
+    if (!imageUrl) {
+      return res.status(502).json({
+        error: 'image_generation_failed',
+        message: lastError || 'Gemini image generation failed or is unavailable for this API key.',
+      });
+    }
+
+    res.json({ imageUrl, mimeType, prompt: cleanPrompt, model: modelUsed });
+  } catch (err) {
+    if (clientAborted || err?.name === 'AbortError') return;
+    console.error('[AIStudioImage] Error:', err);
+    res.status(500).json({ error: 'internal_error', message: err?.message || 'Internal AI image error' });
+  } finally {
+    clearTimeout(timeoutId);
+    res.off('close', onClose);
   }
 });
 

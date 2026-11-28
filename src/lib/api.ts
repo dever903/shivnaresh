@@ -491,6 +491,10 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
           throw new ApiError('Server rate limit reached (429). Retrying automatically…', 429);
         }
         if (response.status === 502 || response.status === 503 || response.status === 504) {
+          const explicitMsg = data && (data.message || data.error);
+          if (explicitMsg) {
+            throw new ApiError(explicitMsg, response.status);
+          }
           throw new ApiError(`Server waking up or redeploying (${response.status})`, response.status);
         }
         const message = (data && (data.message || data.error)) || `Request failed (${response.status})`;
@@ -499,6 +503,9 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
       return data as T;
     } catch (err: any) {
       lastError = err;
+      if (err?.name === 'AbortError' || init?.signal?.aborted) {
+        throw err;
+      }
       if (err instanceof ApiError) {
         // Do not retry predictable client errors (400-499) or explicit 500 JSON responses; DO retry 429 & 502/503/504
         if (err.status !== 429 && err.status !== 502 && err.status !== 503 && err.status !== 504) {
@@ -838,6 +845,28 @@ export const api = {
     request<{ ok: boolean; text: string; action: string; modelUsed?: string }>(
       '/api/ai/assist',
       json(body)
+    ),
+  aiStudioChat: (
+    body: {
+      messages: Array<{ role: 'user' | 'assistant'; content: string; images?: string[] }>;
+      systemInstruction?: string;
+      continueMode?: boolean;
+    },
+    signal?: AbortSignal
+  ) =>
+    request<{ reply: string; model: string; groundingSources?: Array<{ title?: string; url: string }> }>(
+      '/api/ai-studio/chat',
+      { ...json(body), signal },
+      0
+    ),
+  aiStudioGenerateImage: (
+    body: { prompt: string; aspectRatio?: string },
+    signal?: AbortSignal
+  ) =>
+    request<{ imageUrl: string; mimeType: string; prompt: string; model?: string }>(
+      '/api/ai-studio/generate-image',
+      { ...json(body), signal },
+      0
     ),
   getDescriptionHistory: () => request<{ ok: boolean; items: DescriptionHistoryItem[] }>('/api/description/history'),
   deleteDescriptionHistory: (id: string) =>

@@ -28,13 +28,13 @@
     "dailyModelsUsed": 18,
     "modelsGenerated": 17,
     "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
       "description",
       "custom-requests",
       "deliveries",
-      "compare",
-      "studio",
-      "my-sets",
-      "color-swap"
+      "compare"
     ]
   },
   {
@@ -68,13 +68,13 @@
     "photoshootsDone": 15,
     "watermarkAccess": true,
     "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
       "description",
       "custom-requests",
       "deliveries",
-      "compare",
-      "studio",
-      "my-sets",
-      "color-swap"
+      "compare"
     ],
     "notifyEmail": "yashveerja8@gmail.com",
     "videoQuota": 6,
@@ -93,13 +93,13 @@
     "passwordSetAt": "2026-11-01T05:34:34.218Z",
     "tier": "free",
     "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
       "description",
       "custom-requests",
       "deliveries",
-      "compare",
-      "studio",
-      "my-sets",
-      "color-swap"
+      "compare"
     ]
   },
   {
@@ -114,13 +114,181 @@
     "hash": "ba5218b66f56410c86b4a5519b7539d2af4a48fa0064d51c1dc6b3a3735218cc49022d350ba4eb39ef25425f8a887bc8f26ec75e28070f3fb43555783cfb0ccb",
     "passwordSetAt": "2026-11-01T15:21:11.253Z",
     "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
       "description",
       "custom-requests",
       "deliveries",
-      "compare",
+      "compare"
+    ]
+  },
+  {
+    "_id": "432a2b27-61e1-44f1-96a9-fef78bc14db9",
+    "email": "aistudio_test@example.com",
+    "avatar": "",
+    "createdAt": "2026-11-28T10:42:25.458Z",
+    "credits": 5,
+    "hash": "ae7b981701e9ca4597eeb3fa1353304d5bef2a050c6947bd74a355beadb2000a2b15336aea4eb2a2cbe834802f7224f488c9202a9ea847182e4e13fa63bfdb88",
+    "name": "Test",
+    "phone": "",
+    "provider": "password",
+    "salt": "b46e4e70f675ebdce3f20f714140f7ec",
+    "allowedTabs": [
       "studio",
+      "color-swap",
       "my-sets",
-      "color-swap"
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "5eea7207-155a-4899-88ce-35e20c30bcc7",
+    "email": "verifier_test_1795862787741@example.com",
+    "name": "Verifier Test",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "c5c528b2b9a88a64efaefaf60195d824",
+    "hash": "6c334691962c6d1a530fd6dcdf4563385cebcf1e7e4b2eb54da336348f4a662350a1ccb8f6f9c1addd6d94b98104246af2be9a56c76dff200f25a53e947bf82d",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:46:28.135Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "4bb3bb7c-ca66-4200-97a1-498c289f16fd",
+    "email": "verifier_smoke_1795862793788@example.com",
+    "name": "Verifier Smoke",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "a33aba2570011fa24488329cbf4a253d",
+    "hash": "986d3e449ea1cc328030b76116d6cb918c8e876e8adea46ee0a2d4798811d71b96580c0dd38f6eaed7c112d9efe46151707aa09589a7fe27c236b826d25e208b",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:46:34.184Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "6806f28c-05c9-47f4-b28c-80c347aee353",
+    "email": "verifier_1795862842189@example.com",
+    "name": "Verifier User",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "5d30f838d43f4f193c14c46fc407a480",
+    "hash": "168786487fad0f67c4871347ae21103830698db34cffee2a3cefb1dcecdaf2cc945daa368e0e5042fec047e88c9cad352e007ea97dc6ff9de0fdf85f7fd47154",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:47:22.554Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "a947cbd5-42f8-4598-bd61-203324b51859",
+    "email": "verifier_1795862879199@example.com",
+    "name": "Verifier User",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "f075421426ea61efa9fcb6d9f8f9615d",
+    "hash": "1699bd18a59ca4a9b45458f0a230703b84dfb59374d76904c3795fd6f3843c1217f19f93195d2c4860189501dc9c2402c60f0553ba9ecb6bd97cb41088e5cb1a",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:47:59.702Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "40b11c3d-038b-401c-a2bd-3b773a229b89",
+    "email": "verifier_1795862914423@example.com",
+    "name": "Verifier User",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "98eee7438129dcd3120a9759ff10fd0d",
+    "hash": "1d04a44b1d9afc1ea3a5e9b77e31f825059f23bc09b189f8fe1dc72ae1745f7403c7ca72ae6c47292b417a448c811876388604bac715b366f5866c6bd0d8ab37",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:48:34.897Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "a6d87245-9198-4efb-8458-f134e7b4d001",
+    "email": "verifier_1795862968578@example.com",
+    "name": "Verifier User",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "2e1c8230f23c57837c3e3da933671ab2",
+    "hash": "818dd52a0f28a1e040d57c0cf28f771036e6f1fdc3d43e768fc9df634bb5ab11ff3b2f511f2bc0a03f4ef8d54b4c65f8d7c0c2d09cd16cc66a4d911a0be4092d",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:49:29.044Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
+    ]
+  },
+  {
+    "_id": "17eb9c9b-687f-43c3-bc28-38a3f7775e4e",
+    "email": "verifier_1795862990642@example.com",
+    "name": "Verifier User",
+    "phone": "",
+    "avatar": "",
+    "provider": "password",
+    "salt": "26dd9b61b084fee70956ab9e23922fcd",
+    "hash": "c5e0851355936dce460c0df8f84e0c67270097fadddac0b0de37da47765a26da8715906e346f2f518733ddfbcb4958221868ca658dd2603fae925737ebb05d73",
+    "credits": 5,
+    "createdAt": "2026-11-28T10:49:51.089Z",
+    "allowedTabs": [
+      "studio",
+      "color-swap",
+      "my-sets",
+      "description",
+      "custom-requests",
+      "deliveries",
+      "compare"
     ]
   }
 ]

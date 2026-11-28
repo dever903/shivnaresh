@@ -7396,22 +7396,20 @@ export default function Design() {
       return categories;
     }
     const target = modelCategoryFilter.toLowerCase();
-    if (target === 'summer' || target === 'winter') {
-      return categories
-        .map((c) => {
-          const catSeason = String((c as any)?.season || '').trim().toLowerCase();
-          const matchedItems = c.items.filter((item) => {
-            const effectiveSeason = String((item as any)?.season || catSeason || '').trim().toLowerCase();
-            if (effectiveSeason) return effectiveSeason === target;
-            const catName = c.category.toLowerCase();
-            if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
-            return catName.includes('winter') || catName === 'tracksuite' || catName === 'jacket' || catName === 'hoodie';
-          });
-          return { ...c, items: matchedItems };
-        })
-        .filter((c) => c.items.length > 0);
-    }
-    return categories.filter((c) => c.category.toLowerCase() === target);
+    return categories
+      .map((c) => {
+        const catSeason = String((c as any)?.season || '').trim().toLowerCase();
+        const catName = c.category.toLowerCase();
+        const matchedItems = c.items.filter((item) => {
+          const effectiveSeason = String((item as any)?.season || catSeason || '').trim().toLowerCase();
+          if (effectiveSeason) return effectiveSeason === target;
+          if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
+          if (target === 'winter') return catName.includes('winter') || catName === 'tracksuite' || catName === 'jacket' || catName === 'hoodie';
+          return catName === target;
+        });
+        return { ...c, items: matchedItems };
+      })
+      .filter((c) => c.items.length > 0);
   }, [categories, modelCategoryFilter]);
 
   const modelCategoryTabs = useMemo(() => {
@@ -10998,6 +10996,7 @@ async function runActualGeneration() {
       const singlePayload: Record<string, unknown> = {
         ...payload,
         ...(singleModel?.url ? { model: singleModel.url } : {}),
+        ...(singleModel?.url ? { model: singleModel.url } : {}),
       ...(singleCloth?.url && !payload.cloth ? { cloth: singleCloth.url, source: singleCloth.url } : {}),
       };
       const singleIsBack = /(?:^|[\s_/-])(back|rear|reverse|peche|dorsal)(?:[\s_/-]|$)/i.test(
@@ -11083,7 +11082,7 @@ const canRun = ready && !isGlobalBusy && missing.length === 0 && !uploading && !
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 return (
-  <div className={`min-h-screen overflow-x-hidden selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#756357] text-[#F5F0E7]' : 'bg-[#08080a] text-white'
+  <div className={`min-h-screen overflow-x-clip selection:bg-[#e5373f] selection:text-white font-sans antialiased transition-colors ${isLight ? 'bg-[#756357] text-[#F5F0E7]' : 'bg-[#08080a] text-white'
     }`}>
     {/* 2K Resolution Tier Lock Modal */}
     {showTierLockModal && (
