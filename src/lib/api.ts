@@ -476,7 +476,7 @@ async function request<T>(url: string, init?: RequestInit, retries = 4): Promise
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const targetUrl = url.startsWith('http') ? url : getApiUrl(url);
-  const isHeavyEndpoint = url.includes('/generate') || url.includes('/upload') || url.includes('/job');
+  const isHeavyEndpoint = url.includes('/generate') || url.includes('/generations') || url.includes('/upload') || url.includes('/job');
   const timeoutMs = isHeavyEndpoint ? 90000 : 35000;
   const effectiveRetries = url.includes('/generate') ? 1 : retries;
 

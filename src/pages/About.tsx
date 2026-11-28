@@ -84,7 +84,7 @@ export default function About() {
   }, []);
 
   return (
-    <div className={`min-h-screen overflow-x-hidden ${isLight ? 'bg-[#B1A38E] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'}`}>
+    <div className={`min-h-screen overflow-x-hidden ${isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'}`}>
       {/* Navigation Header */}
       <header className={`sticky top-0 z-50 border-b transition-all duration-200 ${
         isLight

@@ -2537,7 +2537,7 @@ const AI_ASSIST_SYSTEM_PROMPTS = {
   'b2b-pitch': `You are a sportswear B2B sales director for team kits & institutional orders. Write a persuasive, ready-to-send B2B WhatsApp/Email quotation pitch highlighting customization, sublimation durability, bulk sizing (S-3XL), and turnaround readiness. Keep it crisp and professional.`,
   'outfit-stylist': `You are a professional sportswear stylist. Based on the uploaded garment/notes, suggest 3 complete kit combinations (top, bottom, socks/footwear, and accent color hex codes) plus camera/lighting directions for a high-converting catalog photoshoot.`,
   'social-copy': `You are a D2C sportswear growth marketer. Create: 1) Three punchy Instagram Reels hooks, 2) Two high-converting ad captions with CTA, and 3) 12 targeted sportswear hashtags. Keep it clean and directly usable.`,
-  'custom': `You are Shiv-Naresh Studio's advanced AI Sportswear Copilot. Answer the user's request accurately, practically, and concisely using any attached garment/model images and studio context.`,
+  'custom': `You are a versatile, intelligent AI assistant built into Shiv-Naresh Studio. You can answer ANY question on any topic (live sports scores, current news, coding, business, math, writing, or general knowledge) as well as Shiv-Naresh sportswear, custom team kits, fabric specs, and studio workflows. Never refuse a general question or claim you only answer sportswear questions.`,
 };
 
 app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
@@ -2602,30 +2602,49 @@ app.post('/api/ai/assist', auth.requireUser, async (req, res) => {
     let modelUsed = '';
     let lastError = null;
     for (const model of candidateModels) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
-        const geminiRes = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { temperature: action === 'enhance-prompt' ? 0.35 : 0.45, maxOutputTokens: 1200 },
-          }),
-          signal: AbortSignal.timeout(9000),
-        });
-        const geminiData = await geminiRes.json();
-        if (geminiRes.ok && geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-          text = geminiData.candidates[0].content.parts[0].text.trim();
-          modelUsed = model;
-          break;
+      const tryPayloads = action === 'custom'
+        ? [
+            {
+              contents: [{ parts }],
+              tools: [{ google_search: {} }],
+              generationConfig: { temperature: 0.45, maxOutputTokens: 1200 },
+            },
+            {
+              contents: [{ parts }],
+              generationConfig: { temperature: 0.45, maxOutputTokens: 1200 },
+            },
+          ]
+        : [
+            {
+              contents: [{ parts }],
+              generationConfig: { temperature: action === 'enhance-prompt' ? 0.35 : 0.45, maxOutputTokens: 1200 },
+            },
+          ];
+
+      for (const payloadBody of tryPayloads) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(effectiveApiKey)}`;
+          const geminiRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': effectiveApiKey },
+            body: JSON.stringify(payloadBody),
+            signal: AbortSignal.timeout(9000),
+          });
+          const geminiData = await geminiRes.json();
+          if (geminiRes.ok && geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+            text = geminiData.candidates[0].content.parts[0].text.trim();
+            modelUsed = model;
+            break;
+          }
+          if (geminiData.error) {
+            lastError = geminiData.error.message || JSON.stringify(geminiData.error);
+            if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) break;
+          }
+        } catch (err) {
+          lastError = err?.message || 'Gemini request failed';
         }
-        if (geminiData.error) {
-          lastError = geminiData.error.message || JSON.stringify(geminiData.error);
-          if (geminiData.error.code === 400 && lastError.toLowerCase().includes('api key')) break;
-        }
-      } catch (err) {
-        lastError = err?.message || 'Gemini request failed';
       }
+      if (text) break;
     }
 
     if (!text) {
@@ -3450,19 +3469,39 @@ app.get('/api/models', async (_req, res) => {
   res.json({ categories, seasons });
 });
 
-app.get('/api/uploads', async (_req, res) => {
+app.get('/api/uploads', async (req, res) => {
   try {
+    if (!req.user) {
+      return res.json({ items: [] });
+    }
+    const currentUserId = String(req.user._id || req.user.id || '');
+    const currentUserEmail = (req.user.email || '').toLowerCase().trim();
+    const canViewAll = Boolean(
+      req.user.isAdmin ||
+      req.user.role === 'admin' ||
+      req.user.features?.canViewAllAssets ||
+      req.user.canViewAllAssets
+    );
+
     const hosted = await readHosted();
-    const diskFiles = await fs.readdir(UPLOADS).catch(() => []);
+    const diskFiles = canViewAll ? await fs.readdir(UPLOADS).catch(() => []) : [];
     const itemsMap = new Map();
 
     // 1. From MongoDB user_uploads (persists across Render deploys, exclude heavy dataUrl)
     try {
       const db = await getMongoDb();
       if (db) {
+        const uploadQuery = { deleted: { $ne: true } };
+        if (!canViewAll) {
+          const emailRegex = currentUserEmail ? new RegExp(`^${currentUserEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+          uploadQuery.$or = [
+            { userId: currentUserId },
+            ...(emailRegex ? [{ userEmail: emailRegex }] : []),
+          ];
+        }
         const dbUploads = await db
           .collection('user_uploads')
-          .find({ deleted: { $ne: true } }, { projection: { dataUrl: 0 } })
+          .find(uploadQuery, { projection: { dataUrl: 0 } })
           .sort({ createdAt: -1 })
           .limit(100)
           .toArray();
@@ -3484,6 +3523,12 @@ app.get('/api/uploads', async (_req, res) => {
     try {
       const setList = await readUploadSets();
       for (const s of setList) {
+        if (!canViewAll) {
+          const sUid = String(s.userId || '');
+          const sEmail = String(s.userEmail || '').toLowerCase().trim();
+          const owns = (sUid && sUid === currentUserId) || (sEmail && currentUserEmail && sEmail === currentUserEmail);
+          if (!owns) continue;
+        }
         if (s.clothUrl && !itemsMap.has(s.clothUrl)) {
           itemsMap.set(s.clothUrl, {
             id: s.id || s.clothUrl,
@@ -3505,8 +3550,8 @@ app.get('/api/uploads', async (_req, res) => {
       }
     } catch { }
 
-    // 3. From local disk and hosted map
-    const allFilesSet = new Set([...diskFiles, ...Object.keys(hosted.uploads || {})]);
+    // 3. From local disk and hosted map (only when user has All Assets / Admin access)
+    const allFilesSet = canViewAll ? new Set([...diskFiles, ...Object.keys(hosted.uploads || {})]) : new Set();
     for (const file of allFilesSet) {
       const remote = hosted.uploads?.[file];
       const localUrl = `/uploads/${file}`;
@@ -6036,7 +6081,12 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
   try {
     const currentUserId = String(req.user._id || req.user.id || '');
     const currentUserEmail = (req.user.email || '').toLowerCase().trim();
-    const isAdmin = Boolean(req.user.isAdmin || req.user.role === 'admin' || req.user.tier === 'ultra');
+    const canViewAll = Boolean(
+      req.user.isAdmin ||
+      req.user.role === 'admin' ||
+      req.user.features?.canViewAllAssets ||
+      req.user.canViewAllAssets
+    );
     const db = await getMongoDb();
 
     let list = [];
@@ -6053,12 +6103,11 @@ app.get('/api/user/generations', auth.requireUser, async (req, res) => {
             },
           ],
         };
-        if (!isAdmin) {
+        if (!canViewAll) {
           const emailRegex = currentUserEmail ? new RegExp(`^${currentUserEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
           query.$or = [
             { userId: currentUserId },
             ...(emailRegex ? [{ userEmail: emailRegex }] : []),
-            { userId: { $in: [null, ''] }, userEmail: { $in: [null, ''] } },
           ];
           if (/^[0-9a-fA-F]{24}$/.test(currentUserId)) {
             try {

@@ -154,7 +154,6 @@ function NavBar() {
           {showStartDesign && (
             <a
               href="/design"
-              data-cursor="DESIGN"
               className={`btn-fill-swipe text-sm font-semibold px-5 py-1.5 rounded-full ml-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] ${theme === 'light' ? 'bg-[#F5F0E7] text-[#1A1408]' : 'bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)]'
                 }`}
             >
@@ -756,7 +755,6 @@ function Hero() {
         <div className="stagger-item hero-rise mt-6 flex items-center gap-4" style={{ animationDelay: '0.7s' }}>
           <a
             href="/design"
-            data-cursor="DESIGN"
             className="btn-fill-swipe inline-flex items-center justify-center bg-[var(--text-hi,#F5F2EC)] text-[var(--ink-0,#0C0C0E)] text-sm font-semibold px-6 py-3 rounded-full active:scale-[0.98] transition-[transform,color] duration-[320ms] ease-[cubic-bezier(.22,.61,.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent,#C9A468)] motion-reduce:transition-none"
           >
             Design your kit

@@ -1099,7 +1099,7 @@ export default function RemoveLogo() {
   return (
     <div
       className={`min-h-screen overflow-x-hidden flex flex-col justify-between tracking-[-0.02em] transition-colors ${
-        isLight ? 'bg-[#B1A38E] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
+        isLight ? 'bg-[#756357] text-[#F5F2EC]' : 'bg-[var(--ink-0,#0C0C0E)] text-[var(--text-hi,#F5F2EC)]'
       }`}
     >
       {/* Top Navbar */}

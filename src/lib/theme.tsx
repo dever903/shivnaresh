@@ -16,7 +16,7 @@ export function applyTheme(theme: Theme) {
   if (theme === 'light') {
     root.classList.add('light');
     root.classList.remove('dark');
-    root.style.backgroundColor = '#B1A38E';
+    root.style.backgroundColor = '#756357';
     root.style.colorScheme = 'light';
   } else {
     root.classList.add('dark');
