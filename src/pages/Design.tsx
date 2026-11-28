@@ -7398,10 +7398,10 @@ export default function Design() {
     const target = modelCategoryFilter.toLowerCase();
     if (target === 'summer' || target === 'winter') {
       return categories
-        .map((c: any) => {
-          const catSeason = String(c?.season || '').trim().toLowerCase();
-          const matchedItems = c.items.filter((item: any) => {
-            const effectiveSeason = String(item?.season || catSeason || '').trim().toLowerCase();
+        .map((c) => {
+          const catSeason = String((c as any)?.season || '').trim().toLowerCase();
+          const matchedItems = c.items.filter((item) => {
+            const effectiveSeason = String((item as any)?.season || catSeason || '').trim().toLowerCase();
             if (effectiveSeason) return effectiveSeason === target;
             const catName = c.category.toLowerCase();
             if (target === 'summer') return catName.includes('summer') || catName === 'only shirt' || catName === 'tshirt';
